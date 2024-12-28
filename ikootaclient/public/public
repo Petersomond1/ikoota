@@ -1,0 +1,24 @@
+<script>start("c:\\Users\\peter\\ReactProjects\\ikoota\\public\\");</script>
+<script>onHasParentDirectory();</script>
+<script>addRow("agogo.png","agogo.png",0,47764,"46.6 kB",1735184553,"12/25/24, 10:42:33 PM");</script>
+<script>addRow("arrowDown.png","arrowDown.png",0,2219,"2.2 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("arrowUp.png","arrowUp.png",0,2208,"2.2 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("avatar.png","avatar.png",0,3868,"3.8 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("bg.jpg","bg.jpg",0,201094,"196 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("camera.png","camera.png",0,2331,"2.3 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("download.png","download.png",0,1908,"1.9 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("edit.png","edit.png",0,2242,"2.2 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("emoji.png","emoji.png",0,2778,"2.7 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("favicon.png","favicon.png",0,6140,"6.0 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("iko background4.png","iko%20background4.png",0,338737,"331 kB",1735090437,"12/24/24, 8:33:57 PM");</script>
+<script>addRow("img.png","img.png",0,2027,"2.0 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("info.png","info.png",0,2317,"2.3 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("mic.png","mic.png",0,2314,"2.3 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("minus.png","minus.png",0,1673,"1.6 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("more.png","more.png",0,1979,"1.9 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("phone.png","phone.png",0,2270,"2.2 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("plus.png","plus.png",0,1729,"1.7 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("search.png","search.png",0,2530,"2.5 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("sky.png","sky.png",0,1221963,"1.2 MB",1735089587,"12/24/24, 8:19:47 PM");</script>
+<script>addRow("theme.png","theme.png",0,10212,"10.0 kB",1734449706,"12/17/24, 10:35:06 AM");</script>
+<script>addRow("video.png","video.png",0,1838,"1.8 kB",1734449706,"12/17/24, 10:35:06 AM");</script>

@@ -1,0 +1,25 @@
+.towncrier_container{
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border : 2px solid blue;
+    gap: 2px;
+    border-radius: 5px;
+    height: 100%;
+
+
+        .navbar{
+            display: flex;
+        }
+
+
+        .towncrier_viewport{
+            display: flex;
+            flex-direction: row;
+        }
+
+        .footnote{
+            display: flex;
+        }
+
+}
