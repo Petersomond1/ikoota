@@ -1,11 +1,13 @@
 .chat_container{
     flex: 3;
     display: flex;
+    border-left: 4px solid white;
+    border-right: 4px solid white;
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
     height: 80vh;
-    border : 2px solid red;
+    border : 2px solid white;
     border-radius: 5px;
     margin-right: 2px;
 }
