@@ -16,6 +16,33 @@
     background-color: rgba(168, 43, 226, 0.514);
     border-radius: 5px;
     padding: 0 10px;
+
+    .logo{
+        display: flex;
+        flex-direction:column;
+        align-items: center;
+        gap: 1px;
+        color: white;
+        font-size: 1rem;
+
+        img{
+            width: 50px;
+            height: 50px;
+        }
+    }
+    .nav_page_heading{
+        align-items: center;
+        margin: auto;
+        color: white;
+        font-size: 2rem;
+    }
+    .nav_items{
+        display: flex;
+        flex-direction: row;
+        gap: 10px;
+        color: white;
+        font-size: 1.2rem;
+    }
 }
 
 .admin_viewport {
