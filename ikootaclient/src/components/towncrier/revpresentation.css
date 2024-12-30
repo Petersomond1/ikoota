@@ -1,11 +1,220 @@
 .revpresentation_container{
     flex: 4;
     display: flex;
+    border-left: 4px solid white;
+    border-right: 4px solid white;
     flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
+    /* justify-content: space-between; */
     height: 80vh;
     border : 2px solid white;
     border-radius: 5px;
     margin-right: 2px;
+
+    .top{
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 3px solid white;
+
+        .user{
+            display: flex;
+            align-items: center;
+            gap : 10px;
+
+            img{
+                width: 50px;
+                height: 50px;
+                border-radius: 50%;
+                object-fit: cover;
+            }   
+            }
+
+           .texts{
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+
+            span{ /*username*/
+                font-size: 20px;
+                font-weight: bold;
+            }
+
+            p{ /*status*/
+                font-size: 15px;
+                font-weight: 300;
+                color: whitesmoke;
+            }
+           }
+        
+        .icons{
+            display: flex;
+            gap: 20px;
+
+            img{
+                width: 20px;
+                height: 20px;
+                cursor: pointer;
+            }
+        }
+    }
+
+    .center{ /*to postion center down first b4 bottom*/
+        padding: 20px;
+        flex: 1;        /*to take the remaining space and fix bottom down  */
+        overflow-y: scroll; /*to make it scrollable*/
+        display: flex;
+        flex-direction: column;
+        gap: 20px; /*to give space between the messages*/
+
+        .message{
+            max-width: 70%; /*to make meassage take the full width*/
+            display: flex;
+            gap: 20px;
+
+            &.Own{
+                align-self: flex-end; /*to make the message align to the right*/
+             
+                .texts{
+                p{
+                background-color: #5183fe;
+                padding: 10px;
+                border-radius: 10px;
+                color: white;
+                font-size: 16px; 
+                }
+                }
+            }
+
+            img{
+                width: 60px;
+                height: 60px;
+                border-radius: 40%;
+                object-fit: cover;
+            }
+
+            .texts{
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+
+                img{
+                    width: 100%;
+                    height: 350px;
+                    border-radius: 10px;
+                    object-fit: cover;
+                }
+
+                p{ /*message texts*/
+                    padding: 10px;
+                    background-color: rgba(17, 25, 40, 0.5);
+                    border-radius: 10px;
+                   
+                }
+
+                span{ /*time*/
+                    font-size: 12px;
+                    color: whitesmoke;
+                }
+            }      
+    }
 }
+
+    .bottom{
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-top: 3px solid white;
+        gap: 10px;
+        margin-top: auto; /*to fix at the bottom, make parent(chat) a flex*/
+        display: flex;
+        flex-direction: row;
+
+        .icons{
+            display: flex;
+            gap: 20px;
+
+          
+        }
+          img{
+                width: 20px;
+                height: 20px;
+                cursor: pointer;
+            }
+/* class name are those that start with a dot. */
+
+.input_div{
+    
+            flex: 1;
+            padding: 10px;
+            border: none;
+            /* background-color: transparent; */
+            background-color: rgba(17, 25, 40, 0.5);
+            border-radius: 5px;
+            outline: none;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+              }
+
+              .input-buttons {
+                display: flex;
+              }
+              
+              .input-buttons button {
+                padding: 10px 15px;
+                background-color: rgba(17, 25, 40, 0.8);
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+              }
+              
+              .input-buttons button:hover {
+                background-color: rgba(255, 255, 255, 0.3);
+              }
+              
+        
+
+        .emoji{ /* To fix position for the emoji box*/
+           position: relative;
+
+           .picker{
+               position: absolute;
+               bottom: 50px;
+               left: 0;
+               
+           }
+
+        }
+
+        .SendButton{
+            background-color: #5183fe;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+
+        
+ .bottom textarea {
+  height: 80px;
+  resize: none;
+} 
+
+
+  
+
+    }
+    
+}
+
+
+
