@@ -1,10 +1,32 @@
-import React from 'react'
+import React, { useState } from 'react';
 import './chat.css'
 import EmojiPicker from 'emoji-picker-react';
 
 const Chat = () => {
   const [openEmoji, setOpenEmoji] = React.useState(false);
   const [text, setText] = React.useState('');
+  const [addMode, setAddMode] = React.useState(false);
+         const [step, setStep] = useState(0); // Tracks current step in multi-input
+         const [formData, setFormData] = useState({
+           topic: '',
+           description: '',
+           message: '',
+           audience: '',
+           subjectMatter: '',
+         });
+  
+         const handleNextStep = () => {
+          if (step < 4) setStep(step + 1);
+        };
+      
+        const handlePrevStep = () => {
+          if (step > 0) setStep(step - 1);
+        };
+      
+        const handleInputChange = (field, value) => {
+          setFormData({ ...formData, [field]: value });
+        };
+       
 
 
   const handleEmoji = (e) => {
@@ -97,21 +119,114 @@ const Chat = () => {
   </div>
 
 
+        
         <div className="bottom">
-          <div className="icons">
-            <img src="./img.png" alt="" />
-            <img src="./camera.png" alt="" />
-            <img src="./mic.png" alt="" />
-          </div>
-          <input type="text" placeholder="Type a message..." value={text} onChange={e=>setText(e.target.value)}/>
-          <div className="emoji">
-            <img src="./emoji.png" alt="" onClick={() => setOpenEmoji(!openEmoji)} />
-            <div className="picker">
-            {openEmoji && <EmojiPicker onEmojiClick={handleEmoji}/>}
-          </div>
-          </div>
-          <button className='SendButton'>Send</button>
+        {/* Toggle Buttons */}
+        <div className="toggle_buttons">
+          <button
+            className={!addMode ? 'active' : ''}
+            onClick={() => setAddMode(false)}
+          >
+            Comment
+          </button>
+          <button
+            className={addMode ? 'active' : ''}
+            onClick={() => setAddMode(true)}
+          >
+            Present
+          </button>
         </div>
+
+        {/* Conditional Input Rendering */}
+        {!addMode ? (
+          <div className="bottom_comment">
+            <div className="icons">
+              <img src="./img.png" alt="Upload" />
+              <img src="./camera.png" alt="Camera" />
+              <img src="./mic.png" alt="Mic" />
+            </div>
+            <input
+              type="text"
+              placeholder="Type a message..."
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <div className="emoji">
+              <img
+                src="./emoji.png"
+                alt="Emoji Picker"
+                onClick={() => setOpenEmoji(!openEmoji)}
+              />
+              {openEmoji && <EmojiPicker onEmojiClick={handleEmoji} />}
+            </div>
+            <button className="SendButton">Send</button>
+          </div>
+        ) : (
+          <div className="bottom_presentation">
+              <div className="icons">
+              <img src="./img.png" alt="Upload" />
+              <img src="./camera.png" alt="Camera" />
+              <img src="./mic.png" alt="Mic" />
+            </div>
+            {step === 0 && (
+              <input
+                type="text"
+                placeholder="Enter Topic"
+                value={formData.topic}
+                onChange={(e) => handleInputChange('topic', e.target.value)}
+              />
+            )}
+            {step === 1 && (
+              <input
+                type="text"
+                placeholder="Enter Description"
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+              />
+            )}
+            {step === 2 && (
+              <select
+                value={formData.audience}
+                onChange={(e) => handleInputChange('audience', e.target.value)}
+              >
+                <option value="">Select Audience</option>
+                <option value="General">General</option>
+                <option value="Students">Students</option>
+                <option value="Professionals">Professionals</option>
+              </select>
+            )}
+            {step === 3 && (
+              <select
+                value={formData.subjectMatter}
+                onChange={(e) => handleInputChange('subjectMatter', e.target.value)}
+              >
+                <option value="">Select Subject Matter</option>
+                <option value="Eden">Eden</option>
+                <option value="Math">Math</option>
+                <option value="Science">Science</option>
+              </select>
+            )}
+            {step === 4 && (
+              <textarea
+                placeholder="Enter Main Message"
+                value={formData.message}
+                onChange={(e) => handleInputChange('message', e.target.value)}
+              />
+            )}
+            <div className="input-buttons">
+              {step > 0 && <button onClick={handlePrevStep}>Back</button>}
+              {step < 4 && <button onClick={handleNextStep}>Next</button>}
+            </div>
+            <button
+              className="SendButton"
+              onClick={() => console.log(formData)}
+            >
+              Send
+            </button>
+          </div>
+        )}
+      </div>
+
         </div>
   )
 }

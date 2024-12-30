@@ -2,7 +2,7 @@ import React from 'react'
 import './iko.css'
 import List from './List'
 import Chat from './Chat'
-import Detail from './Detail'
+import Comments from './Comments'
 
 
 const Iko = () => {
@@ -10,9 +10,9 @@ const Iko = () => {
     <div className='iko_container'>
         <div className="nav">Navbar</div>
         <div className="iko_viewport">
-          <List/>
+        <Comments /> 
           <Chat />
-          <Detail />
+          <List/>
         </div>
         <div className="footnote">Footnote</div>
     </div>
