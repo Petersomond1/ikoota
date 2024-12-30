@@ -16,33 +16,35 @@
     background-color: rgba(168, 43, 226, 0.514);
     border-radius: 5px;
     padding: 0 10px;
+}
 
-    .logo{
-        display: flex;
-        flex-direction:column;
-        align-items: center;
-        gap: 1px;
-        color: white;
-        font-size: 1rem;
+.logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    color: white;
+    font-size: 1rem;
+}
 
-        img{
-            width: 50px;
-            height: 50px;
-        }
-    }
-    .nav_page_heading{
-        align-items: center;
-        margin: auto;
-        color: white;
-        font-size: 2rem;
-    }
-    .nav_items{
-        display: flex;
-        flex-direction: row;
-        gap: 10px;
-        color: white;
-        font-size: 1.2rem;
-    }
+.logo img {
+    width: 50px;
+    height: 50px;
+}
+
+.nav_page_heading {
+    align-items: center;
+    margin: auto;
+    color: white;
+    font-size: 2rem;
+}
+
+.nav_items {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    color: white;
+    font-size: 1.2rem;
 }
 
 .admin_viewport {
@@ -93,6 +95,23 @@
     border-radius: 5px;
     border: 3px solid goldenrod;
     padding: 10px;
+
+
+    .towncrier_controls_body, .iko_controls_body, .auth_controls_body .search_controls_body {
+       width: 100%;
+       
+        /* display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+        width: 100%;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.068);
+        border: 3px solid goldenrod;
+        color: white;
+        margin: 5px 0; */
+    }
 }
 
 .admin_controls_header {
@@ -107,4 +126,74 @@
     border: 3px solid white;
     color: white;
     margin: 5px 0;
+}
+
+
+.icons {
+    display: flex;
+    gap: 20px;
+}
+
+.icons img {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.towncrier_input_div {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    width: '100%';
+
+    padding: 10px;
+    background-color: rgba(17, 25, 40, 0.5);
+    border-radius: 5px;
+    outline: none;
+    color: white;
+    font-size: 16px;
+    border: 1px solid blue;
+}
+
+.input-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.input-buttons button {
+    padding: 10px 15px;
+    background-color: rgba(17, 25, 40, 0.8);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.input-buttons button:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.emoji {
+    position: relative;
+}
+
+.picker {
+    position: absolute;
+    bottom: 50px;
+    left: 0;
+}
+
+.SendButton {
+    background-color: #5183fe;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.bottom textarea {
+    height: 80px;
+    resize: none;
 }
