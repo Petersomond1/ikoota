@@ -1,93 +1,106 @@
-.revtopic_container {
+/* .revtopic_container{
     flex: 1;
-    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
     height: 80vh;
-    overflow-y: scroll; /* Enables vertical scrolling */
-    overflow-x: hidden; /* Prevents horizontal scrolling */
-    border: 3px solid white; /* Optional: For better visibility */
-    padding: 5px; /* Optional: For spacing */
+    border : 2px solid white;
+    border-radius: 5px;
     margin-right: 2px;
     margin-left: 2px;
-  }
+} */
 
-  
-  .search {
+.revtopic_container{
+    flex:1;
+    overflow: scroll;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    height: 80vh;
+    border : 2px solid white;
+    border-radius: 5px;
+    margin-right: 2px;
+    margin-left: 2px;
+.search{
     display: flex;
     align-items: center;
     gap: 20px;
     padding: 20px;
-  }
-  
-  .searchbar {
-    flex: 1;
-    background-color: rgba(17, 25, 40, 0.5);
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    border-radius: 10px;
-    padding: 10px;
-  }
-  
-  .searchbar input {
-    background-color: transparent;
-    border: none;
-    outline: none;
-    color: white;
-    flex: 1;
-  }
-  
-  .searchbar img {
-    width: 20px;
-    height: 20px;
-    margin-right: 10px;
-  }
-  
-  .add {
+
+    .searchbar{
+        flex: 1;
+        background-color: rgba(17, 25, 40, 0.5);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        border-radius: 10px;
+        padding: 10px;
+
+        input {
+            background-color: transparent;
+            border: none;
+            outline: none;
+            color: white;
+            flex: 1;
+        }
+
+        img {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+    }
+  .add{
     width: 35px;
     height: 35px;
     background-color: rgba(17, 25, 40, 0.5);
     padding: 10px;
     border-radius: 10%;
     cursor: pointer;
-  }
-  
-  .item {
+  }  
+}
+
+.item{
     display: flex;
-    flex-direction: column;
-    overflow: scroll;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
     cursor: pointer;
     border-bottom: 2px solid #dddddd35;
-    max-height: 36px; 
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-    padding: 2px;
-    margin-bottom: 2px;
-    background: #ffffff34; 
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); 
-  }
-  
-  
-  .item.active,  .item:hover {
-    max-height: 500px;
-    gap: 5px;
-    padding: 10px;
-    background: #e0f7fa3b; 
-  }
-  
-  .item span {
-    font-size: 18px;
-    font-weight: 500;
-    color: white;
-  }
-  
-  .item p {
-    font-size: 14px;
-    font-weight: 300;
-    color: rgba(255, 255, 255, 0.5);
-  }
-  
-  .item .time {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
-  }
+/* we go to th list_container to make flex, column, overflow to make this scrool*/
+
+    img{
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .texts{
+        /* flex: 1; */
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+
+        span{ /* or username*/
+            font-size: 18px;
+            font-weight: 500;
+            color: white;
+        }
+
+        p{ /* or message*/
+            font-size: 14px;
+            font-weight: 300;
+            color: rgba(255, 255, 255, 0.5);
+        }
+    }
+
+    .time{
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
+    }
+}
+
+} 
