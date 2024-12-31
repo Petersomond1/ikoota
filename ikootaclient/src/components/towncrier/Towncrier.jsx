@@ -6,7 +6,7 @@ import RevPresentation from './RevPresentation'
 const Towncrier = () => {
   return (
     <div className='towncrier_container'>
-        <div className="nav">Navbar</div>
+        <div className="nav">Navbar: Towncrier</div>
         <div className="towncrier_viewport">
        <RevTopic />
        <RevPresentation />

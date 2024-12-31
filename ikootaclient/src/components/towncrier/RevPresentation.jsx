@@ -1,57 +1,18 @@
-import React,{ useState } from 'react';
+import React from 'react';
 import './revpresentation.css'
-import EmojiPicker from 'emoji-picker-react';
 
 const RevPresentation = () => {
 
-  
-     
-       const [openEmoji, setOpenEmoji] = React.useState(false);
-       const [text, setText] = React.useState('');
-       const [step, setStep] = useState(0); // Tracks current step in multi-input
-       const [formData, setFormData] = useState({
-         topic: '',
-         description: '',
-         message: '',
-         audience: '',
-         subjectMatter: '',
-       });
 
-       const handleNextStep = () => {
-        if (step < 4) setStep(step + 1);
-      };
-    
-      const handlePrevStep = () => {
-        if (step > 0) setStep(step - 1);
-      };
-    
-      const handleInputChange = (field, value) => {
-        setFormData({ ...formData, [field]: value });
-      };
-     
-     
-       const handleEmoji = (e) => {
-      
-           setText((prev)=> prev + e.emoji);   /* to set emoji into the text field*/ 
-           setOpenEmoji(false);  
-       }
      
      
        return (
          <div className='revpresentation_container'>
              <div className="top">
-               <div className="user">
-                 <img src="./avatar.png" alt="" />
-               </div>
-               <div className="texts">
-                 <span>Jane Dee</span>
-                 <p>Lorem ipsum dolor sit amet, </p>
-               </div>
-               <div className="icons">
-                 <img src="./phone.png" alt="" />
-                 <img src="./video.png" alt="" />
-                 <img src="./info.png" alt="" />
-               </div>
+                 <p>Summary:</p><p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Aspernatur, optio delectus ipsa vero veniam odit eveniet fuga repellendus dicta impedit officiis! Harum ratione aliquam in impedit fugit omnis labore excepturi.</p><p>You feel misinformed by this? Contact the Ogha-nMoo Elden</p>
+                 <img src="./phone.png" alt="Phone icon" />
+                 <img src="./email.png" alt="Email icon" />
+                 <img src="./whatsapp.png" alt="WhatsApp icon" />
              </div>
      
      
@@ -117,92 +78,6 @@ const RevPresentation = () => {
                </div>
                
        </div>
-     
-       <div className="bottom">
-       <div className="icons">
-          <img src="./img.png" alt="Upload" />
-          <img src="./camera.png" alt="Camera" />
-          <img src="./mic.png" alt="Mic" />
-        </div>
-
-        {step === 0 && (
-          <div className='input_div'>
-            <input
-              type="text"
-              placeholder="Enter Topic"
-              value={formData.topic}
-              onChange={(e) => handleInputChange('topic', e.target.value)}
-            />
-          </div>
-        )}
-        {step === 1 && (
-          <div className='input_div'>
-            <input
-              type="text"
-              placeholder="Enter Description"
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-            />
-          </div>
-        )}
-        {step === 2 && (
-          <div className='input_div'>
-            <select
-              value={formData.audience}
-              onChange={(e) => handleInputChange('audience', e.target.value)}
-            >
-              <option value="">Select Audience</option>
-              <option value="General">General</option>
-              <option value="Students">Students</option>
-              <option value="Professionals">Professionals</option>
-            </select>
-          </div>
-        )}
-        {step === 3 && (
-          <div className='input_div'>
-            <select
-              value={formData.subjectMatter}
-              onChange={(e) => handleInputChange('subjectMatter', e.target.value)}
-            >
-              <option value="">Select Subject Matter</option>
-              <option value="Eden">Eden</option>
-              <option value="Math">Math</option>
-              <option value="Science">Science</option>
-            </select>
-          </div>
-        )}
-          {step === 4 && (
-          <div className='input_div'>
-            <textarea
-              placeholder="Enter Main Message"
-              value={formData.message}
-              onChange={(e) => handleInputChange('message', e.target.value)}
-            />
-          </div>
-        )}
-
-      
-
-        <div className="input-buttons">
-          {step > 0 && <button onClick={handlePrevStep}>Back</button>}
-          {step < 4 && <button onClick={handleNextStep}>Next</button>}
-        </div>
-
-       
-        <div className="emoji">
-          <img
-            src="./emoji.png"
-            alt="Emoji"
-            onClick={() => setOpenEmoji(!openEmoji)}
-          />
-          <div className="picker">
-            {openEmoji && <EmojiPicker onEmojiClick={handleEmoji} />}
-          </div>
-        </div>
-        <button className="SendButton" onClick={() => console.log(formData)}>
-          Send
-        </button>
-      </div>
              
              </div>
   )
