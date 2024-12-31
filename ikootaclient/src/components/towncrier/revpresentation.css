@@ -10,53 +10,31 @@
     border-radius: 5px;
     margin-right: 2px;
 
-    .top{
-        padding: 20px;
-        display: flex;
+    .top {
+        display: inline-flex;
         align-items: center;
-        justify-content: space-between;
         border-bottom: 3px solid white;
-
-        .user{
-            display: flex;
-            align-items: center;
-            gap : 10px;
-
-            img{
-                width: 50px;
-                height: 50px;
-                border-radius: 50%;
-                object-fit: cover;
-            }   
-            }
-
-           .texts{
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-
-            span{ /*username*/
-                font-size: 20px;
-                font-weight: bold;
-            }
-
-            p{ /*status*/
-                font-size: 15px;
-                font-weight: 300;
-                color: whitesmoke;
-            }
-           }
-        
-        .icons{
-            display: flex;
-            gap: 20px;
-
-            img{
-                width: 20px;
-                height: 20px;
-                cursor: pointer;
-            }
-        }
+         white-space: wrap;
+        overflow:visible;
+        width:100%;
+    }
+    
+    .top p {
+        font-size: 15px;
+        font-weight: 300;
+        color:black;
+        margin: 0 10px; /* Add some margin to separate the paragraphs */
+    }
+    
+    .top .icons {
+        display: inline-flex;
+        gap: 20px;
+    }
+    
+    .top .icons img {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
     }
 
     .center{ /*to postion center down first b4 bottom*/
