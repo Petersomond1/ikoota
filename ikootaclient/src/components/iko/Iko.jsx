@@ -8,7 +8,7 @@ import Chat from './Chat'
 const Iko = () => {
   return (
     <div className='iko_container'>
-        <div className="nav">Navbar</div>
+        <div className="nav">Navbar Iko Elde-nde-Me-Eden</div>
         <div className="iko_viewport">
         <Teaching /> 
           <Chat />
@@ -18,5 +18,5 @@ const Iko = () => {
     </div>
   )
 }
-
+ 
 export default Iko
