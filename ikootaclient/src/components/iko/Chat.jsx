@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import './chat.css'
 import EmojiPicker from 'emoji-picker-react';
+import DOMPurify from 'dompurify';
 
 const Chat = () => {
   const [openEmoji, setOpenEmoji] = React.useState(false);
   const [text, setText] = React.useState('');
   const [addMode, setAddMode] = React.useState(false);
-         const [step, setStep] = useState(0); // Tracks current step in multi-input
-         const [formData, setFormData] = useState({
+  const [step, setStep] = useState(0); // Tracks current step in multi-input
+  const [formData, setFormData] = useState({
            topic: '',
            description: '',
            message: '',
@@ -35,7 +36,15 @@ const Chat = () => {
       setOpenEmoji(false);  
   }
 
-  console.log(text);
+  const sanitizeMessage = (message) => {
+    return DOMPurify.sanitize(message, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a'] });
+  };
+
+  const handleSendMessage = () => {
+    const sanitizedMessage = sanitizeMessage(text);
+    console.log(sanitizedMessage);
+    // Send the sanitized message to the server or handle it as needed
+  };
 
   return (
     <div className='chat_container'>
@@ -159,7 +168,7 @@ const Chat = () => {
               />
               {openEmoji && <EmojiPicker onEmojiClick={handleEmoji} />}
             </div>
-            <button className="SendButton">Send</button>
+            <button className="SendButton" onClick={handleSendMessage}>Send</button>
           </div>
         ) : (
           <div className="bottom_presentation">

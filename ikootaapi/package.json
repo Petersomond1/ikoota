@@ -1,16 +1,38 @@
 {
   "name": "ikootaapi",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Ikoota chat app",
+  "main": "server.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "Petersomond1",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.717.0",
+    "aws-sdk": "^2.1692.0",
+    "body-parser": "^1.20.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "nodemon": "^3.1.9"
-  }
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.12.0",
+    "nodemon": "^3.1.9",
+    "socket.io": "^4.8.1",
+    "winston": "^3.17.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Petersomond1/ikoota.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Petersomond1/ikoota/issues"
+  },
+  "homepage": "https://github.com/Petersomond1/ikoota#readme"
 }
