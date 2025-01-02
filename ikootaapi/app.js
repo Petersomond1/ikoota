@@ -39,7 +39,7 @@ app.use('/api', apiLimiter);
 
 // Middleware: CORS
 app.use(cors({
-  origin: process.env.CLIENT_URL || '*', // Adjust as needed for your client
+  origin: process.env.PUBLIC_CLIENT_URL || '*', // Adjust as needed for your client
   methods: ["POST", "GET", "OPTIONS"],
   credentials: true, // Enable credentials if cookies are used
   allowedHeaders: ["Content-Type", "Authorization"]

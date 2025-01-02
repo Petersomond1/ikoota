@@ -9,7 +9,8 @@ function App() {
     <Router>
       <div className='app_container'>
         <Routes>
-          <Route path="/towncrier" element={<Towncrier />} />
+
+          <Route path="/" element={<Towncrier />} />
           <Route path="/iko" element={<Iko />} />
           <Route path="/admin" element={<Admin />} />
         </Routes>

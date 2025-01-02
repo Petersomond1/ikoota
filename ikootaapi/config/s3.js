@@ -4,9 +4,9 @@ const s3Client = new S3Client({ region: "us-east-1" });
 
 const uploadObject = async () => {
   const params = {
-    Bucket: "your-bucket-name",
-    Key: "your-object-key",
-    Body: "your-object-body",
+    Bucket: AWS_BUCKET_NAME,
+    Key: AWS_ACCESS_KEY,
+    Body: AWS_SECRET_ACCESS_KEY,
   };
 
   try {
