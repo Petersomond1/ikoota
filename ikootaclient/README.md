@@ -9,6 +9,19 @@ Currently, two official plugins are available:
 
 
 
+
+
+To find your public IP:   curl ifconfig.me
+
+Test Connection aws RDS mysql db
+You can test the connection from your terminal using the MySQL CLI:  mysql -h <RDS_ENDPOINT> -u <DB_USER> -p
+Replace <RDS_ENDPOINT>, <DB_USER>, and enter your password when prompted. If this works, your AWS RDS setup is okay. If not:
+
+
+
+ping ikoota-db.cvugpfnl4vcp.us-east-1.rds.amazonaws.com    (ping success)
+
+
 users membership application/signup process.
 membership with pending, granted, declined
 it will start with 'applied' for moments when new user signs up with profile (email, phone and username) upto their submitting of a pre-requisite survey, till moment of is_member granted/approved or declined. it will be the admin that will vet the survey result/answer submitted by the applicant before decision for is_member granted or declined. 
@@ -151,10 +164,6 @@ Audit Logs
     GET /admin/audit-logs - Fetch all audit logs for admin actions (filters: admin_id, date range).
 
 
-
-
-
-
 Socket.IO Integration
 
     Events:
@@ -169,12 +178,29 @@ Socket.IO Integration
         message_flag_update: Notify admins of flagged messages for immediate action.
 
 
+
 S3 folder structure:
 
         users/avatars/{userId}.jpg
         chats/{chatId}/{messageId}/media.jpg
 
-        content table should not have is_public
+    
+all user signup, login, logout
+
+admin and system pages Fetch users and contents/messages/chats
+Admin Update User properties
+Admin present/upload teaching/messages to both front and chat pages.
+Admin approve, feature, remove content/messages
+Admin ban, unban and grant posting_right (but only admin can post to front and chat, while all users comment/message)
+admin reset audience
+
+system display teaching/messages and properties on pages.
+users send messages and comments from pages.
+
+
+
+
+
 
 Is there any difference between a content, a messages and a chat in chatting or teaching app? please explain. And if not much, I want the content table and messages table to be merged. and if a message/ content does not have 'title', 'description' or 'media type, the column can be made to be null/nil/000. It should be noted that some messages/content are gonna have more than one media types, so a way to accommodate the media_type to correspond with the media_url for a single message/content having a video and a music and an image urls must be provided.  
 I want the column for name in the classes table to contain/store the pre-assigned or designated 6-digit alphanumeric Id-numbers that will double as target "audience" for posting content/messages. 
@@ -241,72 +267,42 @@ THe db tables.
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
-);
 
-//role: Role of the user in the chat ('admin', 'member', 'owner').
-//is_muted: Boolean to track if the user has muted the chat.
-//last_read_message_id: Tracks the last message read by the user for "unread" counts.
-//joined_at: Timestamp for when the user joined the chat.
+
+role: Role of the user in the chat ('admin', 'member', 'owner').
+is_muted: Boolean to track if the user has muted the chat.
+last_read_message_id: Tracks the last message read by the user for "unread" counts.
+joined_at: Timestamp for when the user joined the chat.
+
+   );
 
 
 5. Messages Table
 
-   CREATE TABLE messages (
+-- Messages Table
+CREATE TABLE messages (
     id INT AUTO_INCREMENT PRIMARY KEY,
     chat_id VARCHAR(36) NOT NULL,
-    sender_id VARCHAR(36) NOT NULL,
-    user_id INT NOT NULL, -- Sender of the message
+    user_id VARCHAR(36), -- Sender of the message
     class_id INT, -- Target audience for the message
     title VARCHAR(255) NULL, -- Nullable for cases with no title
-    description TEXT NULL, -- Nullable for cases with no description
-    text TEXT NOT NULL, -- Text of the message
-    media_url1 VARCHAR(255) NULL, -- URL for the first media (if any)
-    media_type1 ENUM('image', 'video', 'audio', 'file') DEFAULT NULL, -- Type of the first media
-    media_url2 VARCHAR(255) NULL, -- URL for the second media (if any)
-    media_type2 ENUM('image', 'video', 'audio', 'file') DEFAULT NULL, -- Type of the second media
-    media_url3 VARCHAR(255) NULL, -- URL for the third media (if any)
-    media_type3 ENUM('image', 'video', 'audio', 'file') DEFAULT NULL, -- Type of the third media
+    summary TEXT NULL, -- Nullable for cases with no description-summary
+    text TEXT NOT NULL,-- Text of the message
+    approval_status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+    media_url1 VARCHAR(255),
+    media_type1 ENUM('image', 'video', 'audio', 'file'),
+    media_url2 VARCHAR(255),
+    media_type2 ENUM('image', 'video', 'audio', 'file'),
+    media_url3 VARCHAR(255),
+    media_type3 ENUM('image', 'video', 'audio', 'file'),
     is_flagged BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
-    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (class_id) REFERENCES classes(id)
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE SET NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-//check existence of user_id vs sender_id
-
-
-Content Table
-
-    CREATE TABLE content (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(100),
-    description TEXT,
-    user_id VARCHAR(36) NOT NULL,
-    class_id INT, -- Audience
-    is_public BOOLEAN DEFAULT FALSE,
-    approval_status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE SET NULL
-);
-
-
-Approvals Table
-
-    CREATE TABLE approvals (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    content_id INT, -- Nullable for user membership approval
-    user_id VARCHAR(36) NOT NULL,
-    admin_id VARCHAR(36) NOT NULL,
-    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
-    reviewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (content_id) REFERENCES content(id) ON DELETE SET NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
-);
 
 
 6. Comments Table
@@ -363,6 +359,13 @@ Approvals Table
     answers TEXT,
     verified_by VARCHAR(36) NOT NULL,  -- admin_id of the admin that approved
     rating_remarks  VARCHAR(255) NOT NULL,
+    approval_status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+
+
+
+
+

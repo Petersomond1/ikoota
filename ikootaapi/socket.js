@@ -9,8 +9,12 @@ const setupSocket = (server) => {
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('sendMessage', (data) => {
-      io.emit('receiveMessage', data);
+    socket.on('sendMessage', async (data) => {
+        try {
+            io.emit('receiveMessage', data);
+          } catch (err) {
+            console.error('Error processing message:', err);
+          }
     });
 
     socket.on('disconnect', () => {
