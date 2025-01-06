@@ -12,7 +12,7 @@ const Signup = () => {
     confirmPassword: "",
     phone: "",
   });
-
+console.log('values', values);
   axios.defaults.withCredentials = true;
   const navigate = useNavigate();
 

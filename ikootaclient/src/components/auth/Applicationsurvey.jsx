@@ -1,8 +1,14 @@
 import React, { useState } from "react";
 import { useMutation } from '@tanstack/react-query';
-import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSendApplicationsurvey } from "../service/surveypageservice";
+import api from "../service/api";
+
+
+const submitForm = async (answers) => {
+  const res = await api.post('/survey/submit_applicationsurvey', { answers });
+  return res.data;
+};
 
 const Applicationsurvey = () => {
     const navigate = useNavigate();
@@ -12,13 +18,13 @@ const Applicationsurvey = () => {
     const handleSubmit = async (e) => {
       e.preventDefault();
     try {
-      const response = await sendApplicationsurvey(answers, {
+      sendApplicationsurvey(answers, {
         onSuccess: (data) => {
           console.log("Form submitted successfully:", data);
           navigate(data.redirect)
         },
         onError: (error) => {
-          console.error("Error submitting form:", error);
+          console.error("Error submitting form indicate issue:", error.message);
           // Add your error handling logic here
         },
       });
@@ -33,6 +39,7 @@ const Applicationsurvey = () => {
         updatedAnswers[index] = value;
         setAnswers(updatedAnswers);
     };
+
 
     return (
         <form onSubmit={handleSubmit}>

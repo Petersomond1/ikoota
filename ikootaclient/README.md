@@ -185,7 +185,7 @@ S3 folder structure:
         chats/{chatId}/{messageId}/media.jpg
 
     
-all user signup, login, logout
+all user signup, login, logout buttons from many pages
 
 admin and system pages Fetch users and contents/messages/chats
 Admin Update User properties
@@ -367,5 +367,162 @@ CREATE TABLE messages (
 
 
 
+
+Use of libraries.
+- Use `axios` for making HTTP requests.
+- Use `@tanstack/react-query` for managing server state, caching, and synchronizing data with your backend.
+- Use `zustand` for managing local state in your React application.
+
+
+
+
+Using axios with react-query:
+You can use to make HTTP request and react-query to manage the server state.
+
+import { useMutation } from '@tanstack/react-query';
+import axios from 'axios';
+
+export const useSendApplicationsurvey = () => {
+  return useMutation((answers) => {
+    return axios.post('http://localhost:3000/api/auth/submit_applicationsurvey', answers, { withCredentials: true });
+  });
+};
+
+
+
+using Zustand for local State Management.
+We can use Zustand to manage local state in your application.
+
+import create from 'zustand';
+
+const useStore = create((set) => ({
+  username: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+  phone: '',
+  setUsername: (username) => set({ username }),
+  setEmail: (email) => set({ email }),
+  setPassword: (password) => set({ password }),
+  setConfirmPassword: (confirmPassword) => set({ confirmPassword }),
+  setPhone: (phone) => set({ phone }),
+}));
+
+export default useStore;
+
+
+using Zustand in a compound:  
+You can use the useStore hook to manage local state in your components.
+
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useMutation } from '@tanstack/react-query';
+import useStore from '../store/useStore';
+import './signup.css';
+
+const Signup = () => {
+  const { username, email, password, confirmPassword, phone, setUsername, setEmail, setPassword, setConfirmPassword, setPhone } = useStore();
+  const navigate = useNavigate();
+  const { mutateAsync: registerUser } = useMutation((values) => {
+    return axios.post('http://localhost:3000/api/auth/register', values, { withCredentials: true });
+  });
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (password !== confirmPassword) {
+      alert('Passwords do not match!');
+      return;
+    }
+    try {
+      const res = await registerUser({ username, email, password, phone });
+      if (res.status === 201) {
+        navigate(`${res.data.redirectTo}`);
+        console.log('res data at signup', res.data);
+      } else {
+        alert('Error: ' + res.data.error + ' - ' + 'Signup Failed');
+      }
+    } catch (err) {
+      alert('Signup failed, please check your network and try again.');
+    }
+  };
+
+  <!-- return (
+    <div className="signup-form">
+      <h2>Sign Up Page</h2>
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: '3px' }}>
+          <label htmlFor="username"><strong>Username:</strong>
+            <input
+              type="text"
+              placeholder="Enter Username"
+              name="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="form-control"
+            />
+          </label>
+        </div>
+        <div style={{ marginBottom: '3px' }}>
+          <label htmlFor="email"><strong>Email:</strong>
+            <input
+              type="email"
+              autoComplete="off"
+              placeholder="Enter Email"
+              name="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="form-control"
+            />
+          </label>
+        </div>
+        <div style={{ marginBottom: '3px' }}>
+          <label htmlFor="phone"><strong>Phone:</strong>
+            <input
+              type="phone"
+              autoComplete="off"
+              placeholder="Enter whatsapp Phone Number"
+              name="phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="form-control"
+            />
+          </label>
+        </div>
+        <div style={{ marginBottom: '3px' }}>
+          <label htmlFor="password"><strong>Password:</strong>
+            <input
+              type="password"
+              placeholder="Enter Password"
+              name="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="form-control"
+              autoComplete="off"
+            />
+          </label>
+        </div>
+        <div style={{ marginBottom: '3px' }}>
+          <label htmlFor="confirmPassword"><strong>Confirm Password:</strong>
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              name="confirmPassword"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="form-control"
+              autoComplete="off"
+            />
+          </label>
+        </div>
+        <button type="submit">Sign Up</button>
+        <p>Next is to fill a simple ID form</p>
+      </form>
+      <Link to="/" type="submit"><strong>opt-out</strong></Link>
+    </div>
+  );
+}; -->
+
+export default Signup;
 
 
