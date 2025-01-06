@@ -1,13 +1,12 @@
 import jwt from 'jsonwebtoken';
 
 export const generateToken = (userData) => {
-    const { userId, email, isAdmin, isVerified, isConfirmed } = userData;
+    const { userId, email, role, is_member } = userData;
     const payload = {
       userId,
       email,
-      isAdmin,
-      isVerified,
-      isConfirmed,
+      role,
+      is_member
     };
   
     // Create a JWT token with a 1 hour expiration

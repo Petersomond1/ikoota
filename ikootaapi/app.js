@@ -14,8 +14,15 @@ const app = express();
 // Middleware: Secure HTTP headers
 app.use(helmet());
 
-// Route handler
-// // Middleware: Rate limiting to prevent abuse
+// Middleware: CORS
+app.use(cors({
+  origin: process.env.PUBLIC_CLIENT_URL || '*', // Adjust as needed for your client
+  methods: ["POST", "GET", "OPTIONS"],
+  credentials: true, // Enable credentials if cookies are used
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+// Middleware: Rate limiting to prevent abuse
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
@@ -25,19 +32,7 @@ const apiLimiter = rateLimit({
     res.status(429).json({ message: "Too many requests, please try again later." });
   },
 });
-app.use('/api', apiLimiter,  routes);
-
-// Route handler
-// app.use('/api', routes);
-
-
-// Middleware: CORS
-app.use(cors({
-  origin: process.env.PUBLIC_CLIENT_URL || '*', // Adjust as needed for your client
-  methods: ["POST", "GET", "OPTIONS"],
-  credentials: true, // Enable credentials if cookies are used
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
+//app.use('/api', apiLimiter);
 
 // Middleware: Cookie parser for reading cookies
 app.use(cookieParser());
@@ -53,6 +48,8 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
+// Route handler
+app.use('/api', routes);
 
 // Middleware: 404 handler
 app.use((req, res, next) => {

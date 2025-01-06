@@ -1,4 +1,7 @@
 import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const transporter = nodemailer.createTransport({
   service: 'gmail', // You can change the email service provider
@@ -11,18 +14,19 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-const sendEmail = async (to, subject, text) => {
+export const sendEmail = async (to, subject, text) => {
+  console.log(to, subject, text)
+  console.log(process.env.MAIL_USER)
   try {
     const info = await transporter.sendMail({
       from: process.env.MAIL_USER,
-      to:process.env.MAIL_USER,
+      to,
       subject,
       text,
     });
+    console.log('Email sent:', info.response);
   } catch (error) {
     console.error('Error sending email:', error);
-    throw new Error('Email sending failed', 500, error);
+    throw new Error('Email sending failed');
   }
 };
-
-export { sendEmail };
