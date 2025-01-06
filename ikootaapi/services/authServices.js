@@ -18,6 +18,7 @@ export const registerUserService = async (userData) => {
 
        
     const sql = 'INSERT INTO users (username, email, password_hash, phone, role, is_member) VALUES (?, ?, ?, ?, ?, ?)';
+    console.log(username, email, hashedPassword, phone);
     const result = await dbQuery(sql, [username, email, hashedPassword, phone, false, false]);
 
         const subject = 'Welcome to Our Platform!';

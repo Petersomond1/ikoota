@@ -7,6 +7,7 @@ import routes from './routes/index.js';
 import { errorHandler } from './utils/errorHandler.js';
 import morgan from 'morgan';
 import logger from './utils/logger.js';
+import pool from './config/db.js'
 
 // Initialize the Express app
 const app = express();
@@ -16,7 +17,7 @@ app.use(helmet());
 
 // Middleware: CORS
 app.use(cors({
-  origin: process.env.PUBLIC_CLIENT_URL || '*', // Adjust as needed for your client
+  origin: "http://localhost:5173" || '*', // Adjust as needed for your client
   methods: ["POST", "GET", "OPTIONS"],
   credentials: true, // Enable credentials if cookies are used
   allowedHeaders: ["Content-Type", "Authorization"]
@@ -32,7 +33,7 @@ const apiLimiter = rateLimit({
     res.status(429).json({ message: "Too many requests, please try again later." });
   },
 });
-//app.use('/api', apiLimiter);
+app.use('/api', apiLimiter);
 
 // Middleware: Cookie parser for reading cookies
 app.use(cookieParser());

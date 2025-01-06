@@ -16,9 +16,10 @@ const testDBConnection = async () => {
     console.log("Connected to the MySQL database!");
     connection.release();
   } catch (error) {
-    console.error("Database connection failed:", error.message);
+    console.error("Database connection failed:", error);
     process.exit(1); // Exit the process if the database connection fails
   }
 };
 
+testDBConnection();
 export default { pool, testDBConnection };
