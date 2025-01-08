@@ -216,7 +216,7 @@ THe db tables.
 1. Users Table
 
     CREATE TABLE users (
-    id VARCHAR(36) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL, -- User's full name
     email VARCHAR(255) NOT NULL UNIQUE, -- Email for login
     phone VARCHAR(15) NULL, -- Optional whatsapp phone number

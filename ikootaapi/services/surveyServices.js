@@ -26,7 +26,7 @@ export const submitSurveyService = async (answers, email) => {
     const text = `Hello ${user[0].username},\n\nThank you for submitting the survey. Your responses have been recorded. Just give us a little time for your account application to be activated.`;
     await sendEmail(email, subject, text);
 
-    const adminEmail = process.env.MAIL_USER;
+    const adminEmail = process.env.ADMIN_EMAIL;
     const adminSubject = 'New Survey Submission Pending Approval';
     const adminText = `A new survey submission has been received from ${user[0].username}. Please review and approve the submission.`;
     await sendEmail(adminEmail, adminSubject, adminText);
