@@ -201,6 +201,28 @@ CREATE TABLE `user_chats` (
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Table structure for table `teachings`
+
+
+CREATE TABLE teachings (
+  id INT AUTO_INCREMENT PRIMARY KEY, -- Unique identifier for each teaching
+  topic VARCHAR(255) NOT NULL, -- The Topic of the teaching
+  description TEXT, -- The Description of the teaching
+  lessonNumber VARCHAR(50) NOT NULL, -- The Unique lesson number
+  subjectMatter VARCHAR(255), -- The Subject matter of the teaching
+  audience VARCHAR(255), -- The Target audience for the teaching (e.g., class_id)
+  content TEXT, -- The Content including text, emojis, URLs
+  media_url1 VARCHAR(255) DEFAULT NULL, -- URL for the first media file
+  media_type1 ENUM('image', 'video', 'audio', 'file') DEFAULT NULL, -- Type of the first media
+  media_url2 VARCHAR(255) DEFAULT NULL, -- URL for the second media file
+  media_type2 ENUM('image', 'video', 'audio', 'file') DEFAULT NULL, -- Type of the second media
+  media_url3 VARCHAR(255) DEFAULT NULL, -- URL for the third media file
+  media_type3 ENUM('image', 'video', 'audio', 'file') DEFAULT NULL, -- Type of the third media
+  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Date the teaching was created
+  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP -- Date the teaching was last updated
+);
+
+
 --
 -- Indexes for dumped tables
 --
