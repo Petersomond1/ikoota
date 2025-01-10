@@ -1,5 +1,8 @@
 import jwt from 'jsonwebtoken';
 import dbQuery from '../config/dbQuery.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 export const authenticate = async (req, res, next) => {
   try {
@@ -22,19 +25,22 @@ export const authorize = (role) => {
   return async (req, res, next) => {
     try {
       const user = req.user;
+      console.log("req user", user);
+      console.log("role", role);
+      console.log("data", req.body);
       if (!user) {
         return res.status(401).json({ error: 'Authorization failed. No user found.' });
       }
 
       const sql = 'SELECT * FROM users WHERE id = ?';
-      const [result] = await dbQuery(sql, [user.userId]);
-
+      const result = await dbQuery(sql, [user.userId]);
+      console.log("result", result);
       if (result.length === 0) {
         return res.status(401).json({ error: 'Authorization failed. User not found.' });
       }
 
-      if (result[0].role !== role) {
-        return res.status(403).json({ error: 'Authorization failed. Insufficient permissions.' });
+      if (result[0].role in role) {
+        return res.status(403).json({ error: 'Authorization failed two. Insufficient permissions.' });
       }
 
       next();

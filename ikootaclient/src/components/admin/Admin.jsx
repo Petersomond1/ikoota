@@ -9,6 +9,7 @@ import AuthControls from '../auth/AuthControls';
 import SearchControls from '../search/SearchControls';
 import Dashboard from './Dashboard';
 import Reports from './Reports';
+import UserManagement from '../auth/UserManagement';
 
 const Admin = () => {
   const [selectedItem, setSelectedItem] = useState('Dashboard');
@@ -40,8 +41,8 @@ const Admin = () => {
           <div className="admin_sidebar_item" onClick={() => setSelectedItem('IkoControls')}>Iko Controls</div>
           <div className="admin_sidebar_item" onClick={() => setSelectedItem('AuthControls')}><p>AuthControls</p></div>
           <div className="admin_sidebar_item" onClick={() => setSelectedItem('SearchControls')}><p>SearchControls</p></div>
-          <div className="admin_sidebar_item" onClick={() => setSelectedItem('Analytics')}><p>Analytics</p></div>
           <div className="admin_sidebar_item" onClick={() => setSelectedItem('Reports')}><p>Reports</p></div>
+          <div className="admin_sidebar_item" onClick={() => setSelectedItem('UserManagement')}><p>UserManagement</p></div>
         </div>
 
         <div className="admin_controls_body">
@@ -53,6 +54,7 @@ const Admin = () => {
           {selectedItem === 'AuthControls' && <AuthControls />}
           {selectedItem === 'SearchControls' && <SearchControls />}
           {selectedItem === 'Reports' && <Reports />}
+          {selectedItem === 'UserManagement' && <UserManagement />}
         </div>
       </div>
     </div>

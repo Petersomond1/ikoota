@@ -6,6 +6,7 @@ import Iko from './components/iko/Iko';
 import Admin from './components/admin/Admin';
 import Signup from './components/auth/Signup';
 import Login from './components/auth/Login';
+import Thankyou from './components/info/Thankyou';
 import Applicationsurvey from './components/auth/Applicationsurvey';
 
 
@@ -25,6 +26,7 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
           <Route path="/applicationsurvey" element={<Applicationsurvey />} />
+          <Route path="/thankyou" element={<Thankyou />} />
         </Routes>
       </div>
     </Router>

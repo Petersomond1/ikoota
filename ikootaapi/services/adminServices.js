@@ -1,6 +1,23 @@
 import dbQuery from '../config/dbQuery.js';
 import { v4 as uuidv4 } from 'uuid';
 
+
+export const updateUserColumnsService = async (userId, converse_id, mentor_id, class_id, is_member, role) => {
+  const sql = `
+    UPDATE users
+    SET converse_id = ?, mentor_id = ?, class_id = ?, is_member = ?, role = ?
+    WHERE id = ?
+  `;
+  await dbQuery(sql, [converse_id, mentor_id, class_id, is_member, role, userId]);
+
+  const updatedUser = await dbQuery('SELECT * FROM users WHERE id = ?', [userId]);
+  return updatedUser[0];
+};
+
+
+
+
+
 export const getPendingContentService = async () => {
   const sql = 'SELECT * FROM content WHERE approval_status = "pending"';
   const content = await dbQuery(sql);

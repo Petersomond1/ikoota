@@ -18,7 +18,7 @@ const Login = () => {
       .then(res => {
         if (res.data.Status === "Success") {
           localStorage.setItem('token', res.data.token); // Store the token
-          navigate("/chatpage"); // Redirect to Chatpage
+          navigate("/iko"); // Redirect to iko Chatpage
         } else {
           alert("Register/Signup for the Chat Page or check your login credentials or network.");
         }

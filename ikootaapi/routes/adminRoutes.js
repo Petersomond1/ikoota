@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+  updateUserColumns,
   getPendingContent,
   approveContent,
   rejectContent,
@@ -14,6 +15,15 @@ import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
+// Route to update user columns
+router.put('/update-user/:id', authenticate, authorize('admin'), updateUserColumns);
+
+// Manage users (e.g., view, deactivate, or delete)
+router.get('/users', authenticate, authorize(['super_admin','admin']), manageUsers);
+
+// Update user details
+router.post('/user/update', authenticate, authorize('admin'), updateUser);
+
 // Get all pending content for approval
 router.get('/content/pending', authenticate, authorize('admin'), getPendingContent);
 
@@ -26,9 +36,6 @@ router.post('/content/reject/:id', authenticate, authorize('admin'), rejectConte
 // Manage content (e.g., view, delete, approve, reject)
 router.get('/content', authenticate, authorize('admin'), manageContent);
 
-// Manage users (e.g., view, deactivate, or delete)
-router.get('/users', authenticate, authorize('admin'), manageUsers);
-
 // Ban user
 router.post('/user/ban', authenticate, authorize('admin'), banUser);
 
@@ -37,8 +44,5 @@ router.post('/user/unban', authenticate, authorize('admin'), unbanUser);
 
 // Grant posting rights to user
 router.post('/user/grant', authenticate, authorize('admin'), grantPostingRights);
-
-// Update user details
-router.post('/user/update', authenticate, authorize('admin'), updateUser);
 
 export default router;

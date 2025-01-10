@@ -49,7 +49,7 @@ export const loginUserService = async (email, password) => {
     const payload = {
         userId: user[0].id,
         email: user[0].email,
-        isAdmin: user[0].isAdmin,
+        role:user[0].role,
         isVerified: user[0].isVerified,
         isConfirmed: user[0].isConfirmed,
     };

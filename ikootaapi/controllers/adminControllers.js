@@ -1,4 +1,5 @@
 import {
+    updateUserColumnsService,
     getPendingContentService,
     approveContentService,
     rejectContentService,
@@ -10,6 +11,31 @@ import {
     updateUserService
   } from '../services/adminServices.js';
   
+
+
+  export const updateUserColumns = async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const { converse_id, mentor_id, class_id, is_member, role } = req.body;
+  
+      const updatedUser = await updateUserColumnsService(
+        userId,
+        converse_id,
+        mentor_id,
+        class_id,
+        is_member,
+        role
+      );
+  
+      res.status(200).json({ message: 'User updated successfully', updatedUser });
+    } catch (error) {
+      console.error('Error in updateUserColumns:', error.message);
+      res.status(500).json({ error: 'An error occurred while updating the user.' });
+    }
+  };
+  
+
+
   export const getPendingContent = async (req, res) => {
     try {
       const pendingContent = await getPendingContentService();

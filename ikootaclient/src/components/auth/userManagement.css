@@ -1,0 +1,80 @@
+/* userManagement.css */
+
+.user-management-container {
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    margin: 10px;
+  }
+  
+  .user-management-container h2,
+  .user-management-container h3 {
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  .user-list {
+    margin-bottom: 20px;
+    padding: 0;
+    list-style-type: none;
+  }
+  
+  .user-list li {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    background-color: #fff;
+  }
+  
+  .user-list li:hover {
+    background-color: #f0f0f0;
+  }
+  
+  .user-management-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .user-management-form label {
+    display: flex;
+    flex-direction: column;
+    font-weight: bold;
+    color: #555;
+  }
+  
+  .user-management-form input,
+  .user-management-form select,
+  .user-management-form button {
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+  }
+  
+  .user-management-form input,
+  .user-management-form select {
+    width: 100%;
+  }
+  
+  .user-management-form button {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    align-self: flex-start;
+  }
+  
+  .user-management-form button:hover {
+    background-color: #0056b3;
+  }
+  
+  .user-management-form button:disabled {
+    background-color: #d3d3d3;
+    cursor: not-allowed;
+  }
+  
