@@ -526,3 +526,59 @@ const Signup = () => {
 export default Signup;
 
 
+Iko view-point.
+Iko is the inner teaching/presentations and chatting system.
+iko view port is partitioned into three layouts.
+On the left-side is the listing of the chats/teachings/presentations..it is called chatlists.
+On the right-side is the User-chats..that's listing of the chats/teaching that a user have become involved by commenting/signalled to follow.
+While at the middle is the main display or render portion of the chatting system. It displays the latest chat/teaching by default, which also tops the listing of the leftside orderly arranged chatlist or these middle render portion display whichever selection that a user makes either from the left side chatlists or from the right side user-chats listings.
+
+The teaching (also called presentation) can be input at the admin page by the admin or at an input terminal that is on the lower portion of the chatting system by the users. That's input of teaching or comments to teaching can be made by regular users at the bottom part of the towncrier viewport. And every of such teaching presentation made by non-admins regular users must be vetted by an Admin before it can go public class audience.
+On the right side of the Iko viewport is the user_chats or list of active chats/comments that a user is involved in. It is not every presentation/chat/teaching that a user comments on or follow/watch/tail/track. so those ones that a user have involved on or have signalled to track that becomes the users user_chats are listed on this rightside of the Iko platform viewpoint.
+
+Towncrier Open view port
+This is the open home page that is the public teaching broadcast view-port of the website.
+the towncrier viewport is divided into two parts; the RevTopic and the RevPresentation.
+The RevTopic on the left side like a sidebar has a search bar over its top and displays the list of available presentation/teaching topics in timely order with the latest in topmost position being rendered/displayed by default or a selection amongst the list of topics by clicking render/displays that teaching/presentation on the larger right-hand side portion of the Towncrier screen called RevPresentation.
+input of the teaching/presentaion into this open view port of Towncrier occur only from the admin at the Admin page. User cannot make presentation, nor any feedback here. its simply a broadcast screen.
+
+todo list
+prepare class_id and provide callup/fetch fxn in admin page
+
+implement approval process of application survey with update on users column.
+--fetch survey,update column, generate ID,
+
+
+
+Note there are two kinds of teaching/presentation.
+Teaching for the open public screen and teaching/presentation otherwise called chats going into the internal membership restricted system.
+
+
+The content endpoints like in chatservice should be converted to teachings
+
+input teachings to towncrier
+--input/upload text, img, vid & emoji. write to s3
+--arrange the side of RevTopic list 
+--work on the search
+
+input teachings to Iko. ....this is the chat. list of teaching/presentations is the chatlist. 
+input comments to a chat/teaching/presentation.
+implement search of the topics or summary or texts presnets.
+Create Message fetching and saving 
+
+implement username to converse_id in all communication.
+--hierachical knowledge. mentor to know mentee, but mentee not to know or identify anyone. user only know mentee
+
+work on profile display page.
+
+properly setup and use socket.io and socket.js
+
+admin controls.
+how to check reports and actions like ban, delete, etc
+dashboard analytics, is_flagged, use of isblocked and isbanned on users table
+
+forgot-Password, password-Reset, 
+
+confirm and make sure database in located at the RDS.
+
+use of info messages to alert or as email to user/new user. 

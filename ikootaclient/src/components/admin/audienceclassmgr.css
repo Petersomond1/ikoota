@@ -1,0 +1,61 @@
+.audience-class-mgr-container {
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .audience-class-mgr-container h2,
+  .audience-class-mgr-container h3 {
+    color: #333;
+    margin-bottom: 20px;
+  }
+  
+  .audience-class-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .audience-class-form label {
+    display: flex;
+    flex-direction: column;
+    font-weight: bold;
+  }
+  
+  .audience-class-form input,
+  .audience-class-form textarea,
+  .audience-class-form button {
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+  }
+  
+  .audience-class-form button {
+    background-color: #007bff;
+    color: #fff;
+    cursor: pointer;
+  }
+  
+  .audience-class-form button:hover {
+    background-color: #0056b3;
+  }
+
+  .class-list {
+  color: #333;
+  }
+  
+  .class-list ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  .class-list li {
+    background: #fff;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  

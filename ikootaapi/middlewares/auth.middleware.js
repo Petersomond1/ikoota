@@ -25,16 +25,14 @@ export const authorize = (role) => {
   return async (req, res, next) => {
     try {
       const user = req.user;
-      console.log("req user", user);
-      console.log("role", role);
-      console.log("data", req.body);
+      
       if (!user) {
         return res.status(401).json({ error: 'Authorization failed. No user found.' });
       }
 
       const sql = 'SELECT * FROM users WHERE id = ?';
       const result = await dbQuery(sql, [user.userId]);
-      console.log("result", result);
+      
       if (result.length === 0) {
         return res.status(401).json({ error: 'Authorization failed. User not found.' });
       }
