@@ -582,3 +582,38 @@ forgot-Password, password-Reset,
 confirm and make sure database in located at the RDS.
 
 use of info messages to alert or as email to user/new user. 
+
+Mentors sponsors new applicant by creating of application ticket/coupon and issuing to intending applicats that will signup with it. so use of application coupon (number) from a sponsorer like a mentor, which will lead to the mentor first vetting before new user will be allowed to even get access to the signup.
+
+Abstraction of the real id from the storage system, least it be leaked/hacked. 
+
+
+want to use AuthControls.jsx as the file or component where site admin will manage all that concerns authentication and authorization of this website.   AuthControls.jsx is going to be part of the Admin management system and it will be linked and displayed inside the Admin.jsx layout. first; in AuthControls.jsx i hope to have avenue for the admin editing (fetch and update) of the survey questions that is to be presented to new applicants users as applicationsurvey.jsx form, then the fetching of the filled and submitted application survey forms from the 'surveylog' database table when its ready for vetting the survey forms with 'applied' status, and do the actual 'granting approval' or 'declining' of the application, which is updating of the 'is_member' column of 'user' database table from 'applied' to the appropriate admin decision of 'granted' or 'declined'. And also, will likewise also have a similar logic to simplify the process with the option to select a choice of the appropriate corresponding feedback to the inform the new user applicants  of the result decision to their applicantion after the  approval or decline of the survey from the 'surveylogs', with an email reply made to the new users applicants using (approveverifyinfo.jsx, pendverifyinfo.jsx, suspendedverifyinfo.jsx/declined ) after vetting.
+Secondly; want to also use and have part of  this AutoControls.jsx to assign roles (super_admin, admin and user)  and their  various permissions to users by having an avenue in it that admin will update the "role" status column in the 'user' database table . 
+ want to also use TowncrierControls.jsx component as place where admin will handle the upload and management of  'teachings'; that will feature as teaching presentation in Towncrier.jsx and also feature as a part of Chat in iko.jsx of which will be stored in database table "teachings". There should be opportunity made for super_admin to edit/update all its content even after posting/saving.
+want to use IkoControls.jsx component that will likewise be associated or linked or embedded into Admin.jsx layout as a place where admin will handle the  the upload and management of  'messages'; that will feature as in the components of Iko.jsx (ListChats.jsx, Chat.jsx, Chatlist.jsx, Comments.jsx ) of which will when not posted by an admin or super_admin, will initially be in 'pending' mode at the 'approval_status' column of database table "messages", awaiting its approval/update from 'pending' to 'approved' or 'rejected' by a user with admin or super_admin role. Also, in here admin should have place to manage  individual stages or status of 'messages' like the fetching of all pending, all approved, all rejected and all deleted teachings, and thereby be able to over-turning or editing or changing their status.  Inside this IkoControl.jsx, we should also want to have place to manage all that can be managed of the posted and featured Comments in Comments.jsx of Iko.jsx like deleting, and editing as stored in the database table of "comments".
+
+   """  import express from 'express';
+import { registerUser, loginUser, logoutUser, verifyUser, getAuthenticatedUser } from '../controllers/authControllers.js';
+import { authenticate } from '../middlewares/auth.middleware.js';. 
+
+const router = express.Router();
+
+// User registration
+router.post('/register', registerUser);
+
+// User login
+router.post('/login', loginUser);
+
+// User logout
+router.get('/logout', logoutUser);
+
+// User verification
+router.get('/verify/:token', verifyUser);
+
+// Get authenticated user
+router.get("/", authenticate, getAuthenticatedUser);
+
+
+
+export default router;   """  database table "messages" :  columns " id 	chat_id 	user_id 	class_id 	title 	summary 	text 	approval_status 	media_url1 	media_type1 	media_url2 	media_type2 	media_url3 	media_type3 	is_flagged 	created_at 	updated_at " """  database table "teachings" : with columns " id 	topic 	description 	lessonNumber 	subjectMatter 	audience 	content 	media_url1 	media_type1 	media_url2 	media_type2 	media_url3 	media_type3 	createdAt 	updatedAt " '

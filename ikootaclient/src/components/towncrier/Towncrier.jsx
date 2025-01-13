@@ -54,55 +54,5 @@ const Towncrier = () => {
 
 export default Towncrier;
 
+// This Towncrier.jsx will fetch/receive only props of teachings from TowncrierControls.jsx,
 
-
-
-
-// import React, { useState } from 'react';
-// import './towncrier.css';
-// import RevTopic from './RevTopic';
-// import RevPresentation from './RevPresentation';
-
-// const Towncrier = () => {
-//   const [selectedTopic, setSelectedTopic] = useState(null);
-//   const presentations = []; // Define presentations array or fetch data accordingly
-
-
-//   const handleSelectTopic = (topic) => {
-//     setSelectedTopic(topic);
-//   };
-
-//   return (
-//     <div className='towncrier_container'>
-//       <div className="nav">Navbar: Towncrier</div>
-//       <div className="towncrier_viewport">
-//          <RevTopic topics={topics} onSelect={handleSelectTopic} />
-//         <RevPresentation presentations={presentations} selectedTopic={selectedTopic} />
-//       </div>
-//       <div className="footnote">Footnote</div>
-//     </div>
-//   );
-// };
-
-// export default Towncrier;
-
-
-// import React from 'react'
-// import './towncrier.css'
-// import RevTopic from './RevTopic'
-// import RevPresentation from './RevPresentation'
-
-// const Towncrier = () => {
-//   return (
-//     <div className='towncrier_container'>
-//         <div className="nav">Navbar: Towncrier</div>
-//         <div className="towncrier_viewport">
-//        <RevTopic />
-//        <RevPresentation />
-//         </div>
-//         <div className="footnote">Footnote</div>
-//     </div>
-//   )
-// }
-
-// export default Towncrier

@@ -1,7 +1,7 @@
 import React, {useState} from 'react'
-import './teaching.css'
+import './listchats.css'
 
-const Teaching = () => {
+const ListChats = () => {
   const [addMode, setAddMode] = useState(false)
      return (
        <div className='teaching_container'>
@@ -101,4 +101,4 @@ const Teaching = () => {
         </div>
      )
    }
-export default Teaching
+export default ListChats

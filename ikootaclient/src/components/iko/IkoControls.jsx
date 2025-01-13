@@ -5,6 +5,7 @@ const IkoControls = () => {
   return (
     <div className="iko_controls_body">
       <div className="admin_controls_header">Iko Controls</div>
+      <p>upload of messages here</p>
       <p>Chat functionalities go here.</p>
     </div>
   );

@@ -5,6 +5,7 @@ import { sendEmail } from '../utils/email.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import db from '../config/db.js';
+import { sendSMS } from '../utils/sms.js';
 
 export const registerUserService = async (userData) => {
     const { username, email, password, phone } = userData;
@@ -75,3 +76,78 @@ export const sendPasswordResetEmail = async (email) => {
     await sendEmail(email, subject, text);
 };
 
+
+
+// Generate a random verification code
+export const generateVerificationCode = () => {
+    return crypto.randomBytes(3).toString('hex').toUpperCase(); // Generates a 6-character alphanumeric code
+  };
+  
+  // Send password reset link via email or SMS
+  export const sendPasswordResetEmailOrSMS = async (emailOrPhone) => {
+    let user;
+    const isEmail = emailOrPhone.includes('@');
+  
+    if (isEmail) {
+      user = await dbQuery('SELECT * FROM users WHERE email = ?', [emailOrPhone]);
+    } else {
+      user = await dbQuery('SELECT * FROM users WHERE phone = ?', [emailOrPhone]);
+    }
+  
+    if (user.length === 0) {
+      throw new CustomError('User not found', 404);
+    }
+  
+    const token = crypto.randomBytes(20).toString('hex');
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    const expiryTime = Date.now() + 3600000; // 1 hour
+  
+    await dbQuery('UPDATE users SET resetToken = ?, resetTokenExpiry = ? WHERE id = ?', [token, expiryTime, user[0].id]);
+  
+    if (isEmail) {
+      const subject = 'Password Reset Request';
+      const text = `To reset your password, please click the link below:\n\n${resetLink}`;
+      await sendEmail(emailOrPhone, subject, text);
+    } else {
+      const message = `To reset your password, click the link: ${resetLink}`;
+      await sendSMS(emailOrPhone, message);
+    }
+  };
+  
+  // Update the user's password
+  export const updatePassword = async (emailOrPhone, newPassword) => {
+    const isEmail = emailOrPhone.includes('@');
+    const user = isEmail
+      ? await dbQuery('SELECT * FROM users WHERE email = ?', [emailOrPhone])
+      : await dbQuery('SELECT * FROM users WHERE phone = ?', [emailOrPhone]);
+  
+    if (user.length === 0) {
+      throw new CustomError('User not found', 404);
+    }
+  
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+  
+    await dbQuery('UPDATE users SET password_hash = ?, resetToken = NULL, resetTokenExpiry = NULL WHERE id = ?', [
+      hashedPassword,
+      user[0].id,
+    ]);
+  };
+  
+  // Verify the code sent to the alternate medium
+  export const verifyResetCode = async (emailOrPhone, verificationCode) => {
+    const isEmail = emailOrPhone.includes('@');
+    const user = isEmail
+      ? await dbQuery('SELECT * FROM users WHERE email = ?', [emailOrPhone])
+      : await dbQuery('SELECT * FROM users WHERE phone = ?', [emailOrPhone]);
+  
+    if (user.length === 0) {
+      throw new CustomError('User not found', 404);
+    }
+  
+    if (user[0].verificationCode !== verificationCode || user[0].codeExpiry < Date.now()) {
+      throw new CustomError('Invalid or expired verification code', 400);
+    }
+  
+    await dbQuery('UPDATE users SET verificationCode = NULL, codeExpiry = NULL WHERE id = ?', [user[0].id]);
+  };

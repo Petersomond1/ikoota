@@ -5,7 +5,10 @@ import crypto from 'crypto';
 import db from '../config/db.js';
 import { sendEmail } from '../utils/email.js';
 import {generateToken } from '../utils/jwt.js';
-import { registerUserService, loginUserService} from '../services/authServices.js';
+import { registerUserService, loginUserService,  sendPasswordResetEmailOrSMS,
+  updatePassword,
+  verifyResetCode,
+  generateVerificationCode,} from '../services/authServices.js';
 
 const SECRET_KEY = process.env.SECRET_KEY;
 
@@ -86,4 +89,63 @@ export const getAuthenticatedUser = (req, res) => {
     res.set("Access-Control-Allow-Credentials", "true");
     return res.json({ Status: "Success", userData: { username: req.user.username, email: req.user.email }, setAuth: true });
 };
+
+
+export const requestPasswordReset = async (req, res) => {
+  const { emailOrPhone } = req.body;
+  try {
+    await sendPasswordResetEmailOrSMS(emailOrPhone);
+    res.status(200).json({ message: "Password reset link sent!" });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  const { emailOrPhone, newPassword, confirmNewPassword } = req.body;
+
+  if (newPassword !== confirmNewPassword) {
+    return res.status(400).json({ message: 'Passwords do not match!' });
+  }
+
+  try {
+    await updatePassword(emailOrPhone, newPassword);
+
+    // Generate verification code
+    const verificationCode = generateVerificationCode();
+    const isEmail = emailOrPhone.includes('@');
+    const alternateMedium = isEmail ? 'phone' : 'email';
+
+    await dbQuery(
+      `UPDATE users SET verificationCode = ?, codeExpiry = ? WHERE ${isEmail ? 'email' : 'phone'} = ?`,
+      [verificationCode, Date.now() + 3600000, emailOrPhone]
+    );
+
+    if (isEmail) {
+      const message = `Your verification code is ${verificationCode}`;
+      await sendSMS(user.phone, message);
+    } else {
+      const subject = 'Verification Code';
+      const text = `Your verification code is ${verificationCode}`;
+      await sendEmail(user.email, subject, text);
+    }
+
+    res.status(200).json({ message: 'Password updated! Please check your email or phone for a new code and verify here.' });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+
+export const verifyPasswordReset = async (req, res) => {
+  const { emailOrPhone, verificationCode } = req.body;
+  try {
+    await verifyResetCode(emailOrPhone, verificationCode);
+    res.status(200).json({ message: "Verification successful! Password reset is complete." });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+
 

@@ -62,6 +62,10 @@ const Login = () => {
         <p>You agree to the terms & conditions of the use of this site</p>
       </form>
       <Link to="/signup">SignUp</Link>
+      <div>
+  <Link to="/passwordreset">Forgot Password?</Link>
+</div>
+
     </div>
   );
 };

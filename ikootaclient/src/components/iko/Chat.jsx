@@ -142,7 +142,7 @@ const Chat = () => {
             className={addMode ? 'active' : ''}
             onClick={() => setAddMode(true)}
           >
-            Present
+            Start New Chat
           </button>
         </div>
 
