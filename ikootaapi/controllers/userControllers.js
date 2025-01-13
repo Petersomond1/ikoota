@@ -1,4 +1,4 @@
-import { getUserProfileService, updateUserProfileService } from '../services/userServices.js';
+import { getUserProfileService, updateUserProfileService, updateUser } from '../services/userServices.js';
 
 export const getUserProfile = async (req, res) => {
     try {
@@ -21,3 +21,15 @@ export const updateUserProfile = async (req, res) => {
         res.status(500).json({ error: 'An error occurred while updating the user profile.' });
     }
 };
+
+export const updateUserRole = async (req, res) => {
+    try {
+      const { userId, role } = req.body;
+      await updateUser(userId, role);
+      res.status(200).json({ message: 'User role updated successfully.' });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  

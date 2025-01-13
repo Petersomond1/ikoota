@@ -1,6 +1,8 @@
 import dbQuery from '../config/dbQuery.js';
 import CustomError from '../utils/CustomError.js';
 import { sendEmail } from '../utils/email.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 export const submitSurveyService = async (answers, email) => {
   try {
@@ -36,4 +38,38 @@ export const submitSurveyService = async (answers, email) => {
     console.log("the issue", error);
     throw new CustomError('Form submission failed', 500, error.message);
   }
+};
+
+
+// Fetch questions from the database
+export const fetchSurveyQuestions = async () => {
+  const query = 'SELECT id, question FROM survey_questions';
+  const [rows] = await dbQuery(query);
+  return rows;
+};
+
+// Update questions in the database
+export const modifySurveyQuestions = async (questions) => {
+  const deleteQuery = 'DELETE FROM survey_questions';
+  const insertQuery = 'INSERT INTO survey_questions (question) VALUES ?';
+  
+  await dbQuery(deleteQuery); // Clear old questions
+  const values = questions.map((question) => [question]);
+  await dbQuery(insertQuery, [values]); // Insert new questions
+};
+
+// Fetch survey logs from the database
+export const fetchSurveyLogs = async () => {
+  const query = 'SELECT * FROM surveylog';
+  const [rows] = await dbQuery(query);
+  return rows;
+};
+
+// Update survey approval status in the database
+export const approveUserSurvey = async (surveyId, userId, status) => {
+  const query = `
+    UPDATE surveylog 
+    SET approval_status = ?, verified_by = ? 
+    WHERE id = ? AND user_id = ?`;
+  await dbQuery(query, [status, 'admin', surveyId, userId]);
 };

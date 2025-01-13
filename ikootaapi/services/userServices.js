@@ -16,3 +16,16 @@ export const updateUserProfileService = async (userId, profileData) => {
     await dbQuery(sql, [name, email, phone, userId]);
     return { userId, name, email, phone };
 };
+
+export const updateUser = async (userId, role) => {
+    const query = `
+      UPDATE users 
+      SET role = ?, updated_at = NOW() 
+      WHERE id = ?`;
+    const result = await dbQuery(query, [role, userId]);
+  
+    if (result.affectedRows === 0) {
+      throw new CustomError('User not found or role update failed', 404);
+    }
+  };
+  
