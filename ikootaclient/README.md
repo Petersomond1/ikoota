@@ -563,7 +563,7 @@ input teachings to towncrier
 
 input teachings to Iko. ....this is the chat. list of teaching/presentations is the chatlist. 
 input comments to a chat/teaching/presentation.
-implement search of the topics or summary or texts presnets.
+
 Create Message fetching and saving 
 
 implement username to converse_id in all communication.
@@ -573,9 +573,8 @@ work on profile display page.
 
 properly setup and use socket.io and socket.js
 
-admin controls.
-how to check reports and actions like ban, delete, etc
-dashboard analytics, is_flagged, use of isblocked and isbanned on users table
+implement search of the topics or summary or texts presnets.
+
 
 forgot-Password, password-Reset, 
 
@@ -583,6 +582,10 @@ confirm and make sure database in located at the RDS.
 
 use of info messages to alert or as email to user/new user. 
 
+admin controls. ....can go under usermngmt
+how to check reports and actions like ban, delete, etc
+dashboard analytics, is_flagged, use of isblocked and isbanned on users table
+--work on the search
 Mentors sponsors new applicant by creating of application ticket/coupon and issuing to intending applicats that will signup with it. so use of application coupon (number) from a sponsorer like a mentor, which will lead to the mentor first vetting before new user will be allowed to even get access to the signup.
 
 Abstraction of the real id from the storage system, least it be leaked/hacked. 
@@ -590,29 +593,11 @@ Abstraction of the real id from the storage system, least it be leaked/hacked.
 
 
  want to also use TowncrierControls.jsx component as place where admin will handle the upload and management of  'teachings'; that will feature as teaching presentation in Towncrier.jsx and also feature as a part of Chat in iko.jsx of which will be stored in database table "teachings". There should be opportunity made for super_admin to edit/update all its content even after posting/saving.
-want to use IkoControls.jsx component that will likewise be associated or linked or embedded into Admin.jsx layout as a place where admin will handle the  the upload and management of  'messages'; that will feature as in the components of Iko.jsx (ListChats.jsx, Chat.jsx, Chatlist.jsx, Comments.jsx ) of which will when not posted by an admin or super_admin, will initially be in 'pending' mode at the 'approval_status' column of database table "messages", awaiting its approval/update from 'pending' to 'approved' or 'rejected' by a user with admin or super_admin role. Also, in here admin should have place to manage  individual stages or status of 'messages' like the fetching of all pending, all approved, all rejected and all deleted teachings, and thereby be able to over-turning or editing or changing their status.  Inside this IkoControl.jsx, we should also want to have place to manage all that can be managed of the posted and featured Comments in Comments.jsx of Iko.jsx like deleting, and editing as stored in the database table of "comments".
 
-   """  import express from 'express';
-import { registerUser, loginUser, logoutUser, verifyUser, getAuthenticatedUser } from '../controllers/authControllers.js';
-import { authenticate } from '../middlewares/auth.middleware.js';. 
 
-const router = express.Router();
-
-// User registration
-router.post('/register', registerUser);
-
-// User login
-router.post('/login', loginUser);
-
-// User logout
-router.get('/logout', logoutUser);
-
-// User verification
-router.get('/verify/:token', verifyUser);
-
-// Get authenticated user
-router.get("/", authenticate, getAuthenticatedUser);
-
+want to use IkoControls.jsx component as place where admin will handle the upload and management of  'messages' that will feature/render/display in iko.jsx layout through all the components linked to Iko.jsx (ListChats.jsx, Chat.jsx, Chatlist.jsx, Comments.jsx ).  this IkoControls.jsx will be associated or linked or embedded into Admin.jsx layout like others. 
+Note that when 'messages' is not posted by an admin or super_admin, it is mearnt to initially be in 'pending' mode at the 'approval_status' column of database table "messages", awaiting its approval/update from 'pending' to 'approved' or 'rejected' by site manager with an admin or super_admin role. Also, in IkoControls.jsx, admin should have place to manage  individual stages or status of 'messages' like the fetching and update of all pending, of all approved, of all rejected and of all deleted teachings, and thereby be able to over-turn or edit or change their status as best practices in the management of a chat or teaching app.
+Inside this IkoControl.jsx, site managers with admin or super_admin role should also have a place to manage comments featured in "Comments.jsx" and all that can be managed of the posted and featured Comments in Comments.jsx of Iko.jsx like deleting, and editing as stored in the database table of "comments".
 
 
 export default router;   """  database table "messages" :  columns " id 	chat_id 	user_id 	class_id 	title 	summary 	text 	approval_status 	media_url1 	media_type1 	media_url2 	media_type2 	media_url3 	media_type3 	is_flagged 	created_at 	updated_at " """  database table "teachings" : with columns " id 	topic 	description 	lessonNumber 	subjectMatter 	audience 	content 	media_url1 	media_type1 	media_url2 	media_type2 	media_url3 	media_type3 	createdAt 	updatedAt " '

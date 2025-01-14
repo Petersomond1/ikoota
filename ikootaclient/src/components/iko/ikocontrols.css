@@ -1,0 +1,86 @@
+.iko-controls {
+    padding: 20px;
+    font-family: Arial, sans-serif;
+  }
+  
+  .controls-container {
+    display: flex;
+    gap: 20px;
+  }
+  
+  .messages-section,
+  .comments-section,
+  .chats-section {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    background-color: #f9f9f9;
+    color: black;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+  }
+  
+  .filters button {
+    margin: 5px;
+    padding: 5px 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  
+  .filters button:hover {
+    background-color: #0056b3;
+  }
+  
+  ul {
+    list-style: none;
+    padding: 0;
+  }
+  
+  li {
+    margin: 10px 0;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+  }
+  
+  li p {
+    margin: 5px 0;
+  }
+  
+  li div {
+    margin-top: 5px;
+  }
+  
+  button {
+    margin-right: 5px;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  
+  button:hover {
+    opacity: 0.9;
+  }
+  
+  button:first-child {
+    background-color: #28a745;
+    color: white;
+  }
+  
+  button:nth-child(2) {
+    background-color: #ffc107;
+    color: black;
+  }
+  
+  button:last-child {
+    background-color: #dc3545;
+    color: white;
+  }
+  

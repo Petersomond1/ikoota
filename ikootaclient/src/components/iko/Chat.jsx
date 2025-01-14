@@ -87,43 +87,6 @@ const Chat = () => {
               <span>i min ago </span>
             </div>
           </div>
-          <div className="message">
-            <img src="./avatar.png" alt="" />
-            <div className="texts">
-              <p>Lorem ipsum dolor sit amet consectetur adipisicing elit
-               Velit maxime consectetur accusantium? Eligendi vel quos 
-               nisi et dolorem quaerat quidem itaque vero ducimus aspernatur!
-                Aspernatur accusantium nostrum fuga incidunt facere?
-              </p>
-              <span>i min ago </span>
-            </div>
-          </div>
-          <div className="message Own">
-            <div className="texts">
-              <video src="https://ik.imagekit.io/amazonmondayp/database%20video%20Folder/fathersMoms.webm?updatedAt=1717894510536" controls></video>
-              <p>Lorem ipsum dolor sit amet consectetur adipisicing elit
-               Velit maxime consectetur accusantium? Eligendi vel quos 
-               nisi et dolorem quaerat quidem itaque vero ducimus aspernatur!
-                Aspernatur accusantium nostrum fuga incidunt facere?
-              </p>
-              <span>i min ago </span>
-            </div>
-          </div>
-          <div className="message">
-            <img src="./avatar.png" alt="" />
-            <div className="texts">
-              <p>Lorem ipsum dolor sit amet consectetur adipisicing elit nisi et dolorem quaerat quidem itaque vero ducimus aspernatur! Aspernatur accusantium nostrum fuga incidunt facere?
-              </p>
-              <span>i min ago </span>
-            </div>
-          </div>
-          <div className="message Own">
-            <div className="texts">
-              <p>Lorem ipsum dolor sit amet consectetur adipisicing elit Velit maxime consectetur accusantium? Eligendi vel quos  nisi et dolorem quaerat quidem itaque vero ducimus aspernatur! Aspernatur accusantium nostrum fuga incidunt facere?
-              </p>
-              <span>i min ago </span>
-            </div>
-          </div>
           
   </div>
 
