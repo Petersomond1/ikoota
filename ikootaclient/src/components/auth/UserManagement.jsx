@@ -16,8 +16,14 @@ const updateUser = async ({ id, formData }) => {
   return data;
 };
 
+const fetchReports = async () => {
+    const { data } = await api.get('/admin/reports');
+    return data;
+  };
+
 const UserManagement = () => {
   const queryClient = useQueryClient();
+ const [selectedReport, setSelectedReport] = useState(null);
   const [formData, setFormData] = useState({
     converse_id: '',
     mentor_id: '',
@@ -33,17 +39,25 @@ const UserManagement = () => {
     queryFn: fetchUsers,
   });
 
-  console.log('users', users);
+  const { data: reports, isLoading: reportsLoading } = useQuery({ queryKey: ['reports'], queryFn: fetchReports });
+
+ 
   const mutation = useMutation({
     mutationFn: updateUser,
     onSuccess: () => {
       alert('User updated successfully!');
       queryClient.invalidateQueries(['users']);
+      queryClient.invalidateQueries(['reports']);
     },
     onError: () => {
       alert('Failed to update user.');
     },
   });
+
+  const handleUserUpdate = (userId, updateData) => {
+    mutation.mutate({ id: userId, formData: updateData });
+  };
+
 
   // Generate Converse ID
   const handleGenerateConverseId = () => {
@@ -78,9 +92,28 @@ const UserManagement = () => {
           {users?.map((user) => (
             <li key={user.id} onClick={() => setSelectedUser(user)}>
               {user.username} ({user.email})
+              <button onClick={() => handleUserUpdate(user.id, { isblocked: !user.isblocked })}>
+              {user.isblocked ? 'Unblock' : 'Block'}
+            </button>
+            <button onClick={() => handleUserUpdate(user.id, { isbanned: !user.isbanned })}>
+              {user.isbanned ? 'Unban' : 'Ban'}
+            </button>
             </li>
           ))}
         </ul>
+
+        <h3>Reports</h3>
+      {reportsLoading && <p>Loading reports...</p>}
+      <ul>
+        {reports?.map(report => (
+          <li key={report.id}>
+            Reported User ID: {report.reported_id} | Reason: {report.reason}
+            <button onClick={() => handleUserUpdate(report.reported_id, { isbanned: true })}>
+              Ban User
+            </button>
+          </li>
+        ))}
+      </ul>
       </div>
 
       {selectedUser && (

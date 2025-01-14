@@ -8,7 +8,11 @@ import {
     banUserService,
     unbanUserService,
     grantPostingRightsService,
-    updateUserService
+    updateUserService,
+    getUsersService,
+  updateUserByIdService,
+  getReportsService,
+  getAuditLogsService
   } from '../services/adminServices.js';
   
 
@@ -131,3 +135,51 @@ import {
       res.status(500).json({ error: 'An error occurred while updating the user.' });
     }
   };
+
+
+  // GET /admin/users
+export const getUsers = async (req, res) => {
+  try {
+    const users = await getUsersService();
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error.message);
+    res.status(500).json({ error: 'An error occurred while fetching users.' });
+  }
+};
+
+// PUT /admin/update-user/:id
+export const updateUserById = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { isblocked, isbanned } = req.body;
+
+    const updatedUser = await updateUserByIdService(userId, isblocked, isbanned);
+    res.status(200).json({ message: 'User updated successfully', updatedUser });
+  } catch (error) {
+    console.error('Error updating user:', error.message);
+    res.status(500).json({ error: 'An error occurred while updating the user.' });
+  }
+};
+
+// GET /admin/reports
+export const getReports = async (req, res) => {
+  try {
+    const reports = await getReportsService();
+    res.status(200).json(reports);
+  } catch (error) {
+    console.error('Error fetching reports:', error.message);
+    res.status(500).json({ error: 'An error occurred while fetching reports.' });
+  }
+};
+
+// GET /admin/audit-logs
+export const getAuditLogs = async (req, res) => {
+  try {
+    const auditLogs = await getAuditLogsService();
+    res.status(200).json(auditLogs);
+  } catch (error) {
+    console.error('Error fetching audit logs:', error.message);
+    res.status(500).json({ error: 'An error occurred while fetching audit logs.' });
+  }
+};

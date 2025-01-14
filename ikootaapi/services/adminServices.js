@@ -67,3 +67,38 @@ export const updateUserService = async (userId, rating, userclass) => {
   const updatedUser = await dbQuery('SELECT * FROM users WHERE id = ?', [userId]);
   return updatedUser[0];
 };
+
+
+
+// Fetch all users including isblocked, isbanned, and is_flagged
+export const getUsersService = async () => {
+  const sql = 'SELECT id, username, email, isblocked, isbanned, is_flagged FROM users';
+  const users = await dbQuery(sql);
+  return users;
+};
+
+// Update user by ID (isblocked, isbanned)
+export const updateUserByIdService = async (userId, isblocked, isbanned) => {
+  const sql = `
+    UPDATE users
+    SET isblocked = ?, isbanned = ?
+    WHERE id = ?
+  `;
+  await dbQuery(sql, [isblocked, isbanned, userId]);
+  const updatedUser = await dbQuery('SELECT * FROM users WHERE id = ?', [userId]);
+  return updatedUser[0];
+};
+
+// Fetch reports for admin review
+export const getReportsService = async () => {
+  const sql = 'SELECT id, reported_id, reason, details FROM reports WHERE status = "pending"';
+  const reports = await dbQuery(sql);
+  return reports;
+};
+
+// Fetch audit logs for monitoring
+export const getAuditLogsService = async () => {
+  const sql = 'SELECT id, action, target_id, details, created_at FROM audit_logs ORDER BY created_at DESC';
+  const auditLogs = await dbQuery(sql);
+  return auditLogs;
+};

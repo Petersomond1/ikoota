@@ -9,7 +9,12 @@ import {
   banUser,
   unbanUser,
   grantPostingRights,
-  updateUser
+  updateUser,
+
+  getUsers,
+  updateUserById,
+  getReports,
+  getAuditLogs,
 } from '../controllers/adminControllers.js';
 import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 
@@ -44,5 +49,18 @@ router.post('/user/unban', authenticate, authorize('admin'), unbanUser);
 
 // Grant posting rights to user
 router.post('/user/grant', authenticate, authorize('admin'), grantPostingRights);
+
+// GET /admin/users - Include isblocked, isbanned, and is_flagged
+router.get('/users', authenticate, authorize(['admin', 'super_admin']), getUsers);
+
+// PUT /admin/update-user/:id - Update isblocked and isbanned
+router.put('/update-user/:id', authenticate, authorize('admin'), updateUserById);
+
+// GET /admin/reports - Fetch reports for admin review
+router.get('/reports', authenticate, authorize('admin'), getReports);
+
+// GET /admin/audit-logs - Fetch audit logs for monitoring
+router.get('/audit-logs', authenticate, authorize('admin'), getAuditLogs);
+
 
 export default router;

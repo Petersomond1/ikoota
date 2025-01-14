@@ -583,10 +583,7 @@ confirm and make sure database in located at the RDS.
 use of info messages to alert or as email to user/new user. 
 
 admin controls. ....can go under usermngmt
-how to check reports and actions like ban, delete, etc
-dashboard analytics, is_flagged, use of isblocked and isbanned on users table
---work on the search
-Mentors sponsors new applicant by creating of application ticket/coupon and issuing to intending applicats that will signup with it. so use of application coupon (number) from a sponsorer like a mentor, which will lead to the mentor first vetting before new user will be allowed to even get access to the signup.
+
 
 Abstraction of the real id from the storage system, least it be leaked/hacked. 
 
@@ -601,3 +598,26 @@ Inside this IkoControl.jsx, site managers with admin or super_admin role should 
 
 
 export default router;   """  database table "messages" :  columns " id 	chat_id 	user_id 	class_id 	title 	summary 	text 	approval_status 	media_url1 	media_type1 	media_url2 	media_type2 	media_url3 	media_type3 	is_flagged 	created_at 	updated_at " """  database table "teachings" : with columns " id 	topic 	description 	lessonNumber 	subjectMatter 	audience 	content 	media_url1 	media_type1 	media_url2 	media_type2 	media_url3 	media_type3 	createdAt 	updatedAt " '
+
+
+how to check reports and actions like ban, etc
+dashboard analytics, use of isblocked and isbanned on users table
+--work on the search
+Mentors sponsors new applicant by creating of application ticket/coupon and issuing to intending applicats that will signup with it. so use of application coupon (number) from a sponsorer like a mentor, which will lead to the mentor first vetting before new user will be allowed to even get access to the signup.
+
+`audit_logs` database table and dashboard analytics. "" Key Statistics
+
+Total Users: 500
+
+Active Chats: 50
+
+Pending Reports: 10
+Analytics ""
+
+ "is_flagged" in "chat" database table with Chat.jsx part of Iko.jsx (messages/comments is flagged),
+
+ in report table, i have reported_id and the reporter_id, that is used when a user is reporting some other user for some kind of system abuse.
+
+ "isblocked" in "users" table to allow user to block other individual users communication and control/stop one-on-one chatting with other individual users. not to block group or general/public post-chat.
+
+ "isbanned" in "users" table that is there actually against the particular user that have it. it indicate that that particular user is banned from some chatting activities and hence cannot access something, perhaps 1. cannot chat/comment on that particular chat/post. or 2. cannot receive those chat/post again. or 3. will receive chat/post but cannot comment from a class, etc etc
