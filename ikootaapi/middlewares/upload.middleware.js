@@ -1,6 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import AWS from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -37,35 +38,35 @@ const uploadMiddleware = multer({
 });
 
 // Middleware to upload files to S3
-const uploadToS3 = (req, res, next) => {
-  if (!req.files || req.files.length === 0) {
-    return next(new Error('No files uploaded'));
+
+
+const uploadToS3 = async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) return next();
+
+    const uploadedFiles = await Promise.all(
+      req.files.map(async (file) => {
+        const fileKey = `${uuidv4()}-${file.originalname}`;
+        const params = {
+          Bucket: process.env.AWS_S3_BUCKET_NAME,
+          Key: fileKey,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+          ACL: "public-read",
+        };
+        const { Location } = await s3.send(new PutObjectCommand(params));
+        return { url: Location, type: file.mimetype.split("/")[0] };
+      })
+    );
+
+    req.uploadedFiles = uploadedFiles;
+    next();
+  } catch (err) {
+    next(err);
   }
-
-  const uploadPromises = req.files.map(async file => {
-    const fileKey = `${uuidv4()}-${file.originalname}`;
-
-    const params = {
-      Bucket: process.env.AWS_S3_BUCKET_NAME,
-      Key: fileKey,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-      ACL: 'public-read',
-    };
-
-    
-    return s3.upload(params).promise().then(data => ({
-      type: file.mimetype.split('/')[0],
-      fileUrl: data.Location,
-    }));
-  });
-
-  Promise.all(uploadPromises)
-    .then(files => {
-      req.uploadedFiles = files;
-      next();
-    })
-    .catch(err => next(err));
 };
 
 export { uploadMiddleware, uploadToS3 };
+
+
+

@@ -31,6 +31,7 @@ export const authorize = (requiredRoles) => {
       }
 
       const sql = 'SELECT * FROM users WHERE id = ?';
+      console.log("user", user)
       const result = await dbQuery(sql, [user.userId]);
       
       if (result.length === 0) {

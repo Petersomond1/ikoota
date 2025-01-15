@@ -13,16 +13,4 @@ const pool = mysql2.createPool({
   queueLimit: 0,
 });
 
-const testDBConnection = async () => {
-  try {
-    const connection = await pool.getConnection();
-    console.log("Connected to the MySQL database!");
-    connection.release();
-  } catch (error) {
-    console.error("Database connection failed:", error);
-    process.exit(1); // Exit the process if the database connection fails
-  }
-};
-
-testDBConnection();
-export default { pool, testDBConnection };
+export default  pool;
