@@ -21,7 +21,7 @@ export const authenticate = async (req, res, next) => {
   }
 };
 
-export const authorize = (role) => {
+export const authorize = (requiredRoles) => {
   return async (req, res, next) => {
     try {
       const user = req.user;
@@ -37,7 +37,7 @@ export const authorize = (role) => {
         return res.status(401).json({ error: 'Authorization failed. User not found.' });
       }
 
-      if (result[0].role in role) {
+      if (!requiredRoles.includes(result[0].role)){
         return res.status(403).json({ error: 'Authorization failed two. Insufficient permissions.' });
       }
 
