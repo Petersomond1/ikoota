@@ -62,7 +62,7 @@ const TowncrierControls = () => {
         console.error("Error uploading teaching material:", error);
       },
     });
-    reset(); // Reset the form after submission
+    //reset(); // Reset the form after submission
   };
 
   return (
