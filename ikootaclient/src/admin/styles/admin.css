@@ -1,0 +1,32 @@
+.adminContainer {
+    display: flex;
+    column-gap: 10px;
+    height: 90vh;
+    border: 3px solid rgb(196, 11, 11);
+    border-radius: 5px;
+    margin-right: 2px;
+}
+
+.adminSidebar {
+    flex: 2;
+}
+
+
+.headerContent {
+
+    flex: 7;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+
+.adminNav{
+    flex: 1;
+}
+
+.mainCOntent {
+    margin: 5px;
+    padding: 5px;
+    flex: 7;
+}
