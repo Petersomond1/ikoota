@@ -1,20 +1,31 @@
-import { useMutation } from "@tanstack/react-query";
-import api from "./api";
-import { toast } from "react-toastify";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import api from "./api.js";
 
+// Fetch teachings
+export const useFechTeachings = () => {
+  console.log("this is the get request")
+
+  return useQuery({
+    querykey:["teachings"],
+    queryFn: async () => {
+    const response = await api.get("/teachings");
+    return response.data;
+    }
+  });
+};
+
+// submit teaching material
 export const useUploadTeachingMutation = () => {
-  // The mutation should only be defined once
-  console.log("here")
+  console.log("this is the post request ")
   return useMutation({
-    mutationFn: async (teachingData) => {
-      const res = await api.post("/teachings", teachingData);
-      return res.data;
-    },
-    onSuccess: () => {
-     
-    },
-    onError: (error) => {
-      console.log(`Error: ${error.response?.data?.error || error.message}`);
-    },
+    mutationFn: async (formData) => {
+    const response = await api.post("/teachings", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data", // Required for file uploads
+      },
+    });
+    return response.data;
+  }
   });
 };
