@@ -1,13 +1,11 @@
 import {
-    getAllTeachings,
-    createTeaching,
-    updateTeachingById,
-    deleteTeachingById,
-  } from '../services/teachingsServices.js';
+  getAllTeachings,
+  createTeachingService,
+  updateTeachingById,
+  deleteTeachingById,
+} from '../services/teachingsServices.js';
+import uploadFileToS3 from "../services/s3Service.js";
 
-
-  // Fetch all teachings
- 
 export const fetchAllTeachings = async (req, res) => {
   try {
     const teachings = await getAllTeachings();
@@ -17,30 +15,30 @@ export const fetchAllTeachings = async (req, res) => {
   }
 };
 
-  
-  // Add a new teaching
+export const createTeaching = async (req, res) => {
+  try {
+    const { topic, description, subjectMatter, audience, content } = req.body;
+    const files = req.files;
 
-  export const addTeaching = async (req, res) => {
-    try {
-      const data = {
-        ...req.body,
-        media: req.uploadedFiles || [],
-      };
-      const newTeaching = await createTeaching(data);
-  
-      // Append lessonNumber after ID is generated
-      const lessonNumber = `${newTeaching.id}-${Date.now()}`;
-      await updateTeachingById(newTeaching.id, { lessonNumber });
-  
-      res.status(201).json({ ...newTeaching, lessonNumber });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  };
-  
-  
-  // Update a teaching by ID
- 
+    const fileUrls = await Promise.all(
+      files.map((file) => uploadFileToS3(file))
+    );
+
+    const newTeaching = await createTeachingService({
+      topic,
+      description,
+      subjectMatter,
+      audience,
+      content,
+      media: fileUrls,
+    });
+
+    res.status(201).json({ id: newTeaching.id, message: "Teaching created successfully." });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const editTeaching = async (req, res) => {
   try {
     const { id } = req.params;
@@ -56,9 +54,6 @@ export const editTeaching = async (req, res) => {
   }
 };
 
-  
-  // Delete a teaching by ID
- 
 export const removeTeaching = async (req, res) => {
   try {
     const { id } = req.params;
@@ -69,4 +64,3 @@ export const removeTeaching = async (req, res) => {
     res.status(error.status || 500).json({ error: error.message });
   }
 };
-

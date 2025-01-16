@@ -1,6 +1,5 @@
 import multer from 'multer';
 import path from 'path';
-import AWS from "@aws-sdk/client-s3";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
@@ -8,10 +7,12 @@ import { v4 as uuidv4 } from 'uuid';
 dotenv.config();
 
 // Configure AWS S3
-const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+const s3Client = new S3Client({
   region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
 });
 
 // Set up multer storage to use memory storage
@@ -38,8 +39,6 @@ const uploadMiddleware = multer({
 });
 
 // Middleware to upload files to S3
-
-
 const uploadToS3 = async (req, res, next) => {
   try {
     if (!req.files || req.files.length === 0) return next();
@@ -48,13 +47,13 @@ const uploadToS3 = async (req, res, next) => {
       req.files.map(async (file) => {
         const fileKey = `${uuidv4()}-${file.originalname}`;
         const params = {
-          Bucket: process.env.AWS_S3_BUCKET_NAME,
+          Bucket: process.env.AWS_BUCKET_NAME,
           Key: fileKey,
           Body: file.buffer,
           ContentType: file.mimetype,
           ACL: "public-read",
         };
-        const { Location } = await s3.send(new PutObjectCommand(params));
+        const { Location } = await s3Client.send(new PutObjectCommand(params));
         return { url: Location, type: file.mimetype.split("/")[0] };
       })
     );
@@ -67,6 +66,3 @@ const uploadToS3 = async (req, res, next) => {
 };
 
 export { uploadMiddleware, uploadToS3 };
-
-
-

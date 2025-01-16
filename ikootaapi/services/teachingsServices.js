@@ -1,10 +1,5 @@
 import pool from '../config/db.js';
-import dbQuery from '../config/dbQuery.js';
 import CustomError from '../utils/CustomError.js';
-
-
-/* Note use of pool relates to creation of db.js and use of dbquery relates to use of dbquery.js before pool */
-
 
 // Fetch all teachings
 export const getAllTeachings = async () => {
@@ -12,10 +7,8 @@ export const getAllTeachings = async () => {
   return rows;
 };
 
-
-
 // Add a new teaching
-export const createTeaching = async (data) => {
+export const createTeachingService = async (data) => {
   const {
     topic,
     description,
@@ -50,7 +43,6 @@ export const createTeaching = async (data) => {
 
   return { id: result.insertId, ...data };
 };
-
 
 // Update a teaching by ID
 export const updateTeachingById = async (id, data) => {
@@ -93,7 +85,6 @@ export const updateTeachingById = async (id, data) => {
 
   return { id, ...data };
 };
-
 
 // Delete a teaching by ID
 export const deleteTeachingById = async (id) => {
