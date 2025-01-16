@@ -1,107 +1,105 @@
-import React, { useState } from "react";
+import React, { useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { toast } from "react-toastify";
-import "../admin/admin.css";
-import { useUploadTeachingMutation, useFechTeachings } from "../service/uploadTeaching";
+import "../../admin/styles/navbar.css";
+import { useFechTeachings } from "../service/uploadTeaching";
+import { useMutation } from "@tanstack/react-query";
+import api from "../service/api";
 
 const TowncrierControls = () => {
-  const [formData, setFormData] = useState({
-    topic: "",
-    description: "",
-    subjectMatter: "",
-    audience: "",
-    content: "",
-    files: [],
-  });
+  const { handleSubmit, control, register, reset, watch } = useForm();
 
-  const { mutateAsync: uploadTeachingMutation } = useUploadTeachingMutation();
   const { data: teachings, isLoading, error } = useFechTeachings();
+  
+  async function sendTeachingMaterial (formData) {
+    console.log("i triggered")
+    const response = await api.post("/teachings", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data", // Required for file uploads
+    },
+  }
+)
+    return response.data;
+}
 
-  // Handle input changes for text fields
-  const handleInputChange = (field) => (e) => {
-    setFormData({ ...formData, [field]: e.target.value });
-  };
+  const mutation = useMutation({
+    mutationFn: sendTeachingMaterial,
+    });
+   
 
-  // Handle file changes
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    setFormData({ ...formData, files });
+  // File validation
+  const validateFiles = (value) => {
+    if (!value || value.length === 0) {
+      return "Please upload at least one file.";
+    }
+    return true;
   };
 
   // Form submit handler
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    if (!formData.files.length) {
-      toast.error("Please upload at least one file.");
+  const onSubmit = (data) => {
+    if (!data.files.length) {
+      console.log("Please upload at least one file.");
       return;
     }
-    console.log('file exist')
-    const formDataToSend = new FormData();
-    formDataToSend.append("topic", formData.topic);
-    formDataToSend.append("description", formData.description);
-    formDataToSend.append("subjectMatter", formData.subjectMatter);
-    formDataToSend.append("audience", formData.audience);
-    formDataToSend.append("content", formData.content);
 
-    formData.files.forEach((file) => {
+    const formDataToSend = new FormData();
+    formDataToSend.append("topic", data.topic);
+    formDataToSend.append("description", data.description);
+    formDataToSend.append("subjectMatter", data.subjectMatter);
+    formDataToSend.append("audience", data.audience);
+    formDataToSend.append("content", data.content);
+
+    Array.from(data.files).forEach((file) => {
       formDataToSend.append("files", file);
     });
 
-    console.log('formData created from this old ', formData)
-
-    uploadTeachingMutation(formDataToSend, {
+    console.log("just before sendnig")
+    mutation.mutate(formDataToSend, {
       onSuccess: () => {
-        console.log(" the post requet compoleted fine")
-        setFormData({
-          topic: "",
-          description: "",
-          subjectMatter: "",
-          audience: "",
-          content: "",
-          files: [],
-        });
+        console.log("Teaching material uploaded successfully.");
       },
       onError: (error) => {
-        console.log("issue in sending the post request ", error)
+        console.error("Error uploading teaching material:", error);
       },
     });
+    reset(); // Reset the form after submission
   };
 
   return (
     <div className="towncrier_controls_body">
       <h2>Towncrier Controls</h2>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <div className="teaching_form">
           <input
             type="text"
             placeholder="Topic"
-            value={formData.topic}
-            onChange={handleInputChange("topic")}
+            {...register("topic", { required: "Topic is required" })}
           />
           <textarea
             placeholder="Description"
-            value={formData.description}
-            onChange={handleInputChange("description")}
+            {...register("description", { required: "Description is required" })}
           />
           <input
             type="text"
             placeholder="Subject Matter"
-            value={formData.subjectMatter}
-            onChange={handleInputChange("subjectMatter")}
+            {...register("subjectMatter", { required: "Subject Matter is required" })}
           />
           <input
             type="text"
             placeholder="Audience"
-            value={formData.audience}
-            onChange={handleInputChange("audience")}
+            {...register("audience", { required: "Audience is required" })}
           />
           <textarea
             placeholder="Content (Text, Emoji, URLs)"
-            value={formData.content}
-            onChange={handleInputChange("content")}
+            {...register("content", { required: "Content is required" })}
           />
-          <input type="file" multiple onChange={handleFileChange} />
+          <input
+              type="file"
+              multiple
+              {...register("files", { validate: validateFiles })}
+            />
+      
           <button type="submit">Add Teaching</button>
         </div>
       </form>

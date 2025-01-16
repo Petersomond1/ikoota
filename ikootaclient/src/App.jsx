@@ -9,7 +9,7 @@ import Applicationsurvey from './components/auth/Applicationsurvey';
 import Admin from './admin/Admin';
 import Dashboard from './components/admin/Dashboard';
 import Towncrier from './components/towncrier/Towncrier';
-import TowncrierControls from './components/towncrier/Towncrier';
+import TowncrierControls from './components/towncrier/TowncrierControls';
 import Iko from './components/iko/Iko';
 import IkoControl from './components/iko/IkoControls';
 import AuthControl from './components/auth/AuthControls';
@@ -18,7 +18,7 @@ import Reports from './components/admin/Reports';
 import UserManagement from './components/auth/UserManagement';
 import AudienceClassMgr from './components/admin/AudienceClassMgr';
 
-
+import Test from './Test';
 
 
 // Create a client
@@ -31,7 +31,7 @@ function App() {
       <div className='app_container'>
         <Routes>
 
-          <Route path="/admin" element={<Admin />} >
+          <Route path="/" element={<Admin />} >
             <Route index={true} element={<Dashboard />} />
             <Route path="towncrier" element={<Towncrier />} />
             <Route path="towncriercontrols" element={<TowncrierControls />} />

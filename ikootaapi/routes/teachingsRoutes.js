@@ -14,7 +14,8 @@ const router = express.Router();
 router.get('/', authenticate, fetchAllTeachings);
 
 // Create a new teaching
-router.post("/", authenticate, uploadMiddleware.array("files", 3), uploadToS3, createTeaching);
+router.post("/", authenticate, 
+  ()=>console.log("i worked"),uploadMiddleware.array("files", 3), uploadToS3, createTeaching);
 
 // Update a teaching by ID
 router.put('/:id', authenticate, editTeaching);

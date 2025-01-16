@@ -15,17 +15,3 @@ export const useFechTeachings = () => {
   });
 };
 
-// submit teaching material
-export const useUploadTeachingMutation = () => {
-  console.log("this is the post request ")
-  return useMutation({
-    mutationFn: async (formData) => {
-    const response = await api.post("/teachings", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data", // Required for file uploads
-      },
-    });
-    return response.data;
-  }
-  });
-};
