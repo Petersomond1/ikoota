@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import React, {useState} from 'react'
+=======
+import React from 'react'
+>>>>>>> 563b1e17f07da08bf0db6fdc5129645eceaa3217
 import './chatlist.css'
 
 const Chatlist = () => {
