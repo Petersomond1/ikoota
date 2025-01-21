@@ -10,11 +10,10 @@ dotenv.config();
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
-
 
 // Set up multer storage to use memory storage
 const storage = multer.memoryStorage();
@@ -61,7 +60,7 @@ const uploadToS3 = async (req, res, next) => {
     req.uploadedFiles = uploadedFiles;
     next();
   } catch (err) {
-    console.log("here is the isse", err)
+    console.log("here is the issue", err);
     next(err);
   }
 };

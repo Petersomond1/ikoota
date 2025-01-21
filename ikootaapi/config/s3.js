@@ -12,7 +12,7 @@ const s3Client = new S3Client({
   },
 });
 
-const uploadFileToS3 = async (file) => {
+export const uploadFileToS3 = async (file) => {
   const params = {
     Bucket: process.env.AWS_BUCKET_NAME,
     Key: `${uuidv4()}-${file.originalname}`,
@@ -29,11 +29,6 @@ const uploadFileToS3 = async (file) => {
     throw new Error("File upload failed");
   }
 };
-
-export default uploadFileToS3;
-
-
-
 
 // import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 // import dotenv from 'dotenv';

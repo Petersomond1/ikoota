@@ -4,7 +4,6 @@ import {
   updateTeachingById,
   deleteTeachingById,
 } from '../services/teachingsServices.js';
-import uploadFileToS3 from "../services/s3Service.js";
 
 export const fetchAllTeachings = async (req, res) => {
   try {
@@ -18,11 +17,7 @@ export const fetchAllTeachings = async (req, res) => {
 export const createTeaching = async (req, res) => {
   try {
     const { topic, description, subjectMatter, audience, content } = req.body;
-    const files = req.files;
-
-    const fileUrls = await Promise.all(
-      files.map((file) => uploadFileToS3(file))
-    );
+    const files = req.uploadedFiles;
 
     const newTeaching = await createTeachingService({
       topic,
@@ -30,7 +25,7 @@ export const createTeaching = async (req, res) => {
       subjectMatter,
       audience,
       content,
-      media: fileUrls,
+      media: files,
     });
 
     res.status(201).json({ id: newTeaching.id, message: "Teaching created successfully." });
