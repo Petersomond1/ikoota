@@ -45,9 +45,9 @@ app.use(express.json({ limit: '10mb' })); // Increase limit if handling large pa
 app.use(express.urlencoded({ extended: true }));
 
 // Middleware: Logging for development
-if (process.env.NODE_ENV === 'development') {
+//if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
-}
+//}
 
 // Route handler
 app.use('/api', routes);

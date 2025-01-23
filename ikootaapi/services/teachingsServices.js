@@ -31,15 +31,28 @@ export const createTeachingService = async (data) => {
     subjectMatter,
     audience,
     content,
-    media1?.url || null,
-    media1?.type || null,
-    media2?.url || null,
-    media2?.type || null,
-    media3?.url || null,
-    media3?.type || null,
+    media[0]?.url || null,
+    media[0]?.type || null,
+    media[1]?.url || null,
+    media[1]?.type || null,
+    media[2]?.url || null,
+    media[2]?.type || null,
   ]);
 
   if (result.affectedRows === 0) throw new CustomError("Failed to add teaching", 500);
+
+  const teachingId = teachingResult.insertId;
+
+  // Insert media URLs associated with this teaching
+ const mediaInsertPromises = media.map((file) => {
+  const mediaQuery = `
+    INSERT INTO teaching_media (teaching_id, media[0]_url, media[0]_type,  media[1]_url, media[1]_type, media[2]_url, media[2]_type)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  return dbQuery(mediaQuery, [teachingId, file.url, file.type]);
+});
+
+await Promise.all(mediaInsertPromises);
+
 
   return { id: result.insertId, ...data };
 };

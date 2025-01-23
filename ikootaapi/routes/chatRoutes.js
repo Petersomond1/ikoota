@@ -9,7 +9,9 @@ import {
   getClarionContent,
   uploadClarionContent
 } from '../controllers/chatControllers.js';
-import { uploadMiddleware, uploadToS3 } from '../middlewares/upload.middleware.js';
+import { 
+  // uploadMiddleware, 
+  uploadToS3 } from '../middlewares/upload.middleware.js';
 import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
@@ -30,12 +32,16 @@ router.post('/:id/comments', authenticate, addCommentToContent);
 router.get('/:id/comments', authenticate, getCommentsByContentId);
 
 // Upload content
-router.post('/upload', authenticate, uploadMiddleware.array('files', 10), uploadToS3, uploadContent);
+router.post('/upload', authenticate, 
+  // uploadMiddleware.array('files', 10), 
+uploadToS3, uploadContent);
 
 // Get Clarion Call content
 router.get('/clarioncall/content', getClarionContent);
 
 // Upload Clarion Call content
-router.post('/clarioncall/upload', authenticate, authorize('admin'), uploadMiddleware.array('files', 10), uploadToS3, uploadClarionContent);
+router.post('/clarioncall/upload', authenticate, authorize('admin'),
+//  uploadMiddleware.array('files', 10),
+  uploadToS3, uploadClarionContent);
 
 export default router;

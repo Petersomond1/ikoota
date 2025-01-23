@@ -17,7 +17,14 @@ export const fetchAllTeachings = async (req, res) => {
 export const createTeaching = async (req, res) => {
   try {
     const { topic, description, subjectMatter, audience, content } = req.body;
-    const files = req.uploadedFiles;
+    
+       // Extract uploaded files
+       // const files = req.uploadedFiles;
+       const files = req.uploadedFiles || [];
+       const media = files.map((file, index) => ({
+         url: file.url,
+         type: file.type,
+       }));
 
     const newTeaching = await createTeachingService({
       topic,

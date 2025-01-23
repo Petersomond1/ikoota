@@ -4,14 +4,14 @@ import api from "./api.js";
 
 // Fetch teachings
 export const useFechTeachings = () => {
-  console.log("this is the get request")
+  console.log("this is the get request");
 
   return useQuery({
-    querykey:["teachings"],
+    queryKey: ["teachings"], // Corrected to use an array
     queryFn: async () => {
-    const response = await api.get("/teachings");
-    return response.data;
-    }
+      const response = await api.get("/teachings");
+      return response.data;
+    },
   });
 };
 

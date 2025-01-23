@@ -37,7 +37,7 @@ const TowncrierControls = () => {
 
   // Form submit handler
   const onSubmit = (data) => {
-    if (!data.files.length) {
+    if (!data.media1?.length && !data.media2?.length && !data.media3?.length) {
       console.log("Please upload at least one file.");
       return;
     }
@@ -49,9 +49,16 @@ const TowncrierControls = () => {
     formDataToSend.append("audience", data.audience);
     formDataToSend.append("content", data.content);
 
-    Array.from(data.files).forEach((file) => {
-      formDataToSend.append("files", file);
+    // Append the three media files if provided
+    ["media1", "media2", "media3"].forEach((file) => {
+      if (data[file]?.[0]) {
+        formDataToSend.append(file, data[file][0]); // Single file for each input
+      }
     });
+
+    // Array.from(data.files).forEach((file) => {
+    //   formDataToSend.append("files", file);
+    // });
 
     console.log("just before sendnig")
     mutation.mutate(formDataToSend, {
@@ -94,11 +101,21 @@ const TowncrierControls = () => {
             placeholder="Content (Text, Emoji, URLs)"
             {...register("content", { required: "Content is required" })}
           />
+             <input
+            type="file"
+            multiple
+            {...register("media1", { validate: validateFiles })}
+          />
           <input
-              type="file"
-              multiple
-              {...register("files", { validate: validateFiles })}
-            />
+            type="file"
+            multiple
+            {...register("media2", { validate: validateFiles })}
+          />
+          <input
+            type="file"
+            multiple
+            {...register("media3", { validate: validateFiles })}
+          />
       
           <button type="submit">Add Teaching</button>
         </div>

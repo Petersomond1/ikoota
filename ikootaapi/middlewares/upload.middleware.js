@@ -20,7 +20,7 @@ const storage = multer.memoryStorage();
 
 // File filter to only accept certain file types
 const fileFilter = (req, file, cb) => {
-  const filetypes = /jpeg|jpg|png|gif|mp4|mp3|pdf|txt/;
+  const filetypes = /jpeg|jpg|png|gif|mp4|mp3|m4a|webm|pdf|txt/;
   const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = filetypes.test(file.mimetype);
 
@@ -36,15 +36,19 @@ const uploadMiddleware = multer({
   storage,
   limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB limit
   fileFilter,
-});
+}).fields([
+  { name: "media1", maxCount: 1 },
+  { name: "media2", maxCount: 1 },
+  { name: "media3", maxCount: 1 },
+]);
 
 // Middleware to upload files to S3
 const uploadToS3 = async (req, res, next) => {
   try {
-    if (!req.files || req.files.length === 0) return next();
+    if (!req.files || Object.keys(req.files).length === 0) return next();
 
     const uploadedFiles = await Promise.all(
-      req.files.map(async (file) => {
+      Object.values(req.files).flat().map(async (file) => {
         const fileKey = `${uuidv4()}-${file.originalname}`;
         const params = {
           Bucket: process.env.AWS_BUCKET_NAME,
@@ -52,8 +56,11 @@ const uploadToS3 = async (req, res, next) => {
           Body: file.buffer,
           ContentType: file.mimetype,
         };
-        const { Location } = await s3Client.send(new PutObjectCommand(params));
-        return { url: Location, type: file.mimetype.split("/")[0] };
+        await s3Client.send(new PutObjectCommand(params));
+
+        // Construct the S3 URL
+        const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
+        return { url: fileUrl, type: file.mimetype.split("/")[0] };
       })
     );
 
