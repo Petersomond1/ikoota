@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import './ikocontrols.css';
+// import Chat from "./Chat";
 
 const IkoControls = () => {
   const [messages, setMessages] = useState([]);
@@ -51,6 +52,8 @@ const IkoControls = () => {
 
   return (
     <div className="iko-controls">
+       <h2>Admin Chat Controls</h2>
+       {/* <Chat /> */}
       <h1>Iko Controls</h1>
       <div className="controls-container">
         <div className="messages-section">

@@ -30,8 +30,10 @@ function App() {
     <Router>
       <div className='app_container'>
         <Routes>
+        <Route path="/" element={<Towncrier />} />
+        <Route path="/iko" element={<Iko />} />
 
-          <Route path="/" element={<Admin />} >
+          <Route path="/admin" element={<Admin />} >
             <Route index={true} element={<Dashboard />} />
             <Route path="towncrier" element={<Towncrier />} />
             <Route path="towncriercontrols" element={<TowncrierControls />} />

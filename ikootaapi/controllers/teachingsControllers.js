@@ -21,7 +21,7 @@ export const createTeaching = async (req, res) => {
        // Extract uploaded files
        // const files = req.uploadedFiles;
        const files = req.uploadedFiles || [];
-       const media = files.map((file, index) => ({
+       const media = files.map((file) => ({
          url: file.url,
          type: file.type,
        }));
@@ -32,7 +32,7 @@ export const createTeaching = async (req, res) => {
       subjectMatter,
       audience,
       content,
-      media: files,
+      media,
     });
 
     res.status(201).json({ id: newTeaching.id, message: "Teaching created successfully." });
