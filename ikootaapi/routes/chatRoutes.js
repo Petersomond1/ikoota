@@ -1,47 +1,29 @@
 import express from 'express';
+import { uploadMiddleware, uploadToS3 } from '../middlewares/upload.middleware.js';
 import {
-  getAllContent,
-  getContentById,
-  createContent,
-  addCommentToContent,
-  getCommentsByContentId,
-  uploadContent,
-  getClarionContent,
-  uploadClarionContent
+  createChat,
+  addCommentToChat,
+  getChatHistory,
+  editChat,
+  removeChat,
 } from '../controllers/chatControllers.js';
-import { 
-  // uploadMiddleware, 
-  uploadToS3 } from '../middlewares/upload.middleware.js';
-import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// Get all public and assigned class content
-router.get('/', authenticate, getAllContent);
+// Create new chat
+router.post('/', authenticate, uploadMiddleware, uploadToS3, createChat);
 
-// Get specific content by ID
-router.get('/:id', authenticate, getContentById);
+// Add comment to specific chat
+router.post('/:chatId/comments', authenticate, uploadMiddleware, uploadToS3, addCommentToChat);
 
-// Create new content (approval required for public/class)
-router.post('/', authenticate, createContent);
+// Get chat history between two users
+router.get('/:userId1/:userId2', authenticate, getChatHistory);
 
-// Add comment to specific content
-router.post('/:id/comments', authenticate, addCommentToContent);
+// Update a chat by ID
+router.put('/:id', authenticate, editChat);
 
-// Get comments for a specific content
-router.get('/:id/comments', authenticate, getCommentsByContentId);
-
-// Upload content
-router.post('/upload', authenticate, 
-  // uploadMiddleware.array('files', 10), 
-uploadToS3, uploadContent);
-
-// Get Clarion Call content
-router.get('/clarioncall/content', getClarionContent);
-
-// Upload Clarion Call content
-router.post('/clarioncall/upload', authenticate, authorize('admin'),
-//  uploadMiddleware.array('files', 10),
-  uploadToS3, uploadClarionContent);
+// Delete a chat by ID
+router.delete('/:id', authenticate, removeChat);
 
 export default router;

@@ -175,6 +175,8 @@
             border-radius: 5px;
             font-weight: bold;
             cursor: pointer;
+            width: 60px;
+            height: 35px;
         }
 
         
@@ -201,4 +203,110 @@
 }
 
 
+/* 
 
+
+.chat_container {
+    display: flex;
+    flex-direction: column;
+    height: 80vh;
+    border: 2px solid white;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 2px solid white;
+  }
+  
+  .user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .user img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+  }
+  
+  .texts span {
+    font-weight: bold;
+    font-size: 18px;
+  }
+  
+  .icons img {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+  }
+  
+  .center {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .message {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .message img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+  }
+  
+  .message.Own {
+    align-self: flex-end;
+  }
+  
+  .message p {
+    background: #fff;
+    padding: 10px;
+    border-radius: 10px;
+  }
+  
+  .bottom {
+    padding: 16px;
+    border-top: 2px solid white;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .toggle_buttons {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .toggle_buttons button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  
+  .toggle_buttons .active {
+    background: #5183fe;
+    color: white;
+  }
+  
+  .SendButton {
+    background: #5183fe;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    cursor: pointer;
+  } */

@@ -14,6 +14,10 @@ export const authenticate = async (req, res, next) => {
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decodedToken;
 
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required.' });
+    }
+
     next();
   } catch (error) {
     console.error('Error in authenticate middleware:', error.message);

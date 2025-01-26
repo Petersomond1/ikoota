@@ -1,121 +1,81 @@
-import db from '../config/db.js';
-import { v4 as uuidv4 } from 'uuid';
-import { 
-  uploadContentService, 
-  getAllContentService, 
-  getContentByIdService, 
-  createContentService, 
-  addCommentToContentService, 
-  getCommentsByContentIdService, 
-  uploadClarionContentService, 
-  getClarionContentService 
+import {
+  createChatService,
+  getChatHistoryService,
+  updateChatById,
+  deleteChatById,
+  addCommentToChatService,
 } from '../services/chatServices.js';
 
-export const uploadContent = async (req, res) => {
+export const createChat = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const { audience, title, description } = req.body;
-    const files = req.uploadedFiles;
+    const { title, created_by, audience, summary, text } = req.body;
+    const files = req.uploadedFiles || [];
+    const media = files.map((file) => ({
+      url: file.url,
+      type: file.type,
+    }));
 
-    if (!files || files.length === 0) {
-      return res.status(400).json({ error: 'No files uploaded' });
-    }
-
-    const contentId = await uploadContentService(title, description, userId, audience);
-
-    const filePromises = files.map(file => {
-      return db.execute('INSERT INTO content_files (content_id, type, file_url) VALUES (?, ?, ?)', [contentId, file.type, file.fileUrl]);
+    const newChat = await createChatService({
+      title,
+      created_by,
+      audience,
+      summary,
+      text,
+      media,
     });
 
-    await Promise.all(filePromises);
-
-    res.status(201).json({ message: 'Files uploaded successfully', contentId });
+    res.status(201).json({ id: newChat.id, message: "Chat created successfully." });
   } catch (error) {
-    console.error('Error uploading files:', error);
-    res.status(500).json({ error: 'Error uploading files' });
+    res.status(500).json({ error: error.message });
   }
 };
 
-export const getAllContent = async (req, res) => {
+
+export const getChatHistory = async (req, res) => {
   try {
-    const content = await getAllContentService(req.user.userId);
-    res.status(200).json(content);
+    const { userId1, userId2 } = req.params;
+    const chatHistory = await getChatHistoryService(userId1, userId2);
+    res.status(200).json(chatHistory);
   } catch (error) {
-    console.error('Error in getAllContent:', error.message);
-    res.status(500).json({ error: 'An error occurred while fetching content.' });
+    res.status(500).json({ error: error.message });
   }
 };
 
-export const getContentById = async (req, res) => {
+
+
+export const editChat = async (req, res) => {
   try {
-    const content = await getContentByIdService(req.params.id);
-    res.status(200).json(content);
+    const { id } = req.params;
+    const data = {
+      ...req.body,
+      media: req.uploadedFiles || [],
+    };
+
+    const updatedChat = await updateChatById(id, data);
+    res.status(200).json(updatedChat);
   } catch (error) {
-    console.error('Error in getContentById:', error.message);
-    res.status(500).json({ error: 'An error occurred while fetching content by ID.' });
+    res.status(error.status || 500).json({ error: error.message });
   }
 };
 
-export const createContent = async (req, res) => {
+export const removeChat = async (req, res) => {
   try {
-    const contentId = await createContentService(req.body, req.user.userId);
-    res.status(201).json({ message: 'Content created successfully', contentId });
+    const { id } = req.params;
+
+    await deleteChatById(id);
+    res.status(200).json({ message: 'Chat deleted successfully' });
   } catch (error) {
-    console.error('Error in createContent:', error.message);
-    res.status(500).json({ error: 'An error occurred while creating content.' });
+    res.status(error.status || 500).json({ error: error.message });
   }
 };
 
-export const addCommentToContent = async (req, res) => {
+export const addCommentToChat = async (req, res) => {
   try {
-    const commentId = await addCommentToContentService(req.params.id, req.body, req.user.userId);
-    res.status(201).json({ message: 'Comment added successfully', commentId });
+    const { chatId } = req.params;
+    const commentData = req.body;
+    const comment = await addCommentToChatService(chatId, commentData);
+    res.status(201).json(comment);
   } catch (error) {
-    console.error('Error in addCommentToContent:', error.message);
-    res.status(500).json({ error: 'An error occurred while adding a comment.' });
-  }
-};
-
-export const getCommentsByContentId = async (req, res) => {
-  try {
-    const comments = await getCommentsByContentIdService(req.params.id);
-    res.status(200).json(comments);
-  } catch (error) {
-    console.error('Error in getCommentsByContentId:', error.message);
-    res.status(500).json({ error: 'An error occurred while fetching comments.' });
-  }
-};
-
-export const getClarionContent = async (req, res) => {
-  try {
-    const content = await getClarionContentService();
-    res.status(200).json(content);
-  } catch (error) {
-    console.error('Error fetching Clarion Call content:', error);
-    res.status(500).json({ error: 'An error occurred while fetching Clarion Call content.' });
-  }
-};
-
-export const uploadClarionContent = async (req, res) => {
-  try {
-    const { clarionContent } = req.body;
-    const files = req.uploadedFiles;
-
-    if (!files || files.length === 0) {
-      return res.status(400).json({ error: 'No files uploaded' });
-    }
-
-    const contentId = uuidv4();
-
-    const filePromises = files.map(file => {
-      return db.execute('INSERT INTO clarion_content (id, type, file_url, clarionContent) VALUES (?, ?, ?, ?)', [contentId, file.type, file.fileUrl, clarionContent]);
-    });
-
-    await Promise.all(filePromises);
-
-    res.status(201).json({ message: 'Clarion Call content uploaded successfully', contentId });
-  } catch (error) {
-    console.error('Error uploading Clarion Call content:', error);
-    res.status(500).json({ error: 'Error uploading Clarion Call content' });
+    res.status(500).json({ error: error.message });
   }
 };

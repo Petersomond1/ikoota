@@ -8,6 +8,7 @@ import { errorHandler } from './utils/errorHandler.js';
 import morgan from 'morgan';
 import logger from './utils/logger.js';
 import pool from './config/db.js'
+import index from './routes/index.js'
 
 // Initialize the Express app
 const app = express();

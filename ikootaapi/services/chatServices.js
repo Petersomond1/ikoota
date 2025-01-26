@@ -1,65 +1,109 @@
-import db from '../config/db.js';
-import { v4 as uuidv4 } from 'uuid';
+import pool from '../config/db.js';
+import CustomError from '../utils/CustomError.js';
 
-export const uploadContentService = async (title, description, userId, audience) => {
-  const sql = 'INSERT INTO content (title, description, userId, audience, approval_status) VALUES (?, ?, ?, ?, ?)';
-  const values = [title, description, userId, audience, 'pending'];
-  const [result] = await db.execute(sql, values);
-  return result.insertId;
-};
+export const createChatService = async (chatData) => {
+  const { title, created_by, audience, summary, text, approval_status } = chatData;
 
-export const getAllContentService = async (userId) => {
+  const [media1, media2, media3] = chatData.media || [];
+
   const sql = `
-    SELECT c.id, c.title, c.description, c.userId, c.audience, c.approval_status, c.created_at, u.name as submitter, cf.type, cf.file_url
-    FROM content c
-    LEFT JOIN users u ON c.userId = u.id
-    LEFT JOIN content_files cf ON c.id = cf.content_id
-    WHERE c.userId = ? OR c.audience = 'General'
-    ORDER BY c.created_at DESC
+    INSERT INTO chats (title, created_by, audience, summary, text, approval_status, media_url1, media_type1, media_url2, media_type2, media_url3, media_type3)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
-  const [content] = await db.execute(sql, [userId]);
-  return content;
+  const [result] = await pool.query(sql, [
+    title,
+    created_by,
+    audience,
+    summary,
+    text,
+    approval_status || 'pending',
+    media1?.url || null,
+    media1?.type || null,
+    media2?.url || null,
+    media2?.type || null,
+    media3?.url || null,
+    media3?.type || null,
+  ]);
+
+  if (result.affectedRows === 0) throw new CustomError("Failed to add chat", 500);
+
+  return { id: result.insertId, ...chatData };
 };
 
-export const getContentByIdService = async (contentId) => {
-  const sql = 'SELECT * FROM content WHERE id = ?';
-  const [content] = await db.execute(sql, [contentId]);
-  return content[0];
+export const updateChatById = async (id, data) => {
+  const {
+    title,
+    summary,
+    text,
+    media,
+    approval_status,
+  } = data;
+
+  const [media1, media2, media3] = media || [];
+
+  const sql = `
+    UPDATE chats
+    SET title = ?, summary = ?, text = ?, media_url1 = ?, media_type1 = ?, media_url2 = ?, media_type2 = ?, media_url3 = ?, media_type3 = ?, approval_status = ?, updated_at = NOW()
+    WHERE id = ?
+  `;
+  const [result] = await pool.query(sql, [
+    title,
+    summary,
+    text,
+    media1?.url || null,
+    media1?.type || null,
+    media2?.url || null,
+    media2?.type || null,
+    media3?.url || null,
+    media3?.type || null,
+    approval_status || 'pending',
+    id,
+  ]);
+
+  if (result.affectedRows === 0) throw new CustomError("Failed to update chat", 500);
+
+  return { id, ...data };
 };
 
-export const createContentService = async (contentData, userId) => {
-  const { title, description, audience } = contentData;
-  const sql = 'INSERT INTO content (title, description, userId, audience, approval_status) VALUES (?, ?, ?, ?, ?)';
-  const values = [title, description, userId, audience, 'pending'];
-  const [result] = await db.execute(sql, values);
-  return result.insertId;
+export const getChatHistoryService = async (userId1, userId2) => {
+  const sql = `
+    SELECT * FROM chats
+    WHERE (created_by = ? AND audience = ?)
+       OR (created_by = ? AND audience = ?)
+    ORDER BY created_at ASC
+  `;
+  const [rows] = await pool.query(sql, [userId1, userId2, userId2, userId1]);
+  return rows;
 };
 
-export const addCommentToContentService = async (contentId, commentData, userId) => {
-  const { comment_text, comment_video, comment_music, comment_emoji, comment_image } = commentData;
-  const sql = 'INSERT INTO comments (content_id, userId, comment_text, comment_video, comment_music, comment_emoji, comment_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-  const values = [contentId, userId, comment_text, comment_video, comment_music, comment_emoji, comment_image];
-  const [result] = await db.execute(sql, values);
-  return result.insertId;
+export const addCommentToChatService = async (chatId, commentData) => {
+  const { user_id, comment, media } = commentData;
+
+  const [media1, media2, media3] = media || [];
+
+  const sql = `
+    INSERT INTO comments (user_id, chat_id, comment, media_url1, media_type1, media_url2, media_type2, media_url3, media_type3)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  const [result] = await pool.query(sql, [
+    user_id,
+    chatId,
+    comment,
+    media1?.url || null,
+    media1?.type || null,
+    media2?.url || null,
+    media2?.type || null,
+    media3?.url || null,
+    media3?.type || null,
+  ]);
+
+  if (result.affectedRows === 0) throw new CustomError("Failed to add comment", 500);
+
+  return { id: result.insertId, ...commentData };
 };
 
-export const getCommentsByContentIdService = async (contentId) => {
-  const sql = 'SELECT * FROM comments WHERE content_id = ?';
-  const [comments] = await db.execute(sql, [contentId]);
-  return comments;
-};
+export const deleteChatById = async (id) => {
+  const [result] = await pool.query('DELETE FROM chats WHERE id = ?', [id]);
 
-export const getClarionContentService = async () => {
-  const sql = 'SELECT * FROM clarion_content ORDER BY created_at DESC';
-  const [content] = await db.execute(sql);
-  return content;
-};
-
-export const uploadClarionContentService = async (files, clarionContent) => {
-  const contentId = uuidv4();
-  const filePromises = files.map(file => {
-    return db.execute('INSERT INTO clarion_content (id, type, file_url, clarionContent) VALUES (?, ?, ?, ?)', [contentId, file.type, file.fileUrl, clarionContent]);
-  });
-  await Promise.all(filePromises);
-  return contentId;
+  if (result.affectedRows === 0) throw new CustomError('Chat not found', 404);
 };
