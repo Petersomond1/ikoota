@@ -15,8 +15,8 @@ const Iko = ({ isNested = false }) => {
   const { data: comments, isLoading: isLoadingComments, error: errorComments } = useFetchComments();
   const [activeItem, setActiveItem] = useState(null);
 
- //if (isLoadingChats || isLoadingComments || isLoadingTeachings) return <p className="status loading">Loading...</p>;
-  //if (errorChats || errorComments || errorTeachings) return <p className="status error">Error loading data!</p>;
+ if (isLoadingChats || isLoadingComments || isLoadingTeachings) return <p className="status loading">Loading...</p>;
+  if (errorChats || errorComments || errorTeachings) return <p className="status error">Error loading data!</p>;
 
 
 

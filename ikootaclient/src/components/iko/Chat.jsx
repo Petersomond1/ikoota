@@ -8,7 +8,7 @@ import { useFetchChats } from "../service/useFetchChats";
 import { useFetchComments } from "../service/useFetchComments";
 import { useFetchTeachings } from "../service/useFetchTeachings";
 import { postComment } from '../service/commentServices';
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 
 const Chat = ({ activeItem, chats, teachings }) => {
@@ -159,6 +159,54 @@ const Chat = ({ activeItem, chats, teachings }) => {
               <p>{sanitizeMessage(comment.comment)}</p>
               <span>{new Date(comment.created_at).toLocaleString()}</span>
             </div>
+            <div>comment.media_url1</div>
+          {comment.media_url1 && comment.media_type1.startsWith('image') && (
+            <img src={comment.media_url1} alt="comment media" />
+          )}
+          {comment.media_url1 && comment.media_type1.startsWith('video') && (
+            <video controls>
+              <source src={comment.media_url1} type={comment.media_type1} />
+              Your browser does not support the video tag.
+            </video>
+          )}
+          {comment.media_url1 && comment.media_type1.startsWith('audio') && (
+            <audio controls>
+              <source src={comment.media_url1} type={comment.media_type1} />
+              Your browser does not support the audio element.
+            </audio>
+          )}
+
+          {comment.media_url2 && comment.media_type2.startsWith('image') && (
+            <img src={comment.media_url2} alt="comment media" />
+          )}
+          {comment.media_url2 && comment.media_type2.startsWith('video') && (
+            <video controls>
+              <source src={comment.media_url2} type={comment.media_type2} />
+              Your browser does not support the video tag.
+            </video>
+          )}
+          {comment.media_url2 && comment.media_type2.startsWith('audio') && (
+            <audio controls>
+              <source src={comment.media_url2} type={comment.media_type2} />
+              Your browser does not support the audio element.
+            </audio>
+          )}
+
+          {comment.media_url3 && comment.media_type3.startsWith('image') && (
+            <img src={comment.media_url3} alt="comment media" />
+          )}
+          {comment.media_url3 && comment.media_type3.startsWith('video') && (
+            <video controls>
+              <source src={comment.media_url3} type={comment.media_type3} />
+              Your browser does not support the video tag.
+            </video>
+          )}
+          {comment.media_url3 && comment.media_type3.startsWith('audio') && (
+            <audio controls>
+              <source src={comment.media_url3} type={comment.media_type3} />
+              Your browser does not support the audio element.
+            </audio>
+          )}
           </div>
         ))
       )}
