@@ -6,16 +6,20 @@ dotenv.config();
 
 export const authenticate = async (req, res, next) => {
   try {
-    const token = req.cookies.access_token;
+  const token = req.cookies.access_token || req.headers.authorization?.split(" ")[1];
+  console.log('token@authmid:', token);
+
     if (!token) {
       return res.status(401).json({ error: 'Authentication failed. No token provided.' });
     }
 
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decodedToken;
+    req.user = decodedToken;// { user_id, email, role }
 
-    if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required.' });
+  console.log('req.user@authmid:', req.user);
+
+    if (req.user === undefined) {
+      return res.status(401).json({ error: 'Authentication failed. undefined -Invalid token.' });
     }
 
     next();

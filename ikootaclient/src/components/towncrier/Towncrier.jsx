@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './towncrier.css';
 import RevTopic from './RevTopic';
 import RevPresentation from './RevPresentation';
+import {useFetchTeachings} from '../service/useFetchTeachings';
 import axios from 'axios';
 
 const Towncrier = () => {

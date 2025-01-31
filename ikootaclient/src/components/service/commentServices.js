@@ -8,9 +8,22 @@ export const postComment = async ({ chatId, userId, comment, mediaData }) => {
         comment,
         media: mediaData, // Send structured media data
       });
+      console.log("at-postComment:", response.data);
       return response.data;
+
     } catch (error) {
       console.error("Error posting comment:", error.response?.data || error.message);
+      throw error;
+    }
+  };
+
+export const getCommentData = async (commentId) => {
+    try {
+      const response = await api.get(`/comments/${commentId}`);
+      console.log("at-getCommentData:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching comment data:", error.response?.data || error.message);
       throw error;
     }
   };

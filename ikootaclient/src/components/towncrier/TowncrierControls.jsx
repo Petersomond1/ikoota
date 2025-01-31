@@ -1,13 +1,13 @@
 import React from "react";
 import { useForm } from "react-hook-form";
 import useUpload from "../../admin/hooks/useUpload";
-import { useFechTeachings } from "../service/uploadTeaching";
+import { useFetchTeachings  } from "../service/useFetchTeachings";
 import "../../admin/styles/navbar.css";
 
 const TowncrierControls = () => {
   const { handleSubmit, register, reset } = useForm();
   const { validateFiles, mutation } = useUpload("/teachings");
-  const { data: teachings, isLoading, error } = useFechTeachings();
+  const { data: teachings, isLoading, error } = useFetchTeachings ();
 
   const onSubmit = (data) => {
     const formData = new FormData();
@@ -113,14 +113,14 @@ export default TowncrierControls;
 // import { useForm, Controller } from "react-hook-form";
 // import { toast } from "react-toastify";
 // import "../../admin/styles/navbar.css";
-// import { useFechTeachings } from "../service/uploadTeaching";
+// import { useFetchTeachings } from "../service/uploadTeaching";
 // import { useMutation } from "@tanstack/react-query";
 // import api from "../service/api";
 
 // const TowncrierControls = () => {
 //   const { handleSubmit, control, register, reset, watch } = useForm();
 
-//   const { data: teachings, isLoading, error } = useFechTeachings();
+//   const { data: teachings, isLoading, error } = useFetchTeachings();
   
 //   async function sendTeachingMaterial (formData) {
 //     console.log("i triggered")

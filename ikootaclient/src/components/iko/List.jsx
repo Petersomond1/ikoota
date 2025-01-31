@@ -1,13 +1,13 @@
 import React from 'react';
 import './list.css';
 import Userinfo from './Userinfo';
-import Chatlist from './Chatlist';
+import ListComments from './ListComments';
 
-const List = () => {
+const List = ({teachings, chats, comments }) => {
   return (
     <div className='list_container'>
         <Userinfo/>
-        <Chatlist/>
+        <ListComments/>
     </div>
   )
 }

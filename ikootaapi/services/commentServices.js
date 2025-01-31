@@ -1,7 +1,7 @@
 import pool from "../config/db.js";
 import CustomError from "../utils/CustomError.js";
 
-export const createCommentService = async ({ user_id, chat_id, comment, media }) => {
+export const createCommentService = async ({ user_id, chat_id, teaching_id, comment, media }) => {
   const connection = await pool.getConnection();
   try {
     // Start transaction
@@ -10,12 +10,13 @@ export const createCommentService = async ({ user_id, chat_id, comment, media })
     // Insert comment into the database
     const [result] = await connection.query(
       `
-      INSERT INTO comments (user_id, chat_id, comment, media_url1, media_type1, media_url2, media_type2, media_url3, media_type3)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO comments (user_id, chat_id, teaching_id, comment, media_url1, media_type1, media_url2, media_type2, media_url3, media_type3)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         user_id,
         chat_id,
+        teaching_id,
         comment,
         media[0]?.url || null,
         media[0]?.type || null,
@@ -50,5 +51,23 @@ export const uploadCommentService = async (files) => {
     return uploadedFiles;
   } catch (error) {
     throw new CustomError(error.message);
+  }
+};
+
+export const getCommentsService = async ({ chat_id, teaching_id }) => {
+  try {
+    const query = `
+      SELECT * FROM comments 
+      WHERE (chat_id = ? OR ? IS NULL) 
+      AND (teaching_id = ? OR ? IS NULL) 
+      ORDER BY created_at ASC
+    `;
+
+    const [comments] = await pool.query(query, [chat_id || null, chat_id, teaching_id || null, teaching_id]);
+
+    return comments;
+  } catch (error) {
+    console.error("Error fetching comments:", error);
+    throw new CustomError("Internal Server Error");
   }
 };

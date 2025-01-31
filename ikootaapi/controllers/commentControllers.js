@@ -1,28 +1,35 @@
 import {
   createCommentService,
   uploadCommentService,
+  getCommentsService,
 } from "../services/commentServices.js";
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 export const createComment = async (req, res) => {
   try {
-    const { chat_id, comment } = req.body;
+    const { chat_id, teaching_id, comment } = req.body;
+    const { user_id } = req.user;
 
-    const user_id = req.user?.id; // Assuming `req.user` contains the authenticated user's info from the `authenticate` middleware.
+    console.log('createcomment req body:', req.body);
+    console.log('createcomment req user:', req.user);
 
-    if (!user_id || !chat_id) {
-      return res.status(400).json({ error: 'User ID and Chat ID are required.' });
+    if ((!chat_id && !teaching_id) || !comment || !user_id) {
+      return res.status(400).json({ error: "User ID, Chat ID or Teaching ID, and Comment are required." });
     }
 
     // Ensure uploaded files are processed correctly
     const files = req.uploadedFiles || [];
     const media = files.map((file, index) => ({
-      url: file.location, // Ensure this is the URL returned by S3
-      type: file.mimetype || `media${index + 1}`,
+      url: file.url, // Ensure this is the URL returned by S3
+      type: file.type || `media${index + 1}`,
     }));
 
     const newComment = await createCommentService({
       user_id,
-      chat_id,
+      chat_id: chat_id || null,
+      teaching_id: teaching_id || null,
       comment,
       media,
     });
@@ -44,5 +51,23 @@ export const uploadCommentFiles = async (req, res) => {
     res.status(201).json({ uploadedFiles, message: "Files uploaded successfully." });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+// Fetch comments based on chat_id or teaching_id
+export const getComments = async (req, res) => {
+  try {
+    const { chat_id, teaching_id } = req.query;
+
+    if (!chat_id && !teaching_id) {
+      return res.status(400).json({ error: "chat_id or teaching_id is required" });
+    }
+
+    const comments = await getCommentsService({ chat_id, teaching_id });
+
+    res.status(200).json(comments);
+  } catch (error) {
+    console.error("Error fetching comments:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };

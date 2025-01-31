@@ -1,6 +1,7 @@
 import express from 'express';
 import { uploadMiddleware, uploadToS3 } from '../middlewares/upload.middleware.js';
 import {
+  fetchAllChats,
   createChat,
   addCommentToChat,
   getChatHistory,
@@ -10,6 +11,9 @@ import {
 import { authenticate } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
+
+// Fetch all chats
+router.get('/', authenticate, fetchAllChats);
 
 // Create new chat
 router.post('/', authenticate, uploadMiddleware, uploadToS3, createChat);

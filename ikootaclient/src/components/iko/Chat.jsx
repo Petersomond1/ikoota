@@ -6,108 +6,124 @@ import DOMPurify from 'dompurify';
 import './chat.css';
 import { useFetchChats } from "../service/useFetchChats";
 import { useFetchComments } from "../service/useFetchComments";
+import { useFetchTeachings } from "../service/useFetchTeachings";
 import { postComment } from '../service/commentServices';
-import {jwtDecode} from 'jwt-decode';
- 
-  
-  const Chat = () => {
-    const { handleSubmit, register, reset } = useForm();
-    const { validateFiles, mutation: chatMutation } = useUpload("/chats");
-    const { validateFiles: validateCommentFiles, mutation: commentMutation } = useUpload("/comments");
-    const { data: chats, isLoading: isLoadingChats, error: errorChats } = useFetchChats();
-    const { data: comments, isLoading: isLoadingComments, error: errorComments } = useFetchComments();
-    const [openEmoji, setOpenEmoji] = useState(false);
-    const [addMode, setAddMode] = useState(false);
-    const [step, setStep] = useState(0); // Tracks current step in multi-input
-  
-    const handleNextStep = () => {
-      if (step < 6) setStep(step + 1);
-    };
-  
-    const handlePrevStep = () => {
-      if (step > 0) setStep(step - 1);
-    };
-  
-    const handleEmoji = (e) => {
-      setFormData({ ...formData, comment: formData.comment + e.emoji });
-      setOpenEmoji(false);
-    };
-  
-    const sanitizeMessage = (message) => {
-      return DOMPurify.sanitize(message, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a'] });
-    };
-  
-    const handleSendChat = (data) => {
-      const formData = new FormData();
-      formData.append("title", data.title);
-      formData.append("audience", data.audience);
-      formData.append("summary", data.summary);
-      formData.append("text", data.text);
-  
-      ["media1", "media2", "media3"].forEach((file) => {
-        if (data[file]?.[0]) {
-          formData.append(file, data[file][0]);
-        }
-      });
-  
-      chatMutation.mutate(formData, {
-        onSuccess: () => {
-          console.log("Chat sent!");
-          reset();
-        },
-        onError: (error) => {
-          console.error("Error uploading chat:", error);
-        },
-      });
-    };
-  
-    const handleSendComment = async (data) => {
+import jwtDecode from 'jwt-decode';
+import axios from 'axios';
+
+const Chat = ({ activeItem, chats, teachings }) => {
+  const { handleSubmit, register, reset } = useForm();
+  const { validateFiles, mutation: chatMutation } = useUpload("/chats");
+  const { validateFiles: validateCommentFiles, mutation: commentMutation } = useUpload("/comments");
+
+  const { data: comments, isLoading: isLoadingComments } = useFetchComments(activeItem);
+
+  const [formData, setFormData] = useState({});
+  const [openEmoji, setOpenEmoji] = useState(false);
+  const [addMode, setAddMode] = useState(false);
+  const [step, setStep] = useState(0); // Tracks current step in multi-input
+
+  const activeContent = activeItem && activeItem.type === 'chat'
+    ? chats.find(chat => chat.id === activeItem.id)
+    : activeItem && teachings.find(teaching => teaching.id === activeItem.id);
+
+  const handleNextStep = () => {
+    if (step < 6) setStep(step + 1);
+  };
+
+  const handlePrevStep = () => {
+    if (step > 0) setStep(step - 1);
+  };
+
+  const handleEmoji = (e) => {
+    setFormData({ ...formData, comment: formData.comment + e.emoji });
+    setOpenEmoji(false);
+  };
+
+  const sanitizeMessage = (message) => {
+    return DOMPurify.sanitize(message, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a'] });
+  };
+
+  const handleSendChat = (data) => {
+    const formData = new FormData();
+    formData.append("created_by", data.user_id);
+    formData.append("title", data.title);
+    formData.append("audience", data.audience);
+    formData.append("summary", data.summary);
+    formData.append("text", data.text);
+    formData.append("is_flagged", false);
+
+    ["media1", "media2", "media3"].forEach((file) => {
+      if (data[file]?.[0]) {
+        formData.append(file, data[file][0]);
+      }
+    });
+
+    chatMutation.mutate(formData, {
+      onSuccess: () => {
+        console.log("Chat sent!");
+        reset();
+      },
+      onError: (error) => {
+        console.error("Error uploading chat:", error);
+      },
+    });
+  };
+
+  const handleSendComment = async (data) => {
+    let user_id;
+
+    const token = localStorage.getItem("token");
+    if (token) {
+      const decodedToken = jwtDecode(token);
+      user_id = decodedToken.user_id;
+    } else {
       const tokenCookie = document.cookie.split('; ').find(row => row.startsWith('access_token='));
-      if (!tokenCookie) {
-        console.error("Access token not found in cookies");
+      if (tokenCookie) {
+        const token = tokenCookie.split('=')[1];
+        const decodedToken = jwtDecode(token);
+        user_id = decodedToken.user_id;
+      } else {
+        console.error("Access token not found in localStorage or cookies");
         return;
       }
-      const token = tokenCookie.split('=')[1];
-       const decodedToken = jwtDecode(token);
-      // const decodedToken = decode(token);
-      const userId = decodedToken.id;
-  
-      const formData = new FormData();
-      formData.append("comment", data.comment);
-      formData.append("chat_id", data.chatId);
-      formData.append("user_id", userId);
-  
-      ["media1", "media2", "media3"].forEach((file) => {
-        if (data[file]?.[0]) {
-          formData.append(file, data[file][0]);
-        }
-      });
-  
-      commentMutation.mutate(formData, {
-        onSuccess: async (uploadResponse) => {
-          const { mediaUrls } = uploadResponse.data; // Ensure backend returns uploaded media URLs
-          const mediaData = mediaUrls.map((url, index) => ({
-            url,
-            type: data[`media${index + 1}`]?.[0]?.type || "unknown",
-          }));
-  
-          await postComment({
-            chatId: data.chatId,
-            userId,
-            comment: data.comment,
-            mediaData,
-          });
-          alert("Comment posted successfully!");
-          reset();
-        },
-        onError: (error) => {
-          console.error("Error uploading comment:", error);
-        },
-      });
-    };
-  // Loading and error states
-  // if (isLoadingChats || isLoadingComments) return <p className="status loading">Loading...</p>;
-  // if (errorChats || errorComments) return <p className="status error">Error loading data!</p>;
+      console.log('user_id@chat', user_id);
+    }
+
+    const formData = new FormData();
+    formData.append("comment", data.comment);
+    formData.append(activeItem.type === 'chat' ? "chat_id" : "teaching_id", activeItem.id);
+    formData.append("user_id", user_id);
+    console.log('data at formdat@chat', data);
+    ["media1", "media2", "media3"].forEach((file) => {
+      if (data[file]?.[0]) {
+        formData.append(file, data[file][0]);
+      }
+    });
+
+    commentMutation.mutate(formData, {
+      onSuccess: async (uploadResponse) => {
+        const { mediaUrls } = uploadResponse.data; // Ensure backend returns uploaded media URLs
+        const mediaData = mediaUrls.map((url, index) => ({
+          url,
+          type: data[`media${index + 1}`]?.[0]?.type || "unknown",
+        }));
+
+        await postComment({
+          chat_id: activeItem.type === 'chat' ? activeItem.id : null,
+          teaching_id: activeItem.type === 'teaching' ? activeItem.id : null,
+          user_id,
+          comment: data.comment,
+          mediaData,
+        });
+        alert("Comment posted successfully!");
+        reset();
+      },
+      onError: (error) => {
+        console.error("Error uploading comment:", error);
+      },
+    });
+  };
 
   return (
     <div className="chat_container">
@@ -116,8 +132,8 @@ import {jwtDecode} from 'jwt-decode';
           <img src="./avatar.png" alt="" />
         </div>
         <div className="texts">
-          <span>Jane Dee</span>
-          <p>Lorem ipsum dolor sit amet, </p>
+          <span>{activeContent?.created_by || 'Admin'}</span>
+          <p>{activeContent?.title || activeContent?.topic}</p>
         </div>
         <div className="icons">
           <img src="./phone.png" alt="" />
@@ -127,37 +143,25 @@ import {jwtDecode} from 'jwt-decode';
       </div>
 
       <div className="center">
-      {chats?.map((chat) => (
-          <div key={chat.id} className="message">
-            <img src="./avatar.png" alt="Chat Avatar" />
-            <div className="texts">
-              <p>{sanitizeMessage(chat.text)}</p>
-              <span>1 min ago</span>
-            </div>
+        <div className="message">
+          <img src="./avatar.png" alt="Chat Avatar" />
+          <div className="texts">
+            <p>{sanitizeMessage(activeContent?.text || activeContent?.content)}</p>
+            <span>{new Date(activeContent?.created_at || activeContent?.createdAt).toLocaleString()}</span>
           </div>
-        ))}
-        {comments?.map((comment) => (
+        </div>
+        {isLoadingComments ? (
+        <p>Loading comments...</p>
+      ) : (
+        comments?.filter(comment => comment.chat_id === activeItem.id || comment.teaching_id === activeItem.id).map((comment) => (
           <div key={comment.id} className="message Own">
             <div className="texts">
               <p>{sanitizeMessage(comment.comment)}</p>
-              <span>2 mins ago</span>
+              <span>{new Date(comment.created_at).toLocaleString()}</span>
             </div>
           </div>
-        ))}
-        <div className="message">
-          <img src="./avatar.png" alt="" />
-          <div className="texts">
-            <p>Lorem ipsum dolor sit amet consectetur adipisicing elit Velit maxime consectetur accusantium? Eligendi vel quos nisi et dolorem quaerat quidem itaque vero ducimus aspernatur! Aspernatur accusantium nostrum fuga incidunt facere?</p>
-            <span>1 min ago</span>
-          </div>
-        </div>
-        <div className="message Own">
-          <div className="texts">
-            <img src="https://ik.imagekit.io/amazonmondayp/Amazon_Ecommerce_Capstone_Prjt_row_1_Carousel/61yTkc3VJ1L._AC_SL1000_.jpg?updatedAt=1713057245841" alt="" />
-            <p>Lorem ipsum dolor sit amet consectetur adipisicing elit Velit maxime consectetur accusantium? Eligendi vel quos nisi et dolorem quaerat quidem itaque vero ducimus aspernatur! Aspernatur accusantium nostrum fuga incidunt facere?</p>
-            <span>1 min ago</span>
-          </div>
-        </div>
+        ))
+      )}
       </div>
 
       <div className="bottom">
@@ -174,13 +178,13 @@ import {jwtDecode} from 'jwt-decode';
               <img src="./mic.png" alt="Mic" />
             </div>
             {step === 0 && (
-            <input
-              type="text"
-              placeholder="Type a message..."
-              {...register("comment", { required: "Comment is required" })}
-            />
+              <input
+                type="text"
+                placeholder="Type a message..."
+                {...register("comment", { required: "Comment is required" })}
+              />
             )}
-             {step === 1 && (
+            {step === 1 && (
               <input
                 type="file"
                 multiple
@@ -218,7 +222,7 @@ import {jwtDecode} from 'jwt-decode';
                 type="text"
                 placeholder="Enter Title"
                 {...register("title", { required: "Title is required" })}
-                />
+              />
             )}
             {step === 1 && (
               <input

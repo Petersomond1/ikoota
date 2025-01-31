@@ -1,16 +1,22 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
 import api from "./api.js";
 
 // Fetch comments
-export const useFetchComments= () => {
-  console.log("this is the get request");
-
+export const useFetchComments = (activeItem) => {
   return useQuery({
-    queryKey: ["comments"], // Corrected to use an array
+    queryKey: ["comments", activeItem?.id], // Corrected to use an array
     queryFn: async () => {
-      const response = await api.get("/comments");
+      if (!activeItem) return [];
+      const response = await api.get("/comments", {
+          params: {
+            chat_id: activeItem.type === "chat" ? activeItem.id : null,
+            teaching_id: activeItem.type === "teaching" ? activeItem.id : null,
+          },
+        }
+      );
+      console.log("at-useFetchComments:", response.data);
       return response.data;
     },
+    enabled: !!activeItem, // Only fetch when activeItem is set
   });
 };

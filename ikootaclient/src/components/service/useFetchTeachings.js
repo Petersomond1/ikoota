@@ -3,7 +3,7 @@ import axios from "axios";
 import api from "./api.js";
 
 // Fetch teachings
-export const useFechTeachings = () => {
+export const useFetchTeachings = () => {
   console.log("this is the get request");
 
   return useQuery({
@@ -14,4 +14,3 @@ export const useFechTeachings = () => {
     },
   });
 };
-

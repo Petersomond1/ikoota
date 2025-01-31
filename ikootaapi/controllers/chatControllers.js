@@ -1,4 +1,7 @@
+// ikootaapi/controllers/chatControllers.js
+
 import {
+  getAllChats,
   createChatService,
   getChatHistoryService,
   updateChatById,
@@ -6,9 +9,20 @@ import {
   addCommentToChatService,
 } from '../services/chatServices.js';
 
+
+export const fetchAllChats = async (req, res) => {
+  try {
+    const chats = await getAllChats();
+    res.status(200).json(chats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 export const createChat = async (req, res) => {
   try {
-    const { title, created_by, audience, summary, text } = req.body;
+    const { title, created_by, audience, summary, text, is_flagged } = req.body;
     const files = req.uploadedFiles || [];
     const media = files.map((file) => ({
       url: file.url,
@@ -21,6 +35,7 @@ export const createChat = async (req, res) => {
       audience,
       summary,
       text,
+      is_flagged,
       media,
     });
 

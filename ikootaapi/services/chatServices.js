@@ -1,14 +1,22 @@
 import pool from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
 
+// Fetch all chats
+export const getAllChats = async () => {
+  const [rows] = await pool.query('SELECT * FROM chats ORDER BY created_at DESC');
+  return rows;
+};
+
+
+// Add a new chat
 export const createChatService = async (chatData) => {
-  const { title, created_by, audience, summary, text, approval_status } = chatData;
+  const { title, created_by, audience, summary, text, approval_status, is_flagged } = chatData;
 
   const [media1, media2, media3] = chatData.media || [];
 
   const sql = `
-    INSERT INTO chats (title, created_by, audience, summary, text, approval_status, media_url1, media_type1, media_url2, media_type2, media_url3, media_type3)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO chats (title, created_by, audience, summary, text, approval_status, media_url1, media_type1, media_url2, media_type2, media_url3, media_type3, is_flagged)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   const [result] = await pool.query(sql, [
     title,
@@ -17,6 +25,7 @@ export const createChatService = async (chatData) => {
     summary,
     text,
     approval_status || 'pending',
+    is_flagged || 0,
     media1?.url || null,
     media1?.type || null,
     media2?.url || null,
@@ -37,19 +46,21 @@ export const updateChatById = async (id, data) => {
     text,
     media,
     approval_status,
+    is_flagged,
   } = data;
 
   const [media1, media2, media3] = media || [];
 
   const sql = `
     UPDATE chats
-    SET title = ?, summary = ?, text = ?, media_url1 = ?, media_type1 = ?, media_url2 = ?, media_type2 = ?, media_url3 = ?, media_type3 = ?, approval_status = ?, updated_at = NOW()
+    SET title = ?, summary = ?, text = ?, media_url1 = ?, media_type1 = ?, media_url2 = ?, media_type2 = ?, media_url3 = ?, media_type3 = ?, approval_status = ?, is_flagged = ?, updated_at = NOW()
     WHERE id = ?
   `;
   const [result] = await pool.query(sql, [
     title,
     summary,
     text,
+    is_flagged || 0,
     media1?.url || null,
     media1?.type || null,
     media2?.url || null,

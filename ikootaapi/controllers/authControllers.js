@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
 import crypto from 'crypto';
 import db from '../config/db.js';
 import { sendEmail } from '../utils/email.js';
@@ -11,6 +12,7 @@ import { registerUserService, loginUserService,  sendPasswordResetEmailOrSMS,
   generateVerificationCode,} from '../services/authServices.js';
 
 const SECRET_KEY = process.env.SECRET_KEY;
+dotenv.config();
 
 export const registerUser = async (req, res, next) => {
     try {
@@ -20,7 +22,7 @@ export const registerUser = async (req, res, next) => {
       }
       const userId = await registerUserService({ username, email, password, phone });
   
-      const user = { userId, email, is_member: false, role: false };
+      const user = { user_id, email, is_member: false, role: false };
       const token = generateToken(user);
   
       res.cookie('access_token', token, { httpOnly: true });
