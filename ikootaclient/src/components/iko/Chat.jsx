@@ -1,32 +1,47 @@
+
+
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import useUpload from "../../admin/hooks/useUpload";
-import EmojiPicker from 'emoji-picker-react';
-import DOMPurify from 'dompurify';
-import './chat.css';
+import EmojiPicker from "emoji-picker-react";
+import DOMPurify from "dompurify";
+import ReactPlayer from "react-player";
+import "./chat.css";
 import { useFetchChats } from "../service/useFetchChats";
 import { useFetchComments } from "../service/useFetchComments";
 import { useFetchTeachings } from "../service/useFetchTeachings";
-import { postComment } from '../service/commentServices';
-import { jwtDecode } from 'jwt-decode';
-import axios from 'axios';
+import { postComment } from "../service/commentServices";
+import { jwtDecode } from "jwt-decode";
+import axios from "axios";
+import MediaGallery from "./MediaGallery"; // Import MediaGallery Component
 
-const Chat = ({ activeItem, chats, teachings }) => {
+const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
   const { handleSubmit, register, reset } = useForm();
   const { validateFiles, mutation: chatMutation } = useUpload("/chats");
   const { validateFiles: validateCommentFiles, mutation: commentMutation } = useUpload("/comments");
 
-  const { data: comments, isLoading: isLoadingComments } = useFetchComments(activeItem);
+  // Fix duplicate variable name
+  const { data: fetchedComments, isLoading: isLoadingComments } = useFetchComments(activeItem);
 
   const [formData, setFormData] = useState({});
   const [openEmoji, setOpenEmoji] = useState(false);
   const [addMode, setAddMode] = useState(false);
-  const [step, setStep] = useState(0); // Tracks current step in multi-input
+  const [step, setStep] = useState(0);
+  const [playingMedia, setPlayingMedia] = useState(null);
 
-  const activeContent = activeItem && activeItem.type === 'chat'
-    ? chats.find(chat => chat.id === activeItem.id)
-    : activeItem && teachings.find(teaching => teaching.id === activeItem.id);
+  const activeContent =
+    activeItem && activeItem.type === "chat"
+      ? chats.find((chat) => chat.id === activeItem.id)
+      : activeItem
+      ? teachings.find((teaching) => teaching.id === activeItem.id)
+      : null;
 
+  if (!activeItem) {
+    return <p className="status">Select a chat or teaching to start.</p>;
+  }
+
+
+  
   const handleNextStep = () => {
     if (step < 6) setStep(step + 1);
   };
@@ -35,13 +50,15 @@ const Chat = ({ activeItem, chats, teachings }) => {
     if (step > 0) setStep(step - 1);
   };
 
+
+  
   const handleEmoji = (e) => {
-    setFormData({ ...formData, comment: formData.comment + e.emoji });
+    setFormData({ ...formData, comment: (formData.comment || "") + e.emoji });
     setOpenEmoji(false);
   };
 
   const sanitizeMessage = (message) => {
-    return DOMPurify.sanitize(message, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a'] });
+    return DOMPurify.sanitize(message, { ALLOWED_TAGS: ["b", "i", "em", "strong", "a"] });
   };
 
   const handleSendChat = (data) => {
@@ -70,31 +87,28 @@ const Chat = ({ activeItem, chats, teachings }) => {
     });
   };
 
+
   const handleSendComment = async (data) => {
     let user_id;
-
     const token = localStorage.getItem("token");
+
     if (token) {
-      const decodedToken = jwtDecode(token);
-      user_id = decodedToken.user_id;
+      user_id = jwtDecode(token).user_id;
     } else {
-      const tokenCookie = document.cookie.split('; ').find(row => row.startsWith('access_token='));
+      const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("access_token="));
       if (tokenCookie) {
-        const token = tokenCookie.split('=')[1];
-        const decodedToken = jwtDecode(token);
-        user_id = decodedToken.user_id;
+        user_id = jwtDecode(tokenCookie.split("=")[1]).user_id;
       } else {
-        console.error("Access token not found in localStorage or cookies");
+        console.error("Access token not found");
         return;
       }
-      console.log('user_id@chat', user_id);
     }
 
     const formData = new FormData();
     formData.append("comment", data.comment);
-    formData.append(activeItem.type === 'chat' ? "chat_id" : "teaching_id", activeItem.id);
+    formData.append(activeItem.type === "chat" ? "chat_id" : "teaching_id", activeItem.id);
     formData.append("user_id", user_id);
-    console.log('data at formdat@chat', data);
+
     ["media1", "media2", "media3"].forEach((file) => {
       if (data[file]?.[0]) {
         formData.append(file, data[file][0]);
@@ -103,42 +117,46 @@ const Chat = ({ activeItem, chats, teachings }) => {
 
     commentMutation.mutate(formData, {
       onSuccess: async (uploadResponse) => {
-        const { mediaUrls } = uploadResponse.data; // Ensure backend returns uploaded media URLs
+        const { mediaUrls } = uploadResponse.data;
         const mediaData = mediaUrls.map((url, index) => ({
           url,
           type: data[`media${index + 1}`]?.[0]?.type || "unknown",
         }));
 
         await postComment({
-          chat_id: activeItem.type === 'chat' ? activeItem.id : null,
-          teaching_id: activeItem.type === 'teaching' ? activeItem.id : null,
+          chat_id: activeItem.type === "chat" ? activeItem.id : null,
+          teaching_id: activeItem.type === "teaching" ? activeItem.id : null,
           user_id,
           comment: data.comment,
           mediaData,
         });
+
         alert("Comment posted successfully!");
         reset();
       },
-      onError: (error) => {
-        console.error("Error uploading comment:", error);
-      },
+      onError: (error) => console.error("Error uploading comment:", error),
     });
+  };
+
+
+  const handleMediaClick = (url) => {
+    setPlayingMedia(url);
   };
 
   return (
     <div className="chat_container">
       <div className="top">
         <div className="user">
-          <img src="./avatar.png" alt="" />
+          <img src="./avatar.png" alt="Avatar" />
         </div>
         <div className="texts">
-          <span>{activeContent?.created_by || 'Admin'}</span>
+          <span>{activeContent?.created_by || "Admin"}</span>
           <p>{activeContent?.title || activeContent?.topic}</p>
         </div>
         <div className="icons">
-          <img src="./phone.png" alt="" />
-          <img src="./video.png" alt="" />
-          <img src="./info.png" alt="" />
+          <img src="./phone.png" alt="Phone" />
+          <img src="./video.png" alt="Video" />
+          <img src="./info.png" alt="Info" />
         </div>
       </div>
 
@@ -150,66 +168,32 @@ const Chat = ({ activeItem, chats, teachings }) => {
             <span>{new Date(activeContent?.created_at || activeContent?.createdAt).toLocaleString()}</span>
           </div>
         </div>
+
         {isLoadingComments ? (
-        <p>Loading comments...</p>
-      ) : (
-        comments?.filter(comment => comment.chat_id === activeItem.id || comment.teaching_id === activeItem.id).map((comment) => (
-          <div key={comment.id} className="message Own">
-            <div className="texts">
-              <p>{sanitizeMessage(comment.comment)}</p>
-              <span>{new Date(comment.created_at).toLocaleString()}</span>
-            </div>
-            <div>comment.media_url1</div>
-          {comment.media_url1 && comment.media_type1.startsWith('image') && (
-            <img src={comment.media_url1} alt="comment media" />
-          )}
-          {comment.media_url1 && comment.media_type1.startsWith('video') && (
-            <video controls>
-              <source src={comment.media_url1} type={comment.media_type1} />
-              Your browser does not support the video tag.
-            </video>
-          )}
-          {comment.media_url1 && comment.media_type1.startsWith('audio') && (
-            <audio controls>
-              <source src={comment.media_url1} type={comment.media_type1} />
-              Your browser does not support the audio element.
-            </audio>
-          )}
-
-          {comment.media_url2 && comment.media_type2.startsWith('image') && (
-            <img src={comment.media_url2} alt="comment media" />
-          )}
-          {comment.media_url2 && comment.media_type2.startsWith('video') && (
-            <video controls>
-              <source src={comment.media_url2} type={comment.media_type2} />
-              Your browser does not support the video tag.
-            </video>
-          )}
-          {comment.media_url2 && comment.media_type2.startsWith('audio') && (
-            <audio controls>
-              <source src={comment.media_url2} type={comment.media_type2} />
-              Your browser does not support the audio element.
-            </audio>
-          )}
-
-          {comment.media_url3 && comment.media_type3.startsWith('image') && (
-            <img src={comment.media_url3} alt="comment media" />
-          )}
-          {comment.media_url3 && comment.media_type3.startsWith('video') && (
-            <video controls>
-              <source src={comment.media_url3} type={comment.media_type3} />
-              Your browser does not support the video tag.
-            </video>
-          )}
-          {comment.media_url3 && comment.media_type3.startsWith('audio') && (
-            <audio controls>
-              <source src={comment.media_url3} type={comment.media_type3} />
-              Your browser does not support the audio element.
-            </audio>
-          )}
-          </div>
-        ))
-      )}
+          <p>Loading comments...</p>
+        ) : (
+          fetchedComments
+            ?.filter(
+              (comment) =>
+                (activeItem?.type === "chat" && comment.chat_id === activeItem?.id) ||
+                (activeItem?.type === "teaching" && comment.teaching_id === activeItem?.id)
+            )
+            .map((comment) => (
+              <div key={comment.id} className="message Own">
+                <div className="texts">
+                  <p>{sanitizeMessage(comment.comment)}</p>
+                  <span>{new Date(comment.created_at).toLocaleString()}</span>
+                  <MediaGallery
+                    mediaFiles={[
+                      { url: comment.media_url1, type: comment.media_type1 },
+                      { url: comment.media_url2, type: comment.media_type2 },
+                      { url: comment.media_url3, type: comment.media_type3 },
+                    ].filter((media) => media.url)}
+                  />
+                </div>
+              </div>
+            ))
+        )}
       </div>
 
       <div className="bottom">
@@ -330,4 +314,4 @@ const Chat = ({ activeItem, chats, teachings }) => {
   );
 };
 
-export default Chat;
+export default Chat; 
