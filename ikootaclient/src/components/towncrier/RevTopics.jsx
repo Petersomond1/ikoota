@@ -1,44 +1,37 @@
-import React from 'react';
-import './revtopic.css';
+import React from "react";
+import "./revtopics.css";
 
-const RevTopic = ({ topics = [], onSelect }) => {
-  const [addMode, setAddMode] = React.useState(false);
-
+const RevTopics = ({ teachings = [], onSelect }) => {
   return (
     <div className="revtopic-container">
       <div className="search">
         <div className="searchbar">
           <img src="./search.png" alt="Search Icon" />
-          <input type="text" placeholder="Search" />
+          <input type="text" placeholder="Search teachings..." />
         </div>
-        <img
-          src={addMode ? './minus.png' : './plus.png'}
-          alt="Toggle Add Mode"
-          className="add"
-          onClick={() => setAddMode(!addMode)}
-        />
       </div>
 
-      {topics.length > 0 ? (
-        topics.map((topic) => (
-          <div key={topic.id} className="topic-item">
-            <div className="texts" onClick={() => onSelect(topic)}>
-              <span>Topic: {topic.title}</span>
-              <p>Description: {topic.description}</p>
-              <p>Audience: {topic.audience}</p>
-              <p>By: {topic.author}</p>
-              <p>Date: {new Date(topic.createdAt).toLocaleString()}</p>
+      {teachings.length > 0 ? (
+        teachings.map((teaching) => (
+          <div key={teaching.id} className="topic-item" onClick={() => onSelect(teaching)}>
+            <div className="texts">
+              <span>Topic: {teaching.topic}</span>
+              <p>Description: {teaching.description}</p>
+              <p>Audience: {teaching.audience}</p>
+              <p>By: {teaching.author}</p>
+              <p>Date: {new Date(teaching.createdAt).toLocaleString()}</p>
             </div>
           </div>
         ))
       ) : (
-        <p>No topics available</p>
+        <p>No teachings available</p>
       )}
     </div>
   );
 };
 
-export default RevTopic;
+export default RevTopics;
+
 
 
 

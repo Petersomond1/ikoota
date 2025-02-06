@@ -1,52 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import './towncrier.css';
-import RevTopic from './RevTopic';
-import RevPresentation from './RevPresentation';
-import {useFetchTeachings} from '../service/useFetchTeachings';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import "./towncrier.css";
+import RevTopics from "./RevTopics";
+import RevTeaching from "./RevTeaching";
+import { useFetchTeachings } from "../service/useFetchTeachings";
 
 const Towncrier = () => {
-  const [topics, setTopics] = useState([]);
-  const [presentations, setPresentations] = useState([]);
-  const [selectedTopic, setSelectedTopic] = useState(null);
+  const { data: teachings = [], isLoading, error } = useFetchTeachings();
+  const [selectedTeaching, setSelectedTeaching] = useState(null);
 
+  // Set the latest teaching as the default selection
   useEffect(() => {
-    fetchTopics();
-    fetchPresentations();
-  }, []);
-
-  const fetchTopics = async () => {
-    try {
-      const response = await axios.get('/api/topics'); // Replace with actual API endpoint
-      // setTopics(response.data || []);
-      setTopics(Array.isArray(response.data) ? response.data : []); 
-    } catch (error) {
-      console.error('Error fetching topics:', error);
-      setTopics([]); // Fallback to an empty array in case of error
+    if (teachings.length > 0) {
+      setSelectedTeaching(teachings[0]);
     }
+  }, [teachings]);
+
+  const handleSelectTeaching = (teaching) => {
+    setSelectedTeaching(teaching);
   };
 
-  const fetchPresentations = async () => {
-    try {
-      const response = await axios.get('/api/presentations'); // Replace with actual API endpoint
-     /* setPresentations(response.data || []); */
-      setPresentations(Array.isArray(response.data) ? response.data : []); // Ensure data is an array
-    } catch (error) {
-      console.error('Error fetching presentations:', error);
-      setPresentations([]); // Fallback to an empty array in case of error
-    }
-  };
-
-  const handleSelectTopic = (topic) => {
-    setSelectedTopic(topic);
-  };
+  if (isLoading) return <p>Loading teachings...</p>;
+  if (error) return <p>Error fetching teachings: {error.message}</p>;
 
   return (
     <div className="towncrier_container">
       <div className="nav">Navbar: Towncrier</div>
       <div className="towncrier_viewport">
-        <RevTopic topics={topics} onSelect={handleSelectTopic} />
-        <RevPresentation presentations={presentations} selectedTopic={selectedTopic} />
+        {/* Left side: Topics List */}
+        <RevTopics teachings={teachings} onSelect={handleSelectTeaching} />
+        
+        {/* Right side: Selected Teaching Details */}
+        <RevTeaching teaching={selectedTeaching} />
       </div>
       <div className="footnote">Footnote</div>
     </div>
@@ -54,6 +38,3 @@ const Towncrier = () => {
 };
 
 export default Towncrier;
-
-// This Towncrier.jsx will fetch/receive only props of teachings from TowncrierControls.jsx,
-

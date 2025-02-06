@@ -1,50 +1,56 @@
-const RevPresentation = ({ presentations, selectedTopic }) => {
-  const filteredPresentations = selectedTopic
-    ? presentations.filter((presentation) => presentation.topicId === selectedTopic.id)
-    : presentations;
+import React from "react";
+import ReactPlayer from "react-player";
+import "./revteaching.css";
+
+const RevTeaching = ({ teaching }) => {
+  if (!teaching) return <p>Select a teaching to view details.</p>;
 
   return (
-    <div className="revpresentation-container">
-      {filteredPresentations?.map((presentation) => (
-        <div key={presentation.id} className="presentation-item">
-          <div className="top">
-            <p>Summary: {presentation.summary}</p>
-         <img src="./phone.png" alt="Phone icon" />
-         <img src="./email.png" alt="Email icon" />
-         <img src="./whatsapp.png" alt="WhatsApp icon" />
-        </div>
-        <div className="center">
-          <div className="message">
-            <img src="./avatar.png" alt="" />
-            <div className="texts">
-              <p>{presentation.message}</p>
-              <video src={presentation.video} controls></video>
-              <img src={presentation.img} alt="" />
-             <p>{presentation.music} </p>
-             <p>{presentation.emoji}</p>
-              <span>{presentation.createdAt}</span>
-            </div>
-          </div>
+    <div className="revTeaching-container">
+      <div className="teaching-item">
+        <h2>{teaching.topic}</h2>
+        <p>{teaching.description}</p>
+        <p>Lesson #: {teaching.lessonNumber}</p>
+        <p>Subject Matter: {teaching.subjectMatter}</p>
+        <p>Audience: {teaching.audience}</p>
+        <p>By: {teaching.author}</p>
+        <p>Date: {new Date(teaching.createdAt).toLocaleString()}</p>
+
+        {/* Display media content dynamically */}
+        <div className="media-container">
+          {teaching.media_url1 && teaching.media_type1 === "video" && (
+            <ReactPlayer url={teaching.media_url1} controls width="100%" />
+          )}
+          {teaching.media_url2 && teaching.media_type2 === "image" && (
+            <img src={teaching.media_url2} alt="Teaching Image" />
+          )}
+          {teaching.media_url3 && teaching.media_type3 === "audio" && (
+            <audio controls>
+              <source src={teaching.media_url3} type="audio/mpeg" />
+              Your browser does not support the audio element.
+            </audio>
+          )}
         </div>
       </div>
-      ))}
     </div>
   );
-}
-export default RevPresentation;
+};
+
+export default RevTeaching;
+
 
 
 
 // import React from 'react';
-// import './revpresentation.css'
+// import './revTeaching.css'
 
-// const RevPresentation = () => {
+// const RevTeaching = () => {
 
 
      
      
 //        return (
-//          <div className='revpresentation_container'>
+//          <div className='revTeaching_container'>
 //              <div className="top">
 //                  <p>Summary:</p><p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Aspernatur, optio delectus ipsa vero veniam odit eveniet fuga repellendus dicta impedit officiis! Harum ratione aliquam in impedit fugit omnis labore excepturi.</p><p>You feel misinformed by this? Contact the Ogha-nMoo Elden</p>
 //                  <img src="./phone.png" alt="Phone icon" />
@@ -120,5 +126,5 @@ export default RevPresentation;
 //   )
 // }
 
-// export default RevPresentation
+// export default RevTeaching
 
