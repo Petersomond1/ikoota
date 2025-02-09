@@ -40,8 +40,6 @@ const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
     return <p className="status">Select a chat or teaching to start.</p>;
   }
 
-
-  
   const handleNextStep = () => {
     if (step < 6) setStep(step + 1);
   };
@@ -50,8 +48,6 @@ const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
     if (step > 0) setStep(step - 1);
   };
 
-
-  
   const handleEmoji = (e) => {
     setFormData({ ...formData, comment: (formData.comment || "") + e.emoji });
     setOpenEmoji(false);
@@ -86,7 +82,6 @@ const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
       },
     });
   };
-
 
   const handleSendComment = async (data) => {
     let user_id;
@@ -137,7 +132,6 @@ const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
       onError: (error) => console.error("Error uploading comment:", error),
     });
   };
-
 
   const handleMediaClick = (url) => {
     setPlayingMedia(url);

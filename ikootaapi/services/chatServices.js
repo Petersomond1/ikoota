@@ -7,6 +7,12 @@ export const getAllChats = async () => {
   return rows;
 };
 
+// Fetch chats by user_id
+export const getChatsByUserId = async (user_id) => {
+  const [rows] = await pool.query('SELECT * FROM chats WHERE user_id = ? ORDER BY created_at DESC', [user_id]);
+  return rows;
+};
+
 
 // Add a new chat
 export const createChatService = async (chatData) => {
@@ -117,4 +123,10 @@ export const deleteChatById = async (id) => {
   const [result] = await pool.query('DELETE FROM chats WHERE id = ?', [id]);
 
   if (result.affectedRows === 0) throw new CustomError('Chat not found', 404);
+};
+
+// Fetch chats by a list of IDs
+export const getChatsByIds = async (ids) => {
+  const [rows] = await pool.query('SELECT * FROM chats WHERE id IN (?) ORDER BY created_at DESC', [ids]);
+  return rows;
 };

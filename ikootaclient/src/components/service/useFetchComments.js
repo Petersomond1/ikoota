@@ -14,7 +14,6 @@ export const useFetchComments = (activeItem) => {
           },
         }
       );
-      console.log("at-useFetchComments:", response.data);
       return response.data;
     },
     enabled: !!activeItem, // Only fetch when activeItem is set

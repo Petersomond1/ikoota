@@ -4,7 +4,7 @@ import api from "./api.js";
 
 // Fetch teachings
 export const useFetchTeachings = () => {
-  console.log("this is the get request");
+  // console.log("this is the get request");
 
   return useQuery({
     queryKey: ["teachings"], // Corrected to use an array

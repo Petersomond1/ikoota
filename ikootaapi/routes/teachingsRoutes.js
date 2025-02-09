@@ -3,6 +3,7 @@ import { uploadMiddleware, uploadToS3 } from '../middlewares/upload.middleware.j
 import {
   createTeaching,
   fetchAllTeachings,
+  fetchTeachingsByUserId,
   editTeaching,
   removeTeaching,
 } from '../controllers/teachingsControllers.js';
@@ -12,6 +13,9 @@ const router = express.Router();
 
 // Fetch all teachings
 router.get('/', authenticate, fetchAllTeachings);
+
+// Fetch teachings by user_id
+router.get('/user', authenticate, fetchTeachingsByUserId);
 
 // 1 Create a new teaching through uploadToS3
 router.post("/", authenticate, uploadMiddleware, uploadToS3, createTeaching);

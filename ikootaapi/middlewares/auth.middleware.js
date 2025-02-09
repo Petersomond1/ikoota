@@ -16,7 +16,7 @@ export const authenticate = async (req, res, next) => {
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decodedToken;// { user_id, email, role }
 
-  console.log('req.user@authmid:', req.user);
+  // console.log('req.user@authmid:', req.user);
 
     if (req.user === undefined) {
       return res.status(401).json({ error: 'Authentication failed. undefined -Invalid token.' });

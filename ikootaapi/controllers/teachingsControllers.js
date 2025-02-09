@@ -1,5 +1,6 @@
 import {
   getAllTeachings,
+  getTeachingsByUserId,
   createTeachingService,
   updateTeachingById,
   deleteTeachingById,
@@ -8,6 +9,16 @@ import {
 export const fetchAllTeachings = async (req, res) => {
   try {
     const teachings = await getAllTeachings();
+    res.status(200).json(teachings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const fetchTeachingsByUserId = async (req, res) => {
+  const { user_id } = req.query;
+  try {
+    const teachings = await getTeachingsByUserId(user_id);
     res.status(200).json(teachings);
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -7,6 +7,14 @@ export const getAllTeachings = async () => {
   return rows;
 };
 
+
+// Fetch teachings by user_id
+export const getTeachingsByUserId = async (user_id) => {
+  const [rows] = await pool.query('SELECT * FROM teachings WHERE user_id = ? ORDER BY createdAt DESC', [user_id]);
+  return rows;
+};
+
+
 // Add a new teaching
 export const createTeachingService = async (data) => {
   const {
@@ -104,4 +112,11 @@ export const deleteTeachingById = async (id) => {
   const [result] = await pool.query('DELETE FROM teachings WHERE id = ?', [id]);
 
   if (result.affectedRows === 0) throw new CustomError('Teaching not found', 404);
+};
+
+
+// Fetch teachings by a list of IDs
+export const getTeachingsByIds = async (ids) => {
+  const [rows] = await pool.query('SELECT * FROM teachings WHERE id IN (?) ORDER BY createdAt DESC', [ids]);
+  return rows;
 };

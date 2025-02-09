@@ -2,6 +2,7 @@
 
 import {
   getAllChats,
+  getChatsByUserId,
   createChatService,
   getChatHistoryService,
   updateChatById,
@@ -13,6 +14,17 @@ import {
 export const fetchAllChats = async (req, res) => {
   try {
     const chats = await getAllChats();
+    res.status(200).json(chats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+export const fetchChatsByUserId = async (req, res) => {
+  const { user_id } = req.query;
+  try {
+    const chats = await getChatsByUserId(user_id);
     res.status(200).json(chats);
   } catch (error) {
     res.status(500).json({ error: error.message });

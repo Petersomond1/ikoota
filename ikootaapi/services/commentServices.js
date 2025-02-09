@@ -71,3 +71,15 @@ export const getCommentsService = async ({ chat_id, teaching_id }) => {
     throw new CustomError("Internal Server Error");
   }
 };
+
+// Fetch comments by user_id
+export const getCommentsByUserId = async (user_id) => {
+  const [comments] = await pool.query('SELECT * FROM comments WHERE user_id = ?', [user_id]);
+  return comments;
+};
+
+// Fetch comments by chat_id or teaching_id
+export const getCommentsByParentId = async (chat_id, teaching_id) => {
+  const [comments] = await pool.query('SELECT * FROM comments WHERE chat_id = ? OR teaching_id = ?', [chat_id, teaching_id]);
+  return comments;
+};
