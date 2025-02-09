@@ -1,13 +1,13 @@
 import dbQuery from '../config/dbQuery.js';
 import CustomError from '../utils/CustomError.js';
 
-export const getUserProfileService = async (userId) => {
-    const sql = 'SELECT * FROM users WHERE id = ?';
-    const userProfile = await dbQuery(sql, [userId]);
-    if (userProfile.length === 0) {
-        throw new CustomError('User not found', 404);
-    }
-    return userProfile[0];
+export const getUserProfileService = async (user_id) => {
+  const sql = 'SELECT * FROM users WHERE id = ?';
+  const userProfile = await dbQuery(sql, [user_id]);
+  if (userProfile.length === 0) {
+    throw new CustomError('User not found', 404);
+  }
+  return userProfile[0];
 };
 
 export const updateUserProfileService = async (userId, profileData) => {
