@@ -1,18 +1,47 @@
-import React from "react";
-import "./revtopics.css";
+import React, { useState, useEffect } from 'react';
+import SearchControls from '../search/SearchControls';
+import './revtopics.css';
+import api from '../service/api';
 
-const RevTopics = ({ teachings = [], onSelect }) => {
+const RevTopics = ({ teachings: initialTeachings = [], onSelect }) => {
+
+  const [teachings, setTeachings] = useState([]);
+  const [filteredTeachings, setFilteredTeachings] = useState([]);
+
+  useEffect(() => {
+    const fetchTeachings = async () => {
+      try {
+        const response = await api.get('/teachings');
+        setTeachings(response.data);
+        setFilteredTeachings(response.data);
+      } catch (error) {
+        console.error('Error fetching teachings:', error);
+      }
+    };
+
+    fetchTeachings();
+  }, []);
+
+  const handleSearch = (query) => {
+    const filtered = teachings.filter(teaching =>
+      teaching.topic?.toLowerCase().includes(query.toLowerCase()) ||
+      teaching.description?.toLowerCase().includes(query.toLowerCase())
+    );
+    setFilteredTeachings(filtered);
+  };
+
   return (
     <div className="revtopic-container">
       <div className="search">
         <div className="searchbar">
           <img src="./search.png" alt="Search Icon" />
-          <input type="text" placeholder="Search teachings..." />
+          {/* <input type="text" placeholder="Search teachings..." /> */}
+          <SearchControls onSearch={handleSearch} />
         </div>
       </div>
 
-      {teachings.length > 0 ? (
-        teachings.map((teaching) => (
+      {filteredTeachings.length > 0 ? (
+        filteredTeachings.map((teaching) => (
           <div key={teaching.id} className="topic-item" onClick={() => onSelect(teaching)}>
             <div className="texts">
               <span>Topic: {teaching.topic}</span>
