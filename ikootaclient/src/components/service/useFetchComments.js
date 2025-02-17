@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "./api.js";
+import { act } from "react";
 
 // Fetch comments
 export const useFetchComments = (activeItem) => {
@@ -7,13 +8,17 @@ export const useFetchComments = (activeItem) => {
     queryKey: ["comments", activeItem?.id], // Corrected to use an array
     queryFn: async () => {
       if (!activeItem) return [];
-      const response = await api.get("/comments", {
-          params: {
-            chat_id: activeItem.type === "chat" ? activeItem.id : null,
-            teaching_id: activeItem.type === "teaching" ? activeItem.id : null,
-          },
-        }
-      );
+      const chatType = activeItem.type ;
+      const chat_id = activeItem.id;
+      console.log("activeItem:", chatType, chat_id);
+      const response = await api.get(`/comments`,{
+        params: 
+        { 
+          q:'',
+          chatType, 
+          chat_id}
+    }
+  );
       return response.data;
     },
     enabled: !!activeItem, // Only fetch when activeItem is set

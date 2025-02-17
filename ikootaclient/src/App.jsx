@@ -31,7 +31,10 @@ function App() {
       <div className='app_container'>
         <Routes>
         <Route path="/" element={<Towncrier />} />
-        <Route path="/iko" element={<Iko />} />
+        <Route path="/iko" element={<Iko />} > 
+          <Route index={true} element={<Iko />} />
+          <Route path='/:teachingId' element={<Iko />} />
+        </Route>
 
           <Route path="/admin" element={<Admin />} >
             <Route index={true} element={<Dashboard />} />

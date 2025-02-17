@@ -7,7 +7,7 @@ dotenv.config();
 export const authenticate = async (req, res, next) => {
   try {
   const token = req.cookies.access_token || req.headers.authorization?.split(" ")[1];
-  console.log('token@authmid:', token);
+  //console.log('token@authmid:', token);
 
     if (!token) {
       return res.status(401).json({ error: 'Authentication failed. No token provided.' });

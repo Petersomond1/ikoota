@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import SearchControls from '../search/SearchControls';
 import axios from 'axios';
 import {jwtDecode} from 'jwt-decode';
 import './listcomments.css';
@@ -8,6 +9,7 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
   const [addMode, setAddMode] = useState(false);
   const [data, setData] = useState([]);
   const [user_id, setUserId] = useState(null);
+  const [filteredData, setFilteredData] = useState([]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -63,14 +65,18 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
         const chatComments = chatCommentsResponse.data;
         const teachingComments = teachingCommentsResponse.data;
 
-        setData([
+        const combinedData = [
           ...teachingsResponse.data,
           ...chatsResponse.data,
           ...commentedTeachings,
           ...commentedChats,
           ...chatComments,
           ...teachingComments
-        ]);
+        ];
+
+        setData(combinedData);
+        setFilteredData(combinedData);
+
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -78,6 +84,18 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
 
     fetchData();
   }, [user_id]);
+
+  const handleSearch = (query) => {
+    const filtered = data.filter(item =>
+      (item.title && item.title.toLowerCase().includes(query.toLowerCase())) ||
+      (item.topic && item.topic.toLowerCase().includes(query.toLowerCase())) ||
+      (item.summary && item.summary.toLowerCase().includes(query.toLowerCase())) ||
+      (item.description && item.description.toLowerCase().includes(query.toLowerCase())) ||
+      (item.comment && item.comment.toLowerCase().includes(query.toLowerCase()))
+    );
+    setFilteredData(filtered);
+  };
+
 
   const sortedItems = data.sort((a, b) => {
     const dateA = new Date(a.updated_at || a.updatedAt);
@@ -94,7 +112,7 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
       <div className="search">
         <div className="searchbar">
           <img src="./search.png" alt="" />
-          <input type="text" placeholder="Search" />
+          <SearchControls onSearch={handleSearch} />
         </div>
         <img src={addMode ? "./minus.png" : "./plus.png"} alt="" className='add' onClick={() => setAddMode(!addMode)} />
       </div>

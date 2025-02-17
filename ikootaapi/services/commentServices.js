@@ -6,7 +6,7 @@ export const createCommentService = async ({ user_id, chat_id, teaching_id, comm
   try {
     // Start transaction
     await connection.beginTransaction();
-
+    console.log("it readch here", user_id, chat_id, teaching_id, comment, media);
     // Insert comment into the database
     const [result] = await connection.query(
       `
@@ -54,7 +54,7 @@ export const uploadCommentService = async (files) => {
   }
 };
 
-export const getCommentsService = async ({ chat_id, teaching_id }) => {
+export const getCommentsService = async ( data, chatType ) => {
   try {
     const query = `
       SELECT * FROM comments 

@@ -26,6 +26,8 @@ export const createComment = async (req, res) => {
 
     // Ensure uploaded files are processed correctly
     const files = req.uploadedFiles || [];
+    console.log("req.uploadedFiles:", req.uploadedFiles);
+    console.log("files:", files);
     const media = files.map((file, index) => ({
       url: file.url, // Ensure this is the URL returned by S3
       type: file.type || `media${index + 1}`,
@@ -44,6 +46,7 @@ export const createComment = async (req, res) => {
       message: "Comment created successfully.",
     });
   } catch (error) {
+    console.log('here is the issue', error)
     res.status(500).json({ error: error.message });
   }
 };
@@ -62,14 +65,15 @@ export const uploadCommentFiles = async (req, res) => {
 // Fetch comments based on chat_id or teaching_id
 export const getComments = async (req, res) => {
   try {
-    const { chat_id, teaching_id } = req.query;
-    console.log('req.query:', req.query);
-    console.log('chat_id:', chat_id);
+    const { q,chatType, chat_id } = req.query;
+    const teaching_id = chatType === 'teaching' ? chat_id : null;
     if (!chat_id) {
       return res.status(400).json({ error: "chat_id or teaching_id is required" });
     }
 
-    const comments = await getCommentsService({ chat_id, teaching_id });
+    const data = teaching_id ? teaching_id : chat_id;
+
+    const comments = await getCommentsService(data, chatType );
 
     res.status(200).json(comments);
   } catch (error) {

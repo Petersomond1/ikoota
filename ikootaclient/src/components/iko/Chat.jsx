@@ -14,11 +14,13 @@ import { postComment } from "../service/commentServices";
 import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 import MediaGallery from "./MediaGallery"; // Import MediaGallery Component
+//import {privateComments  } from  "../../dummyData";
 
 const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
   const { handleSubmit, register, reset } = useForm();
   const { validateFiles, mutation: chatMutation } = useUpload("/chats");
   const { validateFiles: validateCommentFiles, mutation: commentMutation } = useUpload("/comments");
+
 
   // Fix duplicate variable name
   const { data: fetchedComments, isLoading: isLoadingComments } = useFetchComments(activeItem);
