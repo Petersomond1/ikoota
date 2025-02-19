@@ -1,12 +1,11 @@
-
-
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
-import useUpload from "../../admin/hooks/useUpload";
+import useUpload from "../../hooks/useUpload";
 import EmojiPicker from "emoji-picker-react";
 import DOMPurify from "dompurify";
 import ReactPlayer from "react-player";
 import "./chat.css";
+import { useFetchParentChatsAndTeachingsWithComments } from "../service/useFetchComments";
 import { useFetchChats } from "../service/useFetchChats";
 import { useFetchComments } from "../service/useFetchComments";
 import { useFetchTeachings } from "../service/useFetchTeachings";
@@ -14,17 +13,22 @@ import { postComment } from "../service/commentServices";
 import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 import MediaGallery from "./MediaGallery"; // Import MediaGallery Component
-//import {privateComments  } from  "../../dummyData";
+import { useUploadCommentFiles } from "../../hooks/useUploadCommentFiles";
 
-const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
+
+const Chat = ({ activeItem, chats, teachings }) => {
   const { handleSubmit, register, reset } = useForm();
   const { validateFiles, mutation: chatMutation } = useUpload("/chats");
   const { validateFiles: validateCommentFiles, mutation: commentMutation } = useUpload("/comments");
+  const uploadCommentFiles = useUploadCommentFiles(); // Use the hook
 
+  const token = localStorage.getItem("token");
+  const user_id = token ? jwtDecode(token).user_id : null;
 
-  // Fix duplicate variable name
-  const { data: fetchedComments, isLoading: isLoadingComments } = useFetchComments(activeItem);
+  ///const { data: fetchedData, isLoading: isLoadingComments } = useFetchComments(user_id);
 
+  const { data: fetchedComments, isLoading: isLoadingComments } = useFetchParentChatsAndTeachingsWithComments(activeItem?.user_id);
+  console.log("this is the data we're looking for ", fetchedComments )
   const [formData, setFormData] = useState({});
   const [openEmoji, setOpenEmoji] = useState(false);
   const [addMode, setAddMode] = useState(false);
@@ -76,7 +80,7 @@ const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
 
     chatMutation.mutate(formData, {
       onSuccess: () => {
-        console.log("Chat sent!");
+        // console.log("Chat sent!");
         reset();
       },
       onError: (error) => {
@@ -99,6 +103,16 @@ const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
         console.error("Access token not found");
         return;
       }
+
+      
+    const files = [data.media1, data.media2, data.media3].filter(Boolean).flat();
+    const uploadResponse = await uploadCommentFiles.mutateAsync(files);
+
+    const mediaData = uploadResponse.map((file, index) => ({
+      url: file.url,
+      type: file.type,
+    }));
+
     }
 
     const formData = new FormData();
@@ -115,6 +129,7 @@ const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
     commentMutation.mutate(formData, {
       onSuccess: async (uploadResponse) => {
         const { mediaUrls } = uploadResponse.data;
+        console.log("Media URLs:", mediaUrls);
         const mediaData = mediaUrls.map((url, index) => ({
           url,
           type: data[`media${index + 1}`]?.[0]?.type || "unknown",
@@ -125,7 +140,7 @@ const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
           teaching_id: activeItem.type === "teaching" ? activeItem.id : null,
           user_id,
           comment: data.comment,
-          mediaData,
+          media: mediaData,
         });
 
         alert("Comment posted successfully!");
@@ -139,6 +154,7 @@ const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
     setPlayingMedia(url);
   };
 
+  
   return (
     <div className="chat_container">
       <div className="top">
@@ -168,7 +184,7 @@ const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
         {isLoadingComments ? (
           <p>Loading comments...</p>
         ) : (
-          fetchedComments
+          fetchedComments?.comments
             ?.filter(
               (comment) =>
                 (activeItem?.type === "chat" && comment.chat_id === activeItem?.id) ||
@@ -311,3 +327,4 @@ const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
 };
 
 export default Chat; 
+

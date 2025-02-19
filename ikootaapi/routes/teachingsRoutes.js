@@ -6,6 +6,7 @@ import {
   fetchTeachingsByUserId,
   editTeaching,
   removeTeaching,
+  fetchTeachingsByIds, // New controller function
 } from '../controllers/teachingsControllers.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 
@@ -17,7 +18,10 @@ router.get('/', authenticate, fetchAllTeachings);
 // Fetch teachings by user_id
 router.get('/user', authenticate, fetchTeachingsByUserId);
 
-// 1 Create a new teaching through uploadToS3
+// Fetch teachings by IDs
+router.get('/ids', authenticate, fetchTeachingsByIds); // New route
+
+// Create a new teaching through uploadToS3
 router.post("/", authenticate, uploadMiddleware, uploadToS3, createTeaching);
 
 // Update a teaching by ID

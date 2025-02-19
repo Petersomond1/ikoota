@@ -1,6 +1,6 @@
 import React from "react";
 import { useForm } from "react-hook-form";
-import useUpload from "../../admin/hooks/useUpload";
+import useUpload from "../../hooks/useUpload";
 import { useFetchTeachings  } from "../service/useFetchTeachings";
 import "../../admin/styles/navbar.css";
 

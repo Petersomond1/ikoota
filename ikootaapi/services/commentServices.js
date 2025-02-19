@@ -1,5 +1,7 @@
+import axios from 'axios';
 import pool from "../config/db.js";
 import CustomError from "../utils/CustomError.js";
+import { uploadFileToS3 } from '../config/s3.js';
 
 export const createCommentService = async ({ user_id, chat_id, teaching_id, comment, media }) => {
   const connection = await pool.getConnection();
@@ -43,9 +45,9 @@ export const createCommentService = async ({ user_id, chat_id, teaching_id, comm
 export const uploadCommentService = async (files) => {
   try {
     // Process files here if needed, for example:
-    const uploadedFiles = files.map((file) => ({
-      url: file.location, // S3 URL
-      type: file.mimetype,
+    const uploadedFiles = await Promise.all(files.map(async (file) => {
+      const { url, type } = await uploadFileToS3(file);
+      return { url, type };
     }));
 
     return uploadedFiles;
@@ -54,32 +56,73 @@ export const uploadCommentService = async (files) => {
   }
 };
 
-export const getCommentsService = async ( data, chatType ) => {
-  try {
-    const query = `
-      SELECT * FROM comments 
-      WHERE (chat_id = ? OR ? IS NULL) 
-      AND (teaching_id = ? OR ? IS NULL) 
-      ORDER BY created_at ASC
-    `;
-
-    const [comments] = await pool.query(query, [chat_id || null, chat_id, teaching_id || null, teaching_id]);
-
-    return comments;
-  } catch (error) {
-    console.error("Error fetching comments:", error);
-    throw new CustomError("Internal Server Error");
-  }
-};
-
-// Fetch comments by user_id
+// step-1 Fetch comments by user_id
 export const getCommentsByUserId = async (user_id) => {
   const [comments] = await pool.query('SELECT * FROM comments WHERE user_id = ?', [user_id]);
   return comments;
 };
 
-// Fetch comments by chat_id or teaching_id
-export const getCommentsByParentId = async (chat_id, teaching_id) => {
-  const [comments] = await pool.query('SELECT * FROM comments WHERE chat_id = ? OR teaching_id = ?', [chat_id, teaching_id]);
-  return comments;
+// step-2 Extract chat_id and teaching_id from return comments of step-1
+export const getChatAndTeachingIdsFromComments = (comments) => {
+  const chatIds = [];
+  const teachingIds = [];
+
+  comments.forEach(comment => {
+    if (comment.chat_id && !chatIds.includes(comment.chat_id)) {
+      chatIds.push(comment.chat_id);
+    }
+    if (comment.teaching_id && !teachingIds.includes(comment.teaching_id)) {
+      teachingIds.push(comment.teaching_id);
+    }
+  });
+
+  return { chatIds, teachingIds };
+};
+
+// step-3 Fetch parent chats and teachings along with their comments using return chatIds and teachingIds from step-2
+export const getParentChatsAndTeachingsWithComments = async (chatIds, teachingIds) => {
+  try {
+
+    if(chatIds.length !== 0)  {
+    var [chatsBody] = await pool.query('SELECT * FROM chats WHERE id iN (?)', [chatIds]);
+    }
+
+    if(teachingIds.length !== 0)  {
+      var [teachingBody] = await pool.query('SELECT * FROM teachings WHERE id iN (?)', [teachingIds]);
+      }
+      
+    if(chatsBody){
+      var [comments] = await pool.query('SELECT * FROM comments WHERE chat_id IN (?)', [chatIds]);
+      
+    }
+
+    if(teachingBody){
+      var [comments] = await pool.query('SELECT * FROM comments WHERE teaching_id IN (?)', [teachingIds]);
+      
+    }
+
+    const data = {
+      chats: chatsBody ? chatsBody : [],
+      teachings: teachingBody ? teachingBody : [],
+      comments: comments
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error fetching parent chats and teachings with comments:", error);
+    throw new CustomError("Internal Server Error");
+  }
+};
+
+// Fetch comments using parents chatIds and teachingIds
+export const getCommentsByParentIds = async (chatIds, teachingIds) => {
+  try {
+    const [comments] = await pool.query(
+      'SELECT * FROM comments WHERE chat_id IN (?) OR teaching_id IN (?)',
+      [chatIds.split(','), teachingIds.split(',')]
+    );
+    return comments;
+  } catch (error) {
+    throw new CustomError(error.message);
+  }
 };

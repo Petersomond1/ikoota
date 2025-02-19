@@ -144,3 +144,31 @@ export { uploadMiddleware, uploadToS3 };
 //     throw new Error("File upload failed");
 //   }
 // };
+
+
+// {
+// 	"Version": "2012-10-17",
+// 	"Id": "Policy1732020836947",
+// 	"Statement": [
+// 		{
+// 			"Sid": "Stmt1732020833229",
+// 			"Effect": "Allow",
+// 			"Principal": {
+// 				"AWS": "arn:aws:iam::701333809618:user/Petersomond"
+// 			},
+// 			"Action": [
+// 				"s3:DeleteObject",
+// 				"s3:GetObject",
+// 				"s3:PutObject"
+// 			],
+// 			"Resource": "arn:aws:s3:::ikoota/*"
+// 		},
+// 		{
+// 			"Sid": "PublicReadGetObject",
+// 			"Effect": "Allow",
+// 			"Principal": "*",
+// 			"Action": "s3:GetObject",
+// 			"Resource": "arn:aws:s3:::ikoota/*"
+// 		}
+// 	]
+// }

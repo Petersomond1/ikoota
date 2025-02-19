@@ -20,7 +20,7 @@ export const updateUserProfileService = async (userId, profileData) => {
 export const updateUser = async (userId, role) => {
     const query = `
       UPDATE users 
-      SET role = ?, updated_at = NOW() 
+      SET role = ?, updatedAt = NOW() 
       WHERE id = ?`;
     const result = await dbQuery(query, [role, userId]);
   

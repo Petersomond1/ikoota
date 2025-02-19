@@ -3,15 +3,16 @@ import CustomError from '../utils/CustomError.js';
 
 // Fetch all chats
 export const getAllChats = async () => {
-  const [rows] = await pool.query('SELECT * FROM chats ORDER BY created_at DESC');
+  const [rows] = await pool.query('SELECT * FROM chats ORDER BY updatedAt DESC');
   return rows;
 };
 
 // Fetch chats by user_id
 export const getChatsByUserId = async (user_id) => {
-  const [rows] = await pool.query('SELECT * FROM chats WHERE user_id = ? ORDER BY created_at DESC', [user_id]);
+  const [rows] = await pool.query('SELECT * FROM chats WHERE user_id = ? ORDER BY updatedAt DESC', [user_id]);
   return rows;
 };
+
 
 
 // Add a new chat
@@ -59,7 +60,7 @@ export const updateChatById = async (id, data) => {
 
   const sql = `
     UPDATE chats
-    SET title = ?, summary = ?, text = ?, media_url1 = ?, media_type1 = ?, media_url2 = ?, media_type2 = ?, media_url3 = ?, media_type3 = ?, approval_status = ?, is_flagged = ?, updated_at = NOW()
+    SET title = ?, summary = ?, text = ?, media_url1 = ?, media_type1 = ?, media_url2 = ?, media_type2 = ?, media_url3 = ?, media_type3 = ?, approval_status = ?, is_flagged = ?, updatedAt = NOW()
     WHERE id = ?
   `;
   const [result] = await pool.query(sql, [
@@ -127,6 +128,20 @@ export const deleteChatById = async (id) => {
 
 // Fetch chats by a list of IDs
 export const getChatsByIds = async (ids) => {
-  const [rows] = await pool.query('SELECT * FROM chats WHERE id IN (?) ORDER BY created_at DESC', [ids]);
+  try {
+  const [rows] = await pool.query('SELECT * FROM chats WHERE id IN (?) ORDER BY updatedAt DESC', [ids]);
   return rows;
+} catch (error) {
+  throw new CustomError(error.message);
+}
 };
+
+// export const getChatsByIds = async (ids) => {
+//   try {
+//     const [chats] = await pool.query('SELECT * FROM chats WHERE id IN (?)', [ids]);
+//     return chats;
+//   } catch (error) {
+//     throw new CustomError(error.message);
+//   }
+// };
+

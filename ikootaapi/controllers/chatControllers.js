@@ -8,6 +8,7 @@ import {
   updateChatById,
   deleteChatById,
   addCommentToChatService,
+  getChatsByIds, // New service function
 } from '../services/chatServices.js';
 
 
@@ -31,6 +32,15 @@ export const fetchChatsByUserId = async (req, res) => {
   }
 };
 
+export const fetchChatsByIds = async (req, res) => {
+  const { ids } = req.query;
+  try {
+    const chats = await getChatsByIds(ids.split(','));
+    res.status(200).json(chats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
 export const createChat = async (req, res) => {
   try {

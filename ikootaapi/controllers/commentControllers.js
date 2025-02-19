@@ -1,13 +1,11 @@
 import {
   createCommentService,
   uploadCommentService,
-  getCommentsService,
   getCommentsByUserId,
-  getCommentsByParentId,
+  getChatAndTeachingIdsFromComments,
+  getParentChatsAndTeachingsWithComments,
+  getCommentsByParentIds, // New service function
 } from "../services/commentServices.js";
-import { getChatsByIds } from '../services/chatServices.js';
-import { getTeachingsByIds } from '../services/teachingsServices.js';
-
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -62,52 +60,48 @@ export const uploadCommentFiles = async (req, res) => {
   }
 };
 
-// Fetch comments based on chat_id or teaching_id
-export const getComments = async (req, res) => {
+// Fetch parent chats and teachings along with their comments
+export const fetchParentChatsAndTeachingsWithComments = async (req, res) => {
+  const { user_id } = req.query;
   try {
-    const { q,chatType, chat_id } = req.query;
-    const teaching_id = chatType === 'teaching' ? chat_id : null;
-    if (!chat_id) {
-      return res.status(400).json({ error: "chat_id or teaching_id is required" });
-    }
+    console.log("one")
+    const comments = await getCommentsByUserId(user_id);
+    console.log("two")
+    
+    const { chatIds, teachingIds } = getChatAndTeachingIdsFromComments(comments);
+    console.log("three")
 
-    const data = teaching_id ? teaching_id : chat_id;
+     const data = await getParentChatsAndTeachingsWithComments(chatIds, teachingIds);
+    const { chats, teachings, comments: commentsData } = data;
 
-    const comments = await getCommentsService(data, chatType );
-
-    res.status(200).json(comments);
+    res.status(200).json({
+      chats,
+      teachings,
+      comments,
+    });
   } catch (error) {
-    console.error("Error fetching comments:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.log("here is the isue", error)
+    res.status(500).json({ error: error.message });
   }
 };
 
+// Fetch comments using parents chatIds and teachingIds
+export const fetchCommentsByParentIds = async (req, res) => {
+  const { chatIds, teachingIds } = req.query;
+  try {
+    const comments = await getCommentsByParentIds(chatIds, teachingIds);
+    res.status(200).json(comments);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
-//The seems to be a duplicate of the above function below
+// Fetch comments by user_id
 export const fetchCommentsByUserId = async (req, res) => {
-  const { user_id } = req.query;
+  const { user_id } = req.params;
   try {
     const comments = await getCommentsByUserId(user_id);
-
-    const chatIds = comments.filter(comment => comment.chat_id).map(comment => comment.chat_id);
-    const teachingIds = comments.filter(comment => comment.teaching_id).map(comment => comment.teaching_id);
-
-    const [chats, teachings] = await Promise.all([
-      chatIds.length > 0 ? getChatsByIds(chatIds) : [],
-      teachingIds.length > 0 ? getTeachingsByIds(teachingIds) : []
-    ]);
-
-    const parentComments = await Promise.all([
-      ...chatIds.map(chat_id => getCommentsByParentId(chat_id, null)),
-      ...teachingIds.map(teaching_id => getCommentsByParentId(null, teaching_id))
-    ]);
-
-    res.status(200).json({
-      comments,
-      chats,
-      teachings,
-      parentComments: parentComments.flat()
-    });
+    res.status(200).json(comments);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

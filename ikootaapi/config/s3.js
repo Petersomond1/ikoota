@@ -21,9 +21,16 @@ export const uploadFileToS3 = async (file) => {
     ACL: 'public-read',
   };
 
+  // try {
+  //   const data = await s3Client.send(new PutObjectCommand(params));
+  //   return data.Location; // Returns the S3 file URL
   try {
     const data = await s3Client.send(new PutObjectCommand(params));
-    return data.Location; // Returns the S3 file URL
+    return {
+      url: `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${params.Key}`, // Return the S3 file URL
+      type: file.mimetype,
+    };
+
   } catch (error) {
     console.error("Error uploading file to S3:", error);
     throw new Error("File upload failed");

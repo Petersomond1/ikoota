@@ -66,6 +66,12 @@ const ListChats = ({ setActiveItem }) => {
           className={`item ${activeItem.id === item.id && activeItem.type === (item.created_at ? 'chat' : 'teaching') ? 'active' : ''}`}
           onClick={() => handleItemClick(item.id, item.created_at ? 'chat' : 'teaching')}
         >
+        {/* {filteredItems.map((item) => (
+  <div
+    key={`${item.created_at ? 'chat' : 'teaching'}-${item.id || item.updatedAt || item.updatedAt}`}
+    className={`item ${activeItem?.id === item.id && activeItem?.type === (item.created_at ? 'chat' : 'teaching') ? 'active' : ''}`}
+    onClick={() => handleItemClick(item.id, item.created_at ? 'chat' : 'teaching')}
+  > */}
           <div className="texts">
             <span>Topic: {item.title || item.topic}</span>
             <p>Description: {item.summary || item.description}</p>

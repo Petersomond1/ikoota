@@ -117,6 +117,19 @@ export const deleteTeachingById = async (id) => {
 
 // Fetch teachings by a list of IDs
 export const getTeachingsByIds = async (ids) => {
-  const [rows] = await pool.query('SELECT * FROM teachings WHERE id IN (?) ORDER BY createdAt DESC', [ids]);
+  try {
+    const [rows] = await pool.query('SELECT * FROM teachings WHERE id IN (?) ORDER BY updatedAt DESC', [ids]);
   return rows;
+} catch (error) {
+  throw new CustomError(error.message);
+}
 };
+
+// export const getTeachingsByIds = async (ids) => {
+//   try {
+//     const [teachings] = await pool.query('SELECT * FROM teachings WHERE id IN (?)', [ids]);
+//     return teachings;
+//   } catch (error) {
+//     throw new CustomError(error.message);
+//   }
+// };

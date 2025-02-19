@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import api from "../../components/service/api";
+import api from "../components/service/api";
 
 const useUpload = (endpoint) => {
   const validateFiles = (value) => {

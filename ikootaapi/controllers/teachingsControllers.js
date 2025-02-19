@@ -4,6 +4,7 @@ import {
   createTeachingService,
   updateTeachingById,
   deleteTeachingById,
+  getTeachingsByIds, // New service function
 } from '../services/teachingsServices.js';
 
 export const fetchAllTeachings = async (req, res) => {
@@ -19,6 +20,16 @@ export const fetchTeachingsByUserId = async (req, res) => {
   const { user_id } = req.query;
   try {
     const teachings = await getTeachingsByUserId(user_id);
+    res.status(200).json(teachings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const fetchTeachingsByIds = async (req, res) => {
+  const { ids } = req.query;
+  try {
+    const teachings = await getTeachingsByIds(ids.split(','));
     res.status(200).json(teachings);
   } catch (error) {
     res.status(500).json({ error: error.message });

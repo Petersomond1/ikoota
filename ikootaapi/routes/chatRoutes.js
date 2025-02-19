@@ -8,6 +8,7 @@ import {
   getChatHistory,
   editChat,
   removeChat,
+  fetchChatsByIds, // New controller function
 } from '../controllers/chatControllers.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 
@@ -18,6 +19,9 @@ router.get('/', authenticate, fetchAllChats);
 
 // Fetch chats by user_id
 router.get('/user', authenticate, fetchChatsByUserId);
+
+// Fetch chats by IDs
+router.get('/ids', authenticate, fetchChatsByIds); // New route
 
 // Create new chat
 router.post('/', authenticate, uploadMiddleware, uploadToS3, createChat);
