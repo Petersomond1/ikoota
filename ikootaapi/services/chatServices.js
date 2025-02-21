@@ -88,7 +88,7 @@ export const getChatHistoryService = async (userId1, userId2) => {
     SELECT * FROM chats
     WHERE (created_by = ? AND audience = ?)
        OR (created_by = ? AND audience = ?)
-    ORDER BY created_at ASC
+    ORDER BY updatedAt ASC
   `;
   const [rows] = await pool.query(sql, [userId1, userId2, userId2, userId1]);
   return rows;

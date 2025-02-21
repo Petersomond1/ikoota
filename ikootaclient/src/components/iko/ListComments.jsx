@@ -24,33 +24,41 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
   }, []);
 
   const { data: fetchedData, isLoading: isLoadingComments } = useFetchParentChatsAndTeachingsWithComments(user_id);
-  console.log("this is the data from list comment component ", fetchedData);
+  //console.log("this is the data from list comment component ", fetchedData);
 
   const handleSearch = (query) => {
     const filtered = fetchedData?.comments.filter(item =>
       (item.comment && item.comment.toLowerCase().includes(query.toLowerCase())) || 
-      (item.chat_title && item.chat_title.toLowerCase().includes(query.toLowerCase()))
+      (item.chat_title && item.chat_title.toLowerCase().includes(query.toLowerCase())) ||
+      (item.teaching_title && item.teaching_title.toLowerCase().includes(query.toLowerCase()))
     );
     setFilteredData(filtered);
   };
 
-  const handleItemClick = (id, type) => {
-    setActiveItem({ id, type });
+  const handleItemClick = (item) => {
+    setActiveItem(item);
   };
 
-  // Group comments by chat_id for easier rendering
-  const groupCommentsByChat = () => {
+  // Group comments by chat_id and teaching_id for easier rendering
+  const groupCommentsByParent = () => {
     const groupedComments = {};
     fetchedData?.comments.forEach(comment => {
-      if (!groupedComments[comment.chat_id]) {
-        groupedComments[comment.chat_id] = [];
+      if (comment.chat_id) {
+        if (!groupedComments[comment.chat_id]) {
+          groupedComments[comment.chat_id] = [];
+        }
+        groupedComments[comment.chat_id].push(comment);
+      } else if (comment.teaching_id) {
+        if (!groupedComments[comment.teaching_id]) {
+          groupedComments[comment.teaching_id] = [];
+        }
+        groupedComments[comment.teaching_id].push(comment);
       }
-      groupedComments[comment.chat_id].push(comment);
     });
     return groupedComments;
   };
 
-  const groupedComments = groupCommentsByChat();
+  const groupedComments = groupCommentsByParent();
 
   return (
     <div className='listcomments_container'>
@@ -62,19 +70,23 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
         <img src={addMode ? "./minus.png" : "./plus.png"} alt="" className='add' onClick={() => setAddMode(!addMode)} />
       </div>
 
-      {fetchedData?.chats.length === 0 && <p>No chats available</p>}
+      {fetchedData?.chats.length === 0 && fetchedData?.teachings.length === 0 && <p>No chats or teachings available</p>}
+      
       {fetchedData?.chats.map((chat) => {
         const commentsForChat = groupedComments[chat.id] || [];
         
         return (
-          <div key={chat.id} className={`chat-item ${activeItem?.id === chat.id ? 'active' : ''}`} onClick={() => handleItemClick(chat.id, 'chat')}>
+          <div key={chat.id} className={`chat-item ${activeItem?.id === chat.id ? 'active' : ''}`} onClick={() => handleItemClick(chat)}>
             <div className="texts">
+              <h2 style={{color:"red"}}> HTAT</h2>
               <span>Topic: {chat.title || 'No title'}</span>
               <p>Description: {chat.summary || 'No description'}</p>
               <p>Lesson#: {chat.id}</p>
               <p>Audience: {chat.audience || 'No audience'}</p>
-              <p>By: {chat.created_by || 'Admin'}</p>
-              <p>Date: {new Date(chat.updatedAt).toLocaleString()}</p>
+              <p>Post By: {chat.created_by || 'Admin'}</p>
+              <p>Post By: {chat.media_url1}</p>
+              <p>Date Posted: {new Date(chat.created_at).toLocaleString()}</p>
+              <p>Date Updated: {new Date(chat.updatedAt).toLocaleString()}</p>
             </div>
 
             {/* Render the comments for this chat */}
@@ -83,14 +95,51 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
                 <h4>Comments:</h4>
                 {commentsForChat.map((comment) => (
                   <div key={comment.id} className="comment-item">
-                    <p>{comment.comment}</p>
-                    <p>By: {comment.user_id}</p>
-                    <p>Date: {new Date(comment.created_at).toLocaleString()}</p>
+                    {/* <p>{comment.comment}</p> */}
+                    <p>CreatedBy: {comment.user_id}</p>
+                    <p>Date created: {new Date(comment.created_at).toLocaleString()}</p>
+                    <p>Date updated: {new Date(comment.updatedAt).toLocaleString()}</p>
                   </div>
                 ))}
               </div>
             ) : (
               <p>No comments for this chat</p>
+            )}
+          </div>
+        );
+      })}
+
+      {fetchedData?.teachings.map((teaching) => {
+        const commentsForTeaching = groupedComments[teaching.id] || [];
+        
+        return (
+          <div key={teaching.id} className={`teaching-item ${activeItem?.id === teaching.id ? 'active' : ''}`} onClick={() => handleItemClick(teaching)}>
+            <div className="texts">
+              <span>Topic: {teaching.topic || 'No topic'}</span>
+              <p>Description: {teaching.description || 'No description'}</p>
+              <h3 style={{color:"green"}}>new:</h3>
+              <p>Lesson#: {teaching.id}</p>
+              <p>Audience: {teaching.audience || 'No audience'}</p>
+              <p>Post By: {teaching.created_by || 'Admin'}</p>
+              <p>Date Posted: {new Date(teaching.created_at).toLocaleString()}</p>
+              <p>Date Updated: {new Date(teaching.updatedAt).toLocaleString()}</p>
+            </div>
+
+            {/* Render the comments for this teaching */}
+            {commentsForTeaching.length > 0 ? (
+              <div className="comments">
+                <h4>Comments:</h4>
+                {commentsForTeaching.map((comment) => (
+                  <div key={comment.id} className="comment-item">
+                    {/* <p>{comment.comment}</p> */}
+                    <p>CreatedBy: {comment.user_id}</p>
+                    <p>Date created: {new Date(comment.created_at).toLocaleString()}</p>
+                    <p>Date updated: {new Date(comment.updatedAt).toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No comments for this teaching</p>
             )}
           </div>
         );

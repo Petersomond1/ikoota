@@ -6,15 +6,9 @@ import DOMPurify from "dompurify";
 import ReactPlayer from "react-player";
 import "./chat.css";
 import { useFetchParentChatsAndTeachingsWithComments } from "../service/useFetchComments";
-import { useFetchChats } from "../service/useFetchChats";
-import { useFetchComments } from "../service/useFetchComments";
-import { useFetchTeachings } from "../service/useFetchTeachings";
-import { postComment } from "../service/commentServices";
 import { jwtDecode } from "jwt-decode";
-import axios from "axios";
 import MediaGallery from "./MediaGallery"; // Import MediaGallery Component
 import { useUploadCommentFiles } from "../../hooks/useUploadCommentFiles";
-
 
 const Chat = ({ activeItem, chats, teachings }) => {
   const { handleSubmit, register, reset } = useForm();
@@ -25,10 +19,8 @@ const Chat = ({ activeItem, chats, teachings }) => {
   const token = localStorage.getItem("token");
   const user_id = token ? jwtDecode(token).user_id : null;
 
-  ///const { data: fetchedData, isLoading: isLoadingComments } = useFetchComments(user_id);
-
   const { data: fetchedComments, isLoading: isLoadingComments } = useFetchParentChatsAndTeachingsWithComments(activeItem?.user_id);
-  console.log("this is the data we're looking for ", fetchedComments )
+  //console.log("this is the data we're looking for ", fetchedComments);
   const [formData, setFormData] = useState({});
   const [openEmoji, setOpenEmoji] = useState(false);
   const [addMode, setAddMode] = useState(false);
@@ -38,9 +30,8 @@ const Chat = ({ activeItem, chats, teachings }) => {
   const activeContent =
     activeItem && activeItem.type === "chat"
       ? chats.find((chat) => chat.id === activeItem.id)
-      : activeItem
-      ? teachings.find((teaching) => teaching.id === activeItem.id)
-      : null;
+      : activeItem;
+  console.log("here are the active content", activeContent);
 
   if (!activeItem) {
     return <p className="status">Select a chat or teaching to start.</p>;
@@ -80,7 +71,6 @@ const Chat = ({ activeItem, chats, teachings }) => {
 
     chatMutation.mutate(formData, {
       onSuccess: () => {
-        // console.log("Chat sent!");
         reset();
       },
       onError: (error) => {
@@ -103,8 +93,8 @@ const Chat = ({ activeItem, chats, teachings }) => {
         console.error("Access token not found");
         return;
       }
+    }
 
-      
     const files = [data.media1, data.media2, data.media3].filter(Boolean).flat();
     const uploadResponse = await uploadCommentFiles.mutateAsync(files);
 
@@ -112,8 +102,6 @@ const Chat = ({ activeItem, chats, teachings }) => {
       url: file.url,
       type: file.type,
     }));
-
-    }
 
     const formData = new FormData();
     formData.append("comment", data.comment);
@@ -154,9 +142,8 @@ const Chat = ({ activeItem, chats, teachings }) => {
     setPlayingMedia(url);
   };
 
-  
   return (
-    <div className="chat_container">
+    <div className="chat_container" style={{border:"3px solid red"}}>
       <div className="top">
         <div className="user">
           <img src="./avatar.png" alt="Avatar" />
@@ -172,13 +159,57 @@ const Chat = ({ activeItem, chats, teachings }) => {
         </div>
       </div>
 
-      <div className="center">
+      <div className="center" style={{border:"3px solid yellow"}}>
         <div className="message">
           <img src="./avatar.png" alt="Chat Avatar" />
           <div className="texts">
+            <h3>Hello</h3>
             <p>{sanitizeMessage(activeContent?.text || activeContent?.content)}</p>
             <span>{new Date(activeContent?.created_at || activeContent?.createdAt).toLocaleString()}</span>
           </div>
+          <div className="media-container">
+            { activeContent?.media_type1 === "image" && (
+              <ReactPlayer url={activeContent?.media_url1} controls width="100%" />
+            )}
+            { activeContent?.media_type1 === "video" && (
+              <ReactPlayer url={activeContent?.media_url1} controls width="100%" />
+            )}
+            { activeContent?.media_type1 === "audio" && (
+             <audio controls>
+             <source src={activeContent?.media_url3} type="audio/mpeg" />
+             Your browser does not support the audio element.
+           </audio>
+            )}
+              { activeContent?.media_type2 === "image" && (
+              <ReactPlayer url={activeContent?.media_url1} controls width="100%" />
+            )}
+            { activeContent?.media_type2 === "video" && (
+              <ReactPlayer url={activeContent?.media_url1} controls width="100%" />
+            )}
+            { activeContent?.media_type2 === "audio" && (
+             <audio controls>
+             <source src={activeContent?.media_url3} type="audio/mpeg" />
+             Your browser does not support the audio element.
+           </audio>
+            )}
+
+{ activeContent?.media_type3 === "image" && (
+              <ReactPlayer url={activeContent?.media_url1} controls width="100%" />
+            )}
+            { activeContent?.media_type3 === "video" && (
+              <ReactPlayer url={activeContent?.media_url1} controls width="100%" />
+            )}
+            { activeContent?.media_type3 === "audio" && (
+             <audio controls>
+             <source src={activeContent?.media_url3} type="audio/mpeg" />
+             Your browser does not support the audio element.
+           </audio>
+            )}
+
+
+
+          </div>
+
         </div>
 
         {isLoadingComments ? (
@@ -191,17 +222,25 @@ const Chat = ({ activeItem, chats, teachings }) => {
                 (activeItem?.type === "teaching" && comment.teaching_id === activeItem?.id)
             )
             .map((comment) => (
-              <div key={comment.id} className="message Own">
+              <div key={comment.id} className="message Own" style={{border:"5px solid pink"}}>
                 <div className="texts">
                   <p>{sanitizeMessage(comment.comment)}</p>
+                  <h2>code here</h2>
                   <span>{new Date(comment.created_at).toLocaleString()}</span>
-                  <MediaGallery
-                    mediaFiles={[
-                      { url: comment.media_url1, type: comment.media_type1 },
-                      { url: comment.media_url2, type: comment.media_type2 },
-                      { url: comment.media_url3, type: comment.media_type3 },
-                    ].filter((media) => media.url)}
-                  />
+                  <div className="media-container-comments">
+                    {comment.media_url1 && comment.media_type1 === "video" && (
+                      <ReactPlayer url={comment.media_url1} controls width="100%" />
+                    )}
+                    {comment.media_url2 && comment.media_type2 === "image" && (
+                      <img src={comment.media_url2} alt="comment Image" />
+                    )}
+                    {comment.media_url3 && comment.media_type3 === "audio" && (
+                      <audio controls>
+                        <source src={comment.media_url3} type="audio/mpeg" />
+                        Your browser does not support the audio element.
+                      </audio>
+                    )}
+                  </div>
                 </div>
               </div>
             ))
@@ -326,5 +365,4 @@ const Chat = ({ activeItem, chats, teachings }) => {
   );
 };
 
-export default Chat; 
-
+export default Chat;

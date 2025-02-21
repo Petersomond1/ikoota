@@ -39,7 +39,7 @@ const Dashboard = () => {
               <td>{log.action}</td>
               <td>{log.target_id}</td>
               <td>{log.details}</td>
-              <td>{log.created_at}</td>
+              <td>{log.updatedAt}</td>
             </tr>
           ))}
         </tbody>
