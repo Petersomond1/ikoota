@@ -20,12 +20,17 @@ const Iko = ({ isNested = false }) => {
     }
   }, [chats, activeItem]);
 
+  const deactivateListComments = () => {
+    setActiveItem(null);
+  };
+
+  const deactivateListChats = () => {
+    setActiveItem(null);
+  };
+
   if (isLoadingChats || isLoadingComments || isLoadingTeachings) return <p className="status loading">Loading...</p>;
   if (errorChats || errorComments || errorTeachings) return <p className="status error">Error loading data!</p>;
 
-  //console.log("this fetchchats", chats);
-  //console.log("this fetchteachings", teachings);
-  //console.log("this fetchcomments", comments);
   return (
     <div
       className="iko_container"
@@ -36,9 +41,9 @@ const Iko = ({ isNested = false }) => {
     >
       <div className="nav">Navbar Iko Elde-nde-Me-Eden</div>
       <div className="iko_viewport">
-        <ListChats  setActiveItem={setActiveItem} />
+        <ListChats setActiveItem={setActiveItem} deactivateListComments={deactivateListComments} />
         <Chat activeItem={activeItem} chats={chats} teachings={teachings} />
-        <List chats={chats} teachings={teachings} comments={comments} setActiveItem={setActiveItem} />
+        <ListComments setActiveItem={setActiveItem} deactivateListChats={deactivateListChats} />
       </div>
       <div className="footnote">Footnote</div>
     </div>

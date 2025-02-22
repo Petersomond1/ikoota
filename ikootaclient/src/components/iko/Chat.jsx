@@ -9,6 +9,8 @@ import { useFetchParentChatsAndTeachingsWithComments } from "../service/useFetch
 import { jwtDecode } from "jwt-decode";
 import MediaGallery from "./MediaGallery"; // Import MediaGallery Component
 import { useUploadCommentFiles } from "../../hooks/useUploadCommentFiles";
+import { postComment } from "../service/commentServices";
+import { useQueries, Mutation } from "@tanstack/react-query"
 
 const Chat = ({ activeItem, chats, teachings }) => {
   const { handleSubmit, register, reset } = useForm();
@@ -29,7 +31,9 @@ const Chat = ({ activeItem, chats, teachings }) => {
 
   const activeContent =
     activeItem && activeItem.type === "chat"
-      ? chats.find((chat) => chat.id === activeItem.id)
+      ? chats.find((chat) => chat.updatedAt === activeItem.updatedAt)
+      : activeItem && activeItem.type === "teaching"
+      ? teachings.find((teaching) => teaching.updatedAt === activeItem.updatedAt)
       : activeItem;
   console.log("here are the active content", activeContent);
 
@@ -149,7 +153,7 @@ const Chat = ({ activeItem, chats, teachings }) => {
           <img src="./avatar.png" alt="Avatar" />
         </div>
         <div className="texts">
-          <span>{activeContent?.created_by || "Admin"}</span>
+          <span>{activeContent?.user_id || "Admin"}</span>
           <p>{activeContent?.title || activeContent?.topic}</p>
         </div>
         <div className="icons">
@@ -160,16 +164,26 @@ const Chat = ({ activeItem, chats, teachings }) => {
       </div>
 
       <div className="center" style={{border:"3px solid yellow"}}>
-        <div className="message">
-          <img src="./avatar.png" alt="Chat Avatar" />
-          <div className="texts">
-            <h3>Hello</h3>
+      <div className="message-heading" style={{border:"5px solid brown"}}>
+        <h3>Topic: {activeContent?.topic || activeContent?.title}</h3>
+        <p>Descr: {activeContent?.description || activeContent?.summary}</p>
+        <p>Subject: {activeContent?.subjectMatter}</p>
+        <div style={{border:"5px solid blue", display:"flex", direction:"row", gap:"10px"}}>
+        <p>Lesson #: {activeContent?.lessonNumber}</p>
+        <p>Audience: {activeContent?.audience}</p>
+        <p>Created By: { activeContent?.user_id}</p>
+        </div>
+        <p>Posted: {new Date(activeContent?.createdAt || Date.now()).toLocaleString()}</p>
+      </div>
+          <div className="texts"    style={{border:"5px solid green"}}>
+        
             <p>{sanitizeMessage(activeContent?.text || activeContent?.content)}</p>
-            <span>{new Date(activeContent?.created_at || activeContent?.createdAt).toLocaleString()}</span>
-          </div>
-          <div className="media-container">
+            <span>Updated:{new Date(activeContent?.updatedAt || activeContent?.createdAt).toLocaleString()}</span>
+           </div>
+          
+          <div className="media-container"   style={{border:"5px solid gray"}}>
             { activeContent?.media_type1 === "image" && (
-              <ReactPlayer url={activeContent?.media_url1} controls width="100%" />
+              <img src={activeContent?.media_url1} alt="media" width="100%" />
             )}
             { activeContent?.media_type1 === "video" && (
               <ReactPlayer url={activeContent?.media_url1} controls width="100%" />
@@ -181,7 +195,7 @@ const Chat = ({ activeItem, chats, teachings }) => {
            </audio>
             )}
               { activeContent?.media_type2 === "image" && (
-              <ReactPlayer url={activeContent?.media_url1} controls width="100%" />
+              <img src={activeContent?.media_url2} alt="media" width="100%" />
             )}
             { activeContent?.media_type2 === "video" && (
               <ReactPlayer url={activeContent?.media_url1} controls width="100%" />
@@ -193,8 +207,8 @@ const Chat = ({ activeItem, chats, teachings }) => {
            </audio>
             )}
 
-{ activeContent?.media_type3 === "image" && (
-              <ReactPlayer url={activeContent?.media_url1} controls width="100%" />
+            { activeContent?.media_type3 === "image" && (
+              <img src={activeContent?.media_url1} alt="media" width="100%" />
             )}
             { activeContent?.media_type3 === "video" && (
               <ReactPlayer url={activeContent?.media_url1} controls width="100%" />
@@ -205,10 +219,6 @@ const Chat = ({ activeItem, chats, teachings }) => {
              Your browser does not support the audio element.
            </audio>
             )}
-
-
-
-          </div>
 
         </div>
 
@@ -223,11 +233,14 @@ const Chat = ({ activeItem, chats, teachings }) => {
             )
             .map((comment) => (
               <div key={comment.id} className="message Own" style={{border:"5px solid pink"}}>
-                <div className="texts">
+                <div className="texts" style={{border:"5px solid magenta"}}>
                   <p>{sanitizeMessage(comment.comment)}</p>
-                  <h2>code here</h2>
+                  
                   <span>{new Date(comment.created_at).toLocaleString()}</span>
-                  <div className="media-container-comments">
+                </div>
+
+
+                  <div className="media-container-comments" style={{border:"5px solid orange"}}>
                     {comment.media_url1 && comment.media_type1 === "video" && (
                       <ReactPlayer url={comment.media_url1} controls width="100%" />
                     )}
@@ -241,10 +254,10 @@ const Chat = ({ activeItem, chats, teachings }) => {
                       </audio>
                     )}
                   </div>
-                </div>
               </div>
             ))
         )}
+       
       </div>
 
       <div className="bottom">

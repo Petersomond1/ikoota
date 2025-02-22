@@ -126,3 +126,13 @@ export const getCommentsByParentIds = async (chatIds, teachingIds) => {
     throw new CustomError(error.message);
   }
 };
+
+// Fetch all comments
+export const getAllComments = async () => {
+  try {
+    const [comments] = await pool.query('SELECT * FROM comments');
+    return comments;
+  } catch (error) {
+    throw new CustomError(error.message);
+  }
+};

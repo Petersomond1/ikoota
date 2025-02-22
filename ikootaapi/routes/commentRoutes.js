@@ -6,6 +6,7 @@ import {
   fetchParentChatsAndTeachingsWithComments,
   fetchCommentsByParentIds,
   fetchCommentsByUserId,
+  fetchAllComments, // Import the new controller function
 } from '../controllers/commentControllers.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 
@@ -22,6 +23,9 @@ router.get('/comments', authenticate, fetchCommentsByParentIds);
 
 // Fetch comments by user_id
 router.get('/user/:user_id', authenticate, fetchCommentsByUserId);
+
+// Fetch all comments
+router.get('/all', authenticate, fetchAllComments); // Add the new route
 
 // Optional: Separate route for file uploads only
 router.post('/upload', authenticate, uploadMiddleware, uploadToS3, uploadCommentFiles);

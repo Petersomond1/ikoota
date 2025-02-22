@@ -4,7 +4,7 @@ import { jwtDecode } from 'jwt-decode';
 import './listcomments.css';
 import { useFetchParentChatsAndTeachingsWithComments } from '../service/useFetchComments';
 
-const ListComments = ({ setActiveItem, activeItem = {} }) => {
+const ListComments = ({ setActiveItem, activeItem = {}, deactivateListChats }) => {
   const [addMode, setAddMode] = useState(false);
   const [user_id, setUserId] = useState(null);
   const [filteredData, setFilteredData] = useState([]);
@@ -24,7 +24,7 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
   }, []);
 
   const { data: fetchedData, isLoading: isLoadingComments } = useFetchParentChatsAndTeachingsWithComments(user_id);
-  //console.log("this is the data from list comment component ", fetchedData);
+  console.log("this is the data from list comment component ", fetchedData);
 
   const handleSearch = (query) => {
     const filtered = fetchedData?.comments.filter(item =>
@@ -36,6 +36,7 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
   };
 
   const handleItemClick = (item) => {
+    deactivateListChats(); // Deactivate any active item in ListChats
     setActiveItem(item);
   };
 
@@ -76,15 +77,13 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
         const commentsForChat = groupedComments[chat.id] || [];
         
         return (
-          <div key={chat.id} className={`chat-item ${activeItem?.id === chat.id ? 'active' : ''}`} onClick={() => handleItemClick(chat)}>
+          <div key={chat.updatedAt} className={`chat-item ${activeItem?.updatedAt === chat.updatedAt ? 'active' : ''}`} onClick={() => handleItemClick(chat)}>
             <div className="texts">
-              <h2 style={{color:"red"}}> HTAT</h2>
               <span>Topic: {chat.title || 'No title'}</span>
               <p>Description: {chat.summary || 'No description'}</p>
               <p>Lesson#: {chat.id}</p>
               <p>Audience: {chat.audience || 'No audience'}</p>
               <p>Post By: {chat.created_by || 'Admin'}</p>
-              <p>Post By: {chat.media_url1}</p>
               <p>Date Posted: {new Date(chat.created_at).toLocaleString()}</p>
               <p>Date Updated: {new Date(chat.updatedAt).toLocaleString()}</p>
             </div>
@@ -94,8 +93,8 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
               <div className="comments">
                 <h4>Comments:</h4>
                 {commentsForChat.map((comment) => (
-                  <div key={comment.id} className="comment-item">
-                    {/* <p>{comment.comment}</p> */}
+                  <div key={comment.updatedAt} className="comment-item">
+                    <p>{comment.comment}</p>
                     <p>CreatedBy: {comment.user_id}</p>
                     <p>Date created: {new Date(comment.created_at).toLocaleString()}</p>
                     <p>Date updated: {new Date(comment.updatedAt).toLocaleString()}</p>
@@ -113,11 +112,10 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
         const commentsForTeaching = groupedComments[teaching.id] || [];
         
         return (
-          <div key={teaching.id} className={`teaching-item ${activeItem?.id === teaching.id ? 'active' : ''}`} onClick={() => handleItemClick(teaching)}>
+          <div key={teaching.updatedAt} className={`teaching-item ${activeItem?.id === teaching.id ? 'active' : ''}`} onClick={() => handleItemClick(teaching)}>
             <div className="texts">
               <span>Topic: {teaching.topic || 'No topic'}</span>
               <p>Description: {teaching.description || 'No description'}</p>
-              <h3 style={{color:"green"}}>new:</h3>
               <p>Lesson#: {teaching.id}</p>
               <p>Audience: {teaching.audience || 'No audience'}</p>
               <p>Post By: {teaching.created_by || 'Admin'}</p>
@@ -126,12 +124,12 @@ const ListComments = ({ setActiveItem, activeItem = {} }) => {
             </div>
 
             {/* Render the comments for this teaching */}
-            {commentsForTeaching.length > 0 ? (
+            {commentsForTeaching?.length > 0 ? (
               <div className="comments">
                 <h4>Comments:</h4>
                 {commentsForTeaching.map((comment) => (
-                  <div key={comment.id} className="comment-item">
-                    {/* <p>{comment.comment}</p> */}
+                  <div key={comment?.updatedAt} className="comment-item">
+                    <p>{comment?.comment}</p>
                     <p>CreatedBy: {comment.user_id}</p>
                     <p>Date created: {new Date(comment.created_at).toLocaleString()}</p>
                     <p>Date updated: {new Date(comment.updatedAt).toLocaleString()}</p>

@@ -5,6 +5,7 @@ import {
   getChatAndTeachingIdsFromComments,
   getParentChatsAndTeachingsWithComments,
   getCommentsByParentIds, // New service function
+  getAllComments, // New service function
 } from "../services/commentServices.js";
 import dotenv from 'dotenv';
 
@@ -104,5 +105,14 @@ export const fetchCommentsByUserId = async (req, res) => {
     res.status(200).json(comments);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const fetchAllComments = async (req, res) => {
+  try {
+    const comments = await getAllComments(); // Use the new service function
+    res.status(200).json(comments);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching comments', error });
   }
 };
