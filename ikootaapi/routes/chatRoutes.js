@@ -9,6 +9,8 @@ import {
   editChat,
   removeChat,
   fetchChatsByIds, // New controller function
+  fetchChatByPrefixedId, // NEW
+  fetchCombinedContent,  // NEW
 } from '../controllers/chatControllers.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 
@@ -37,5 +39,10 @@ router.put('/:id', authenticate, editChat);
 
 // Delete a chat by ID
 router.delete('/:id', authenticate, removeChat);
+
+// NEW routes for prefixed IDs
+router.get('/prefixed/:prefixedId', authenticate, fetchChatByPrefixedId);
+router.get('/combinedcontent', authenticate, fetchCombinedContent);
+
 
 export default router;

@@ -33,7 +33,7 @@ CREATE TABLE `audit_logs` (
   `action` varchar(255) NOT NULL,
   `target_id` varchar(36) DEFAULT NULL,
   `details` text,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP
+  `createdAt` datetime DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -57,8 +57,8 @@ CREATE TABLE `chats` (
   `media_url3` varchar(255) DEFAULT NULL,
   `media_type3` enum('image','video','audio','file') DEFAULT NULL,
   `is_flagged` tinyint(1) DEFAULT '0',
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `createdAt` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -71,15 +71,15 @@ CREATE TABLE `classes` (
   `class_id` varchar(36) COLLATE utf8mb4_general_ci NOT NULL,
   `name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `description` text COLLATE utf8mb4_general_ci,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `createdAt` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `classes`
 --
 
-INSERT INTO `classes` (`class_id`, `name`, `description`, `created_at`, `updated_at`) VALUES
+INSERT INTO `classes` (`class_id`, `name`, `description`, `createdAt`, `updatedAt`) VALUES
 ('59QGJ9', 'Ika', 'Indigene of Ika', '2025-01-12 05:37:54', '2025-01-12 05:37:54'),
 ('J9L1A7', 'Igbanke-33', 'Indigene of Igbanke-33', '2025-01-12 05:37:13', '2025-01-12 05:37:13'),
 ('XMZHFH', 'Ottah', 'Indigene of Ottah', '2025-01-11 07:21:28', '2025-01-11 07:21:28');
@@ -99,8 +99,8 @@ CREATE TABLE `comments` (
   `media_type1` enum('image','video','audio','file') DEFAULT NULL,
   `media_url2` varchar(255) DEFAULT NULL,
   `media_type2` enum('image','video','audio','file') DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `createdAt` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -115,7 +115,7 @@ CREATE TABLE `reports` (
   `reported_id` varchar(36) DEFAULT NULL,
   `reason` text NOT NULL,
   `status` enum('pending','reviewed','resolved') DEFAULT 'pending',
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP
+  `createdAt` datetime DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -131,14 +131,14 @@ CREATE TABLE `surveylog` (
   `verified_by` varchar(36) NOT NULL,
   `rating_remarks` varchar(255) NOT NULL,
   `approval_status` enum('pending','approved','rejected') DEFAULT 'pending',
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP
+  `createdAt` datetime DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `surveylog`
 --
 
-INSERT INTO `surveylog` (`id`, `user_id`, `answers`, `verified_by`, `rating_remarks`, `approval_status`, `created_at`) VALUES
+INSERT INTO `surveylog` (`id`, `user_id`, `answers`, `verified_by`, `rating_remarks`, `approval_status`, `createdAt`) VALUES
 (1, '1', '[\"sasa\",\"gfg\",\"ererre\",\"uyuyu\",\"vcvvc\"]', '', '', 'pending', '2025-01-07 06:06:56'),
 (2, '2', '[\"oloill\",\"yujyujty\",\"yjutyhtrtrh\",\"jjyhrhtsgaeff\",\"gfrgrfewerewr\"]', '', '', 'pending', '2025-01-07 06:08:15'),
 (3, '3', '[\"trfrrf\",\"988989\",\"zxxx\",\"iuiuyu\",\"2123ewds\"]', '', '', 'pending', '2025-01-07 06:09:46');
@@ -228,8 +228,8 @@ CREATE TABLE `users` (
   `role` enum('super_admin','admin','user') COLLATE utf8mb4_general_ci DEFAULT 'user',
   `isblocked` json DEFAULT NULL,
   `isbanned` tinyint(1) DEFAULT '0',
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `createdAt` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `resetToken` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `resetTokenExpiry` bigint DEFAULT NULL,
   `verificationCode` varchar(10) COLLATE utf8mb4_general_ci DEFAULT NULL,
@@ -240,7 +240,7 @@ CREATE TABLE `users` (
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`id`, `username`, `email`, `phone`, `avatar`, `password_hash`, `converse_id`, `mentor_id`, `class_id`, `is_member`, `role`, `isblocked`, `isbanned`, `created_at`, `updated_at`, `resetToken`, `resetTokenExpiry`, `verificationCode`, `codeExpiry`) VALUES
+INSERT INTO `users` (`id`, `username`, `email`, `phone`, `avatar`, `password_hash`, `converse_id`, `mentor_id`, `class_id`, `is_member`, `role`, `isblocked`, `isbanned`, `createdAt`, `updatedAt`, `resetToken`, `resetTokenExpiry`, `verificationCode`, `codeExpiry`) VALUES
 (1, 'abc', 'abc@abc.com', '1234', NULL, '$2b$10$H6fjXoIqCC79PYlQzsgkLOjxgZh1EFRZfr79ISvFDeTBDcdRes2AK', NULL, NULL, NULL, 'applied', 'user', NULL, 0, '2025-01-07 06:06:41', '2025-01-07 06:14:01', NULL, NULL, NULL, NULL),
 (2, 'pet', 'petersomond@gmail.com', '123456', NULL, '$2b$10$fUOHFXtTWxRaky0kJ0h5zuxTrBaJbjUpc0MncBcBzbudxaHSlURk6', NULL, NULL, NULL, 'granted', 'super_admin', NULL, 0, '2025-01-07 06:08:01', '2025-01-07 06:14:14', NULL, NULL, NULL, NULL),
 (3, 'yahoomond', 'peters_o_mond@yahoo.com', '54321', NULL, '$2b$10$yRQW/vsAzFOj/NV1KpV7/eSTzpt1caaEtr9BGk/5W84KB5CsbX7/a', NULL, NULL, NULL, 'granted', 'admin', NULL, 0, '2025-01-07 06:09:31', '2025-01-07 06:14:24', NULL, NULL, NULL, NULL);
@@ -261,7 +261,7 @@ CREATE TABLE `user_chats` (
   `is_muted` tinyint(1) DEFAULT '0',
   `last_read_message_id` varchar(36) DEFAULT NULL,
   `joined_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `updatedAt` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --

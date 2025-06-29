@@ -79,40 +79,93 @@ export const getChatAndTeachingIdsFromComments = (comments) => {
   return { chatIds, teachingIds };
 };
 
-// step-3 Fetch parent chats and teachings along with their comments using return chatIds and teachingIds from step-2
+// // step-3 Fetch parent chats and teachings along with their comments using return chatIds and teachingIds from step-2
+
+// export const getParentChatsAndTeachingsWithComments = async (chatIds, teachingIds) => {
+//   try {
+
+//     if(chatIds.length !== 0)  {
+//     var [chatsBody] = await pool.query('SELECT * FROM chats WHERE id iN (?)', [chatIds]);
+//     }
+
+//     if(teachingIds.length !== 0)  {
+//       var [teachingBody] = await pool.query('SELECT * FROM teachings WHERE id iN (?)', [teachingIds]);
+//       }
+      
+//     if(chatsBody){
+//       var [comments] = await pool.query('SELECT * FROM comments WHERE chat_id IN (?)', [chatIds]);
+      
+//     }
+
+//     if(teachingBody){
+//       var [comments] = await pool.query('SELECT * FROM comments WHERE teaching_id IN (?)', [teachingIds]);
+      
+//     }
+
+//     const data = {
+//       chats: chatsBody ? chatsBody : [],
+//       teachings: teachingBody ? teachingBody : [],
+//       comments: comments
+//     }
+
+//     return data;
+//   } catch (error) {
+//     console.error("Error fetching parent chats and teachings with comments:", error);
+//     throw new CustomError("Internal Server Error");
+//   }
+// };
+
+
+// UPDATED: Include prefixed_id in parent content queries
 export const getParentChatsAndTeachingsWithComments = async (chatIds, teachingIds) => {
   try {
+    let chatsBody = [];
+    let teachingBody = [];
+    let comments = [];
 
-    if(chatIds.length !== 0)  {
-    var [chatsBody] = await pool.query('SELECT * FROM chats WHERE id iN (?)', [chatIds]);
+    if (chatIds.length !== 0) {
+      const [chats] = await pool.query('SELECT *, prefixed_id FROM chats WHERE id IN (?)', [chatIds]);
+      chatsBody = chats;
     }
 
-    if(teachingIds.length !== 0)  {
-      var [teachingBody] = await pool.query('SELECT * FROM teachings WHERE id iN (?)', [teachingIds]);
+    if (teachingIds.length !== 0) {
+      const [teachings] = await pool.query('SELECT *, prefixed_id FROM teachings WHERE id IN (?)', [teachingIds]);
+      teachingBody = teachings;
+    }
+      
+    // Get all comments for both chats and teachings
+    if (chatIds.length > 0 || teachingIds.length > 0) {
+      let commentQuery = 'SELECT * FROM comments WHERE ';
+      let queryParams = [];
+      let conditions = [];
+
+      if (chatIds.length > 0) {
+        conditions.push('chat_id IN (?)');
+        queryParams.push(chatIds);
       }
-      
-    if(chatsBody){
-      var [comments] = await pool.query('SELECT * FROM comments WHERE chat_id IN (?)', [chatIds]);
-      
+
+      if (teachingIds.length > 0) {
+        conditions.push('teaching_id IN (?)');
+        queryParams.push(teachingIds);
+      }
+
+      commentQuery += conditions.join(' OR ');
+      const [allComments] = await pool.query(commentQuery, queryParams);
+      comments = allComments;
     }
 
-    if(teachingBody){
-      var [comments] = await pool.query('SELECT * FROM comments WHERE teaching_id IN (?)', [teachingIds]);
-      
-    }
-
-    const data = {
-      chats: chatsBody ? chatsBody : [],
-      teachings: teachingBody ? teachingBody : [],
+    return {
+      chats: chatsBody,
+      teachings: teachingBody,
       comments: comments
-    }
-
-    return data;
+    };
   } catch (error) {
     console.error("Error fetching parent chats and teachings with comments:", error);
     throw new CustomError("Internal Server Error");
   }
 };
+
+
 
 // Fetch comments using parents chatIds and teachingIds
 export const getCommentsByParentIds = async (chatIds, teachingIds) => {

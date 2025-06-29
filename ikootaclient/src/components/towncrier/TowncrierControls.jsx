@@ -2,7 +2,7 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import useUpload from "../../hooks/useUpload";
 import { useFetchTeachings  } from "../service/useFetchTeachings";
-import "../../admin/styles/navbar.css";
+import "../../components/admin/navbar.css";
 
 const TowncrierControls = () => {
   const { handleSubmit, register, reset } = useForm();

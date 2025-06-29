@@ -84,7 +84,7 @@ const ListComments = ({ setActiveItem, activeItem = {}, deactivateListChats }) =
               <p>Lesson#: {chat.id}</p>
               <p>Audience: {chat.audience || 'No audience'}</p>
               <p>Post By: {chat.created_by || 'Admin'}</p>
-              <p>Date Posted: {new Date(chat.created_at).toLocaleString()}</p>
+              <p>Date Posted: {new Date(chat.createdAt).toLocaleString()}</p>
               <p>Date Updated: {new Date(chat.updatedAt).toLocaleString()}</p>
             </div>
 
@@ -96,7 +96,7 @@ const ListComments = ({ setActiveItem, activeItem = {}, deactivateListChats }) =
                   <div key={comment.updatedAt} className="comment-item">
                     <p>{comment.comment}</p>
                     <p>CreatedBy: {comment.user_id}</p>
-                    <p>Date created: {new Date(comment.created_at).toLocaleString()}</p>
+                    <p>Date created: {new Date(comment.createdAt).toLocaleString()}</p>
                     <p>Date updated: {new Date(comment.updatedAt).toLocaleString()}</p>
                   </div>
                 ))}
@@ -119,7 +119,7 @@ const ListComments = ({ setActiveItem, activeItem = {}, deactivateListChats }) =
               <p>Lesson#: {teaching.id}</p>
               <p>Audience: {teaching.audience || 'No audience'}</p>
               <p>Post By: {teaching.created_by || 'Admin'}</p>
-              <p>Date Posted: {new Date(teaching.created_at).toLocaleString()}</p>
+              <p>Date Posted: {new Date(teaching.createdAt).toLocaleString()}</p>
               <p>Date Updated: {new Date(teaching.updatedAt).toLocaleString()}</p>
             </div>
 
@@ -131,7 +131,7 @@ const ListComments = ({ setActiveItem, activeItem = {}, deactivateListChats }) =
                   <div key={comment?.updatedAt} className="comment-item">
                     <p>{comment?.comment}</p>
                     <p>CreatedBy: {comment.user_id}</p>
-                    <p>Date created: {new Date(comment.created_at).toLocaleString()}</p>
+                    <p>Date created: {new Date(comment.createdAt).toLocaleString()}</p>
                     <p>Date updated: {new Date(comment.updatedAt).toLocaleString()}</p>
                   </div>
                 ))}

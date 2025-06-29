@@ -9,7 +9,19 @@ import {
   deleteChatById,
   addCommentToChatService,
   getChatsByIds, // New service function
+  getChatByPrefixedId,    // ADD THIS
+  getCombinedContent,    
 } from '../services/chatServices.js';
+
+
+// export const fetchAllChats = async (req, res) => {
+//   try {
+//     const chats = await getAllChats();
+//     res.status(200).json(chats);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 
 
 export const fetchAllChats = async (req, res) => {
@@ -32,15 +44,55 @@ export const fetchChatsByUserId = async (req, res) => {
   }
 };
 
+// Missing fetchChatByPrefixedId controller
+export const fetchChatByPrefixedId = async (req, res) => {
+  try {
+    const { prefixedId } = req.params;
+    const chat = await getChatByPrefixedId(prefixedId);
+    
+    if (!chat) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Chat not found' 
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: chat
+    });
+  } catch (error) {
+    console.error('Error in fetchChatByPrefixedId:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+};
+
+
+// export const fetchChatsByIds = async (req, res) => {
+//   const { ids } = req.query;
+//   try {
+//     const chats = await getChatsByIds(ids.split(','));
+//     res.status(200).json(chats);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+// Updated fetchChatsByIds to support both numeric and prefixed IDs
 export const fetchChatsByIds = async (req, res) => {
   const { ids } = req.query;
   try {
-    const chats = await getChatsByIds(ids.split(','));
+    const idsArray = ids.split(',');
+    const chats = await getChatsByIds(idsArray);
     res.status(200).json(chats);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 export const createChat = async (req, res) => {
   try {
@@ -116,3 +168,47 @@ export const addCommentToChat = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// NEW: Fetch chat by prefixed ID
+// export const fetchChatByPrefixedId = async (req, res) => {
+//   try {
+//     const { prefixedId } = req.params;
+//     const chat = await getChatByPrefixedId(prefixedId);
+    
+//     if (!chat) {
+//       return res.status(404).json({ error: 'Chat not found' });
+//     }
+    
+//     res.status(200).json(chat);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
+// NEW: Combined content controller
+export const fetchCombinedContent = async (req, res) => {
+  try {
+    console.log('Fetching combined content...'); // Debug log
+    
+    const content = await getCombinedContent();
+    
+    console.log(`Found ${content.length} total content items`); // Debug log
+    
+    res.status(200).json({
+      success: true,
+      data: content,
+      count: content.length,
+      chats_count: content.filter(c => c.content_type === 'chat').length,
+      teachings_count: content.filter(c => c.content_type === 'teaching').length
+    });
+  } catch (error) {
+    console.error('Error in fetchCombinedContent:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message,
+      message: 'Failed to fetch combined content'
+    });
+  }
+};
+

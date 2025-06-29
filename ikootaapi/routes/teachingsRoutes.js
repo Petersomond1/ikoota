@@ -7,6 +7,7 @@ import {
   editTeaching,
   removeTeaching,
   fetchTeachingsByIds, // New controller function
+  fetchTeachingByPrefixedId, // New controller function
 } from '../controllers/teachingsControllers.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 
@@ -29,5 +30,8 @@ router.put('/:id', authenticate, editTeaching);
 
 // Delete a teaching by ID
 router.delete('/:id', authenticate, removeTeaching);
+
+// Fetch teaching by prefixed ID
+router.get('/prefixed/:prefixedId', authenticate, fetchTeachingByPrefixedId);
 
 export default router;

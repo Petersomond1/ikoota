@@ -98,7 +98,7 @@ export const getReportsService = async () => {
 
 // Fetch audit logs for monitoring
 export const getAuditLogsService = async () => {
-  const sql = 'SELECT id, action, target_id, details, created_at FROM audit_logs ORDER BY created_at DESC';
+  const sql = 'SELECT id, action, target_id, details, createdAt FROM audit_logs ORDER BY createdAt DESC';
   const auditLogs = await dbQuery(sql);
   return auditLogs;
 };
