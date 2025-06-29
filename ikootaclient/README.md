@@ -1147,3 +1147,94 @@ export default Chat;
 First; need to code in for the app to show re-login page the moment it enters a standby mode, after a period of inactivity. Each time it enters a standby mode, it should display login page.
 
 secondly; there should be outlets or page link for users to nevigate from the iko chat page to the towncrier and vice versa with authrization confirmed.
+
+
+
+#######
+
+New API Endpoints Available users (continued):
+
+GET /api/users/:user_id - Get specific user profile
+GET /api/users/:user_id/activity - Get user's content activity
+PUT /api/users/:user_id - Update specific user (admin)
+DELETE /api/users/:user_id - Soft delete user (super admin)
+GET /api/health - API health check
+GET /api/docs - API documentation
+
+Database Schema Compatibility:
+Your existing users table structure is perfect for these optimizations:
+sql-- Your current users table supports all new features:
+- id (primary key)
+- username, email, phone (profile fields)
+- avatar (profile image)
+- converse_id, mentor_id, class_id (relationship fields)
+- is_member (membership status: applied, granted, denied, suspended)
+- role (user, admin, super_admin, mentor, moderator)
+- isblocked, isbanned (moderation fields)
+- createdAt, updatedAt (timestamp tracking)
+- resetToken, resetTokenExpiry, verificationCode, codeExpiry (auth fields)
+Role Hierarchy & Permissions:
+
+super_admin: Full access to all operations
+admin: Can manage users but not create other admins
+mentor: Limited access to assigned mentees
+moderator: Content moderation capabilities
+user: Basic profile access only
+
+
+
+New Survey API Endpoints:
+
+GET /api/survey/questions - Get survey questions (public)
+POST /api/survey/submit - Submit survey (authenticated)
+GET /api/survey/my-surveys - Get user's surveys
+GET /api/survey/logs - Get all surveys (admin)
+GET /api/survey/stats - Survey statistics (admin)
+GET /api/survey/:id - Get specific survey
+PUT /api/survey/approve - Approve/reject survey (admin)
+PUT /api/survey/questions - Update questions (admin)
+
+
+Key Features Added:
+New API Endpoints:
+
+GET /api/communication/templates - Get available templates
+GET /api/communication/health - Service health check (admin)
+GET /api/communication/stats - Communication statistics (admin)
+POST /api/communication/email/send - Send single email
+POST /api/communication/email/bulk - Send bulk emails (admin)
+POST /api/communication/sms/send - Send single SMS
+POST /api/communication/sms/bulk - Send bulk SMS (admin)
+POST /api/communication/notification - Combined notifications
+
+Template System:
+javascript// Email templates available:
+- welcome: New user welcome email
+- surveyApproval: Survey approval/rejection
+- contentNotification: Content status updates
+- passwordReset: Password reset instructions
+- adminNotification: Admin alerts
+
+// SMS templates available:
+- welcome: Welcome SMS
+- surveyApproval: Survey status SMS
+- verificationCode: OTP codes
+- passwordReset: Password reset alert
+- contentNotification: Content updates
+- adminAlert: Admin alerts
+- maintenance: Maintenance notifications 
+
+
+
+New API Endpoints:
+
+GET /api/comments/stats - Comment statistics (admin)
+GET /api/comments/:commentId - Get specific comment
+PUT /api/comments/:commentId - Update comment
+DELETE /api/comments/:commentId - Delete comment 
+
+Authorization Matrix:
+
+Users: Can create, view, update, delete their own comments
+Admins: Can view all comments, statistics, and moderate content
+Super Admins: Full access to all comment operations

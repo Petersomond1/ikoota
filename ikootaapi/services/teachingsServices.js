@@ -1,109 +1,95 @@
 import pool from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
 
-// // Fetch all teachings
-// export const getAllTeachings = async () => {
-//   const [rows] = await pool.query('SELECT * FROM teachings ORDER BY createdAt DESC');
-//   return rows;
-// };
-
-
-// Updated to include prefixed_id
-// export const getAllTeachings = async () => {
-//   const [rows] = await pool.query('SELECT *, prefixed_id FROM teachings ORDER BY createdAt DESC');
-//   return rows;
-// };
+// Enhanced getAllTeachings with better error handling and sorting
 export const getAllTeachings = async () => {
   try {
-    const [rows] = await pool.query('SELECT *, prefixed_id FROM teachings ORDER BY createdAt DESC');
+    const [rows] = await pool.query(`
+      SELECT *, prefixed_id, 
+             'teaching' as content_type,
+             topic as content_title,
+             createdAt as content_created_at,
+             updatedAt as content_updated_at
+      FROM teachings 
+      ORDER BY updatedAt DESC, createdAt DESC
+    `);
     return rows;
   } catch (error) {
-    throw new CustomError(error.message);
+    console.error('Error in getAllTeachings:', error);
+    throw new CustomError(`Failed to fetch teachings: ${error.message}`);
   }
 };
 
-// // Fetch teachings by user_id
-// export const getTeachingsByUserId = async (user_id) => {
-//   const [rows] = await pool.query('SELECT * FROM teachings WHERE user_id = ? ORDER BY createdAt DESC', [user_id]);
-//   return rows;
-// };
-
-// Updated to include prefixed_id
+// Enhanced getTeachingsByUserId
 export const getTeachingsByUserId = async (user_id) => {
   try {
-    const [rows] = await pool.query('SELECT *, prefixed_id FROM teachings WHERE user_id = ? ORDER BY createdAt DESC', [user_id]);
+    if (!user_id) {
+      throw new CustomError('User ID is required', 400);
+    }
+
+    const [rows] = await pool.query(`
+      SELECT *, prefixed_id,
+             'teaching' as content_type,
+             topic as content_title,
+             createdAt as content_created_at,
+             updatedAt as content_updated_at
+      FROM teachings 
+      WHERE user_id = ? 
+      ORDER BY updatedAt DESC, createdAt DESC
+    `, [user_id]);
+    
     return rows;
   } catch (error) {
-    throw new CustomError(error.message);
+    console.error('Error in getTeachingsByUserId:', error);
+    throw new CustomError(`Failed to fetch user teachings: ${error.message}`);
   }
 };
 
-
-// NEW: Get teaching by prefixed ID
-export const getTeachingByPrefixedId = async (prefixedId) => {
+// Enhanced getTeachingByPrefixedId with fallback to numeric ID
+export const getTeachingByPrefixedId = async (identifier) => {
   try {
-    const [rows] = await pool.query('SELECT *, prefixed_id FROM teachings WHERE prefixed_id = ?', [prefixedId]);
+    if (!identifier) {
+      throw new CustomError('Teaching identifier is required', 400);
+    }
+
+    // Try prefixed_id first, then fallback to numeric id
+    let query, params;
+    
+    if (identifier.startsWith('t') || identifier.startsWith('T')) {
+      // Prefixed ID
+      query = `
+        SELECT *, prefixed_id,
+               'teaching' as content_type,
+               topic as content_title,
+               createdAt as content_created_at,
+               updatedAt as content_updated_at
+        FROM teachings 
+        WHERE prefixed_id = ?
+      `;
+      params = [identifier];
+    } else {
+      // Numeric ID
+      query = `
+        SELECT *, prefixed_id,
+               'teaching' as content_type,
+               topic as content_title,
+               createdAt as content_created_at,
+               updatedAt as content_updated_at
+        FROM teachings 
+        WHERE id = ?
+      `;
+      params = [parseInt(identifier)];
+    }
+
+    const [rows] = await pool.query(query, params);
     return rows[0] || null;
   } catch (error) {
-    throw new CustomError(error.message);
+    console.error('Error in getTeachingByPrefixedId:', error);
+    throw new CustomError(`Failed to fetch teaching: ${error.message}`);
   }
 };
 
-
-
-// // Add a new teaching
-// export const createTeachingService = async (data) => {
-//   const {
-//     topic,
-//     description,
-//     subjectMatter,
-//     audience,
-//     content,
-//     media,
-//   } = data;
-
-//   const [media1, media2, media3] = media || [];
-
-//   const sql = `
-//     INSERT INTO teachings 
-//     (topic, description, subjectMatter, audience, content, media_url1, media_type1, media_url2, media_type2, media_url3, media_type3)
-//     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-//   `;
-//   const [result] = await pool.query(sql, [
-//     topic,
-//     description,
-//     subjectMatter,
-//     audience,
-//     content,
-//     media[0]?.url || null,
-//     media[0]?.type || null,
-//     media[1]?.url || null,
-//     media[1]?.type || null,
-//     media[2]?.url || null,
-//     media[2]?.type || null,
-//   ]);
-
-//   if (result.affectedRows === 0) throw new CustomError("Failed to add teaching", 500);
-
-//   const teachingId = teachingResult.insertId;
-
-//   // Insert media URLs associated with this teaching
-//  const mediaInsertPromises = media.map((file) => {
-//   const mediaQuery = `
-//     INSERT INTO teaching_media (teaching_id, media[0]_url, media[0]_type,  media[1]_url, media[1]_type, media[2]_url, media[2]_type)
-//     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-//   return dbQuery(mediaQuery, [teachingId, file.url, file.type]);
-// });
-
-// await Promise.all(mediaInsertPromises);
-
-
-//   return { id: result.insertId, ...data };
-// };
-
-
-
-// FIXED: Updated createTeachingService with user_id and prefixed_id support
+// Enhanced createTeachingService with comprehensive validation
 export const createTeachingService = async (data) => {
   try {
     const {
@@ -112,24 +98,39 @@ export const createTeachingService = async (data) => {
       subjectMatter,
       audience,
       content,
-      media,
-      user_id, 
+      media = [],
+      user_id,
+      lessonNumber, // Optional lesson number
     } = data;
 
-    const [media1, media2, media3] = media || [];
+    // Validation
+    if (!topic || !description || !user_id) {
+      throw new CustomError('Topic, description, and user_id are required', 400);
+    }
+
+    if (!content && (!media || media.length === 0)) {
+      throw new CustomError('Either content or media must be provided', 400);
+    }
+
+    const [media1, media2, media3] = media;
+
+    // Generate lesson number if not provided
+    const finalLessonNumber = lessonNumber || `0-${Date.now()}`;
 
     const sql = `
       INSERT INTO teachings 
-      (topic, description, subjectMatter, audience, content, media_url1, media_type1, media_url2, media_type2, media_url3, media_type3, user_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (topic, description, lessonNumber, subjectMatter, audience, content, 
+       media_url1, media_type1, media_url2, media_type2, media_url3, media_type3, user_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     const [result] = await pool.query(sql, [
-      topic,
-      description,
-      subjectMatter,
-      audience,
-      content,
+      topic.trim(),
+      description.trim(),
+      finalLessonNumber,
+      subjectMatter?.trim() || null,
+      audience?.trim() || null,
+      content?.trim() || null,
       media1?.url || null,
       media1?.type || null,
       media2?.url || null,
@@ -139,132 +140,267 @@ export const createTeachingService = async (data) => {
       user_id,
     ]);
 
-    if (result.affectedRows === 0) throw new CustomError("Failed to add teaching", 500);
+    if (result.affectedRows === 0) {
+      throw new CustomError("Failed to create teaching", 500);
+    }
 
     // Get the created record with prefixed_id (populated by trigger)
-    const [createdTeaching] = await pool.query('SELECT *, prefixed_id FROM teachings WHERE id = ?', [result.insertId]);
+    const [createdTeaching] = await pool.query(`
+      SELECT *, prefixed_id,
+             'teaching' as content_type,
+             topic as content_title,
+             createdAt as content_created_at,
+             updatedAt as content_updated_at
+      FROM teachings 
+      WHERE id = ?
+    `, [result.insertId]);
     
+    if (!createdTeaching[0]) {
+      throw new CustomError("Failed to retrieve created teaching", 500);
+    }
+
+    console.log(`Teaching created successfully with ID: ${createdTeaching[0].prefixed_id}`);
     return createdTeaching[0];
   } catch (error) {
-    throw new CustomError(error.message);
+    console.error('Error in createTeachingService:', error);
+    throw new CustomError(error.message || 'Failed to create teaching');
   }
 };
 
-
-
-// Update a teaching by ID
-// export const updateTeachingById = async (id, data) => {
-//   const {
-//     topic,
-//     description,
-//     lessonNumber,
-//     subjectMatter,
-//     audience,
-//     content,
-//     media,
-//   } = data;
-
-//   const [media1, media2, media3] = media || [];
-
-//   const sql = `
-//     UPDATE teachings 
-//     SET topic = ?, description = ?, lessonNumber = ?, subjectMatter = ?, audience = ?, content = ?, 
-//         media_url1 = ?, media_type1 = ?, media_url2 = ?, media_type2 = ?, media_url3 = ?, media_type3 = ?
-//     WHERE id = ?
-//   `;
-
-//   const [result] = await pool.query(sql, [
-//     topic,
-//     description,
-//     lessonNumber,
-//     subjectMatter,
-//     audience,
-//     content,
-//     media1?.url || null,
-//     media1?.type || null,
-//     media2?.url || null,
-//     media2?.type || null,
-//     media3?.url || null,
-//     media3?.type || null,
-//     id,
-//   ]);
-
-//   if (result.affectedRows === 0) throw new CustomError('Teaching not found', 404);
-
-//   return { id, ...data };
-// };
-
-
-// Updated updateTeachingById
+// Enhanced updateTeachingById with better validation
 export const updateTeachingById = async (id, data) => {
-  const {
-    topic,
-    description,
-    lessonNumber,
-    subjectMatter,
-    audience,
-    content,
-    media,
-  } = data;
+  try {
+    if (!id) {
+      throw new CustomError('Teaching ID is required', 400);
+    }
 
-  const [media1, media2, media3] = media || [];
+    const {
+      topic,
+      description,
+      lessonNumber,
+      subjectMatter,
+      audience,
+      content,
+      media = [],
+    } = data;
 
-  const sql = `
-    UPDATE teachings 
-    SET topic = ?, description = ?, lessonNumber = ?, subjectMatter = ?, audience = ?, content = ?,
-        media_url1 = ?, media_type1 = ?, media_url2 = ?, media_type2 = ?, media_url3 = ?, media_type3 = ?, updatedAt = NOW()
-    WHERE id = ?
-  `;
+    // Check if teaching exists
+    const [existingTeaching] = await pool.query('SELECT id FROM teachings WHERE id = ?', [id]);
+    if (!existingTeaching[0]) {
+      throw new CustomError('Teaching not found', 404);
+    }
 
-  const [result] = await pool.query(sql, [
-    topic,
-    description,
-    lessonNumber,
-    subjectMatter,
-    audience,
-    content,
-    media1?.url || null,
-    media1?.type || null,
-    media2?.url || null,
-    media2?.type || null,
-    media3?.url || null,
-    media3?.type || null,
-    id,
-  ]);
+    const [media1, media2, media3] = media;
 
-  if (result.affectedRows === 0) throw new CustomError('Teaching not found', 404);
+    const sql = `
+      UPDATE teachings 
+      SET topic = ?, description = ?, lessonNumber = ?, subjectMatter = ?, audience = ?, content = ?,
+          media_url1 = ?, media_type1 = ?, media_url2 = ?, media_type2 = ?, media_url3 = ?, media_type3 = ?, 
+          updatedAt = NOW()
+      WHERE id = ?
+    `;
 
-  return { id, ...data };
+    const [result] = await pool.query(sql, [
+      topic?.trim() || null,
+      description?.trim() || null,
+      lessonNumber || null,
+      subjectMatter?.trim() || null,
+      audience?.trim() || null,
+      content?.trim() || null,
+      media1?.url || null,
+      media1?.type || null,
+      media2?.url || null,
+      media2?.type || null,
+      media3?.url || null,
+      media3?.type || null,
+      id,
+    ]);
+
+    if (result.affectedRows === 0) {
+      throw new CustomError('Teaching not found or no changes made', 404);
+    }
+
+    // Return updated teaching
+    const [updatedTeaching] = await pool.query(`
+      SELECT *, prefixed_id,
+             'teaching' as content_type,
+             topic as content_title,
+             createdAt as content_created_at,
+             updatedAt as content_updated_at
+      FROM teachings 
+      WHERE id = ?
+    `, [id]);
+
+    return updatedTeaching[0];
+  } catch (error) {
+    console.error('Error in updateTeachingById:', error);
+    throw new CustomError(error.message || 'Failed to update teaching');
+  }
 };
 
-// Delete a teaching by ID
+// Enhanced deleteTeachingById with cascade considerations
 export const deleteTeachingById = async (id) => {
-  const [result] = await pool.query('DELETE FROM teachings WHERE id = ?', [id]);
+  try {
+    if (!id) {
+      throw new CustomError('Teaching ID is required', 400);
+    }
 
-  if (result.affectedRows === 0) throw new CustomError('Teaching not found', 404);
+    // Check if teaching exists and get prefixed_id for logging
+    const [existingTeaching] = await pool.query('SELECT prefixed_id FROM teachings WHERE id = ?', [id]);
+    if (!existingTeaching[0]) {
+      throw new CustomError('Teaching not found', 404);
+    }
+
+    // Note: Comments should be handled by foreign key constraints or separate cleanup
+    const [result] = await pool.query('DELETE FROM teachings WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      throw new CustomError('Teaching not found', 404);
+    }
+
+    console.log(`Teaching deleted successfully: ${existingTeaching[0].prefixed_id}`);
+    return { deleted: true, prefixed_id: existingTeaching[0].prefixed_id };
+  } catch (error) {
+    console.error('Error in deleteTeachingById:', error);
+    throw new CustomError(error.message || 'Failed to delete teaching');
+  }
 };
 
-
-// // Fetch teachings by a list of IDs
-// export const getTeachingsByIds = async (ids) => {
-//   try {
-//     const [rows] = await pool.query('SELECT * FROM teachings WHERE id IN (?) ORDER BY updatedAt DESC', [ids]);
-//   return rows;
-// } catch (error) {
-//   throw new CustomError(error.message);
-// }
-// };
-
-// Updated getTeachingsByIds to support prefixed IDs
+// Enhanced getTeachingsByIds supporting both numeric and prefixed IDs
 export const getTeachingsByIds = async (ids) => {
   try {
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      throw new CustomError('Teaching IDs array is required', 400);
+    }
+
+    // Clean and validate IDs
+    const cleanIds = ids.filter(id => id && id.toString().trim());
+    if (cleanIds.length === 0) {
+      throw new CustomError('Valid teaching IDs are required', 400);
+    }
+
     // Check if IDs are prefixed or numeric
-    const isNumeric = ids.every(id => !isNaN(id));
+    const isNumeric = cleanIds.every(id => !isNaN(id));
     const column = isNumeric ? 'id' : 'prefixed_id';
     
-    const [rows] = await pool.query(`SELECT *, prefixed_id FROM teachings WHERE ${column} IN (?) ORDER BY updatedAt DESC`, [ids]);
+    const placeholders = cleanIds.map(() => '?').join(',');
+    const query = `
+      SELECT *, prefixed_id,
+             'teaching' as content_type,
+             topic as content_title,
+             createdAt as content_created_at,
+             updatedAt as content_updated_at
+      FROM teachings 
+      WHERE ${column} IN (${placeholders}) 
+      ORDER BY updatedAt DESC, createdAt DESC
+    `;
+    
+    const [rows] = await pool.query(query, cleanIds);
     return rows;
   } catch (error) {
-    throw new CustomError(error.message);
+    console.error('Error in getTeachingsByIds:', error);
+    throw new CustomError(error.message || 'Failed to fetch teachings by IDs');
+  }
+};
+
+// NEW: Search teachings with filters
+export const searchTeachings = async (filters = {}) => {
+  try {
+    const { 
+      query, 
+      user_id, 
+      audience, 
+      subjectMatter, 
+      limit = 50, 
+      offset = 0 
+    } = filters;
+
+    let whereConditions = [];
+    let params = [];
+
+    if (query) {
+      whereConditions.push('(topic LIKE ? OR description LIKE ? OR content LIKE ?)');
+      const searchTerm = `%${query}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    if (user_id) {
+      whereConditions.push('user_id = ?');
+      params.push(user_id);
+    }
+
+    if (audience) {
+      whereConditions.push('audience LIKE ?');
+      params.push(`%${audience}%`);
+    }
+
+    if (subjectMatter) {
+      whereConditions.push('subjectMatter LIKE ?');
+      params.push(`%${subjectMatter}%`);
+    }
+
+    const whereClause = whereConditions.length > 0 ? 
+      `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    const sql = `
+      SELECT *, prefixed_id,
+             'teaching' as content_type,
+             topic as content_title,
+             createdAt as content_created_at,
+             updatedAt as content_updated_at
+      FROM teachings 
+      ${whereClause}
+      ORDER BY updatedAt DESC, createdAt DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    params.push(parseInt(limit), parseInt(offset));
+    const [rows] = await pool.query(sql, params);
+
+    // Get total count for pagination
+    const countSql = `SELECT COUNT(*) as total FROM teachings ${whereClause}`;
+    const [countResult] = await pool.query(countSql, params.slice(0, -2));
+
+    return {
+      teachings: rows,
+      total: countResult[0].total,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    };
+  } catch (error) {
+    console.error('Error in searchTeachings:', error);
+    throw new CustomError(error.message || 'Failed to search teachings');
+  }
+};
+
+// NEW: Get teaching statistics
+export const getTeachingStats = async (user_id = null) => {
+  try {
+    let whereClause = '';
+    let params = [];
+
+    if (user_id) {
+      whereClause = 'WHERE user_id = ?';
+      params = [user_id];
+    }
+
+    const sql = `
+      SELECT 
+        COUNT(*) as total_teachings,
+        COUNT(DISTINCT user_id) as total_authors,
+        COUNT(DISTINCT audience) as unique_audiences,
+        COUNT(DISTINCT subjectMatter) as unique_subjects,
+        SUM(CASE WHEN media_url1 IS NOT NULL OR media_url2 IS NOT NULL OR media_url3 IS NOT NULL THEN 1 ELSE 0 END) as teachings_with_media,
+        MIN(createdAt) as earliest_teaching,
+        MAX(updatedAt) as latest_update
+      FROM teachings 
+      ${whereClause}
+    `;
+
+    const [rows] = await pool.query(sql, params);
+    return rows[0];
+  } catch (error) {
+    console.error('Error in getTeachingStats:', error);
+    throw new CustomError(error.message || 'Failed to get teaching statistics');
   }
 };
