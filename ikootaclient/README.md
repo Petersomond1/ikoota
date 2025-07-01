@@ -585,22 +585,55 @@ Super Admins: Full access to all comment operations
 
 
 
+MySQL [ikoota_db]> show tables;
++--------------------------------+
+| Tables_in_ikoota_db            |
++--------------------------------+
+| audit_logs                     |
+| bulk_email_logs                |
+| bulk_sms_logs                  |
+| chats                          |
+| class_content_access           |
+| class_member_counts            |
+| classes                        |
+| comments                       |
+| converse_relationships         |
+| email_logs                     |
+| email_templates                |
+| id_generation_log              |
+| identity_masking_audit         |
+| reports                        |
+| sms_logs                       |
+| sms_templates                  |
+| survey_questions               |
+| surveylog                      |
+| teachings                      |
+| user_chats                     |
+| user_class_details             |
+| user_class_memberships         |
+| user_communication_preferences |
+| user_profiles                  |
+| users                          |
++--------------------------------+
+25 rows in set (0.050 sec)
 
-
-MySQL [ikoota_db]> describe audit_logs;
+MySQL [ikoota_db]> describe ALL tables;
+ERROR 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ALL tables' at line 1
+MySQL [ikoota_db]>
+MySQL [ikoota_db]> DESCRIBE audit_logs;
 +-----------+--------------+------+-----+-------------------+-------------------+
 | Field     | Type         | Null | Key | Default           | Extra             |
 +-----------+--------------+------+-----+-------------------+-------------------+
 | id        | int          | NO   | PRI | NULL              | auto_increment    |
-| admin_id  | varchar(36)  | NO   |     | NULL              |                   |
+| admin_id  | char(10)     | NO   | MUL | NULL              |                   |
 | action    | varchar(255) | NO   |     | NULL              |                   |
-| target_id | varchar(36)  | YES  |     | NULL              |                   |
+| target_id | char(10)     | YES  | MUL | NULL              |                   |
 | details   | text         | YES  |     | NULL              |                   |
 | createdAt | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
 +-----------+--------------+------+-----+-------------------+-------------------+
-6 rows in set (0.079 sec)
+6 rows in set (0.075 sec)
 
-MySQL [ikoota_db]> describe bulk_email_logs;
+MySQL [ikoota_db]> DESCRIBE bulk_email_logs;
 +------------------+--------------+------+-----+-------------------+-----------------------------------------------+
 | Field            | Type         | Null | Key | Default           | Extra                                         |
 +------------------+--------------+------+-----+-------------------+-----------------------------------------------+
@@ -610,14 +643,14 @@ MySQL [ikoota_db]> describe bulk_email_logs;
 | template         | varchar(100) | YES  | MUL | NULL              |                                               |
 | successful_count | int          | YES  |     | 0                 |                                               |
 | failed_count     | int          | YES  |     | 0                 |                                               |
-| sender_id        | int          | YES  | MUL | NULL              |                                               |
+| sender_id        | char(10)     | YES  | MUL | NULL              |                                               |
 | createdAt        | timestamp    | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
 | updatedAt        | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
 | processedAt      | timestamp    | YES  |     | NULL              |                                               |
 +------------------+--------------+------+-----+-------------------+-----------------------------------------------+
-10 rows in set (0.072 sec)
+10 rows in set (0.064 sec)
 
-MySQL [ikoota_db]> describe bulk_sms_logs;
+MySQL [ikoota_db]> DESCRIBE bulk_sms_logs;
 +------------------+--------------+------+-----+-------------------+-----------------------------------------------+
 | Field            | Type         | Null | Key | Default           | Extra                                         |
 +------------------+--------------+------+-----+-------------------+-----------------------------------------------+
@@ -627,20 +660,20 @@ MySQL [ikoota_db]> describe bulk_sms_logs;
 | template         | varchar(100) | YES  | MUL | NULL              |                                               |
 | successful_count | int          | YES  |     | 0                 |                                               |
 | failed_count     | int          | YES  |     | 0                 |                                               |
-| sender_id        | int          | YES  | MUL | NULL              |                                               |
+| sender_id        | char(10)     | YES  | MUL | NULL              |                                               |
 | createdAt        | timestamp    | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
 | updatedAt        | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
 | processedAt      | timestamp    | YES  |     | NULL              |                                               |
 +------------------+--------------+------+-----+-------------------+-----------------------------------------------+
-10 rows in set (0.055 sec)
+10 rows in set (0.070 sec)
 
-MySQL [ikoota_db]> describe chats;
+MySQL [ikoota_db]> DESCRIBE chats;
 +-----------------+---------------------------------------+------+-----+-------------------+-------------------+
 | Field           | Type                                  | Null | Key | Default           | Extra             |
 +-----------------+---------------------------------------+------+-----+-------------------+-------------------+
 | id              | int                                   | NO   | PRI | NULL              | auto_increment    |
 | title           | varchar(255)                          | NO   |     | NULL              |                   |
-| user_id         | varchar(36)                           | NO   |     | NULL              |                   |
+| user_id         | char(10)                              | NO   | MUL | NULL              |                   |
 | audience        | varchar(255)                          | YES  |     | NULL              |                   |
 | summary         | text                                  | YES  |     | NULL              |                   |
 | text            | text                                  | YES  |     | NULL              |                   |
@@ -656,26 +689,61 @@ MySQL [ikoota_db]> describe chats;
 | updatedAt       | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
 | prefixed_id     | varchar(20)                           | YES  | UNI | NULL              |                   |
 +-----------------+---------------------------------------+------+-----+-------------------+-------------------+
-17 rows in set (0.039 sec)
+17 rows in set (0.058 sec)
 
-MySQL [ikoota_db]> describe classes;
-+-------------+--------------+------+-----+-------------------+-------------------+
-| Field       | Type         | Null | Key | Default           | Extra             |
-+-------------+--------------+------+-----+-------------------+-------------------+
-| class_id    | varchar(36)  | NO   | PRI | NULL              |                   |
-| name        | varchar(255) | NO   | UNI | NULL              |                   |
-| description | text         | YES  |     | NULL              |                   |
-| createdAt   | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt   | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+-------------+--------------+------+-----+-------------------+-------------------+
-5 rows in set (0.042 sec)
+MySQL [ikoota_db]> DESCRIBE class_content_access;
++--------------+----------------------------------------+------+-----+-------------------+-------------------+
+| Field        | Type                                   | Null | Key | Default           | Extra             |
++--------------+----------------------------------------+------+-----+-------------------+-------------------+
+| id           | int                                    | NO   | PRI | NULL              | auto_increment    |
+| content_id   | int                                    | NO   | MUL | NULL              |                   |
+| content_type | enum('chat','teaching','announcement') | NO   |     | NULL              |                   |
+| class_id     | varchar(12)                            | NO   | MUL | NULL              |                   |
+| access_level | enum('read','comment','contribute')    | YES  |     | read              |                   |
+| createdAt    | timestamp                              | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++--------------+----------------------------------------+------+-----+-------------------+-------------------+
+6 rows in set (0.380 sec)
 
-MySQL [ikoota_db]> describe comments;
+MySQL [ikoota_db]> DESCRIBE class_member_counts;
++-----------------+--------------------------------------------------+------+-----+-------------+-------+
+| Field           | Type                                             | Null | Key | Default     | Extra |
++-----------------+--------------------------------------------------+------+-----+-------------+-------+
+| class_id        | varchar(12)                                      | NO   |     | NULL        |       |
+| class_name      | varchar(255)                                     | NO   |     | NULL        |       |
+| class_type      | enum('demographic','subject','public','special') | YES  |     | demographic |       |
+| is_public       | tinyint(1)                                       | YES  |     | 0           |       |
+| total_members   | bigint                                           | NO   |     | 0           |       |
+| moderators      | bigint                                           | NO   |     | 0           |       |
+| pending_members | bigint                                           | NO   |     | 0           |       |
++-----------------+--------------------------------------------------+------+-----+-------------+-------+
+7 rows in set (0.070 sec)
+
+MySQL [ikoota_db]> DESCRIBE classes;
++---------------+--------------------------------------------------+------+-----+-------------------+-------------------+
+| Field         | Type                                             | Null | Key | Default           | Extra             |
++---------------+--------------------------------------------------+------+-----+-------------------+-------------------+
+| id            | int                                              | NO   | PRI | NULL              | auto_increment    |
+| class_id      | varchar(12)                                      | NO   | UNI | NULL              |                   |
+| class_name    | varchar(255)                                     | NO   |     | NULL              |                   |
+| public_name   | varchar(255)                                     | YES  |     | NULL              |                   |
+| description   | text                                             | YES  |     | NULL              |                   |
+| class_type    | enum('demographic','subject','public','special') | YES  | MUL | demographic       |                   |
+| is_public     | tinyint(1)                                       | YES  | MUL | 0                 |                   |
+| max_members   | int                                              | YES  |     | 50                |                   |
+| privacy_level | enum('public','members_only','admin_only')       | YES  |     | members_only      |                   |
+| created_by    | int                                              | YES  | MUL | NULL              |                   |
+| is_active     | tinyint(1)                                       | YES  | MUL | 1                 |                   |
+| createdAt     | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt     | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++---------------+--------------------------------------------------+------+-----+-------------------+-------------------+
+13 rows in set (0.045 sec)
+
+MySQL [ikoota_db]> DESCRIBE comments;
 +-------------+--------------------------------------+------+-----+-------------------+-------------------+
 | Field       | Type                                 | Null | Key | Default           | Extra             |
 +-------------+--------------------------------------+------+-----+-------------------+-------------------+
 | id          | int                                  | NO   | PRI | NULL              | auto_increment    |
-| user_id     | int                                  | NO   | MUL | NULL              |                   |
+| user_id     | char(10)                             | NO   | MUL | NULL              |                   |
 | chat_id     | int                                  | YES  | MUL | NULL              |                   |
 | teaching_id | int                                  | YES  | MUL | NULL              |                   |
 | comment     | text                                 | NO   |     | NULL              |                   |
@@ -688,9 +756,22 @@ MySQL [ikoota_db]> describe comments;
 | createdAt   | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
 | updatedAt   | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
 +-------------+--------------------------------------+------+-----+-------------------+-------------------+
-13 rows in set (0.041 sec)
+13 rows in set (0.061 sec)
 
-MySQL [ikoota_db]> describe email_logs;
+MySQL [ikoota_db]> DESCRIBE converse_relationships;
++--------------------+-------------------------------+------+-----+-------------------+-------------------+
+| Field              | Type                          | Null | Key | Default           | Extra             |
++--------------------+-------------------------------+------+-----+-------------------+-------------------+
+| id                 | int                           | NO   | PRI | NULL              | auto_increment    |
+| mentor_converse_id | varchar(12)                   | YES  | MUL | NULL              |                   |
+| mentee_converse_id | varchar(12)                   | YES  | MUL | NULL              |                   |
+| relationship_type  | enum('mentor','peer','admin') | YES  |     | mentor            |                   |
+| created_at         | timestamp                     | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| is_active          | tinyint(1)                    | YES  |     | 1                 |                   |
++--------------------+-------------------------------+------+-----+-------------------+-------------------+
+6 rows in set (0.057 sec)
+
+MySQL [ikoota_db]> DESCRIBE email_logs;
 +---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
 | Field         | Type                            | Null | Key | Default           | Extra                                         |
 +---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
@@ -701,14 +782,14 @@ MySQL [ikoota_db]> describe email_logs;
 | status        | enum('sent','failed','pending') | YES  | MUL | pending           |                                               |
 | message_id    | varchar(255)                    | YES  |     | NULL              |                                               |
 | error_message | text                            | YES  |     | NULL              |                                               |
-| sender_id     | int                             | YES  | MUL | NULL              |                                               |
+| sender_id     | char(10)                        | YES  | MUL | NULL              |                                               |
 | createdAt     | timestamp                       | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
 | updatedAt     | timestamp                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
 | processedAt   | timestamp                       | YES  |     | NULL              |                                               |
 +---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
-11 rows in set (0.057 sec)
+11 rows in set (0.066 sec)
 
-MySQL [ikoota_db]> describe email_templates;
+MySQL [ikoota_db]> DESCRIBE email_templates;
 +------------+--------------+------+-----+-------------------+-----------------------------------------------+
 | Field      | Type         | Null | Key | Default           | Extra                                         |
 +------------+--------------+------+-----+-------------------+-----------------------------------------------+
@@ -719,26 +800,53 @@ MySQL [ikoota_db]> describe email_templates;
 | body_html  | text         | YES  |     | NULL              |                                               |
 | variables  | json         | YES  |     | NULL              |                                               |
 | is_active  | tinyint(1)   | YES  | MUL | 1                 |                                               |
-| created_by | int          | YES  | MUL | NULL              |                                               |
+| created_by | char(10)     | YES  | MUL | NULL              |                                               |
 | createdAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
 | updatedAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
 +------------+--------------+------+-----+-------------------+-----------------------------------------------+
-10 rows in set (0.528 sec)
+10 rows in set (0.068 sec)
 
-MySQL [ikoota_db]> describe reports;
+MySQL [ikoota_db]> DESCRIBE id_generation_log;
++--------------+----------------------+------+-----+-------------------+-------------------+
+| Field        | Type                 | Null | Key | Default           | Extra             |
++--------------+----------------------+------+-----+-------------------+-------------------+
+| id           | int                  | NO   | PRI | NULL              | auto_increment    |
+| generated_id | char(10)             | NO   | MUL | NULL              |                   |
+| id_type      | enum('user','class') | NO   | MUL | NULL              |                   |
+| generated_by | char(10)             | YES  | MUL | NULL              |                   |
+| generated_at | timestamp            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| purpose      | varchar(100)         | YES  |     | NULL              |                   |
++--------------+----------------------+------+-----+-------------------+-------------------+
+6 rows in set (0.162 sec)
+
+MySQL [ikoota_db]> DESCRIBE identity_masking_audit;
++--------------------+--------------+------+-----+-------------------+-------------------+
+| Field              | Type         | Null | Key | Default           | Extra             |
++--------------------+--------------+------+-----+-------------------+-------------------+
+| id                 | int          | NO   | PRI | NULL              | auto_increment    |
+| user_id            | int          | NO   | MUL | NULL              |                   |
+| converse_id        | varchar(12)  | YES  | MUL | NULL              |                   |
+| masked_by_admin_id | varchar(12)  | YES  | MUL | NULL              |                   |
+| original_username  | varchar(255) | YES  |     | NULL              |                   |
+| createdAt          | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| reason             | text         | YES  |     | NULL              |                   |
++--------------------+--------------+------+-----+-------------------+-------------------+
+7 rows in set (0.067 sec)
+
+MySQL [ikoota_db]> DESCRIBE reports;
 +-------------+---------------------------------------+------+-----+-------------------+-------------------+
 | Field       | Type                                  | Null | Key | Default           | Extra             |
 +-------------+---------------------------------------+------+-----+-------------------+-------------------+
 | id          | int                                   | NO   | PRI | NULL              | auto_increment    |
-| reporter_id | varchar(36)                           | NO   |     | NULL              |                   |
-| reported_id | varchar(36)                           | YES  |     | NULL              |                   |
+| reporter_id | char(10)                              | NO   | MUL | NULL              |                   |
+| reported_id | char(10)                              | YES  | MUL | NULL              |                   |
 | reason      | text                                  | NO   |     | NULL              |                   |
 | status      | enum('pending','reviewed','resolved') | YES  |     | pending           |                   |
 | createdAt   | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
 +-------------+---------------------------------------+------+-----+-------------------+-------------------+
-6 rows in set (0.052 sec)
+6 rows in set (0.073 sec)
 
-MySQL [ikoota_db]> describe sms_logs;
+MySQL [ikoota_db]> DESCRIBE sms_logs;
 +---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
 | Field         | Type                            | Null | Key | Default           | Extra                                         |
 +---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
@@ -749,14 +857,14 @@ MySQL [ikoota_db]> describe sms_logs;
 | status        | enum('sent','failed','pending') | YES  | MUL | pending           |                                               |
 | sid           | varchar(100)                    | YES  |     | NULL              |                                               |
 | error_message | text                            | YES  |     | NULL              |                                               |
-| sender_id     | int                             | YES  | MUL | NULL              |                                               |
+| sender_id     | char(10)                        | YES  | MUL | NULL              |                                               |
 | createdAt     | timestamp                       | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
 | updatedAt     | timestamp                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
 | processedAt   | timestamp                       | YES  |     | NULL              |                                               |
 +---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
-11 rows in set (0.056 sec)
+11 rows in set (0.055 sec)
 
-MySQL [ikoota_db]> describe sms_templates;
+MySQL [ikoota_db]> DESCRIBE sms_templates;
 +------------+--------------+------+-----+-------------------+-----------------------------------------------+
 | Field      | Type         | Null | Key | Default           | Extra                                         |
 +------------+--------------+------+-----+-------------------+-----------------------------------------------+
@@ -765,13 +873,13 @@ MySQL [ikoota_db]> describe sms_templates;
 | message    | text         | NO   |     | NULL              |                                               |
 | variables  | json         | YES  |     | NULL              |                                               |
 | is_active  | tinyint(1)   | YES  | MUL | 1                 |                                               |
-| created_by | int          | YES  | MUL | NULL              |                                               |
+| created_by | char(10)     | YES  | MUL | NULL              |                                               |
 | createdAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
 | updatedAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
 +------------+--------------+------+-----+-------------------+-----------------------------------------------+
-8 rows in set (0.071 sec)
+8 rows in set (0.258 sec)
 
-MySQL [ikoota_db]> describe survey_questions;
+MySQL [ikoota_db]> DESCRIBE survey_questions;
 +----------------+------------+------+-----+-------------------+-----------------------------------------------+
 | Field          | Type       | Null | Key | Default           | Extra                                         |
 +----------------+------------+------+-----+-------------------+-----------------------------------------------+
@@ -782,16 +890,16 @@ MySQL [ikoota_db]> describe survey_questions;
 | is_active      | tinyint(1) | YES  |     | 1                 |                                               |
 | question_order | int        | YES  |     | 0                 |                                               |
 +----------------+------------+------+-----+-------------------+-----------------------------------------------+
-6 rows in set (0.062 sec)
+6 rows in set (0.104 sec)
 
-MySQL [ikoota_db]> describe surveylog;
+MySQL [ikoota_db]> DESCRIBE surveylog;
 +-----------------+---------------------------------------+------+-----+-------------------+-----------------------------------------------+
 | Field           | Type                                  | Null | Key | Default           | Extra                                         |
 +-----------------+---------------------------------------+------+-----+-------------------+-----------------------------------------------+
 | id              | int                                   | NO   | PRI | NULL              | auto_increment                                |
-| user_id         | varchar(36)                           | NO   |     | NULL              |                                               |
+| user_id         | char(10)                              | NO   | MUL | NULL              |                                               |
 | answers         | text                                  | YES  |     | NULL              |                                               |
-| verified_by     | varchar(36)                           | NO   |     | NULL              |                                               |
+| verified_by     | char(10)                              | NO   | MUL | NULL              |                                               |
 | rating_remarks  | varchar(255)                          | NO   |     | NULL              |                                               |
 | approval_status | enum('pending','approved','rejected') | YES  |     | pending           |                                               |
 | createdAt       | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
@@ -799,9 +907,9 @@ MySQL [ikoota_db]> describe surveylog;
 | processedAt     | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
 | admin_notes     | text                                  | YES  |     | NULL              |                                               |
 +-----------------+---------------------------------------+------+-----+-------------------+-----------------------------------------------+
-10 rows in set (0.044 sec)
+10 rows in set (0.061 sec)
 
-MySQL [ikoota_db]> describe teachings;
+MySQL [ikoota_db]> DESCRIBE teachings;
 +---------------+--------------------------------------+------+-----+-------------------+-----------------------------------------------+
 | Field         | Type                                 | Null | Key | Default           | Extra                                         |
 +---------------+--------------------------------------+------+-----+-------------------+-----------------------------------------------+
@@ -820,18 +928,18 @@ MySQL [ikoota_db]> describe teachings;
 | media_type3   | enum('image','video','audio','file') | YES  |     | NULL              |                                               |
 | createdAt     | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
 | updatedAt     | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-| user_id       | varchar(36)                          | NO   |     | NULL              |                                               |
+| user_id       | char(10)                             | NO   | MUL | NULL              |                                               |
 | prefixed_id   | varchar(20)                          | YES  | UNI | NULL              |                                               |
 +---------------+--------------------------------------+------+-----+-------------------+-----------------------------------------------+
-17 rows in set (0.053 sec)
+17 rows in set (0.063 sec)
 
-MySQL [ikoota_db]> describe user_chats;
+MySQL [ikoota_db]> DESCRIBE user_chats;
 +----------------------+--------------------------------+------+-----+-------------------+-------------------+
 | Field                | Type                           | Null | Key | Default           | Extra             |
 +----------------------+--------------------------------+------+-----+-------------------+-------------------+
 | id                   | int                            | NO   | PRI | NULL              | auto_increment    |
-| user_id              | varchar(36)                    | NO   |     | NULL              |                   |
-| chat_id              | varchar(36)                    | NO   |     | NULL              |                   |
+| user_id              | char(10)                       | NO   | MUL | NULL              |                   |
+| chat_id              | char(10)                       | NO   |     | NULL              |                   |
 | last_message         | varchar(255)                   | YES  |     | NULL              |                   |
 | is_seen              | tinyint(1)                     | YES  |     | 0                 |                   |
 | role                 | enum('admin','member','owner') | NO   |     | NULL              |                   |
@@ -840,9 +948,47 @@ MySQL [ikoota_db]> describe user_chats;
 | joined_at            | datetime                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
 | updatedAt            | timestamp                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
 +----------------------+--------------------------------+------+-----+-------------------+-------------------+
-10 rows in set (0.043 sec)
+10 rows in set (0.061 sec)
 
-MySQL [ikoota_db]> describe user_communication_preferences;
+MySQL [ikoota_db]> DESCRIBE user_class_details;
++--------------------+--------------------------------------------------+------+-----+-------------------+-------------------+
+| Field              | Type                                             | Null | Key | Default           | Extra             |
++--------------------+--------------------------------------------------+------+-----+-------------------+-------------------+
+| user_id            | int                                              | NO   |     | NULL              |                   |
+| username           | varchar(255)                                     | NO   |     | NULL              |                   |
+| converse_id        | varchar(12)                                      | YES  |     | NULL              |                   |
+| class_id           | varchar(12)                                      | NO   |     | NULL              |                   |
+| class_name         | varchar(255)                                     | NO   |     | NULL              |                   |
+| public_name        | varchar(255)                                     | YES  |     | NULL              |                   |
+| class_type         | enum('demographic','subject','public','special') | YES  |     | demographic       |                   |
+| is_public          | tinyint(1)                                       | YES  |     | 0                 |                   |
+| membership_status  | enum('active','pending','suspended','expired')   | YES  |     | active            |                   |
+| role_in_class      | enum('member','moderator','assistant')           | YES  |     | member            |                   |
+| can_see_class_name | tinyint(1)                                       | YES  |     | 1                 |                   |
+| joined_at          | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++--------------------+--------------------------------------------------+------+-----+-------------------+-------------------+
+12 rows in set (0.278 sec)
+
+MySQL [ikoota_db]> DESCRIBE user_class_memberships;
++-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field                 | Type                                           | Null | Key | Default           | Extra                                         |
++-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id                    | int                                            | NO   | PRI | NULL              | auto_increment                                |
+| user_id               | int                                            | NO   | MUL | NULL              |                                               |
+| class_id              | varchar(12)                                    | NO   | MUL | NULL              |                                               |
+| membership_status     | enum('active','pending','suspended','expired') | YES  | MUL | active            |                                               |
+| role_in_class         | enum('member','moderator','assistant')         | YES  |     | member            |                                               |
+| joined_at             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| assigned_by           | int                                            | YES  | MUL | NULL              |                                               |
+| expires_at            | timestamp                                      | YES  |     | NULL              |                                               |
+| can_see_class_name    | tinyint(1)                                     | YES  |     | 1                 |                                               |
+| receive_notifications | tinyint(1)                                     | YES  |     | 1                 |                                               |
+| createdAt             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+12 rows in set (0.064 sec)
+
+MySQL [ikoota_db]> DESCRIBE user_communication_preferences;
 +-----------------------+-------------+------+-----+-------------------+-----------------------------------------------+
 | Field                 | Type        | Null | Key | Default           | Extra                                         |
 +-----------------------+-------------+------+-----+-------------------+-----------------------------------------------+
@@ -859,33 +1005,52 @@ MySQL [ikoota_db]> describe user_communication_preferences;
 | timezone              | varchar(50) | YES  |     | UTC               |                                               |
 | createdAt             | timestamp   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
 | updatedAt             | timestamp   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| converse_id           | char(10)    | YES  | MUL | NULL              |                                               |
 +-----------------------+-------------+------+-----+-------------------+-----------------------------------------------+
-13 rows in set (0.052 sec)
+14 rows in set (0.051 sec)
 
-MySQL [ikoota_db]> describe users;
-+------------------+--------------------------------------+------+-----+-------------------+-------------------+
-| Field            | Type                                 | Null | Key | Default           | Extra             |
-+------------------+--------------------------------------+------+-----+-------------------+-------------------+
-| id               | int                                  | NO   | PRI | NULL              | auto_increment    |
-| username         | varchar(255)                         | NO   |     | NULL              |                   |
-| email            | varchar(255)                         | NO   |     | NULL              |                   |
-| phone            | varchar(15)                          | YES  |     | NULL              |                   |
-| avatar           | varchar(255)                         | YES  |     | NULL              |                   |
-| password_hash    | varchar(255)                         | NO   |     | NULL              |                   |
-| converse_id      | char(6)                              | YES  |     | NULL              |                   |
-| mentor_id        | char(6)                              | YES  |     | NULL              |                   |
-| class_id         | varchar(36)                          | YES  | MUL | NULL              |                   |
-| is_member        | enum('applied','granted','declined') | YES  |     | applied           |                   |
-| role             | enum('super_admin','admin','user')   | YES  |     | user              |                   |
-| isblocked        | json                                 | YES  |     | NULL              |                   |
-| isbanned         | tinyint(1)                           | YES  |     | 0                 |                   |
-| createdAt        | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt        | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| resetToken       | varchar(255)                         | YES  |     | NULL              |                   |
-| resetTokenExpiry | bigint                               | YES  |     | NULL              |                   |
-| verificationCode | varchar(10)                          | YES  |     | NULL              |                   |
-| codeExpiry       | bigint                               | YES  |     | NULL              |                   |
-+------------------+--------------------------------------+------+-----+-------------------+-------------------+
-19 rows in set (0.513 sec)
+MySQL [ikoota_db]> DESCRIBE user_profiles;
++--------------------+--------------+------+-----+-------------------+-------------------+
+| Field              | Type         | Null | Key | Default           | Extra             |
++--------------------+--------------+------+-----+-------------------+-------------------+
+| id                 | int          | NO   | PRI | NULL              | auto_increment    |
+| user_id            | int          | NO   | UNI | NULL              |                   |
+| encrypted_username | text         | NO   |     | NULL              |                   |
+| encrypted_email    | text         | NO   |     | NULL              |                   |
+| encrypted_phone    | text         | YES  |     | NULL              |                   |
+| encryption_key     | varchar(255) | YES  |     | NULL              |                   |
+| createdAt          | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt          | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++--------------------+--------------+------+-----+-------------------+-------------------+
+8 rows in set (0.073 sec)
+
+MySQL [ikoota_db]> DESCRIBE users;
++--------------------+--------------------------------------+------+-----+-------------------+-------------------+
+| Field              | Type                                 | Null | Key | Default           | Extra             |
++--------------------+--------------------------------------+------+-----+-------------------+-------------------+
+| id                 | int                                  | NO   | PRI | NULL              | auto_increment    |
+| username           | varchar(255)                         | NO   |     | NULL              |                   |
+| email              | varchar(255)                         | NO   |     | NULL              |                   |
+| phone              | varchar(15)                          | YES  |     | NULL              |                   |
+| avatar             | varchar(255)                         | YES  |     | NULL              |                   |
+| password_hash      | varchar(255)                         | NO   |     | NULL              |                   |
+| converse_id        | varchar(12)                          | YES  | UNI | NULL              |                   |
+| mentor_id          | char(10)                             | YES  | MUL | NULL              |                   |
+| primary_class_id   | varchar(12)                          | YES  | MUL | NULL              |                   |
+| is_member          | enum('applied','granted','declined') | YES  |     | applied           |                   |
+| role               | enum('super_admin','admin','user')   | YES  |     | user              |                   |
+| isblocked          | json                                 | YES  |     | NULL              |                   |
+| isbanned           | tinyint(1)                           | YES  |     | 0                 |                   |
+| createdAt          | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt          | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| resetToken         | varchar(255)                         | YES  |     | NULL              |                   |
+| resetTokenExpiry   | bigint                               | YES  |     | NULL              |                   |
+| verificationCode   | varchar(10)                          | YES  |     | NULL              |                   |
+| codeExpiry         | bigint                               | YES  |     | NULL              |                   |
+| converse_avatar    | varchar(255)                         | YES  |     | NULL              |                   |
+| is_identity_masked | tinyint(1)                           | YES  |     | 0                 |                   |
+| total_classes      | int                                  | YES  |     | 0                 |                   |
++--------------------+--------------------------------------+------+-----+-------------------+-------------------+
+22 rows in set (0.051 sec)
 
 MySQL [ikoota_db]>
