@@ -1,5 +1,4 @@
 import bcrypt from 'bcrypt';
-import dbQuery from '../config/dbQuery.js';
 import CustomError from '../utils/CustomError.js';
 import { sendEmail } from '../utils/email.js';
 import jwt from 'jsonwebtoken';
@@ -10,7 +9,7 @@ import { sendSMS } from '../utils/sms.js';
 export const registerUserService = async (userData) => {
     const { username, email, password, phone } = userData;
     try {
-        const existingUser = await dbQuery('SELECT * FROM users WHERE email = ?', [email]);
+        const existingUser = await db.query('SELECT * FROM users WHERE email = ?', [email]);
         if (existingUser.length > 0) {
             return { error: true, message: 'User already exists' };
         }
@@ -20,7 +19,7 @@ export const registerUserService = async (userData) => {
        
     const sql = 'INSERT INTO users (username, email, password_hash, phone, role, is_member) VALUES (?, ?, ?, ?, ?, ?)';
     console.log(username, email, hashedPassword, phone);
-    const result = await dbQuery(sql, [username, email, hashedPassword, phone, false, false]);
+    const result = await db.query(sql, [username, email, hashedPassword, phone, false, false]);
 
         const subject = 'Welcome to Our Platform!';
         const text = `Hello ${username},\n\nWelcome to our platform! We're glad to have you. Please proceed with choosing your class on the form page.`;
@@ -36,7 +35,7 @@ export const registerUserService = async (userData) => {
 
 export const loginUserService = async (email, password) => {
     const sql = 'SELECT * FROM users WHERE email = ?';
-    const user = await dbQuery(sql, [email]);
+    const user = await db.query(sql, [email]);
 
     if (user.length === 0) {
         throw new CustomError('Invalid credentials', 401);
@@ -61,14 +60,14 @@ export const loginUserService = async (email, password) => {
 
 export const sendPasswordResetEmail = async (email) => {
     const sql = 'SELECT * FROM users WHERE email = ?';
-    const user = await dbQuery(sql, [email]);
+    const user = await db.query(sql, [email]);
 
     if (user.length === 0) {
         throw new CustomError('User not found', 404);
     }
 
     const token = crypto.randomBytes(20).toString('hex'); // Generate a random token for password reset different from the JWT token
-    await dbQuery('UPDATE users SET resetToken = ?, resetTokenExpiry = ? WHERE email = ?', [token, Date.now() + 3600000, email]);
+    await db.query('UPDATE users SET resetToken = ?, resetTokenExpiry = ? WHERE email = ?', [token, Date.now() + 3600000, email]);
 
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
     const subject = 'Password Reset Request';
@@ -89,9 +88,9 @@ export const generateVerificationCode = () => {
     const isEmail = emailOrPhone.includes('@');
   
     if (isEmail) {
-      user = await dbQuery('SELECT * FROM users WHERE email = ?', [emailOrPhone]);
+      user = await db.query('SELECT * FROM users WHERE email = ?', [emailOrPhone]);
     } else {
-      user = await dbQuery('SELECT * FROM users WHERE phone = ?', [emailOrPhone]);
+      user = await db.query('SELECT * FROM users WHERE phone = ?', [emailOrPhone]);
     }
   
     if (user.length === 0) {
@@ -102,7 +101,7 @@ export const generateVerificationCode = () => {
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
     const expiryTime = Date.now() + 3600000; // 1 hour
   
-    await dbQuery('UPDATE users SET resetToken = ?, resetTokenExpiry = ? WHERE id = ?', [token, expiryTime, user[0].id]);
+    await db.query('UPDATE users SET resetToken = ?, resetTokenExpiry = ? WHERE id = ?', [token, expiryTime, user[0].id]);
   
     if (isEmail) {
       const subject = 'Password Reset Request';
@@ -118,8 +117,8 @@ export const generateVerificationCode = () => {
   export const updatePassword = async (emailOrPhone, newPassword) => {
     const isEmail = emailOrPhone.includes('@');
     const user = isEmail
-      ? await dbQuery('SELECT * FROM users WHERE email = ?', [emailOrPhone])
-      : await dbQuery('SELECT * FROM users WHERE phone = ?', [emailOrPhone]);
+      ? await db.query('SELECT * FROM users WHERE email = ?', [emailOrPhone])
+      : await db.query('SELECT * FROM users WHERE phone = ?', [emailOrPhone]);
   
     if (user.length === 0) {
       throw new CustomError('User not found', 404);
@@ -128,18 +127,20 @@ export const generateVerificationCode = () => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
   
-    await dbQuery('UPDATE users SET password_hash = ?, resetToken = NULL, resetTokenExpiry = NULL WHERE id = ?', [
+    await db.query('UPDATE users SET password_hash = ?, resetToken = NULL, resetTokenExpiry = NULL WHERE id = ?', [
       hashedPassword,
       user[0].id,
     ]);
   };
   
+
+
   // Verify the code sent to the alternate medium
   export const verifyResetCode = async (emailOrPhone, verificationCode) => {
     const isEmail = emailOrPhone.includes('@');
     const user = isEmail
-      ? await dbQuery('SELECT * FROM users WHERE email = ?', [emailOrPhone])
-      : await dbQuery('SELECT * FROM users WHERE phone = ?', [emailOrPhone]);
+      ? await db.query('SELECT * FROM users WHERE email = ?', [emailOrPhone])
+      : await db.query('SELECT * FROM users WHERE phone = ?', [emailOrPhone]);
   
     if (user.length === 0) {
       throw new CustomError('User not found', 404);
@@ -149,5 +150,5 @@ export const generateVerificationCode = () => {
       throw new CustomError('Invalid or expired verification code', 400);
     }
   
-    await dbQuery('UPDATE users SET verificationCode = NULL, codeExpiry = NULL WHERE id = ?', [user[0].id]);
+    await db.query('UPDATE users SET verificationCode = NULL, codeExpiry = NULL WHERE id = ?', [user[0].id]);
   };

@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import app from './app.js';
 import setupSocket from './socket.js';
 import logger from './utils/logger.js';
+import db from './config/db.js';
 
 // Load environment variables
 dotenv.config();

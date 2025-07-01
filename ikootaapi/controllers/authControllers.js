@@ -118,7 +118,7 @@ export const resetPassword = async (req, res) => {
     const isEmail = emailOrPhone.includes('@');
     const alternateMedium = isEmail ? 'phone' : 'email';
 
-    await dbQuery(
+    await db.query(
       `UPDATE users SET verificationCode = ?, codeExpiry = ? WHERE ${isEmail ? 'email' : 'phone'} = ?`,
       [verificationCode, Date.now() + 3600000, emailOrPhone]
     );

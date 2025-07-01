@@ -1,4 +1,5 @@
 import { testDBConnection } from './config/db.js'; // Adjust the path to your MySQL config file
+import db from './config/db.js'; // Adjust the path to your MySQL config file
 
 (async () => {
     await testDBConnection();

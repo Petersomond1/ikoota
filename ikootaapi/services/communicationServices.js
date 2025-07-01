@@ -1,6 +1,6 @@
 import { sendEmail as sendEmailUtil, sendBulkEmail, emailTemplates, testEmailConnection } from '../utils/email.js';
 import { sendSMS, sendBulkSMS, smsTemplates, testSMSConnection } from '../utils/sms.js';
-import pool from '../config/db.js';
+import db from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
 
 // Enhanced email service with template support
@@ -330,7 +330,7 @@ const logEmailActivity = async (activityData) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
     `;
     
-    await pool.query(sql, [
+    await db.query(sql, [
       activityData.recipient,
       activityData.subject,
       activityData.template,
@@ -351,7 +351,7 @@ const logSMSActivity = async (activityData) => {
       VALUES (?, ?, ?, ?, ?, ?, NOW())
     `;
     
-    await pool.query(sql, [
+    await db.query(sql, [
       activityData.recipient,
       activityData.message,
       activityData.template,
@@ -372,7 +372,7 @@ const logBulkEmailActivity = async (activityData) => {
       VALUES (?, ?, ?, ?, ?, NOW())
     `;
     
-    await pool.query(sql, [
+    await db.query(sql, [
       activityData.recipients,
       activityData.subject,
       activityData.template,
@@ -391,7 +391,7 @@ const logBulkSMSActivity = async (activityData) => {
       VALUES (?, ?, ?, ?, ?, NOW())
     `;
     
-    await pool.query(sql, [
+    await db.query(sql, [
       activityData.recipients,
       activityData.message,
       activityData.template,
@@ -424,7 +424,7 @@ export const getCommunicationStats = async (filters = {}) => {
         `;
         
         const params = startDate && endDate ? [startDate, endDate] : [];
-        const [emailRows] = await pool.query(emailSql, params);
+        const emailRows = await db.query(emailSql, params);
         emailStats = emailRows[0] || {};
       } catch (error) {
         console.error('Error fetching email stats:', error);
@@ -445,7 +445,7 @@ export const getCommunicationStats = async (filters = {}) => {
         `;
         
         const params = startDate && endDate ? [startDate, endDate] : [];
-        const [smsRows] = await pool.query(smsSql, params);
+        const [smsRows] = await db.query(smsSql, params);
         smsStats = smsRows[0] || {};
       } catch (error) {
         console.error('Error fetching SMS stats:', error);

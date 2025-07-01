@@ -14,8 +14,6 @@ router.post('/', postClass);
 // Update an existing class
 router.put('/:id', putClass);
 
-
-
 // Assign user to class
 router.post('/assign', authenticate, assignUserToClass);
 

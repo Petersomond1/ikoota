@@ -1,32 +1,32 @@
-import pool from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
+import db from '../config/db.js';
 
 // Fetch all chats
 // export const getAllChats = async () => {
-//   const [rows] = await pool.query('SELECT * FROM chats ORDER BY updatedAt DESC');
+//   const [rows] = await db.query('SELECT * FROM chats ORDER BY updatedAt DESC');
 //   return rows;
 // };
 
 // Fetch all chats
 export const getAllChats = async () => {
-  const [rows] = await pool.query('SELECT *, prefixed_id FROM chats ORDER BY updatedAt DESC');
+  const rows = await db.query('SELECT *, prefixed_id FROM chats ORDER BY updatedAt DESC');
   return rows;
 };
 
 // // Fetch chats by user_id
 // export const getChatsByUserId = async (user_id) => {
-//   const [rows] = await pool.query('SELECT * FROM chats WHERE user_id = ? ORDER BY updatedAt DESC', [user_id]);
+//   const [rows] = await db.query('SELECT * FROM chats WHERE user_id = ? ORDER BY updatedAt DESC', [user_id]);
 //   return rows;
 // };
 
 export const getChatsByUserId = async (user_id) => {
-  const [rows] = await pool.query('SELECT *, prefixed_id FROM chats WHERE user_id = ? ORDER BY updatedAt DESC', [user_id]);
+  const rows = await db.query('SELECT *, prefixed_id FROM chats WHERE user_id = ? ORDER BY updatedAt DESC', [user_id]);
   return rows;
 };
 
 // NEW: Fetch teaching by prefixed_id
 export const getTeachingByPrefixedId = async (prefixedId) => {
-  const [rows] = await pool.query('SELECT *, prefixed_id FROM teachings WHERE prefixed_id = ?', [prefixedId]);
+  const rows = await db.query('SELECT *, prefixed_id FROM teachings WHERE prefixed_id = ?', [prefixedId]);
   return rows[0] || null;
 };
 
@@ -42,7 +42,7 @@ export const getTeachingByPrefixedId = async (prefixedId) => {
 //     INSERT INTO chats (title, created_by, audience, summary, text, approval_status, media_url1, media_type1, media_url2, media_type2, media_url3, media_type3, is_flagged)
 //     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 //   `;
-//   const [result] = await pool.query(sql, [
+//   const [result] = await db.query(sql, [
 //     title,
 //     created_by,
 //     audience,
@@ -72,7 +72,7 @@ export const createChatService = async (chatData) => {
     INSERT INTO chats (title, user_id, audience, summary, text, approval_status, media_url1, media_type1, media_url2, media_type2, media_url3, media_type3, is_flagged)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
-  const [result] = await pool.query(sql, [
+  const result = await db.query(sql, [
     title,
     created_by, // Note: your DB uses user_id but your controller passes created_by
     audience,
@@ -91,7 +91,7 @@ export const createChatService = async (chatData) => {
   if (result.affectedRows === 0) throw new CustomError("Failed to add chat", 500);
 
   // Get the created record with prefixed_id
-  const [createdChat] = await pool.query('SELECT *, prefixed_id FROM chats WHERE id = ?', [result.insertId]);
+  const createdChat = await db.query('SELECT *, prefixed_id FROM chats WHERE id = ?', [result.insertId]);
   
   return createdChat[0];
 };
@@ -115,7 +115,7 @@ export const updateChatById = async (id, data) => {
     SET title = ?, summary = ?, text = ?, media_url1 = ?, media_type1 = ?, media_url2 = ?, media_type2 = ?, media_url3 = ?, media_type3 = ?, approval_status = ?, is_flagged = ?, updatedAt = NOW()
     WHERE id = ?
   `;
-  const [result] = await pool.query(sql, [
+  const result = await db.query(sql, [
     title,
     summary,
     text,
@@ -142,7 +142,7 @@ export const getChatHistoryService = async (userId1, userId2) => {
        OR (created_by = ? AND audience = ?)
     ORDER BY updatedAt ASC
   `;
-  const [rows] = await pool.query(sql, [userId1, userId2, userId2, userId1]);
+  const rows = await db.query(sql, [userId1, userId2, userId2, userId1]);
   return rows;
 };
 
@@ -155,7 +155,7 @@ export const addCommentToChatService = async (chatId, commentData) => {
     INSERT INTO comments (user_id, chat_id, comment, media_url1, media_type1, media_url2, media_type2, media_url3, media_type3)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
-  const [result] = await pool.query(sql, [
+  const result = await db.query(sql, [
     user_id,
     chatId,
     comment,
@@ -173,7 +173,7 @@ export const addCommentToChatService = async (chatId, commentData) => {
 };
 
 export const deleteChatById = async (id) => {
-  const [result] = await pool.query('DELETE FROM chats WHERE id = ?', [id]);
+  const [result] = await db.query('DELETE FROM chats WHERE id = ?', [id]);
 
   if (result.affectedRows === 0) throw new CustomError('Chat not found', 404);
 };
@@ -181,7 +181,7 @@ export const deleteChatById = async (id) => {
 // Fetch chats by a list of IDs
 // export const getChatsByIds = async (ids) => {
 //   try {
-//   const [rows] = await pool.query('SELECT * FROM chats WHERE id IN (?) ORDER BY updatedAt DESC', [ids]);
+//   const [rows] = await db.query('SELECT * FROM chats WHERE id IN (?) ORDER BY updatedAt DESC', [ids]);
 //   return rows;
 // } catch (error) {
 //   throw new CustomError(error.message);
@@ -195,7 +195,7 @@ export const getChatsByIds = async (ids) => {
     const isNumeric = ids.every(id => !isNaN(id));
     const column = isNumeric ? 'id' : 'prefixed_id';
     
-    const [rows] = await pool.query(`SELECT *, prefixed_id FROM chats WHERE ${column} IN (?) ORDER BY updatedAt DESC`, [ids]);
+    const rows = await db.query(`SELECT *, prefixed_id FROM chats WHERE ${column} IN (?) ORDER BY updatedAt DESC`, [ids]);
     return rows;
   } catch (error) {
     throw new CustomError(error.message);
@@ -205,7 +205,7 @@ export const getChatsByIds = async (ids) => {
 // Missing getChatByPrefixedId function
 export const getChatByPrefixedId = async (prefixedId) => {
   try {
-    const [rows] = await pool.query('SELECT *, prefixed_id FROM chats WHERE prefixed_id = ?', [prefixedId]);
+    const rows = await db.query('SELECT *, prefixed_id FROM chats WHERE prefixed_id = ?', [prefixedId]);
     return rows[0] || null;
   } catch (error) {
     throw new CustomError(error.message);
@@ -219,7 +219,7 @@ export const getCombinedContent = async () => {
     console.log('Starting getCombinedContent service...');
     
     // Get chats - now both createdAt and updatedAt are camelCase (consistent!)
-    const [chats] = await pool.query(`
+    const chats = await db.query(`
       SELECT *, 
              prefixed_id, 
              'chat' as content_type, 
@@ -232,7 +232,7 @@ export const getCombinedContent = async () => {
     console.log(`Found ${chats.length} chats`);
     
     // Get teachings - both createdAt and updatedAt (camelCase)
-    const [teachings] = await pool.query(`
+    const teachings = await db.query(`
       SELECT *, 
              prefixed_id, 
              'teaching' as content_type,

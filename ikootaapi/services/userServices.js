@@ -1,4 +1,4 @@
-import pool from '../config/db.js';
+import db from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
 
 // Enhanced getUserProfileService with better error handling
@@ -28,7 +28,7 @@ export const getUserProfileService = async (user_id) => {
       WHERE id = ?
     `;
     
-    const [rows] = await pool.query(sql, [user_id]);
+    const rows = await db.query(sql, [user_id]);
     
     if (rows.length === 0) {
       throw new CustomError('User not found', 404);
@@ -50,9 +50,9 @@ export const getUserProfileService = async (user_id) => {
 };
 
 // Enhanced updateUserProfileService with validation
-export const updateUserProfileService = async (userId, profileData) => {
+export const updateUserProfileService = async (user_id, profileData) => {
   try {
-    if (!userId) {
+    if (!user_id) {
       throw new CustomError('User ID is required', 400);
     }
 
@@ -72,7 +72,7 @@ export const updateUserProfileService = async (userId, profileData) => {
     }
 
     // Check if user exists
-    const [existingUser] = await pool.query('SELECT id FROM users WHERE id = ?', [userId]);
+    const existingUser = await db.query('SELECT id FROM users WHERE id = ?', [user_id]);
     if (existingUser.length === 0) {
       throw new CustomError('User not found', 404);
     }
@@ -111,17 +111,17 @@ export const updateUserProfileService = async (userId, profileData) => {
     }
 
     updateFields.push('updatedAt = NOW()');
-    values.push(userId);
+    values.push(user_id);
 
     const sql = `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`;
-    const [result] = await pool.query(sql, values);
+    const result = await db.query(sql, values);
 
     if (result.affectedRows === 0) {
       throw new CustomError('User profile update failed', 500);
     }
 
     // Return updated profile
-    return await getUserProfileService(userId);
+    return await getUserProfileService(user_id);
   } catch (error) {
     console.error('Error in updateUserProfileService:', error);
     throw new CustomError(error.message || 'Failed to update user profile');
@@ -129,9 +129,9 @@ export const updateUserProfileService = async (userId, profileData) => {
 };
 
 // Enhanced updateUser with role validation
-export const updateUser = async (userId, updateData) => {
+export const updateUser = async (user_id, updateData) => {
   try {
-    if (!userId) {
+    if (!user_id) {
       throw new CustomError('User ID is required', 400);
     }
 
@@ -157,7 +157,7 @@ export const updateUser = async (userId, updateData) => {
     }
 
     // Check if user exists
-    const [existingUser] = await pool.query('SELECT id, role FROM users WHERE id = ?', [userId]);
+    const existingUser = await db.query('SELECT id, role FROM users WHERE id = ?', [user_id]);
     if (existingUser.length === 0) {
       throw new CustomError('User not found', 404);
     }
@@ -196,17 +196,17 @@ export const updateUser = async (userId, updateData) => {
     }
 
     updateFields.push('updatedAt = NOW()');
-    values.push(userId);
+    values.push(user_id);
 
     const sql = `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`;
-    const [result] = await pool.query(sql, values);
+    const result = await db.query(sql, values);
 
     if (result.affectedRows === 0) {
       throw new CustomError('User update failed', 500);
     }
 
-    console.log(`User ${userId} updated successfully`);
-    return await getUserProfileService(userId);
+    console.log(`User ${user_id} updated successfully`);
+    return await getUserProfileService(user_id);
   } catch (error) {
     console.error('Error in updateUser:', error);
     throw new CustomError(error.message || 'Failed to update user');
@@ -281,11 +281,11 @@ export const getAllUsers = async (filters = {}) => {
     `;
 
     params.push(parseInt(limit), parseInt(offset));
-    const [rows] = await pool.query(sql, params);
+    const rows = await db.query(sql, params);
 
     // Get total count for pagination
     const countSql = `SELECT COUNT(*) as total FROM users ${whereClause}`;
-    const [countResult] = await pool.query(countSql, params.slice(0, -2));
+    const countResult = await db.query(countSql, params.slice(0, -2));
 
     return {
       users: rows,
@@ -319,7 +319,7 @@ export const getUserStats = async () => {
       FROM users
     `;
 
-    const [rows] = await pool.query(sql);
+    const rows = await db.query(sql);
     return rows[0];
   } catch (error) {
     console.error('Error in getUserStats:', error);
@@ -335,23 +335,23 @@ export const getUserActivity = async (user_id) => {
     }
 
     // Get user's chats and teachings count
-    const [chatCount] = await pool.query(
+    const chatCount = await db.query(
       'SELECT COUNT(*) as chat_count FROM chats WHERE user_id = ?', 
       [user_id]
     );
 
-    const [teachingCount] = await pool.query(
+    const teachingCount = await db.query(
       'SELECT COUNT(*) as teaching_count FROM teachings WHERE user_id = ?', 
       [user_id]
     );
 
-    const [commentCount] = await pool.query(
+    const commentCount = await db.query(
       'SELECT COUNT(*) as comment_count FROM comments WHERE user_id = ?', 
       [user_id]
     );
 
     // Get recent activity
-    const [recentChats] = await pool.query(`
+    const recentChats = await db.query(`
       SELECT id, prefixed_id, title, createdAt, 'chat' as content_type 
       FROM chats 
       WHERE user_id = ? 
@@ -359,7 +359,7 @@ export const getUserActivity = async (user_id) => {
       LIMIT 5
     `, [user_id]);
 
-    const [recentTeachings] = await pool.query(`
+    const recentTeachings = await db.query(`
       SELECT id, prefixed_id, topic as title, createdAt, 'teaching' as content_type 
       FROM teachings 
       WHERE user_id = ? 
@@ -386,14 +386,14 @@ export const getUserActivity = async (user_id) => {
 };
 
 // NEW: Delete user (soft delete by blocking)
-export const deleteUser = async (userId) => {
+export const deleteUser = async (user_id) => {
   try {
-    if (!userId) {
+    if (!user_id) {
       throw new CustomError('User ID is required', 400);
     }
 
     // Check if user exists
-    const [existingUser] = await pool.query('SELECT id, username FROM users WHERE id = ?', [userId]);
+    const existingUser = await db.query('SELECT id, username FROM users WHERE id = ?', [user_id]);
     if (existingUser.length === 0) {
       throw new CustomError('User not found', 404);
     }
@@ -405,7 +405,7 @@ export const deleteUser = async (userId) => {
       WHERE id = ?
     `;
     
-    const [result] = await pool.query(sql, [userId]);
+    const result = await db.query(sql, [user_id]);
 
     if (result.affectedRows === 0) {
       throw new CustomError('User deletion failed', 500);

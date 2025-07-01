@@ -1,0 +1,356 @@
+/* ikootaclient/src/components/admin/userManagement.css */
+/* CSS Styles for UserManagement Component Only */
+
+/* ID validation indicators */
+.valid-id {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.invalid-id {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.id-info {
+  margin-top: 5px;
+  font-size: 0.8em;
+  color: #6c757d;
+}
+
+.valid {
+  color: #28a745;
+  margin-left: 10px;
+}
+
+.invalid {
+  color: #dc3545;
+  margin-left: 10px;
+}
+
+/* Form input validation styles */
+input[pattern]:valid {
+  border-color: #28a745;
+}
+
+input[pattern]:invalid {
+  border-color: #dc3545;
+}
+
+/* User Management specific styles */
+.user-management-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.tab-navigation {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tab-navigation button {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  background: #f8f9fa;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.tab-navigation button.active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.user-list {
+  display: grid;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.user-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.user-info h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.user-info p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.user-actions {
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+}
+
+.user-actions button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.btn-setup, .btn-grant {
+  background: #28a745;
+  color: white;
+}
+
+.btn-decline, .btn-ban {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-unblock, .btn-unban {
+  background: #17a2b8;
+  color: white;
+}
+
+.btn-block {
+  background: #ffc107;
+  color: #212529;
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.membership-setup-modal {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.form-group select,
+.form-group input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.btn-cancel {
+  background: #6c757d;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Entity ID display component */
+.entity-id-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 0;
+}
+
+.entity-name {
+  font-weight: bold;
+  color: #495057;
+}
+
+.entity-id {
+  font-family: 'Courier New', monospace;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.entity-type {
+  font-size: 12px;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.error-indicator {
+  color: #dc3545;
+  font-size: 12px;
+}
+
+/* Reports section */
+.reports-section {
+  margin-top: 40px;
+}
+
+.reports-list {
+  display: grid;
+  gap: 15px;
+}
+
+.report-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+}
+
+.report-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+/* User Management Form */
+.user-management-form {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  margin-top: 20px;
+}
+
+.user-management-form label {
+  display: block;
+  margin-bottom: 15px;
+}
+
+.user-management-form input,
+.user-management-form select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-top: 5px;
+}
+
+.form-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.form-actions button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.form-actions button[type="submit"] {
+  background: #007bff;
+  color: white;
+}
+
+.form-actions button[type="button"] {
+  background: #6c757d;
+  color: white;
+}
+
+/* Responsive design for UserManagement */
+@media (max-width: 768px) {
+  .user-list {
+    grid-template-columns: 1fr;
+  }
+  
+  .user-actions {
+    flex-direction: column;
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .tab-navigation {
+    flex-direction: column;
+  }
+}
+
+/* Loading and error states */
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #6c757d;
+}
+
+.error {
+  text-align: center;
+  padding: 20px;
+  color: #dc3545;
+  background: #f8d7da;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+/* Animation for form validation */
+.valid input,
+.valid select {
+  border-color: #28a745;
+  box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+.invalid input,
+.invalid select {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+/* Button hover effects */
+button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Focus states for accessibility */
+button:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}

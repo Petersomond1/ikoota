@@ -1,3 +1,8 @@
+
+// ikootaapi/controllers/userController.js (updated methods)
+
+import db from '../config/db.js';
+import identityMaskingService from '../services/identityMaskingService.js';
 import { 
   getUserProfileService, 
   updateUserProfileService, 
@@ -379,4 +384,84 @@ export const removeUser = async (req, res) => {
       message: 'Failed to delete user'
     });
   }
+};
+
+/**
+ * Get users with appropriate data based on requestor's role
+ */
+export const getUsers = async (req, res) => {
+    try {
+        const requestorRole = req.user.role;
+        
+        let sql;
+        if (requestorRole === 'super_admin') {
+            // Super admin can see all data
+            sql = `
+                SELECT id, username, email, phone, converse_id, mentor_id, class_id, 
+                       role, is_member, isblocked, isbanned, is_identity_masked, 
+                       converse_avatar, createdAt, updatedAt
+                FROM users 
+                ORDER BY createdAt DESC
+            `;
+        } else if (requestorRole === 'admin') {
+            // Regular admin sees converse data only for masked users
+            sql = `
+                SELECT id, 
+                       CASE 
+                           WHEN is_identity_masked = 1 THEN CONCAT('User_', converse_id)
+                           ELSE username 
+                       END as username,
+                       CASE 
+                           WHEN is_identity_masked = 1 THEN CONCAT(converse_id, '@masked.local')
+                           ELSE email 
+                       END as email,
+                       CASE 
+                           WHEN is_identity_masked = 1 THEN NULL
+                           ELSE phone 
+                       END as phone,
+                       converse_id, mentor_id, class_id, role, is_member, 
+                       isblocked, isbanned, is_identity_masked, converse_avatar,
+                       createdAt, updatedAt
+                FROM users 
+                ORDER BY createdAt DESC
+            `;
+        } else {
+            // Regular users only see converse data
+            sql = `
+                SELECT converse_id, 
+                       CONCAT('User_', converse_id) as username,
+                       converse_avatar, class_id, role, is_member
+                FROM users 
+                WHERE is_member = 'granted' AND is_identity_masked = 1
+                ORDER BY createdAt DESC
+            `;
+        }
+
+        const users = await db.query(sql);
+        res.status(200).json(users);
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
+};
+
+/**
+ * Get mentors (users who can be assigned as mentors)
+ */
+export const getMentors = async (req, res) => {
+    try {
+        const mentors = await db.query(`
+            SELECT converse_id, role, class_id,
+                   CONCAT('User_', converse_id) as display_name
+            FROM users 
+            WHERE role IN ('admin', 'super_admin') 
+               OR (role = 'user' AND is_member = 'granted' AND is_identity_masked = 1)
+            ORDER BY role DESC, createdAt DESC
+        `);
+
+        res.status(200).json(mentors);
+    } catch (error) {
+        console.error('Error fetching mentors:', error);
+        res.status(500).json({ error: 'Failed to fetch mentors' });
+    }
 };

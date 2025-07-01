@@ -379,151 +379,6 @@ Use of libraries.
 Using axios with react-query:
 You can use to make HTTP request and react-query to manage the server state.
 
-import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
-
-export const useSendApplicationsurvey = () => {
-  return useMutation((answers) => {
-    return axios.post('http://localhost:3000/api/auth/submit_applicationsurvey', answers, { withCredentials: true });
-  });
-};
-
-
-
-using Zustand for local State Management.
-We can use Zustand to manage local state in your application.
-
-import create from 'zustand';
-
-const useStore = create((set) => ({
-  username: '',
-  email: '',
-  password: '',
-  confirmPassword: '',
-  phone: '',
-  setUsername: (username) => set({ username }),
-  setEmail: (email) => set({ email }),
-  setPassword: (password) => set({ password }),
-  setConfirmPassword: (confirmPassword) => set({ confirmPassword }),
-  setPhone: (phone) => set({ phone }),
-}));
-
-export default useStore;
-
-
-using Zustand in a compound:  
-You can use the useStore hook to manage local state in your components.
-
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { useMutation } from '@tanstack/react-query';
-import useStore from '../store/useStore';
-import './signup.css';
-
-const Signup = () => {
-  const { username, email, password, confirmPassword, phone, setUsername, setEmail, setPassword, setConfirmPassword, setPhone } = useStore();
-  const navigate = useNavigate();
-  const { mutateAsync: registerUser } = useMutation((values) => {
-    return axios.post('http://localhost:3000/api/auth/register', values, { withCredentials: true });
-  });
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (password !== confirmPassword) {
-      alert('Passwords do not match!');
-      return;
-    }
-    try {
-      const res = await registerUser({ username, email, password, phone });
-      if (res.status === 201) {
-        navigate(`${res.data.redirectTo}`);
-        console.log('res data at signup', res.data);
-      } else {
-        alert('Error: ' + res.data.error + ' - ' + 'Signup Failed');
-      }
-    } catch (err) {
-      alert('Signup failed, please check your network and try again.');
-    }
-  };
-
-  <!-- return (
-    <div className="signup-form">
-      <h2>Sign Up Page</h2>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '3px' }}>
-          <label htmlFor="username"><strong>Username:</strong>
-            <input
-              type="text"
-              placeholder="Enter Username"
-              name="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="form-control"
-            />
-          </label>
-        </div>
-        <div style={{ marginBottom: '3px' }}>
-          <label htmlFor="email"><strong>Email:</strong>
-            <input
-              type="email"
-              autoComplete="off"
-              placeholder="Enter Email"
-              name="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="form-control"
-            />
-          </label>
-        </div>
-        <div style={{ marginBottom: '3px' }}>
-          <label htmlFor="phone"><strong>Phone:</strong>
-            <input
-              type="phone"
-              autoComplete="off"
-              placeholder="Enter whatsapp Phone Number"
-              name="phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="form-control"
-            />
-          </label>
-        </div>
-        <div style={{ marginBottom: '3px' }}>
-          <label htmlFor="password"><strong>Password:</strong>
-            <input
-              type="password"
-              placeholder="Enter Password"
-              name="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="form-control"
-              autoComplete="off"
-            />
-          </label>
-        </div>
-        <div style={{ marginBottom: '3px' }}>
-          <label htmlFor="confirmPassword"><strong>Confirm Password:</strong>
-            <input
-              type="password"
-              placeholder="Confirm Password"
-              name="confirmPassword"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="form-control"
-              autoComplete="off"
-            />
-          </label>
-        </div>
-        <button type="submit">Sign Up</button>
-        <p>Next is to fill a simple ID form</p>
-      </form>
-      <Link to="/" type="submit"><strong>opt-out</strong></Link>
-    </div>
-  );
-}; -->
-
-export default Signup;
 
 
 Iko view-point.
@@ -605,14 +460,6 @@ dashboard analytics, use of isblocked and isbanned on users table
 --work on the search
 Mentors sponsors new applicant by creating of application ticket/coupon and issuing to intending applicats that will signup with it. so use of application coupon (number) from a sponsorer like a mentor, which will lead to the mentor first vetting before new user will be allowed to even get access to the signup.
 
-`audit_logs` database table and dashboard analytics. "" Key Statistics
-
-Total Users: 500
-
-Active Chats: 50
-
-Pending Reports: 10
-Analytics ""
 
  "is_flagged" in "chat" database table with Chat.jsx part of Iko.jsx (messages/comments is flagged),
 
@@ -635,512 +482,7 @@ Analytics ""
 
 
 
-// import React, { useState } from "react";
-// import { useForm } from "react-hook-form";
-// import useUpload from "../../admin/hooks/useUpload";
-// import EmojiPicker from 'emoji-picker-react';
-// import DOMPurify from 'dompurify';
-// import './chat.css';
-// import { useFetchChats } from "../service/useFetchChats";
-// import { useFetchComments } from "../service/useFetchComments";
-// import { useFetchTeachings } from "../service/useFetchTeachings";
-// import { postComment } from '../service/commentServices';
-// import {jwtDecode} from 'jwt-decode';
-// import axios from 'axios';
 
-
-// const Chat = ({ activeItem, chats, teachings }) => {
-//   const { handleSubmit, register, reset } = useForm();
-//  const { validateFiles: validateTeachingsFiles, mutation: teachingMutation } = useUpload("/teachings");
-//   const { validateFiles, mutation: chatMutation } = useUpload("/chats");
-//  const { validateFiles: validateCommentFiles, mutation: commentMutation } = useUpload("/comments");
-
-
-//   //const { data: teachings, isLoading: isLoadingTeachings, error: errorTeachings } = useFetchTeachings();
-//   //const { data: chats, isLoading: isLoadingChats, error: errorChats } = useFetchChats();
-//   const { data: comments, isLoading: isLoadingComments, error: errorComments } = useFetchComments();
-
-//   const [formData, setFormData] = useState({});
-//   const [openEmoji, setOpenEmoji] = useState(false);
-//   const [addMode, setAddMode] = useState(false);
-//   const [step, setStep] = useState(0); // Tracks current step in multi-input
-
-//   const activeContent = activeItem && activeItem.type === 'chat'
-//     ? chats.find(chat => chat.id === activeItem.id)
-//     : activeItem && teachings.find(teaching => teaching.id === activeItem.id);
-
-
-//   const handleNextStep = () => {
-//     if (step < 6) setStep(step + 1);
-//   };
-
-//   const handlePrevStep = () => {
-//     if (step > 0) setStep(step - 1);
-//   };
-
-//   const handleEmoji = (e) => {
-//     setFormData({ ...formData, comment: formData.comment + e.emoji });
-//     setOpenEmoji(false);
-//   };
-
-//   const sanitizeMessage = (message) => {
-//     return DOMPurify.sanitize(message, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a'] });
-//   };
-
-//   const handleSendChat = (data) => {
-//     const formData = new FormData();
-//     formData.append("created_by", data.user_id);
-//     formData.append("title", data.title);
-//     formData.append("audience", data.audience);
-//     formData.append("summary", data.summary);
-//     formData.append("text", data.text);
-//     formData.append("is_flagged", false);
-
-//     ["media1", "media2", "media3"].forEach((file) => {
-//       if (data[file]?.[0]) {
-//         formData.append(file, data[file][0]);
-//       }
-//     });
-
-//     chatMutation.mutate(formData, {
-//       onSuccess: () => {
-//         console.log("Chat sent!");
-//         reset();
-//       },
-//       onError: (error) => {
-//         console.error("Error uploading chat:", error);
-//       },
-//     });
-//   };
-
-//   const handleSendComment = async (data) => {
-//     let user_id;
-
-//     const token = localStorage.getItem("token");
-//     if (token) {
-//       const decodedToken = jwtDecode(token);
-//       user_id = decodedToken.user_id;
-//     } else {
-//       const tokenCookie = document.cookie.split('; ').find(row => row.startsWith('access_token='));
-//       if (tokenCookie) {
-//         const token = tokenCookie.split('=')[1];
-//         const decodedToken = jwtDecode(token);
-//         user_id = decodedToken.user_id;
-//       } else {
-//         console.error("Access token not found in localStorage or cookies");
-//         return;
-//       }
-
-//       console.log('user_id@chat', user_id);
-//     }
-
-//     const formData = new FormData();
-//     formData.append("comment", data.comment);
-//     formData.append("chat_id", activeItem.id)
-//     formData.append("teaching_id", activeItem.id);
-//     formData.append("user_id", user_id);
-//     console.log('data at formdat@chat', data);
-//     ["media1", "media2", "media3"].forEach((file) => {
-//       if (data[file]?.[0]) {
-//         formData.append(file, data[file][0]);
-//       }
-//     });
-
-//     commentMutation.mutate(formData, {
-//       onSuccess: async (uploadResponse) => {
-//         const { mediaUrls } = uploadResponse.data; // Ensure backend returns uploaded media URLs
-//         const mediaData = mediaUrls.map((url, index) => ({
-//           url,
-//           type: data[`media${index + 1}`]?.[0]?.type || "unknown",
-//         }));
-
-//         await postComment({
-//           chat_id: activeItem.id,
-//           teaching_id: activeItem.id,
-//           user_id,
-//           comment: data.comment,
-//           mediaData,
-//         });
-//         console.log('all data@chat', chat_id, user_id, data.comment, data.chat_id, mediaData);
-//         alert("Comment posted successfully!");
-//         reset();
-//       },
-//       onError: (error) => {
-//         console.error("Error uploading comment:", error);
-//       },
-//     });
-//   };
-
-//   return (
-//     <div className="chat_container">
-//       <div className="top">
-//         <div className="user">
-//           <img src="./avatar.png" alt="" />
-//         </div>
-//         <div className="texts">
-//         <span>{activeContent?.created_by || 'Admin'}</span>
-//         <p>{activeContent?.title || activeContent?.topic}</p>
-//           <span>Jane Dee</span>
-//           <p>Lorem ipsum dolor sit amet, </p>
-//         </div>
-//         <div className="icons">
-//           <img src="./phone.png" alt="" />
-//           <img src="./video.png" alt="" />
-//           <img src="./info.png" alt="" />
-//         </div>
-//       </div>
-
-//       <div className="center">
-//         {chats?.map((chat) => (
-//           <div key={chat.id} className="message">
-//             <img src="./avatar.png" alt="Chat Avatar" />
-//             <div className="texts">
-//               <p>{sanitizeMessage(chat.title)}</p>
-//               <p>{sanitizeMessage(chat.text)}</p>
-//               <span>1 min ago</span>
-//             </div>
-//           </div>
-//         ))}
-//           {teachings?.map((teaching) => (
-//           <div key={teaching.id} className="message">
-//             <img src="./avatar.png" alt="Chat Avatar" />
-//             <div className="texts">
-//             <p>{sanitizeMessage(teaching.topic)}</p>
-//               <p>{sanitizeMessage(teaching.text)}</p>
-//               <span>1 min ago</span>
-//             </div>
-//           </div>
-//         ))}
-//         {/* {comments?.map((comment) => (
-//           <div key={comment.id} className="message Own">
-//             <div className="texts">
-//               <p>{sanitizeMessage(comment.comment)}</p>
-//               <span>2 mins ago</span>
-//             </div>
-//           </div>
-//         ))} */}
-//         <div className="message">
-//           <img src="./avatar.png" alt="" />
-//           <div className="texts">
-//           <p>{sanitizeMessage(activeContent?.text || activeContent?.content)}</p>
-//           <span>{new Date(activeContent?.created_at || activeContent?.createdAt).toLocaleString()}</span>
-//           </div>
-//         </div>
-
-//         {comments?.filter(comment => comment.chat_id === activeItem.id).map((comment) => (
-//           <div key={comment.id} className="message Own">
-//             <div className="texts">
-//               <p>{sanitizeMessage(comment.comment)}</p>
-//               <span>{new Date(comment.created_at).toLocaleString()}</span>
-//             <img src="https://ik.imagekit.io/amazonmondayp/Amazon_Ecommerce_Capstone_Prjt_row_1_Carousel/61yTkc3VJ1L._AC_SL1000_.jpg?updatedAt=1713057245841" alt="" />
-//             <p>Lorem ipsum dolor sit amet consectetur adipisicing elit Velit maxime consectetur accusantium? Eligendi vel quos nisi et dolorem quaerat quidem itaque vero ducimus aspernatur! Aspernatur accusantium nostrum fuga incidunt facere?</p>
-           
-//           </div>
-//         </div>
-//         ))}
-//       </div>
-
-//       <div className="bottom">
-//         <div className="toggle_buttons">
-//           <button className={!addMode ? 'active' : ''} onClick={() => setAddMode(false)}>Comment</button>
-//           <button className={addMode ? 'active' : ''} onClick={() => setAddMode(true)}>Start New Chat</button>
-//         </div>
-
-//         {!addMode ? (
-//           <form className="bottom_comment" onSubmit={handleSubmit(handleSendComment)} noValidate>
-//             <div className="icons">
-//               <img src="./img.png" alt="Upload" />
-//               <img src="./camera.png" alt="Camera" />
-//               <img src="./mic.png" alt="Mic" />
-//             </div>
-//             {step === 0 && (
-//               <input
-//                 type="text"
-//                 placeholder="Type a message..."
-//                 {...register("comment", { required: "Comment is required" })}
-//               />
-//             )}
-//             {step === 1 && (
-//               <input
-//                 type="file"
-//                 multiple
-//                 {...register("media1", { validate: validateFiles })}
-//               />
-//             )}
-//             {step === 2 && (
-//               <input
-//                 type="file"
-//                 multiple
-//                 {...register("media2", { validate: validateFiles })}
-//               />
-//             )}
-//             {step === 3 && (
-//               <input
-//                 type="file"
-//                 multiple
-//                 {...register("media3", { validate: validateFiles })}
-//               />
-//             )}
-//             <div className="emoji">
-//               <img src="./emoji.png" alt="Emoji Picker" onClick={() => setOpenEmoji(!openEmoji)} />
-//               {openEmoji && <EmojiPicker onEmojiClick={handleEmoji} />}
-//             </div>
-//             <div className="input-buttons">
-//               {step < 3 && <button type="button" onClick={handleNextStep}>Next</button>}
-//               {step > 0 && <button type="button" onClick={handlePrevStep}>Previous</button>}
-//             </div>
-//             <button className="SendButton" type="submit">Send</button>
-//           </form>
-//         ) : (
-//           <form className="bottom_presentation" onSubmit={handleSubmit(handleSendChat)} noValidate>
-//             {step === 0 && (
-//               <input
-//                 type="text"
-//                 placeholder="Enter Title"
-//                 {...register("title", { required: "Title is required" })}
-//               />
-//             )}
-//             {step === 1 && (
-//               <input
-//                 type="text"
-//                 placeholder="Enter Summary"
-//                 {...register("summary", { required: "Summary is required" })}
-//               />
-//             )}
-//             {step === 2 && (
-//               <input
-//                 type="text"
-//                 placeholder="Enter Audience"
-//                 {...register("audience", { required: "Audience is required" })}
-//               />
-//             )}
-//             {step === 3 && (
-//               <textarea
-//                 placeholder="Enter Main Text"
-//                 {...register("text", { required: "Main text is required" })}
-//               />
-//             )}
-//             {step === 4 && (
-//               <input
-//                 type="file"
-//                 multiple
-//                 {...register("media1", { validate: validateFiles })}
-//               />
-//             )}
-//             {step === 5 && (
-//               <input
-//                 type="file"
-//                 multiple
-//                 {...register("media2", { validate: validateFiles })}
-//               />
-//             )}
-//             {step === 6 && (
-//               <input
-//                 type="file"
-//                 multiple
-//                 {...register("media3", { validate: validateFiles })}
-//               />
-//             )}
-//             <div className="icons">
-//               <img src="./img.png" alt="Upload" />
-//               <img src="./camera.png" alt="Camera" />
-//               <img src="./mic.png" alt="Mic" />
-//             </div>
-//             <div className="input-buttons">
-//               {step < 6 && <button type="button" onClick={handleNextStep}>Next</button>}
-//               {step > 0 && <button type="button" onClick={handlePrevStep}>Previous</button>}
-//             </div>
-//             <button className="SendButton" style={{ width: '10wv' }} type="submit">Send</button>
-//           </form>
-//         )}
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default Chat;
-
-
-
-
-
-
-import React, { useState } from "react";
-import { useForm } from "react-hook-form";
-import useUpload from "../../admin/hooks/useUpload";
-import EmojiPicker from "emoji-picker-react";
-import DOMPurify from "dompurify";
-import ReactPlayer from "react-player";
-import "./chat.css";
-import { useFetchChats } from "../service/useFetchChats";
-import { useFetchComments } from "../service/useFetchComments";
-import { useFetchTeachings } from "../service/useFetchTeachings";
-import { postComment } from "../service/commentServices";
-import jwtDecode from "jwt-decode";
-import axios from "axios";
-import MediaGallery from "./MediaGallery"; // Import MediaGallery Component
-
-const Chat = ({ activeItem, chats, teachings, comments: initialComments }) => {
-  const { handleSubmit, register, reset } = useForm();
-  const { validateFiles, mutation: chatMutation } = useUpload("/chats");
-  const { validateFiles: validateCommentFiles, mutation: commentMutation } = useUpload("/comments");
-
-  // Fix duplicate variable name
-  const { data: fetchedComments, isLoading: isLoadingComments } = useFetchComments(activeItem);
-
-  const [formData, setFormData] = useState({});
-  const [openEmoji, setOpenEmoji] = useState(false);
-  const [addMode, setAddMode] = useState(false);
-  const [step, setStep] = useState(0);
-  const [playingMedia, setPlayingMedia] = useState(null);
-
-  const activeContent =
-    activeItem && activeItem.type === "chat"
-      ? chats.find((chat) => chat.id === activeItem.id)
-      : activeItem
-      ? teachings.find((teaching) => teaching.id === activeItem.id)
-      : null;
-
-  if (!activeItem) {
-    return <p className="status">Select a chat or teaching to start.</p>;
-  }
-
-  const handleEmoji = (e) => {
-    setFormData({ ...formData, comment: (formData.comment || "") + e.emoji });
-    setOpenEmoji(false);
-  };
-
-  const sanitizeMessage = (message) => {
-    return DOMPurify.sanitize(message, { ALLOWED_TAGS: ["b", "i", "em", "strong", "a"] });
-  };
-
-  const handleSendComment = async (data) => {
-    let user_id;
-    const token = localStorage.getItem("token");
-
-    if (token) {
-      user_id = jwtDecode(token).user_id;
-    } else {
-      const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("access_token="));
-      if (tokenCookie) {
-        user_id = jwtDecode(tokenCookie.split("=")[1]).user_id;
-      } else {
-        console.error("Access token not found");
-        return;
-      }
-    }
-
-    const formData = new FormData();
-    formData.append("comment", data.comment);
-    formData.append(activeItem.type === "chat" ? "chat_id" : "teaching_id", activeItem.id);
-    formData.append("user_id", user_id);
-
-    ["media1", "media2", "media3"].forEach((file) => {
-      if (data[file]?.[0]) {
-        formData.append(file, data[file][0]);
-      }
-    });
-
-    commentMutation.mutate(formData, {
-      onSuccess: async (uploadResponse) => {
-        const { mediaUrls } = uploadResponse.data;
-        const mediaData = mediaUrls.map((url, index) => ({
-          url,
-          type: data[`media${index + 1}`]?.[0]?.type || "unknown",
-        }));
-
-        await postComment({
-          chat_id: activeItem.type === "chat" ? activeItem.id : null,
-          teaching_id: activeItem.type === "teaching" ? activeItem.id : null,
-          user_id,
-          comment: data.comment,
-          mediaData,
-        });
-
-        alert("Comment posted successfully!");
-        reset();
-      },
-      onError: (error) => console.error("Error uploading comment:", error),
-    });
-  };
-
-  return (
-    <div className="chat_container">
-      <div className="top">
-        <div className="user">
-          <img src="./avatar.png" alt="Avatar" />
-        </div>
-        <div className="texts">
-          <span>{activeContent?.created_by || "Admin"}</span>
-          <p>{activeContent?.title || activeContent?.topic}</p>
-        </div>
-        <div className="icons">
-          <img src="./phone.png" alt="Phone" />
-          <img src="./video.png" alt="Video" />
-          <img src="./info.png" alt="Info" />
-        </div>
-      </div>
-
-      <div className="center">
-        <div className="message">
-          <img src="./avatar.png" alt="Chat Avatar" />
-          <div className="texts">
-            <p>{sanitizeMessage(activeContent?.text || activeContent?.content)}</p>
-            <span>{new Date(activeContent?.created_at || activeContent?.createdAt).toLocaleString()}</span>
-          </div>
-        </div>
-
-        {isLoadingComments ? (
-          <p>Loading comments...</p>
-        ) : (
-          fetchedComments
-            ?.filter(
-              (comment) =>
-                (activeItem?.type === "chat" && comment.chat_id === activeItem?.id) ||
-                (activeItem?.type === "teaching" && comment.teaching_id === activeItem?.id)
-            )
-            .map((comment) => (
-              <div key={comment.id} className="message Own">
-                <div className="texts">
-                  <p>{sanitizeMessage(comment.comment)}</p>
-                  <span>{new Date(comment.created_at).toLocaleString()}</span>
-                  <MediaGallery
-                    mediaFiles={[
-                      { url: comment.media_url1, type: comment.media_type1 },
-                      { url: comment.media_url2, type: comment.media_type2 },
-                      { url: comment.media_url3, type: comment.media_type3 },
-                    ].filter((media) => media.url)}
-                  />
-                </div>
-              </div>
-            ))
-        )}
-      </div>
-
-      <div className="bottom">
-        <div className="toggle_buttons">
-          <button className={!addMode ? "active" : ""} onClick={() => setAddMode(false)}>
-            Comment
-          </button>
-          <button className={addMode ? "active" : ""} onClick={() => setAddMode(true)}>
-            Start New Chat
-          </button>
-        </div>
-
-        {!addMode ? (
-          <form className="bottom_comment" onSubmit={handleSubmit(handleSendComment)} noValidate>
-            <input type="text" placeholder="Type a message..." {...register("comment", { required: "Comment is required" })} />
-            <button className="SendButton" type="submit">Send</button>
-          </form>
-        ) : (
-          <p>Chat functionality here</p>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default Chat;
 
 
 
@@ -1238,3 +580,312 @@ Authorization Matrix:
 Users: Can create, view, update, delete their own comments
 Admins: Can view all comments, statistics, and moderate content
 Super Admins: Full access to all comment operations
+
+
+
+
+
+
+
+MySQL [ikoota_db]> describe audit_logs;
++-----------+--------------+------+-----+-------------------+-------------------+
+| Field     | Type         | Null | Key | Default           | Extra             |
++-----------+--------------+------+-----+-------------------+-------------------+
+| id        | int          | NO   | PRI | NULL              | auto_increment    |
+| admin_id  | varchar(36)  | NO   |     | NULL              |                   |
+| action    | varchar(255) | NO   |     | NULL              |                   |
+| target_id | varchar(36)  | YES  |     | NULL              |                   |
+| details   | text         | YES  |     | NULL              |                   |
+| createdAt | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++-----------+--------------+------+-----+-------------------+-------------------+
+6 rows in set (0.079 sec)
+
+MySQL [ikoota_db]> describe bulk_email_logs;
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| Field            | Type         | Null | Key | Default           | Extra                                         |
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| id               | int          | NO   | PRI | NULL              | auto_increment                                |
+| recipients_count | int          | NO   |     | NULL              |                                               |
+| subject          | varchar(500) | YES  |     | NULL              |                                               |
+| template         | varchar(100) | YES  | MUL | NULL              |                                               |
+| successful_count | int          | YES  |     | 0                 |                                               |
+| failed_count     | int          | YES  |     | 0                 |                                               |
+| sender_id        | int          | YES  | MUL | NULL              |                                               |
+| createdAt        | timestamp    | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt        | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| processedAt      | timestamp    | YES  |     | NULL              |                                               |
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+10 rows in set (0.072 sec)
+
+MySQL [ikoota_db]> describe bulk_sms_logs;
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| Field            | Type         | Null | Key | Default           | Extra                                         |
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| id               | int          | NO   | PRI | NULL              | auto_increment                                |
+| recipients_count | int          | NO   |     | NULL              |                                               |
+| message          | text         | YES  |     | NULL              |                                               |
+| template         | varchar(100) | YES  | MUL | NULL              |                                               |
+| successful_count | int          | YES  |     | 0                 |                                               |
+| failed_count     | int          | YES  |     | 0                 |                                               |
+| sender_id        | int          | YES  | MUL | NULL              |                                               |
+| createdAt        | timestamp    | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt        | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| processedAt      | timestamp    | YES  |     | NULL              |                                               |
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+10 rows in set (0.055 sec)
+
+MySQL [ikoota_db]> describe chats;
++-----------------+---------------------------------------+------+-----+-------------------+-------------------+
+| Field           | Type                                  | Null | Key | Default           | Extra             |
++-----------------+---------------------------------------+------+-----+-------------------+-------------------+
+| id              | int                                   | NO   | PRI | NULL              | auto_increment    |
+| title           | varchar(255)                          | NO   |     | NULL              |                   |
+| user_id         | varchar(36)                           | NO   |     | NULL              |                   |
+| audience        | varchar(255)                          | YES  |     | NULL              |                   |
+| summary         | text                                  | YES  |     | NULL              |                   |
+| text            | text                                  | YES  |     | NULL              |                   |
+| approval_status | enum('pending','approved','rejected') | YES  |     | pending           |                   |
+| media_url1      | varchar(255)                          | YES  |     | NULL              |                   |
+| media_type1     | enum('image','video','audio','file')  | YES  |     | NULL              |                   |
+| media_url2      | varchar(255)                          | YES  |     | NULL              |                   |
+| media_type2     | enum('image','video','audio','file')  | YES  |     | NULL              |                   |
+| media_url3      | varchar(255)                          | YES  |     | NULL              |                   |
+| is_flagged      | tinyint(1)                            | YES  |     | 0                 |                   |
+| media_type3     | enum('image','video','audio','file')  | YES  |     | NULL              |                   |
+| createdAt       | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt       | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| prefixed_id     | varchar(20)                           | YES  | UNI | NULL              |                   |
++-----------------+---------------------------------------+------+-----+-------------------+-------------------+
+17 rows in set (0.039 sec)
+
+MySQL [ikoota_db]> describe classes;
++-------------+--------------+------+-----+-------------------+-------------------+
+| Field       | Type         | Null | Key | Default           | Extra             |
++-------------+--------------+------+-----+-------------------+-------------------+
+| class_id    | varchar(36)  | NO   | PRI | NULL              |                   |
+| name        | varchar(255) | NO   | UNI | NULL              |                   |
+| description | text         | YES  |     | NULL              |                   |
+| createdAt   | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt   | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++-------------+--------------+------+-----+-------------------+-------------------+
+5 rows in set (0.042 sec)
+
+MySQL [ikoota_db]> describe comments;
++-------------+--------------------------------------+------+-----+-------------------+-------------------+
+| Field       | Type                                 | Null | Key | Default           | Extra             |
++-------------+--------------------------------------+------+-----+-------------------+-------------------+
+| id          | int                                  | NO   | PRI | NULL              | auto_increment    |
+| user_id     | int                                  | NO   | MUL | NULL              |                   |
+| chat_id     | int                                  | YES  | MUL | NULL              |                   |
+| teaching_id | int                                  | YES  | MUL | NULL              |                   |
+| comment     | text                                 | NO   |     | NULL              |                   |
+| media_url1  | varchar(255)                         | YES  |     | NULL              |                   |
+| media_type1 | enum('image','video','audio','file') | YES  |     | NULL              |                   |
+| media_url2  | varchar(255)                         | YES  |     | NULL              |                   |
+| media_type2 | enum('image','video','audio','file') | YES  |     | NULL              |                   |
+| media_url3  | varchar(255)                         | YES  |     | NULL              |                   |
+| media_type3 | enum('image','video','audio','file') | YES  |     | NULL              |                   |
+| createdAt   | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt   | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++-------------+--------------------------------------+------+-----+-------------------+-------------------+
+13 rows in set (0.041 sec)
+
+MySQL [ikoota_db]> describe email_logs;
++---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field         | Type                            | Null | Key | Default           | Extra                                         |
++---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id            | int                             | NO   | PRI | NULL              | auto_increment                                |
+| recipient     | varchar(255)                    | NO   | MUL | NULL              |                                               |
+| subject       | varchar(500)                    | YES  |     | NULL              |                                               |
+| template      | varchar(100)                    | YES  | MUL | NULL              |                                               |
+| status        | enum('sent','failed','pending') | YES  | MUL | pending           |                                               |
+| message_id    | varchar(255)                    | YES  |     | NULL              |                                               |
+| error_message | text                            | YES  |     | NULL              |                                               |
+| sender_id     | int                             | YES  | MUL | NULL              |                                               |
+| createdAt     | timestamp                       | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt     | timestamp                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| processedAt   | timestamp                       | YES  |     | NULL              |                                               |
++---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
+11 rows in set (0.057 sec)
+
+MySQL [ikoota_db]> describe email_templates;
++------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| Field      | Type         | Null | Key | Default           | Extra                                         |
++------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| id         | int          | NO   | PRI | NULL              | auto_increment                                |
+| name       | varchar(100) | NO   | UNI | NULL              |                                               |
+| subject    | varchar(500) | NO   |     | NULL              |                                               |
+| body_text  | text         | YES  |     | NULL              |                                               |
+| body_html  | text         | YES  |     | NULL              |                                               |
+| variables  | json         | YES  |     | NULL              |                                               |
+| is_active  | tinyint(1)   | YES  | MUL | 1                 |                                               |
+| created_by | int          | YES  | MUL | NULL              |                                               |
+| createdAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++------------+--------------+------+-----+-------------------+-----------------------------------------------+
+10 rows in set (0.528 sec)
+
+MySQL [ikoota_db]> describe reports;
++-------------+---------------------------------------+------+-----+-------------------+-------------------+
+| Field       | Type                                  | Null | Key | Default           | Extra             |
++-------------+---------------------------------------+------+-----+-------------------+-------------------+
+| id          | int                                   | NO   | PRI | NULL              | auto_increment    |
+| reporter_id | varchar(36)                           | NO   |     | NULL              |                   |
+| reported_id | varchar(36)                           | YES  |     | NULL              |                   |
+| reason      | text                                  | NO   |     | NULL              |                   |
+| status      | enum('pending','reviewed','resolved') | YES  |     | pending           |                   |
+| createdAt   | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++-------------+---------------------------------------+------+-----+-------------------+-------------------+
+6 rows in set (0.052 sec)
+
+MySQL [ikoota_db]> describe sms_logs;
++---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field         | Type                            | Null | Key | Default           | Extra                                         |
++---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id            | int                             | NO   | PRI | NULL              | auto_increment                                |
+| recipient     | varchar(20)                     | NO   | MUL | NULL              |                                               |
+| message       | text                            | YES  |     | NULL              |                                               |
+| template      | varchar(100)                    | YES  | MUL | NULL              |                                               |
+| status        | enum('sent','failed','pending') | YES  | MUL | pending           |                                               |
+| sid           | varchar(100)                    | YES  |     | NULL              |                                               |
+| error_message | text                            | YES  |     | NULL              |                                               |
+| sender_id     | int                             | YES  | MUL | NULL              |                                               |
+| createdAt     | timestamp                       | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt     | timestamp                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| processedAt   | timestamp                       | YES  |     | NULL              |                                               |
++---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
+11 rows in set (0.056 sec)
+
+MySQL [ikoota_db]> describe sms_templates;
++------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| Field      | Type         | Null | Key | Default           | Extra                                         |
++------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| id         | int          | NO   | PRI | NULL              | auto_increment                                |
+| name       | varchar(100) | NO   | UNI | NULL              |                                               |
+| message    | text         | NO   |     | NULL              |                                               |
+| variables  | json         | YES  |     | NULL              |                                               |
+| is_active  | tinyint(1)   | YES  | MUL | 1                 |                                               |
+| created_by | int          | YES  | MUL | NULL              |                                               |
+| createdAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++------------+--------------+------+-----+-------------------+-----------------------------------------------+
+8 rows in set (0.071 sec)
+
+MySQL [ikoota_db]> describe survey_questions;
++----------------+------------+------+-----+-------------------+-----------------------------------------------+
+| Field          | Type       | Null | Key | Default           | Extra                                         |
++----------------+------------+------+-----+-------------------+-----------------------------------------------+
+| id             | int        | NO   | PRI | NULL              | auto_increment                                |
+| question       | text       | NO   |     | NULL              |                                               |
+| createdAt      | timestamp  | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt      | timestamp  | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| is_active      | tinyint(1) | YES  |     | 1                 |                                               |
+| question_order | int        | YES  |     | 0                 |                                               |
++----------------+------------+------+-----+-------------------+-----------------------------------------------+
+6 rows in set (0.062 sec)
+
+MySQL [ikoota_db]> describe surveylog;
++-----------------+---------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field           | Type                                  | Null | Key | Default           | Extra                                         |
++-----------------+---------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id              | int                                   | NO   | PRI | NULL              | auto_increment                                |
+| user_id         | varchar(36)                           | NO   |     | NULL              |                                               |
+| answers         | text                                  | YES  |     | NULL              |                                               |
+| verified_by     | varchar(36)                           | NO   |     | NULL              |                                               |
+| rating_remarks  | varchar(255)                          | NO   |     | NULL              |                                               |
+| approval_status | enum('pending','approved','rejected') | YES  |     | pending           |                                               |
+| createdAt       | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt       | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| processedAt     | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| admin_notes     | text                                  | YES  |     | NULL              |                                               |
++-----------------+---------------------------------------+------+-----+-------------------+-----------------------------------------------+
+10 rows in set (0.044 sec)
+
+MySQL [ikoota_db]> describe teachings;
++---------------+--------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field         | Type                                 | Null | Key | Default           | Extra                                         |
++---------------+--------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id            | int                                  | NO   | PRI | NULL              | auto_increment                                |
+| topic         | varchar(255)                         | NO   |     | NULL              |                                               |
+| description   | text                                 | YES  |     | NULL              |                                               |
+| lessonNumber  | varchar(255)                         | NO   |     | NULL              |                                               |
+| subjectMatter | varchar(255)                         | YES  |     | NULL              |                                               |
+| audience      | varchar(255)                         | YES  |     | NULL              |                                               |
+| content       | text                                 | YES  |     | NULL              |                                               |
+| media_url1    | varchar(255)                         | YES  |     | NULL              |                                               |
+| media_type1   | enum('image','video','audio','file') | YES  |     | NULL              |                                               |
+| media_url2    | varchar(255)                         | YES  |     | NULL              |                                               |
+| media_type2   | enum('image','video','audio','file') | YES  |     | NULL              |                                               |
+| media_url3    | varchar(255)                         | YES  |     | NULL              |                                               |
+| media_type3   | enum('image','video','audio','file') | YES  |     | NULL              |                                               |
+| createdAt     | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt     | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| user_id       | varchar(36)                          | NO   |     | NULL              |                                               |
+| prefixed_id   | varchar(20)                          | YES  | UNI | NULL              |                                               |
++---------------+--------------------------------------+------+-----+-------------------+-----------------------------------------------+
+17 rows in set (0.053 sec)
+
+MySQL [ikoota_db]> describe user_chats;
++----------------------+--------------------------------+------+-----+-------------------+-------------------+
+| Field                | Type                           | Null | Key | Default           | Extra             |
++----------------------+--------------------------------+------+-----+-------------------+-------------------+
+| id                   | int                            | NO   | PRI | NULL              | auto_increment    |
+| user_id              | varchar(36)                    | NO   |     | NULL              |                   |
+| chat_id              | varchar(36)                    | NO   |     | NULL              |                   |
+| last_message         | varchar(255)                   | YES  |     | NULL              |                   |
+| is_seen              | tinyint(1)                     | YES  |     | 0                 |                   |
+| role                 | enum('admin','member','owner') | NO   |     | NULL              |                   |
+| is_muted             | tinyint(1)                     | YES  |     | 0                 |                   |
+| last_read_message_id | varchar(36)                    | YES  |     | NULL              |                   |
+| joined_at            | datetime                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt            | timestamp                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++----------------------+--------------------------------+------+-----+-------------------+-------------------+
+10 rows in set (0.043 sec)
+
+MySQL [ikoota_db]> describe user_communication_preferences;
++-----------------------+-------------+------+-----+-------------------+-----------------------------------------------+
+| Field                 | Type        | Null | Key | Default           | Extra                                         |
++-----------------------+-------------+------+-----+-------------------+-----------------------------------------------+
+| id                    | int         | NO   | PRI | NULL              | auto_increment                                |
+| user_id               | int         | NO   | UNI | NULL              |                                               |
+| email_notifications   | tinyint(1)  | YES  |     | 1                 |                                               |
+| sms_notifications     | tinyint(1)  | YES  |     | 0                 |                                               |
+| marketing_emails      | tinyint(1)  | YES  |     | 1                 |                                               |
+| marketing_sms         | tinyint(1)  | YES  |     | 0                 |                                               |
+| survey_notifications  | tinyint(1)  | YES  |     | 1                 |                                               |
+| content_notifications | tinyint(1)  | YES  |     | 1                 |                                               |
+| admin_notifications   | tinyint(1)  | YES  |     | 1                 |                                               |
+| preferred_language    | varchar(10) | YES  |     | en                |                                               |
+| timezone              | varchar(50) | YES  |     | UTC               |                                               |
+| createdAt             | timestamp   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt             | timestamp   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++-----------------------+-------------+------+-----+-------------------+-----------------------------------------------+
+13 rows in set (0.052 sec)
+
+MySQL [ikoota_db]> describe users;
++------------------+--------------------------------------+------+-----+-------------------+-------------------+
+| Field            | Type                                 | Null | Key | Default           | Extra             |
++------------------+--------------------------------------+------+-----+-------------------+-------------------+
+| id               | int                                  | NO   | PRI | NULL              | auto_increment    |
+| username         | varchar(255)                         | NO   |     | NULL              |                   |
+| email            | varchar(255)                         | NO   |     | NULL              |                   |
+| phone            | varchar(15)                          | YES  |     | NULL              |                   |
+| avatar           | varchar(255)                         | YES  |     | NULL              |                   |
+| password_hash    | varchar(255)                         | NO   |     | NULL              |                   |
+| converse_id      | char(6)                              | YES  |     | NULL              |                   |
+| mentor_id        | char(6)                              | YES  |     | NULL              |                   |
+| class_id         | varchar(36)                          | YES  | MUL | NULL              |                   |
+| is_member        | enum('applied','granted','declined') | YES  |     | applied           |                   |
+| role             | enum('super_admin','admin','user')   | YES  |     | user              |                   |
+| isblocked        | json                                 | YES  |     | NULL              |                   |
+| isbanned         | tinyint(1)                           | YES  |     | 0                 |                   |
+| createdAt        | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt        | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| resetToken       | varchar(255)                         | YES  |     | NULL              |                   |
+| resetTokenExpiry | bigint                               | YES  |     | NULL              |                   |
+| verificationCode | varchar(10)                          | YES  |     | NULL              |                   |
+| codeExpiry       | bigint                               | YES  |     | NULL              |                   |
++------------------+--------------------------------------+------+-----+-------------------+-------------------+
+19 rows in set (0.513 sec)
+
+MySQL [ikoota_db]>

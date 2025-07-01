@@ -1,4 +1,4 @@
-import dbQuery from '../config/dbQuery.js';
+import db from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
 import { sendEmail } from '../utils/email.js';
 import dotenv from 'dotenv';
@@ -7,7 +7,7 @@ dotenv.config();
 export const submitSurveyService = async (answers, email) => {
   try {
     const sql = 'SELECT * FROM users WHERE email = ?';
-    const user = await dbQuery(sql, [email]);
+    const user = await db.query(sql, [email]);
 
     if (user.length === 0) {
       throw new CustomError('no user found issue!', 400);
@@ -16,13 +16,13 @@ export const submitSurveyService = async (answers, email) => {
     const userId = user[0].id;
 
     const insertSql = 'INSERT INTO surveylog (user_id, answers) VALUES (?, ?)';
-    const savedForm = await dbQuery(insertSql, [userId, JSON.stringify(answers)]);
+    const savedForm = await db.query(insertSql, [userId, JSON.stringify(answers)]);
 
     if (savedForm.affectedRows === 0) {
       throw new CustomError('data failed to be saved in db', 500);
     }
 
-    await dbQuery('UPDATE users SET is_member = ? WHERE id = ?', ['pending', userId]);
+    await db.query('UPDATE users SET is_member = ? WHERE id = ?', ['pending', userId]);
 
     const subject = 'Survey Submission Confirmation';
     const text = `Hello ${user[0].username},\n\nThank you for submitting the survey. Your responses have been recorded. Just give us a little time for your account application to be activated.`;
@@ -44,7 +44,7 @@ export const submitSurveyService = async (answers, email) => {
 // Fetch questions from the database
 export const fetchSurveyQuestions = async () => {
   const query = 'SELECT id, question FROM survey_questions';
-  const [rows] = await dbQuery(query);
+  const rows = await db.query(query);
   return rows;
 };
 
@@ -53,15 +53,15 @@ export const modifySurveyQuestions = async (questions) => {
   const deleteQuery = 'DELETE FROM survey_questions';
   const insertQuery = 'INSERT INTO survey_questions (question) VALUES ?';
   
-  await dbQuery(deleteQuery); // Clear old questions
+  await db.query(deleteQuery); // Clear old questions
   const values = questions.map((question) => [question]);
-  await dbQuery(insertQuery, [values]); // Insert new questions
+  await db.query(insertQuery, [values]); // Insert new questions
 };
 
 // Fetch survey logs from the database
 export const fetchSurveyLogs = async () => {
   const query = 'SELECT * FROM surveylog';
-  const [rows] = await dbQuery(query);
+  const rows = await db.query(query);
   return rows;
 };
 
@@ -71,5 +71,5 @@ export const approveUserSurvey = async (surveyId, userId, status) => {
     UPDATE surveylog 
     SET approval_status = ?, verified_by = ? 
     WHERE id = ? AND user_id = ?`;
-  await dbQuery(query, [status, 'admin', surveyId, userId]);
+  await db.query(query, [status, 'admin', surveyId, userId]);
 };

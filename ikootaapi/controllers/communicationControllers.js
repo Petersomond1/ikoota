@@ -1,3 +1,4 @@
+import db from '../config/db.js';
 import {
   sendEmail,
   sendSMSService,
@@ -325,7 +326,7 @@ export const sendNotificationHandler = async (req, res) => {
     let user;
     if (userId) {
       // Fetch user from database
-      const [users] = await pool.query('SELECT username, email, phone FROM users WHERE id = ?', [userId]);
+      const [users] = await db.query('SELECT username, email, phone FROM users WHERE id = ?', [userId]);
       if (users.length === 0) {
         return res.status(404).json({
           success: false,

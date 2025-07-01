@@ -1,61 +1,250 @@
+/* ikootaclient/src/components/admin/audienceclassmgr.css */
+/* CSS Styles for AudienceClassMgr Component Only */
+
+/* Enhanced version based on existing styles + new 10-character ID features */
+
 .audience-class-mgr-container {
-    padding: 20px;
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-  }
-  
-  .audience-class-mgr-container h2,
-  .audience-class-mgr-container h3 {
-    color: #333;
-    margin-bottom: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.audience-class-mgr-container h2,
+.audience-class-mgr-container h3 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+/* Form styling */
+.audience-class-form {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  margin-bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.audience-class-form label {
+  display: flex;
+  flex-direction: column;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+.audience-class-form input,
+.audience-class-form textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.audience-class-form textarea {
+  height: 80px;
+  resize: vertical;
+}
+
+.audience-class-form button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: 10px;
+}
+
+.audience-class-form button[type="submit"] {
+  background: #28a745;
+  color: white;
+}
+
+.audience-class-form button[type="submit"]:hover {
+  background: #218838;
+}
+
+.audience-class-form button[type="button"] {
+  background: #007bff;
+  color: white;
+}
+
+.audience-class-form button[type="button"]:hover {
+  background: #0056b3;
+}
+
+/* ID validation indicators (specific to class IDs) */
+.audience-class-form .valid {
+  color: #28a745;
+  margin-left: 10px;
+  font-weight: bold;
+}
+
+.audience-class-form .invalid {
+  color: #dc3545;
+  margin-left: 10px;
+  font-weight: bold;
+}
+
+/* Input validation for class ID pattern */
+.audience-class-form input[pattern]:valid {
+  border-color: #28a745;
+}
+
+.audience-class-form input[pattern]:invalid {
+  border-color: #dc3545;
+}
+
+/* Class list styling */
+.class-list {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  color: #333;
+}
+
+.class-list ul {
+  list-style: none;
+  padding: 0;
+}
+
+.class-list li {
+  background: #fff;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.class-list li:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.class-list li:hover {
+  background: #f8f9fa;
+  transition: background-color 0.2s ease;
+}
+
+/* ID info display */
+.id-info {
+  margin-top: 5px;
+  font-size: 0.8em;
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Enhanced button styling */
+.audience-class-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.audience-class-form button:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+/* Loading and error states for AudienceClassMgr */
+.audience-class-mgr-container .loading {
+  text-align: center;
+  padding: 20px;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.audience-class-mgr-container .error {
+  text-align: center;
+  padding: 20px;
+  color: #dc3545;
+  background: #f8d7da;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+/* Responsive design for AudienceClassMgr */
+@media (max-width: 768px) {
+  .audience-class-mgr-container {
+    padding: 15px;
+    margin: 10px;
   }
   
   .audience-class-form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-  }
-  
-  .audience-class-form label {
-    display: flex;
-    flex-direction: column;
-    font-weight: bold;
-  }
-  
-  .audience-class-form input,
-  .audience-class-form textarea,
-  .audience-class-form button {
-    padding: 10px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    font-size: 14px;
+    padding: 15px;
   }
   
   .audience-class-form button {
-    background-color: #007bff;
-    color: #fff;
-    cursor: pointer;
-  }
-  
-  .audience-class-form button:hover {
-    background-color: #0056b3;
-  }
-
-  .class-list {
-  color: #333;
-  }
-  
-  .class-list ul {
-    list-style-type: none;
-    padding: 0;
+    margin-left: 0;
+    margin-top: 10px;
+    width: 100%;
   }
   
   .class-list li {
-    background: #fff;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    margin-bottom: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
   
+  .id-info {
+    align-self: flex-end;
+  }
+}
+
+/* Animation effects */
+.audience-class-form input:focus,
+.audience-class-form textarea:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+/* Form validation feedback */
+.audience-class-form input:valid {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2328a745' d='m2.3 6.73.8-.77-.8-.77-.86-.86-1.2 1.2.8.77-.8.77.86.86 1.2-1.2zm1.8-.77L5.93 5 7.8 3.3l-1.06-1.06L5.93 3.3 4.86 2.24 3.8 3.3 5.93 5 3.8 6.7l1.06 1.06L5.93 5z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right calc(0.375em + 0.1875rem) center;
+  background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+/* Utility classes for AudienceClassMgr */
+.text-center {
+  text-align: center;
+}
+
+.mb-20 {
+  margin-bottom: 20px;
+}
+
+.mt-20 {
+  margin-top: 20px;
+}
+
+/* Success/Error messages */
+.success-message {
+  background: #d4edda;
+  color: #155724;
+  padding: 10px;
+  border-radius: 4px;
+  margin: 10px 0;
+  border-left: 4px solid #28a745;
+}
+
+.error-message {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  border-radius: 4px;
+  margin: 10px 0;
+  border-left: 4px solid #dc3545;
+}

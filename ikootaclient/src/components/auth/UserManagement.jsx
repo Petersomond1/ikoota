@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../service/api';
 import './userManagement.css';
-import { generateRandomId } from '../service/generateRandomId';
+import { generateRandomId } from '../service/idGenerationService';
 
 // Fetch Users API
 const fetchUsers = async () => {

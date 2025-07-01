@@ -1,10 +1,10 @@
-import pool from '../config/db.js';
+import db from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
 
 // Enhanced getAllTeachings with better error handling and sorting
 export const getAllTeachings = async () => {
   try {
-    const [rows] = await pool.query(`
+    const rows = await db.query(`
       SELECT *, prefixed_id, 
              'teaching' as content_type,
              topic as content_title,
@@ -27,7 +27,7 @@ export const getTeachingsByUserId = async (user_id) => {
       throw new CustomError('User ID is required', 400);
     }
 
-    const [rows] = await pool.query(`
+    const rows = await db.query(`
       SELECT *, prefixed_id,
              'teaching' as content_type,
              topic as content_title,
@@ -81,7 +81,7 @@ export const getTeachingByPrefixedId = async (identifier) => {
       params = [parseInt(identifier)];
     }
 
-    const [rows] = await pool.query(query, params);
+    const rows = await db.query(query, params);
     return rows[0] || null;
   } catch (error) {
     console.error('Error in getTeachingByPrefixedId:', error);
@@ -124,7 +124,7 @@ export const createTeachingService = async (data) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
-    const [result] = await pool.query(sql, [
+    const result = await db.query(sql, [
       topic.trim(),
       description.trim(),
       finalLessonNumber,
@@ -145,7 +145,7 @@ export const createTeachingService = async (data) => {
     }
 
     // Get the created record with prefixed_id (populated by trigger)
-    const [createdTeaching] = await pool.query(`
+    const createdTeaching = await db.query(`
       SELECT *, prefixed_id,
              'teaching' as content_type,
              topic as content_title,
@@ -185,7 +185,7 @@ export const updateTeachingById = async (id, data) => {
     } = data;
 
     // Check if teaching exists
-    const [existingTeaching] = await pool.query('SELECT id FROM teachings WHERE id = ?', [id]);
+    const existingTeaching = await db.query('SELECT id FROM teachings WHERE id = ?', [id]);
     if (!existingTeaching[0]) {
       throw new CustomError('Teaching not found', 404);
     }
@@ -200,7 +200,7 @@ export const updateTeachingById = async (id, data) => {
       WHERE id = ?
     `;
 
-    const [result] = await pool.query(sql, [
+    const result = await db.query(sql, [
       topic?.trim() || null,
       description?.trim() || null,
       lessonNumber || null,
@@ -221,7 +221,7 @@ export const updateTeachingById = async (id, data) => {
     }
 
     // Return updated teaching
-    const [updatedTeaching] = await pool.query(`
+    const updatedTeaching = await db.query(`
       SELECT *, prefixed_id,
              'teaching' as content_type,
              topic as content_title,
@@ -246,13 +246,13 @@ export const deleteTeachingById = async (id) => {
     }
 
     // Check if teaching exists and get prefixed_id for logging
-    const [existingTeaching] = await pool.query('SELECT prefixed_id FROM teachings WHERE id = ?', [id]);
+    const [existingTeaching] = await db.query('SELECT prefixed_id FROM teachings WHERE id = ?', [id]);
     if (!existingTeaching[0]) {
       throw new CustomError('Teaching not found', 404);
     }
 
     // Note: Comments should be handled by foreign key constraints or separate cleanup
-    const [result] = await pool.query('DELETE FROM teachings WHERE id = ?', [id]);
+    const result = await db.query('DELETE FROM teachings WHERE id = ?', [id]);
 
     if (result.affectedRows === 0) {
       throw new CustomError('Teaching not found', 404);
@@ -295,7 +295,7 @@ export const getTeachingsByIds = async (ids) => {
       ORDER BY updatedAt DESC, createdAt DESC
     `;
     
-    const [rows] = await pool.query(query, cleanIds);
+    const rows = await db.query(query, cleanIds);
     return rows;
   } catch (error) {
     console.error('Error in getTeachingsByIds:', error);
@@ -355,11 +355,11 @@ export const searchTeachings = async (filters = {}) => {
     `;
 
     params.push(parseInt(limit), parseInt(offset));
-    const [rows] = await pool.query(sql, params);
+    const [rows] = await db.query(sql, params);
 
     // Get total count for pagination
     const countSql = `SELECT COUNT(*) as total FROM teachings ${whereClause}`;
-    const [countResult] = await pool.query(countSql, params.slice(0, -2));
+    const countResult = await db.query(countSql, params.slice(0, -2));
 
     return {
       teachings: rows,
@@ -397,7 +397,7 @@ export const getTeachingStats = async (user_id = null) => {
       ${whereClause}
     `;
 
-    const [rows] = await pool.query(sql, params);
+    const rows = await db.query(sql, params);
     return rows[0];
   } catch (error) {
     console.error('Error in getTeachingStats:', error);
