@@ -17,14 +17,13 @@ import {
   sendMembershipNotification,
   getMembershipOverview,
   getMembershipStats,
-  // NEW REFINED ENDPOINTS
   getUserDashboard,
   getApplicationHistory,
   bulkApproveApplications,
   exportMembershipData,
   getMembershipAnalytics
 } from '../controllers/membershipControllers.js';
-import { authenticate, requireAdmin } from '../middlewares/auth.middleware.js';
+import { authenticate, requireAdmin, cacheMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -68,9 +67,9 @@ router.put('/admin/review-full-membership/:applicationId', authenticate, require
 // ==================================================
 
 // Analytics and Overview
-router.get('/admin/membership-overview', authenticate, requireAdmin, getMembershipOverview);
-router.get('/admin/membership-stats', authenticate, requireAdmin, getMembershipStats);
-router.get('/admin/analytics', authenticate, requireAdmin, getMembershipAnalytics);
+router.get('/admin/membership-overview', authenticate, requireAdmin, cacheMiddleware(600), getMembershipOverview);
+router.get('/admin/membership-stats', authenticate, requireAdmin, cacheMiddleware(600), getMembershipStats);
+router.get('/admin/analytics', authenticate, requireAdmin, cacheMiddleware(600), getMembershipAnalytics);
 
 // Communication
 router.post('/admin/send-notification', authenticate, requireAdmin, sendNotification);

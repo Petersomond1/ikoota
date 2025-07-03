@@ -1,3 +1,4 @@
+// Fixed adminRoutes.js:
 import express from 'express';
 import {
   updateUserColumns,
@@ -10,57 +11,31 @@ import {
   unbanUser,
   grantPostingRights,
   updateUser,
-
   getUsers,
   updateUserById,
   getReports,
   getAuditLogs,
 } from '../controllers/adminControllers.js';
-import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+import { authenticate, authorize, cacheMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// Route to update user columns
-router.put('/update-user/:id', authenticate, authorize('admin'), updateUserColumns);
+// User Management Routes
+router.get('/users', authenticate, authorize(['admin', 'super_admin']), cacheMiddleware(600), getUsers);
+router.put('/users/:id', authenticate, authorize('admin'), updateUserById);
+router.post('/users/update', authenticate, authorize('admin'), updateUser);
+router.post('/users/ban', authenticate, authorize('admin'), banUser);
+router.post('/users/unban', authenticate, authorize('admin'), unbanUser);
+router.post('/users/grant', authenticate, authorize('admin'), grantPostingRights);
 
-// Manage users (e.g., view, deactivate, or delete)
-router.get('/users', authenticate, authorize(['super_admin','admin']), manageUsers);
-
-// Update user details
-router.post('/user/update', authenticate, authorize('admin'), updateUser);
-
-// Get all pending content for approval
+// Content Management Routes
 router.get('/content/pending', authenticate, authorize('admin'), getPendingContent);
-
-// Approve content
+router.get('/content', authenticate, authorize('admin'), manageContent);
 router.post('/content/approve/:id', authenticate, authorize('admin'), approveContent);
-
-// Reject content
 router.post('/content/reject/:id', authenticate, authorize('admin'), rejectContent);
 
-// Manage content (e.g., view, delete, approve, reject)
-router.get('/content', authenticate, authorize('admin'), manageContent);
-
-// Ban user
-router.post('/user/ban', authenticate, authorize('admin'), banUser);
-
-// Unban user
-router.post('/user/unban', authenticate, authorize('admin'), unbanUser);
-
-// Grant posting rights to user
-router.post('/user/grant', authenticate, authorize('admin'), grantPostingRights);
-
-// GET /admin/users - Include isblocked, isbanned, and is_flagged
-router.get('/users', authenticate, authorize(['admin', 'super_admin']), getUsers);
-
-// PUT /admin/update-user/:id - Update isblocked and isbanned
-router.put('/update-user/:id', authenticate, authorize('admin'), updateUserById);
-
-// GET /admin/reports - Fetch reports for admin review
-router.get('/reports', authenticate, authorize('admin'), getReports);
-
-// GET /admin/audit-logs - Fetch audit logs for monitoring
+// System Management Routes
+router.get('/reports', authenticate, authorize('admin'), cacheMiddleware(600), getReports);
 router.get('/audit-logs', authenticate, authorize('admin'), getAuditLogs);
-
 
 export default router;

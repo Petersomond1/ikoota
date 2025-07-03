@@ -9,6 +9,7 @@ import classRoutes from './classRoutes.js';
 import commentRoutes from './commentRoutes.js';
 import communicationRoutes from './communicationRoutes.js';
 import membershipRoutes from './membershipRoutes.js';
+import identityRoutes from './identityRoutes.js';
 
 
 const router = express.Router();
@@ -43,21 +44,59 @@ router.use('/admin', adminRoutes);
 router.use('/classes', classRoutes);
 router.use('/comments', commentRoutes);
 router.use('/communication', communicationRoutes);
-router.use('/api/membership', membershipRoutes);
+router.use('/membership', membershipRoutes);
+router.use('/identity', identityRoutes);
 
 // Enhanced API documentation endpoint
+
+router.use('/docs', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API Documentation',
+    version: process.env.API_VERSION || '1.0.0',
+    baseUrl: `${req.protocol}://${req.get('host')}/api`,
+    endpoints: {
+      auth: '/api/auth - Authentication',
+      membership: '/api/membership - Membership management',  // Updated
+      survey: '/api/survey - Survey management',
+      teachings: '/api/teachings - Teaching content',
+      users: '/api/users - User management',
+      chats: '/api/chats - Chat content',
+      comments: '/api/comments - Comment management',
+      communication: '/api/communication - Email & SMS',
+      admin: '/api/admin - Administrative functions',
+      classes: '/api/classes - Class management',
+      identity: '/api/identity - Identity management'
+    }
+  });
+});
+
 router.get('/docs', (req, res) => {
   res.status(200).json({
     success: true,
     message: 'API Documentation',
     version: process.env.API_VERSION || '1.0.0',
-    baseUrl: process.env.API_BASE_URL || 'http://localhost:3000/api',
+    baseUrl: `${req.protocol}://${req.get('host')}/api`,
     endpoints: {
       auth: {
         path: '/api/auth',
         description: 'Authentication and authorization',
         methods: ['POST /login', 'POST /register', 'POST /logout', 'POST /refresh']
       },
+
+      membership: {
+    path: '/api/membership', 
+    description: 'Membership application and management',
+    methods: [
+      'POST /auth/send-verification',
+      'POST /auth/register', 
+      'GET /dashboard',
+      'GET /survey/check-status',
+      'POST /survey/submit-application',
+      'GET /admin/pending-applications (admin)',
+      'GET /admin/analytics (admin)'
+    ]
+  },
       survey: {
         path: '/api/survey',
         description: 'Survey management and submissions',
@@ -269,14 +308,16 @@ router.use('*', (req, res) => {
     suggestion: 'Check the API documentation at /api/docs',
     availableEndpoints: [
       '/api/auth - Authentication',
-      '/api/survey - Survey management',
-      '/api/teachings - Teaching content',
-      '/api/users - User management',
-      '/api/chats - Chat content',
-      '/api/comments - Comment management',
-      '/api/communication - Email & SMS',
-      '/api/admin - Administrative functions',
-      '/api/classes - Class management'
+  '/api/membership - Membership management',  
+  '/api/survey - Survey management',
+  '/api/teachings - Teaching content',
+  '/api/users - User management',
+  '/api/chats - Chat content', 
+  '/api/comments - Comment management',
+  '/api/communication - Email & SMS',
+  '/api/admin - Administrative functions',
+  '/api/classes - Class management',
+  '/api/identity - Identity management'
     ],
     documentation: '/api/docs',
     health: '/api/health',

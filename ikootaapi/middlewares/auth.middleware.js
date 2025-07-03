@@ -30,11 +30,13 @@ console.log('================');
 }
 
         // FIX 2: Get user data properly (don't destructure immediately)
-        const users = await db.query(`
+        const result= await db.query(`
             SELECT id, converse_id, role, is_member, is_identity_masked, isbanned
             FROM users 
             WHERE id = ?
         `, [decoded.user_id]);
+        // const users = result[0];
+
 
         // FIX 3: Check if user exists before destructuring
         if (!users || users.length === 0) {
@@ -58,17 +60,23 @@ console.log('================');
 };
 
 export const requireAdmin = (req, res, next) => {
-    if (!req.user || !['admin', 'super_admin'].includes(req.user.role)) {
-        return res.status(403).json({ error: 'Admin access required' });
-    }
-    next();
+  if (!req.user || !['admin', 'super_admin'].includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      error: 'Admin access required'
+    });
+  }
+  next();
 };
 
 export const requireSuperAdmin = (req, res, next) => {
-    if (!req.user || req.user.role !== 'super_admin') {
-        return res.status(403).json({ error: 'Super admin access required' });
-    }
-    next();
+  if (!req.user || req.user.role !== 'super_admin') {
+    return res.status(403).json({
+      success: false,
+      error: 'Super admin access required'
+    });
+  }
+  next();
 };
 
 export const authorize = (requiredRoles) => {
@@ -82,7 +90,7 @@ export const authorize = (requiredRoles) => {
 
             // FIX 4: Use user.id instead of user.user_id (since req.user comes from authenticate)
             const sql = 'SELECT * FROM users WHERE id = ?';
-            const result = await db.query(sql, [user.id]); // Changed from user.user_id to user.id
+            const [result] = await db.query(sql, [user.id]); // Changed from user.user_id to user.id and added []
             
             if (result.length === 0) {
                 return res.status(401).json({ error: 'Authorization failed. User not found.' });
@@ -98,4 +106,24 @@ export const authorize = (requiredRoles) => {
             res.status(403).json({ error: 'Authorization failed.' });
         }
     };
+};
+
+export const cacheMiddleware = (duration = 300) => {
+  const cache = new Map();
+  return (req, res, next) => {
+    const key = req.originalUrl;
+    const cached = cache.get(key);
+    
+    if (cached && Date.now() - cached.timestamp < duration * 1000) {
+      return res.json(cached.data);
+    }
+    
+    const originalSend = res.json;
+    res.json = function(data) {
+      cache.set(key, { data, timestamp: Date.now() });
+      originalSend.call(this, data);
+    };
+    
+    next();
+  };
 };

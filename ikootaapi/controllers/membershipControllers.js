@@ -97,7 +97,7 @@ export const enhancedLogin = async (req, res) => {
 // NEW: Comprehensive User Dashboard
 export const getUserDashboard = async (req, res) => {
   try {
-    const userId = req.user.user_id;
+    const userId = req.user.id;
     
     // Single comprehensive query using the stored procedure
     const [membershipData] = await db.query('CALL GetCompleteMembershipStatus(?)', [userId]);
@@ -195,7 +195,7 @@ const generateQuickActions = (status) => {
 // NEW: Application History
 export const getApplicationHistory = async (req, res) => {
   try {
-    const userId = req.user.user_id;
+    const userId = req.user.id;
     
     const [history] = await db.query(`
       SELECT 
@@ -295,7 +295,7 @@ export const getPendingApplications = async (req, res) => {
 export const bulkApproveApplications = async (req, res) => {
   try {
     const { userIds, action, adminNotes } = req.body;
-    const reviewerId = req.user.user_id;
+    const reviewerId = req.user.id;
     
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
       throw new CustomError('User IDs are required', 400);
@@ -477,7 +477,7 @@ const convertToCSV = (data) => {
 export const submitInitialApplication = async (req, res) => {
   try {
     const { answers, applicationTicket } = req.body;
-    const userId = req.user.user_id;
+    const userId = req.user.id;
 
     // Enhanced validation
     if (!answers || !Array.isArray(answers) || answers.length === 0) {
@@ -533,7 +533,7 @@ export const submitInitialApplication = async (req, res) => {
 
 export const checkApplicationStatus = async (req, res) => {
   try {
-    const userId = req.user.user_id;
+    const userId = req.user.id;
     
     // Use the stored procedure to get complete membership status
     const [membershipData] = await db.query('CALL GetCompleteMembershipStatus(?)', [userId]);
@@ -813,7 +813,7 @@ export const registerWithVerification = async (req, res) => {
 // 3. Get Full Membership Status
 export const getFullMembershipStatus = async (req, res) => {
   try {
-    const userId = req.user.user_id;
+    const userId = req.user.id;
     
     // Get comprehensive membership status
     const [membershipData] = await db.query('CALL GetCompleteMembershipStatus(?)', [userId]);
@@ -883,7 +883,7 @@ export const getFullMembershipStatus = async (req, res) => {
 // 4. Log Full Membership Access
 export const logFullMembershipAccess = async (req, res) => {
   try {
-    const userId = req.user.user_id;
+    const userId = req.user.id;
     
     // Insert or update access log
     await db.query(`
@@ -918,7 +918,7 @@ export const logFullMembershipAccess = async (req, res) => {
 export const submitFullMembershipApplication = async (req, res) => {
   try {
     const { answers, additionalDocuments } = req.body;
-    const userId = req.user.user_id;
+    const userId = req.user.id;
     
     // Validate input
     if (!answers || !Array.isArray(answers) || answers.length === 0) {
@@ -990,7 +990,7 @@ export const updateApplicationStatus = async (req, res) => {
   try {
     const { userId } = req.params;
     const { status, adminNotes, notifyUser = true } = req.body;
-    const reviewerId = req.user.user_id;
+    const reviewerId = req.user.id;
     
     if (!['approved', 'rejected', 'pending'].includes(status)) {
       throw new CustomError('Invalid status', 400);
@@ -1132,7 +1132,7 @@ export const updateFullMembershipStatus = async (req, res) => {
   try {
     const { applicationId } = req.params;
     const { status, adminNotes, notifyUser = true } = req.body;
-    const reviewerId = req.user.user_id;
+    const reviewerId = req.user.id;
     
     if (!['approved', 'rejected'].includes(status)) {
       throw new CustomError('Invalid status', 400);

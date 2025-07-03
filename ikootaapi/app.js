@@ -18,23 +18,46 @@ app.use(helmet());
 
 // Middleware: CORS
 app.use(cors({
-  origin: "http://localhost:5173" || '*', // Adjust as needed for your client
-  methods: ["POST", "GET", "OPTIONS"],
-  credentials: true, // Enable credentials if cookies are used
-  allowedHeaders: ["Content-Type", "Authorization"]
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      process.env.PUBLIC_CLIENT_URL
+    ].filter(Boolean);
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with']
 }));
 
 // Middleware: Rate limiting to prevent abuse
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+const createRateLimit = (windowMs, max, message) => rateLimit({
+  windowMs,
+  max,
+  standardHeaders: true,
+  legacyHeaders: false,
   handler: (req, res) => {
-    res.status(429).json({ message: "Too many requests, please try again later." });
-  },
+    logger.warn(`Rate limit exceeded for IP: ${req.ip}`);
+    res.status(429).json({ 
+      success: false,
+      error: 'Too many requests',
+      message,
+      retryAfter: Math.ceil(windowMs / 1000)
+    });
+  }
 });
-app.use('/api', apiLimiter);
+
+// Different limits for different endpoints
+app.use('/api/auth', createRateLimit(15 * 60 * 1000, 10, 'Too many authentication attempts'));
+app.use('/api/communication', createRateLimit(60 * 1000, 5, 'Too many communication requests'));
+app.use('/api', createRateLimit(15 * 60 * 1000, 100, 'Too many API requests'));
+
 
 // Middleware: Cookie parser for reading cookies
 app.use(cookieParser());

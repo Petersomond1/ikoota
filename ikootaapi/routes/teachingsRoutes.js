@@ -11,7 +11,7 @@ import {
   searchTeachingsController,
   fetchTeachingStats,
 } from '../controllers/teachingsControllers.js';
-import { authenticate } from '../middlewares/auth.middleware.js';
+import { authenticate, cacheMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -19,10 +19,10 @@ const router = express.Router();
 router.get('/', authenticate, fetchAllTeachings);
 
 // GET /teachings/search - Search teachings (dedicated search endpoint)
-router.get('/search', authenticate, searchTeachingsController);
+router.get('/search', authenticate, cacheMiddleware(120), searchTeachingsController);
 
 // GET /teachings/stats - Get teaching statistics
-router.get('/stats', authenticate, fetchTeachingStats);
+router.get('/stats', authenticate, cacheMiddleware(120), fetchTeachingStats);
 
 // GET /teachings/user - Fetch teachings by user_id
 router.get('/user', authenticate, fetchTeachingsByUserId);
