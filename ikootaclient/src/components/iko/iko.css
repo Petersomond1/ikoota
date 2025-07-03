@@ -16,3 +16,104 @@
   flex-grow: 1;
   overflow: auto;
 }
+
+
+
+
+/* =================================
+   IKO SPECIFIC STYLES
+   ================================= */
+
+.iko_container .nav {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+}
+
+.iko_container .footnote {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+}
+
+/* =================================
+   RESPONSIVE DESIGN
+   ================================= */
+
+@media (max-width: 768px) {
+  .nav, .footnote {
+    flex-direction: column;
+    gap: 6px;
+    text-align: center;
+    padding: 6px 10px;
+  }
+  
+  .nav-left, .nav-right, .footer-left, .footer-right {
+    gap: 4px;
+  }
+  
+  .footer-controls {
+    gap: 3px;
+    justify-content: center;
+  }
+  
+  .footer-btn {
+    font-size: 0.6em;
+    padding: 2px 4px;
+  }
+  
+  .user-info {
+    font-size: 0.75em;
+  }
+  
+  .status-badge {
+    font-size: 0.65em;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer-btn {
+    font-size: 0.55em;
+    padding: 2px 3px;
+  }
+  
+  .footnote {
+    font-size: 0.7em;
+    padding: 4px 8px;
+  }
+  
+  .footer-controls {
+    gap: 2px;
+  }
+  
+  .user-info {
+    font-size: 0.7em;
+    padding: 2px 4px;
+  }
+  
+  .status-badge {
+    font-size: 0.6em;
+    padding: 1px 3px;
+  }
+}
+
+/* =================================
+   MINIMAL ANIMATION EFFECTS
+   ================================= */
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+.status-badge.loading {
+  animation: pulse 2s infinite;
+}
+
+/* Remove complex button animations for minimal design */
+.footer-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle hover effect only */
+.footer-btn:hover {
+  filter: brightness(1.1);
+}

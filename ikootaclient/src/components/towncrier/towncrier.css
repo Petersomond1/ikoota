@@ -80,3 +80,245 @@
     width: 100%;
   }
   
+
+
+
+  
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.user-status, .member-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85em;
+}
+
+.user-info {
+  background: rgba(255,255,255,0.1);
+  padding: 3px 6px;
+  border-radius: 10px;
+  font-size: 0.8em;
+}
+
+.status-badge {
+  padding: 2px 5px;
+  border-radius: 6px;
+  font-size: 0.7em;
+  font-weight: bold;
+}
+
+.status-badge.loading {
+  background: #ffa726;
+  color: white;
+}
+
+.status-badge.error {
+  background: #ef5350;
+  color: white;
+}
+
+.status-badge.member {
+  background: #4caf50;
+  color: white;
+}
+
+.status-badge.pending {
+  background: #ff9800;
+  color: white;
+}
+
+.admin-badge {
+  background: #9c27b0;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 6px;
+  font-size: 0.7em;
+  margin-left: 4px;
+}
+
+.nav-stats, .chat-count, .teaching-count, .content-count {
+  background: rgba(255,255,255,0.1);
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 0.75em;
+}
+
+.refresh-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 12px;
+  background: #607d8b;
+  color: white;
+  cursor: pointer;
+  font-size: 0.7em;
+  transition: all 0.2s ease;
+}
+
+.refresh-btn:hover {
+  background: #455a64;
+  transform: scale(1.05);
+}
+
+/* =================================
+   COMPACT FOOTER STYLES
+   ================================= */
+
+.footnote {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 0.75em;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  min-height: 40px;
+}
+
+.footer-left, .footer-center, .footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-center {
+  flex: 1;
+  justify-content: center;
+}
+
+.activity-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.online-status {
+  background: rgba(76,175,80,0.2);
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid #4caf50;
+  font-size: 0.7em;
+}
+
+/* =================================
+   MINIMAL FOOTER BUTTONS
+   ================================= */
+
+.footer-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.footer-btn {
+  padding: 3px 6px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.65em;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  min-width: auto;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.footer-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.footer-btn:active {
+  transform: scale(0.95);
+}
+
+/* Minimal Button Variants */
+.footer-btn.iko-btn {
+  background: #4caf50;
+  color: white;
+}
+
+.footer-btn.iko-btn:hover {
+  background: #45a049;
+}
+
+.footer-btn.apply-btn {
+  background: #2196f3;
+  color: white;
+}
+
+.footer-btn.apply-btn:hover {
+  background: #1976d2;
+}
+
+.footer-btn.logout-btn, .footer-btn.signout-btn {
+  background: #f44336;
+  color: white;
+}
+
+.footer-btn.logout-btn:hover, .footer-btn.signout-btn:hover {
+  background: #d32f2f;
+}
+
+.footer-btn.login-btn, .footer-btn.signup-btn {
+  background: #ff9800;
+  color: white;
+}
+
+.footer-btn.login-btn:hover, .footer-btn.signup-btn:hover {
+  background: #f57c00;
+}
+
+.footer-btn.towncrier-btn {
+  background: #673ab7;
+  color: white;
+}
+
+.footer-btn.towncrier-btn:hover {
+  background: #512da8;
+}
+
+.footer-btn.admin-btn {
+  background: #9c27b0;
+  color: white;
+}
+
+.footer-btn.admin-btn:hover {
+  background: #7b1fa2;
+}
+
+.footer-btn.refresh-btn {
+  background: #607d8b;
+  color: white;
+}
+
+.footer-btn.refresh-btn:hover {
+  background: #455a64;
+}

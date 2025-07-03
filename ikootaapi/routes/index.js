@@ -8,6 +8,8 @@ import adminRoutes from './adminRoutes.js';
 import classRoutes from './classRoutes.js';
 import commentRoutes from './commentRoutes.js';
 import communicationRoutes from './communicationRoutes.js';
+import membershipRoutes from './membershipRoutes.js';
+
 
 const router = express.Router();
 
@@ -41,6 +43,7 @@ router.use('/admin', adminRoutes);
 router.use('/classes', classRoutes);
 router.use('/comments', commentRoutes);
 router.use('/communication', communicationRoutes);
+router.use('/api/membership', membershipRoutes);
 
 // Enhanced API documentation endpoint
 router.get('/docs', (req, res) => {

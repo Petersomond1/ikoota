@@ -1,0 +1,569 @@
+/* ikootaclient/src/components/auth/applicationSurvey.css */
+
+.survey-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.survey-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  width: 100%;
+  overflow: hidden;
+  animation: slideIn 0.6s ease-out;
+}
+
+.success-card {
+  text-align: center;
+  padding: 60px 40px;
+  max-width: 500px;
+}
+
+.success-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  animation: bounce 1s ease-in-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-10px); }
+  60% { transform: translateY(-5px); }
+}
+
+.survey-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 40px;
+  text-align: center;
+}
+
+.survey-header h1 {
+  margin: 0 0 10px 0;
+  font-size: 2.2rem;
+  font-weight: 700;
+}
+
+.survey-header p {
+  margin: 0;
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+/* Progress Bar */
+.progress-bar {
+  margin: 30px 0 0 0;
+  position: relative;
+}
+
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  z-index: 2;
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.step-number {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.progress-step.active .step-number {
+  background: white;
+  color: #667eea;
+  border-color: white;
+  transform: scale(1.1);
+}
+
+.progress-step.completed .step-number {
+  background: #28a745;
+  border-color: #28a745;
+}
+
+.step-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.progress-step.active .step-label {
+  opacity: 1;
+  font-weight: 600;
+}
+
+.progress-fill {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  height: 2px;
+  background: white;
+  transition: width 0.5s ease;
+  z-index: 1;
+}
+
+/* Form Styles */
+.survey-form {
+  padding: 40px;
+}
+
+.survey-step {
+  min-height: 400px;
+}
+
+.survey-step h3 {
+  color: #333;
+  font-size: 1.5rem;
+  margin: 0 0 30px 0;
+  font-weight: 600;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 15px;
+}
+
+.form-group {
+  margin-bottom: 25px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #333;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #999;
+}
+
+/* Checkbox Groups */
+.checkbox-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  font-weight: normal !important;
+  margin-bottom: 0 !important;
+}
+
+.checkbox-label:hover {
+  background: #f8f9fa;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin-right: 8px;
+  width: auto;
+  margin-bottom: 0;
+}
+
+/* Agreements Section */
+.agreements-section {
+  background: #f8f9fa;
+  padding: 25px;
+  border-radius: 12px;
+  margin-top: 20px;
+}
+
+.agreements-section h4 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 1.2rem;
+}
+
+.agreement-item {
+  margin-bottom: 15px;
+}
+
+.agreement-label {
+  display: flex;
+  align-items: flex-start;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  font-weight: normal !important;
+  margin-bottom: 0 !important;
+  line-height: 1.5;
+}
+
+.agreement-label:hover {
+  background: white;
+}
+
+.agreement-label input[type="checkbox"] {
+  margin-right: 12px;
+  margin-top: 2px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.agreement-label a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.agreement-label a:hover {
+  text-decoration: underline;
+}
+
+/* Navigation */
+.form-navigation {
+  display: flex;
+  align-items: center;
+  margin-top: 40px;
+  padding-top: 25px;
+  border-top: 2px solid #f0f0f0;
+}
+
+.nav-spacer {
+  flex: 1;
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+}
+
+.submit-btn {
+  font-size: 1.1rem;
+  padding: 15px 30px;
+  min-width: 180px;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error Message */
+.error-message {
+  background: #fee;
+  color: #c33;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+  border: 1px solid #fcc;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+
+.error-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+/* Survey Footer */
+.survey-footer {
+  background: #f8f9fa;
+  padding: 20px 40px;
+  text-align: center;
+  color: #666;
+  font-size: 0.9rem;
+  border-top: 1px solid #e9ecef;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .survey-container {
+    padding: 10px;
+  }
+  
+  .survey-card {
+    border-radius: 12px;
+  }
+  
+  .survey-header {
+    padding: 30px 20px;
+  }
+  
+  .survey-header h1 {
+    font-size: 1.8rem;
+  }
+  
+  .survey-form {
+    padding: 30px 20px;
+  }
+  
+  .survey-footer {
+    padding: 15px 20px;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  
+  .progress-steps {
+    gap: 10px;
+  }
+  
+  .step-number {
+    width: 35px;
+    height: 35px;
+    font-size: 1rem;
+  }
+  
+  .step-label {
+    font-size: 0.75rem;
+  }
+  
+  .checkbox-group {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-navigation {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .nav-spacer {
+    display: none;
+  }
+  
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .survey-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .survey-header p {
+    font-size: 1rem;
+  }
+  
+  .survey-step h3 {
+    font-size: 1.3rem;
+  }
+  
+  .progress-steps {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .progress-step {
+    min-width: 70px;
+  }
+  
+  .step-number {
+    width: 30px;
+    height: 30px;
+    font-size: 0.9rem;
+  }
+  
+  .step-label {
+    font-size: 0.7rem;
+  }
+}
+
+/* Custom Select Styles */
+.form-group select {
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 20px;
+  appearance: none;
+  cursor: pointer;
+}
+
+/* Validation States */
+.form-group input:invalid:not(:focus):not(:placeholder-shown),
+.form-group select:invalid:not(:focus),
+.form-group textarea:invalid:not(:focus):not(:placeholder-shown) {
+  border-color: #dc3545;
+  background-color: #fff5f5;
+}
+
+.form-group input:valid:not(:focus):not(:placeholder-shown),
+.form-group select:valid:not(:focus),
+.form-group textarea:valid:not(:focus):not(:placeholder-shown) {
+  border-color: #28a745;
+  background-color: #f8fff8;
+}
+
+/* Success Animation */
+.success-card h2 {
+  color: #28a745;
+  margin: 20px 0;
+  font-size: 1.8rem;
+}
+
+.success-card p {
+  color: #666;
+  font-size: 1.1rem;
+  margin: 20px 0 30px 0;
+}
+
+/* Focus Management */
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  transform: translateY(-1px);
+}
+
+/* Checkbox and Radio Custom Styles */
+.checkbox-label input[type="checkbox"],
+.agreement-label input[type="checkbox"] {
+  accent-color: #667eea;
+  transform: scale(1.1);
+}
+
+/* Smooth Transitions */
+* {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Print Styles */
+@media print {
+  .survey-container {
+    background: white;
+    padding: 0;
+  }
+  
+  .survey-card {
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+  
+  .survey-header {
+    background: white;
+    color: black;
+  }
+  
+  .form-navigation {
+    display: none;
+  }
+}

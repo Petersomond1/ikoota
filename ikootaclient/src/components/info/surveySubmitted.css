@@ -1,0 +1,16 @@
+/* Styles for the survey submitted confirmation message */
+.survey-submitted {
+  background-color: #f0f8ff;
+  border: 1px solid #b0e0e6;
+  border-radius: 5px;
+  padding: 15px;
+  margin: 20px 0;
+}
+
+.survey-submitted h2 {
+  color: #4682b4;
+}
+
+.survey-submitted p {
+  color: #333;
+}

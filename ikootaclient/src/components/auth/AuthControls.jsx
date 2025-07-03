@@ -1,3 +1,4 @@
+//ikootaclient\src\components\auth\Applicationsurvey.jsx
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../service/api";

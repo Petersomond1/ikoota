@@ -1,0 +1,16 @@
+/* Styles for the application thank you message */
+.application-thank-you {
+  background-color: #f0fff0;
+  border: 1px solid #b0e0b0;
+  border-radius: 5px;
+  padding: 15px;
+  margin: 20px 0;
+}
+
+.application-thank-you h2 {
+  color: #468c4b;
+}
+
+.application-thank-you p {
+  color: #333;
+}

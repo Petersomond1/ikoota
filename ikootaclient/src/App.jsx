@@ -1,4 +1,4 @@
-// ikootaclient/src/App.jsx - Alternative approach with NavigationWrapper
+// ikootaclient/src/App.jsx - Updated routing for streamlined signup process
 import './App.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
@@ -6,7 +6,6 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 // Auth components
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import { UserProvider } from './components/auth/UserStatus';
-import NavigationWrapper from './components/auth/NavigationWrapper';
 import LandingPage from './components/auth/LandingPage';
 import Signup from './components/auth/Signup';
 import Login from './components/auth/Login';
@@ -15,6 +14,11 @@ import AuthControl from './components/auth/AuthControls';
 import UserManagement from './components/auth/UserManagement';
 
 // Info components
+import ApplicationThankyou from './components/info/ApplicationThankYou';
+import SurveySubmitted from './components/info/SurveySubmitted';
+import Pendverifyinfo from './components/info/Pendverifyinfo';
+import Suspendedverifyinfo from './components/info/Suspendedverifyinfo';
+import Approveverifyinfo from './components/info/Approveverifyinfo';
 import Thankyou from './components/info/Thankyou';
 
 // Admin components
@@ -45,96 +49,140 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <UserProvider>
         <Router>
-          <NavigationWrapper>
-            <div className='app_container'>
-              <Routes>
-                {/* 
-                  LAYER 1: PUBLIC ROUTES - LANDING PAGE 
-                */}
-                <Route path="/" element={
-                  <ProtectedRoute requireAuth={false}>
-                    <LandingPage />
-                  </ProtectedRoute>
-                } />
-                
-                <Route path="/login" element={
-                  <ProtectedRoute requireAuth={false}>
-                    <Login />
-                  </ProtectedRoute>
-                } />
-                
-                <Route path="/signup" element={
-                  <ProtectedRoute requireAuth={false}>
-                    <Signup />
-                  </ProtectedRoute>
-                } />
-                
-                {/* Application process routes */}
-                <Route path="/applicationsurvey" element={
-                  <ProtectedRoute allowPending={true}>
-                    <Applicationsurvey />
-                  </ProtectedRoute>
-                } />
-                
-                <Route path="/thankyou" element={
-                  <ProtectedRoute allowPending={true}>
-                    <Thankyou />
-                  </ProtectedRoute>
-                } />
+          <div className='app_container'>
+            <Routes>
+              {/* 
+                LAYER 1: PUBLIC ROUTES - LANDING PAGE 
+                Open to all visitors with membership information
+              */}
+              <Route path="/" element={
+                <ProtectedRoute requireAuth={false}>
+                  <LandingPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/login" element={
+                <ProtectedRoute requireAuth={false}>
+                  <Login />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/signup" element={
+                <ProtectedRoute requireAuth={false}>
+                  <Signup />
+                </ProtectedRoute>
+              } />
 
-                {/* 
-                  LAYER 2: TOWNCRIER ROUTES 
-                */}
-                <Route path="/towncrier" element={
-                  <ProtectedRoute allowPending={true}>
-                    <Towncrier />
-                  </ProtectedRoute>
-                } />
+              {/* 
+                SIGNUP PROCESS ROUTES
+                Post-registration flow components
+              */}
+              <Route path="/application-thankyou" element={
+                <ProtectedRoute allowPending={true}>
+                  <ApplicationThankyou />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/applicationsurvey" element={
+                <ProtectedRoute allowPending={true}>
+                  <Applicationsurvey />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/survey-submitted" element={
+                <ProtectedRoute allowPending={true}>
+                  <SurveySubmitted />
+                </ProtectedRoute>
+              } />
 
-                {/* 
-                  LAYER 3: IKO ROUTES - MEMBER ACCESS
-                */}
-                <Route path="/iko" element={
-                  <ProtectedRoute requireMember={true}>
-                    <Iko />
-                  </ProtectedRoute>
-                }>
-                  <Route index element={<Iko />} />
-                  <Route path="content/:content_id" element={<Iko />} />
-                  <Route path="teaching/:teaching_id" element={<Iko />} />
-                  <Route path="chat/:chat_id" element={<Iko />} />
-                </Route>
+              {/* 
+                APPLICATION STATUS ROUTES
+                Different status pages based on review outcome
+              */}
+              <Route path="/pending-verification" element={
+                <ProtectedRoute allowPending={true}>
+                  <Pendverifyinfo />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/suspended-verification" element={
+                <ProtectedRoute allowPending={true}>
+                  <Suspendedverifyinfo />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/approved-verification" element={
+                <ProtectedRoute requireMember={true}>
+                  <Approveverifyinfo />
+                </ProtectedRoute>
+              } />
 
-                {/* 
-                  LAYER 4: ADMIN ROUTES 
-                */}
-                <Route path="/admin" element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <Admin />
-                  </ProtectedRoute>
-                }>
-                  <Route index element={<Dashboard />} />
-                  <Route path="content/:content_id" element={<Dashboard />} />
-                  <Route path="towncrier" element={<Towncrier />} />
-                  <Route path="towncriercontrols" element={<TowncrierControls />} />
-                  <Route path="iko" element={<Iko />} />
-                  <Route path="ikocontrols" element={<IkoControl />} />
-                  <Route path="authcontrols" element={<AuthControl />} />
-                  <Route path="searchcontrols" element={<SearchControls />} />
-                  <Route path="reports" element={<Reports />} />
-                  <Route path="usermanagement" element={<UserManagement />} />
-                  <Route path="audienceclassmgr" element={<AudienceClassMgr />} />
-                </Route>
+              {/* Legacy thank you route */}
+              <Route path="/thankyou" element={
+                <ProtectedRoute allowPending={true}>
+                  <Thankyou />
+                </ProtectedRoute>
+              } />
+
+              {/* 
+                LAYER 2: TOWNCRIER ROUTES 
+                For approved pre-members (read-only access)
+              */}
+              <Route path="/towncrier" element={
+                <ProtectedRoute allowPending={true}>
+                  <Towncrier />
+                </ProtectedRoute>
+              } />
+
+              {/* 
+                LAYER 3: IKO ROUTES - FULL MEMBER ACCESS
+                Only verified/approved full members can access chat system
+              */}
+              <Route path="/iko" element={
+                <ProtectedRoute requireMember={true}>
+                  <Iko />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Iko />} />
+                <Route path="content/:content_id" element={<Iko />} />
+                <Route path="teaching/:teaching_id" element={<Iko />} />
+                <Route path="chat/:chat_id" element={<Iko />} />
+              </Route>
+
+              {/* 
+                LAYER 4: ADMIN ROUTES 
+                Only users with admin role privileges
+              */}
+              <Route path="/admin" element={
+                <ProtectedRoute requireAdmin={true}>
+                  <Admin />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Dashboard />} />
+                <Route path="content/:content_id" element={<Dashboard />} />
                 
-                {/* Test route */}
-                <Route path="/test" element={
-                  <ProtectedRoute>
-                    <Test />
-                  </ProtectedRoute>
-                } />
-              </Routes>
-            </div>
-          </NavigationWrapper>
+                {/* Admin can access and manage all areas */}
+                <Route path="towncrier" element={<Towncrier />} />
+                <Route path="towncriercontrols" element={<TowncrierControls />} />
+                <Route path="iko" element={<Iko />} />
+                <Route path="ikocontrols" element={<IkoControl />} />
+                
+                {/* Admin-specific management tools */}
+                <Route path="authcontrols" element={<AuthControl />} />
+                <Route path="searchcontrols" element={<SearchControls />} />
+                <Route path="reports" element={<Reports />} />
+                <Route path="usermanagement" element={<UserManagement />} />
+                <Route path="audienceclassmgr" element={<AudienceClassMgr />} />
+              </Route>
+              
+              {/* Development/Test route */}
+              <Route path="/test" element={
+                <ProtectedRoute>
+                  <Test />
+                </ProtectedRoute>
+              } />
+            </Routes>
+          </div>
         </Router>
       </UserProvider>
     </QueryClientProvider>
@@ -142,6 +190,153 @@ function App() {
 }
 
 export default App;
+
+
+
+// // ikootaclient/src/App.jsx - Alternative approach with NavigationWrapper
+// import './App.css';
+// import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+// import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+
+// // Auth components
+// import ProtectedRoute from './components/auth/ProtectedRoute';
+// import { UserProvider } from './components/auth/UserStatus';
+// import NavigationWrapper from './components/auth/NavigationWrapper';
+// import LandingPage from './components/auth/LandingPage';
+// import Signup from './components/auth/Signup';
+// import Login from './components/auth/Login';
+// import Applicationsurvey from './components/auth/Applicationsurvey';
+// import AuthControl from './components/auth/AuthControls';
+// import UserManagement from './components/auth/UserManagement';
+
+// // Info components
+// import Thankyou from './components/info/Thankyou';
+
+// // Admin components
+// import Admin from './components/admin/Admin';
+// import Dashboard from './components/admin/Dashboard';
+// import Reports from './components/admin/Reports';
+// import AudienceClassMgr from './components/admin/AudienceClassMgr';
+
+// // Towncrier components
+// import Towncrier from './components/towncrier/Towncrier';
+// import TowncrierControls from './components/towncrier/TowncrierControls';
+
+// // Iko components
+// import Iko from './components/iko/Iko';
+// import IkoControl from './components/iko/IkoControls';
+
+// // Search components
+// import SearchControls from './components/search/SearchControls';
+
+// // Test component
+// import Test from './Test';
+
+// // Create a client
+// const queryClient = new QueryClient();
+
+// function App() {
+//   return (
+//     <QueryClientProvider client={queryClient}>
+//       <UserProvider>
+//         <Router>
+//           <NavigationWrapper>
+//             <div className='app_container'>
+//               <Routes>
+//                 {/* 
+//                   LAYER 1: PUBLIC ROUTES - LANDING PAGE 
+//                 */}
+//                 <Route path="/" element={
+//                   <ProtectedRoute requireAuth={false}>
+//                     <LandingPage />
+//                   </ProtectedRoute>
+//                 } />
+                
+//                 <Route path="/login" element={
+//                   <ProtectedRoute requireAuth={false}>
+//                     <Login />
+//                   </ProtectedRoute>
+//                 } />
+                
+//                 <Route path="/signup" element={
+//                   <ProtectedRoute requireAuth={false}>
+//                     <Signup />
+//                   </ProtectedRoute>
+//                 } />
+                
+//                 {/* Application process routes */}
+//                 <Route path="/applicationsurvey" element={
+//                   <ProtectedRoute allowPending={true}>
+//                     <Applicationsurvey />
+//                   </ProtectedRoute>
+//                 } />
+                
+//                 <Route path="/thankyou" element={
+//                   <ProtectedRoute allowPending={true}>
+//                     <Thankyou />
+//                   </ProtectedRoute>
+//                 } />
+
+//                 {/* 
+//                   LAYER 2: TOWNCRIER ROUTES 
+//                 */}
+//                 <Route path="/towncrier" element={
+//                   <ProtectedRoute allowPending={true}>
+//                     <Towncrier />
+//                   </ProtectedRoute>
+//                 } />
+
+//                 {/* 
+//                   LAYER 3: IKO ROUTES - MEMBER ACCESS
+//                 */}
+//                 <Route path="/iko" element={
+//                   <ProtectedRoute requireMember={true}>
+//                     <Iko />
+//                   </ProtectedRoute>
+//                 }>
+//                   <Route index element={<Iko />} />
+//                   <Route path="content/:content_id" element={<Iko />} />
+//                   <Route path="teaching/:teaching_id" element={<Iko />} />
+//                   <Route path="chat/:chat_id" element={<Iko />} />
+//                 </Route>
+
+//                 {/* 
+//                   LAYER 4: ADMIN ROUTES 
+//                 */}
+//                 <Route path="/admin" element={
+//                   <ProtectedRoute requireAdmin={true}>
+//                     <Admin />
+//                   </ProtectedRoute>
+//                 }>
+//                   <Route index element={<Dashboard />} />
+//                   <Route path="content/:content_id" element={<Dashboard />} />
+//                   <Route path="towncrier" element={<Towncrier />} />
+//                   <Route path="towncriercontrols" element={<TowncrierControls />} />
+//                   <Route path="iko" element={<Iko />} />
+//                   <Route path="ikocontrols" element={<IkoControl />} />
+//                   <Route path="authcontrols" element={<AuthControl />} />
+//                   <Route path="searchcontrols" element={<SearchControls />} />
+//                   <Route path="reports" element={<Reports />} />
+//                   <Route path="usermanagement" element={<UserManagement />} />
+//                   <Route path="audienceclassmgr" element={<AudienceClassMgr />} />
+//                 </Route>
+                
+//                 {/* Test route */}
+//                 <Route path="/test" element={
+//                   <ProtectedRoute>
+//                     <Test />
+//                   </ProtectedRoute>
+//                 } />
+//               </Routes>
+//             </div>
+//           </NavigationWrapper>
+//         </Router>
+//       </UserProvider>
+//     </QueryClientProvider>
+//   );
+// }
+
+// export default App;
 
 
 // // Updated App.jsx with Landing Page integration

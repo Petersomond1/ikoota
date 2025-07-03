@@ -1,18 +1,23 @@
+// ikootaclient/src/components/iko/Iko.jsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './iko.css';
 import ListChats from './ListChats';
-import List from './List';
 import Chat from './Chat';
 import ListComments from './ListComments';
 import { useFetchChats } from '../service/useFetchChats';
 import { useFetchComments } from '../service/useFetchComments';
 import { useFetchTeachings } from '../service/useFetchTeachings';
+import { useUser } from '../auth/UserStatus';
 
 const Iko = ({ isNested = false }) => {
   const { data: chats = [], isLoading: isLoadingChats, error: errorChats } = useFetchChats();
   const { data: teachings = [], isLoading: isLoadingTeachings, error: errorTeachings } = useFetchTeachings();
   const { data: comments = [], isLoading: isLoadingComments, error: errorComments } = useFetchComments();
   const [activeItem, setActiveItem] = useState(null);
+  
+  const { user, logout, isAdmin } = useUser();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!activeItem && chats.length > 0) {
@@ -28,8 +33,69 @@ const Iko = ({ isNested = false }) => {
     setActiveItem(null);
   };
 
-  if (isLoadingChats || isLoadingComments || isLoadingTeachings) return <p className="status loading">Loading...</p>;
-  if (errorChats || errorComments || errorTeachings) return <p className="status error">Error loading data!</p>;
+  // Navigation handlers
+  const handleNavigateToTowncrier = () => {
+    const confirmNavigation = window.confirm(
+      "Leave Iko Chat and go to public content?"
+    );
+    if (confirmNavigation) {
+      navigate('/towncrier');
+    }
+  };
+
+  const handleSignOut = () => {
+    const confirmSignOut = window.confirm("Sign out of your account?");
+    if (confirmSignOut) {
+      logout();
+      navigate('/');
+    }
+  };
+
+  const handleNavigateToAdmin = () => {
+    if (isAdmin) {
+      navigate('/admin');
+    } else {
+      alert("You don't have admin privileges.");
+    }
+  };
+
+  if (isLoadingChats || isLoadingComments || isLoadingTeachings) {
+    return (
+      <div className="iko_container" style={{
+        '--iko-width': isNested ? '100%' : '90vw',
+        '--iko-height': isNested ? '100%' : '90vh',
+      }}>
+        <div className="nav">
+          <div className="nav-left">
+            <span>Iko Chat - Loading...</span>
+          </div>
+        </div>
+        <div className="iko_viewport">
+          <p className="status loading">Loading member chat system...</p>
+        </div>
+        <div className="footnote">Iko - Member Chat System</div>
+      </div>
+    );
+  }
+
+  if (errorChats || errorComments || errorTeachings) {
+    return (
+      <div className="iko_container" style={{
+        '--iko-width': isNested ? '100%' : '90vw',
+        '--iko-height': isNested ? '100%' : '90vh',
+      }}>
+        <div className="nav">
+          <div className="nav-left">
+            <span>Iko Chat - Error</span>
+          </div>
+        </div>
+        <div className="iko_viewport">
+          <p className="status error">Error loading member chat data!</p>
+        </div>
+        <div className="footnote">Iko - Member Chat System</div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -39,13 +105,95 @@ const Iko = ({ isNested = false }) => {
         '--iko-height': isNested ? '100%' : '90vh',
       }}
     >
-      <div className="nav">Navbar Iko Elde-nde-Me-Eden</div>
-      <div className="iko_viewport">
-        <ListChats setActiveItem={setActiveItem} deactivateListComments={deactivateListComments} />
-        <Chat activeItem={activeItem} chats={chats} teachings={teachings} />
-        <ListComments setActiveItem={setActiveItem} deactivateListChats={deactivateListChats} />
+      {/* Simplified Navigation Bar - No Buttons */}
+      <div className="nav">
+        <div className="nav-left">
+          <span>Iko Chat - Member System</span>
+          <div className="member-status">
+            <span className="status-badge member">✅ Member</span>
+            <span className="user-info">
+              👤 {user?.username || user?.email || 'Member'}
+              {isAdmin && <span className="admin-badge">🛡️ Admin</span>}
+            </span>
+          </div>
+        </div>
+        
+        <div className="nav-right">
+          <span className="chat-count">💬 {chats.length}</span>
+          <span className="teaching-count">📚 {teachings.length}</span>
+        </div>
       </div>
-      <div className="footnote">Footnote</div>
+      
+      {/* Main Chat Viewport */}
+      <div className="iko_viewport">
+        <ListChats 
+          setActiveItem={setActiveItem} 
+          deactivateListComments={deactivateListComments} 
+        />
+        <Chat 
+          activeItem={activeItem} 
+          chats={chats} 
+          teachings={teachings} 
+        />
+        <ListComments 
+          setActiveItem={setActiveItem} 
+          deactivateListChats={deactivateListChats} 
+        />
+      </div>
+      
+      {/* Compact Footer with Minimal Buttons */}
+      <div className="footnote">
+        <div className="footer-left">
+          <span>Iko - Member Chat</span>
+          {activeItem && (
+            <span> | {activeItem.type} #{activeItem.id}</span>
+          )}
+        </div>
+        
+        <div className="footer-center">
+          <div className="activity-indicator">
+            <span className="online-status">🟢 Online</span>
+          </div>
+        </div>
+        
+        <div className="footer-right">
+          <div className="footer-controls">
+            <button 
+              onClick={handleNavigateToTowncrier} 
+              className="footer-btn towncrier-btn"
+              title="View public content"
+            >
+              📖 Public
+            </button>
+            
+            {isAdmin && (
+              <button 
+                onClick={handleNavigateToAdmin} 
+                className="footer-btn admin-btn"
+                title="Admin Panel"
+              >
+                ⚙️ Admin
+              </button>
+            )}
+            
+            <button 
+              onClick={() => window.location.reload()} 
+              className="footer-btn refresh-btn"
+              title="Refresh chat system"
+            >
+              🔄 Refresh
+            </button>
+            
+            <button 
+              onClick={handleSignOut} 
+              className="footer-btn signout-btn"
+              title="Sign out"
+            >
+              👋 Out
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
