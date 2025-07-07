@@ -1,3 +1,9 @@
+/* ==================================================
+   COMPLETE IKO CSS FIX
+   Replace your iko.css with this updated version
+   ================================================== */
+
+/* ===== BASE IKO CONTAINER ===== */
 .iko_container {
   display: flex;
   flex-direction: column;
@@ -7,35 +13,367 @@
   border-radius: 5px;
   margin: 10px;
   overflow: hidden;
-  position: fixed;
+  position: fixed; /* Keep fixed for standalone use */
+  box-sizing: border-box;
 }
 
 .iko_container .iko_viewport {
   display: flex;
   flex-direction: row;
   flex-grow: 1;
-  overflow: auto;
+  overflow: hidden; /* Changed from auto to hidden */
+  max-width: 100%;
+  max-height: 100%;
 }
 
-
-
-
-/* =================================
-   IKO SPECIFIC STYLES
-   ================================= */
-
+/* ===== IKO SPECIFIC STYLES ===== */
 .iko_container .nav {
   background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  flex-shrink: 0;
+  padding: 8px 15px;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .iko_container .footnote {
   background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  flex-shrink: 0;
+  padding: 6px 15px;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75em;
 }
 
-/* =================================
-   RESPONSIVE DESIGN
-   ================================= */
+/* ===== NAVIGATION STYLES ===== */
+.nav-left, .nav-right, .footer-left, .footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
+.footer-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.member-status, .user-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85em;
+}
+
+.user-info {
+  background: rgba(255,255,255,0.1);
+  padding: 3px 6px;
+  border-radius: 10px;
+  font-size: 0.8em;
+}
+
+.status-badge {
+  padding: 2px 5px;
+  border-radius: 6px;
+  font-size: 0.7em;
+  font-weight: bold;
+}
+
+.status-badge.member {
+  background: #4caf50;
+  color: white;
+}
+
+.admin-badge {
+  background: #9c27b0;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 6px;
+  font-size: 0.7em;
+  margin-left: 4px;
+}
+
+.chat-count, .teaching-count {
+  background: rgba(255,255,255,0.1);
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 0.75em;
+}
+
+.online-status {
+  background: rgba(76,175,80,0.2);
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid #4caf50;
+  font-size: 0.7em;
+}
+
+/* ===== FOOTER BUTTONS ===== */
+.footer-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.footer-btn {
+  padding: 3px 6px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.65em;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.footer-btn:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.footer-btn.towncrier-btn {
+  background: #673ab7;
+  color: white;
+}
+
+.footer-btn.admin-btn {
+  background: #9c27b0;
+  color: white;
+}
+
+.footer-btn.refresh-btn {
+  background: #607d8b;
+  color: white;
+}
+
+.footer-btn.signout-btn {
+  background: #f44336;
+  color: white;
+}
+
+/* ===== STATUS STYLES ===== */
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.status.loading {
+  color: #ff9800;
+  animation: pulse 2s infinite;
+}
+
+.status.error {
+  color: #f44336;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+/* ==================================================
+   ADMIN LAYOUT OVERRIDES - CRITICAL FIXES
+   ================================================== */
+
+/* When Iko is inside admin, completely override its positioning and sizing */
+.mainContent .iko_container,
+.mainCOntent .iko_container {
+  /* CRITICAL: Remove fixed positioning */
+  position: static !important;
+  
+  /* CRITICAL: Override viewport sizing */
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  
+  /* CRITICAL: Remove margins that cause overflow */
+  margin: 0 !important;
+  padding: 0 !important;
+  
+  /* CRITICAL: Reset CSS variables */
+  --iko-width: 100% !important;
+  --iko-height: 100% !important;
+  
+  /* Ensure proper flex layout */
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Fix the viewport container */
+.mainContent .iko_viewport,
+.mainCOntent .iko_viewport {
+  display: flex !important;
+  flex: 1 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  flex-direction: row !important;
+}
+
+/* ===== THREE COLUMN LAYOUT WITH PROPER SCROLLING ===== */
+
+/* Left Column: List Chats */
+.mainContent .listchats_container,
+.mainCOntent .listchats_container {
+  flex: 1 !important;
+  min-width: 250px !important;
+  max-width: 350px !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  
+  /* Enable scrolling */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  
+  /* Layout */
+  display: flex !important;
+  flex-direction: column !important;
+  
+  /* Styling */
+  border-right: 3px solid brown !important;
+  background: #f8f8f894 !important;
+  
+  /* Ensure proper sizing */
+  box-sizing: border-box !important;
+}
+
+/* Middle Column: Chat Container */
+.mainContent .chat_container,
+.mainCOntent .chat_container {
+  flex: 2 !important;
+  min-width: 400px !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  
+  /* Layout */
+  display: flex !important;
+  flex-direction: column !important;
+  
+  /* Styling */
+  border: 3px solid red !important;
+  
+  /* Ensure proper sizing */
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+/* Right Column: List Comments */
+.mainContent .listcomments_container,
+.mainCOntent .listcomments_container {
+  flex: 1 !important;
+  min-width: 250px !important;
+  max-width: 350px !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  
+  /* Enable scrolling */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  
+  /* Layout */
+  display: flex !important;
+  flex-direction: column !important;
+  
+  /* Styling */
+  background: #f0f0f0 !important;
+  
+  /* Ensure proper sizing */
+  box-sizing: border-box !important;
+}
+
+/* ===== CHAT CONTAINER INTERNAL LAYOUT ===== */
+
+/* Fixed sections in chat container */
+.mainContent .chat_container .top,
+.mainCOntent .chat_container .top,
+.mainContent .chat_container .bottom,
+.mainCOntent .chat_container .bottom {
+  flex-shrink: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Scrollable center section */
+.mainContent .chat_container .center,
+.mainCOntent .chat_container .center {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: 0 !important;
+}
+
+/* ===== MEDIA CONTENT FIXES ===== */
+
+.mainContent .media-container,
+.mainCOntent .media-container {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.mainContent .media-container img,
+.mainCOntent .media-container img,
+.mainContent .media-container video,
+.mainCOntent .media-container video {
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
+
+/* ===== SCROLLBAR STYLING ===== */
+
+.mainContent .listchats_container::-webkit-scrollbar,
+.mainCOntent .listchats_container::-webkit-scrollbar,
+.mainContent .listcomments_container::-webkit-scrollbar,
+.mainCOntent .listcomments_container::-webkit-scrollbar,
+.mainContent .chat_container .center::-webkit-scrollbar,
+.mainCOntent .chat_container .center::-webkit-scrollbar {
+  width: 8px;
+}
+
+.mainContent .listchats_container::-webkit-scrollbar-thumb,
+.mainCOntent .listchats_container::-webkit-scrollbar-thumb,
+.mainContent .listcomments_container::-webkit-scrollbar-thumb,
+.mainCOntent .listcomments_container::-webkit-scrollbar-thumb,
+.mainContent .chat_container .center::-webkit-scrollbar-thumb,
+.mainCOntent .chat_container .center::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.mainContent .listchats_container::-webkit-scrollbar-thumb:hover,
+.mainCOntent .listchats_container::-webkit-scrollbar-thumb:hover,
+.mainContent .listcomments_container::-webkit-scrollbar-thumb:hover,
+.mainCOntent .listcomments_container::-webkit-scrollbar-thumb:hover,
+.mainContent .chat_container .center::-webkit-scrollbar-thumb:hover,
+.mainCOntent .chat_container .center::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* ==================================================
+   RESPONSIVE DESIGN
+   ================================================== */
+
+/* Original responsive styles for standalone Iko */
 @media (max-width: 768px) {
   .nav, .footnote {
     flex-direction: column;
@@ -67,6 +405,56 @@
   }
 }
 
+/* Responsive behavior when inside admin */
+@media (max-width: 1024px) {
+  .mainContent .iko_viewport,
+  .mainCOntent .iko_viewport {
+    flex-direction: column !important;
+  }
+  
+  .mainContent .listchats_container,
+  .mainCOntent .listchats_container,
+  .mainContent .chat_container,
+  .mainCOntent .chat_container,
+  .mainContent .listcomments_container,
+  .mainCOntent .listcomments_container {
+    max-width: 100% !important;
+    min-width: auto !important;
+    flex: none !important;
+    height: 250px !important;
+    max-height: 250px !important;
+  }
+  
+  .mainContent .listchats_container,
+  .mainCOntent .listchats_container {
+    border-right: none !important;
+    border-bottom: 2px solid brown !important;
+  }
+  
+  .mainContent .chat_container,
+  .mainCOntent .chat_container {
+    flex: 1 !important;
+    min-height: 300px !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .mainContent .listchats_container,
+  .mainCOntent .listchats_container,
+  .mainContent .listcomments_container,
+  .mainCOntent .listcomments_container {
+    height: 180px !important;
+    max-height: 180px !important;
+  }
+  
+  .mainContent .chat_container,
+  .mainCOntent .chat_container {
+    min-height: 400px !important;
+  }
+}
+
 @media (max-width: 480px) {
   .footer-btn {
     font-size: 0.55em;
@@ -91,29 +479,4 @@
     font-size: 0.6em;
     padding: 1px 3px;
   }
-}
-
-/* =================================
-   MINIMAL ANIMATION EFFECTS
-   ================================= */
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.7; }
-  100% { opacity: 1; }
-}
-
-.status-badge.loading {
-  animation: pulse 2s infinite;
-}
-
-/* Remove complex button animations for minimal design */
-.footer-btn {
-  position: relative;
-  overflow: hidden;
-}
-
-/* Subtle hover effect only */
-.footer-btn:hover {
-  filter: brightness(1.1);
 }

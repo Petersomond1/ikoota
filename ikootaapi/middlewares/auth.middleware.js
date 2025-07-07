@@ -16,16 +16,16 @@ export const authenticate = async (req, res, next) => {
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // Add this right after jwt.verify in authenticate function
-console.log('=== JWT DEBUG ===');
-console.log('Decoded token:', decoded);
-console.log('User ID:', decoded.user_id);
-console.log('Type of user_id:', typeof decoded.user_id);
-console.log('================');
+//         // Add this right after jwt.verify in authenticate function
+// console.log('=== JWT DEBUG ===');
+// console.log('Decoded token:', decoded);
+// console.log('User ID:', decoded.user_id);
+// console.log('Type of user_id:', typeof decoded.user_id);
+// console.log('================');
         
         // FIX 1: Check if decoded.user_id exists and is valid
         if (!decoded.user_id) {
-    console.error('Token missing user_id:', decoded);
+    // console.error('Token missing user_id:', decoded);
     throw new CustomError('Invalid token: missing user ID', 401);
 }
 
@@ -39,11 +39,11 @@ console.log('================');
 
 
         // FIX 3: Check if user exists before destructuring
-        if (!users || users.length === 0) {
+        if (!result || result.length === 0) {
             throw new CustomError('User not found', 404);
         }
 
-        const user = users[0]; // Now safe to get first element
+        const user = result[0]; // Now safe to get first element
 
         if (user.isbanned) {
             throw new CustomError('User is banned', 403);
@@ -52,7 +52,7 @@ console.log('================');
         req.user = user;
         next();
     } catch (error) {
-        console.error('Authentication error:', error); // Add logging
+        console.error('Authentication error:',  error.message); // Add logging
         res.status(error.statusCode || 401).json({ 
             error: error.message || 'Authentication failed' 
         });
@@ -88,15 +88,8 @@ export const authorize = (requiredRoles) => {
                 return res.status(401).json({ error: 'Authorization failed. No user found.' });
             }
 
-            // FIX 4: Use user.id instead of user.user_id (since req.user comes from authenticate)
-            const sql = 'SELECT * FROM users WHERE id = ?';
-            const [result] = await db.query(sql, [user.id]); // Changed from user.user_id to user.id and added []
-            
-            if (result.length === 0) {
-                return res.status(401).json({ error: 'Authorization failed. User not found.' });
-            }
-
-            if (!requiredRoles.includes(result[0].role)) {
+            // FIXED: Use the user object directly (it already has the role)
+            if (!requiredRoles.includes(user.role)) {
                 return res.status(403).json({ error: 'Authorization failed. Insufficient permissions.' });
             }
 
@@ -107,6 +100,34 @@ export const authorize = (requiredRoles) => {
         }
     };
 };
+// export const authorize = (requiredRoles) => {
+//     return async (req, res, next) => {
+//         try {
+//             const user = req.user;
+            
+//             if (!user) {
+//                 return res.status(401).json({ error: 'Authorization failed. No user found.' });
+//             }
+
+//             // FIX 4: Use user.id instead of user.user_id (since req.user comes from authenticate)
+//             const sql = 'SELECT * FROM users WHERE id = ?';
+//             const [result] = await db.query(sql, [user.id]); // Changed from user.user_id to user.id and added []
+            
+//             if (result.length === 0) {
+//                 return res.status(401).json({ error: 'Authorization failed. User not found.' });
+//             }
+
+//             if (!requiredRoles.includes(result[0].role)) {
+//                 return res.status(403).json({ error: 'Authorization failed. Insufficient permissions.' });
+//             }
+
+//             next();
+//         } catch (error) {
+//             console.error('Error in authorize middleware:', error.message);
+//             res.status(403).json({ error: 'Authorization failed.' });
+//         }
+//     };
+// };
 
 export const cacheMiddleware = (duration = 300) => {
   const cache = new Map();

@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useUser } from "./UserStatus";
 import './login.css';
+import { getUserAccess } from '../config/accessMatrix';
 
 const Login = () => {
   const [values, setValues] = useState({
@@ -81,22 +82,41 @@ const Login = () => {
     }
   };
 
-  const handleUserRouting = async (user) => {
-    // Check user status and route accordingly
-    if (user.role === 'admin' || user.role === 'super_admin') {
-      navigate('/admin');
-    } else if (user.is_member === 'granted' || user.is_member === true) {
-      navigate('/iko');
-    } else if (user.is_member === 'applied' || user.is_member === 'pending') {
-      // Show pending status
-      navigate('/pending-verification');
-    } else if (user.is_member === 'declined') {
-      setError("Your membership application was declined. Please contact support for more information.");
-    } else {
-      // New user or no application yet
-      navigate('/towncrier');
-    }
-  };
+  // const handleUserRouting = async (user) => {
+  //   // Check user status and route accordingly
+  //   if (user.role === 'admin' || user.role === 'super_admin') {
+  //     navigate('/admin');
+  //   } else if (user.is_member === 'granted' || user.is_member === true) {
+  //     navigate('/iko');
+  //   } else if (user.is_member === 'applied' || user.is_member === 'pending') {
+  //     // Show pending status
+  //     navigate('/pending-verification');
+  //   } else if (user.is_member === 'declined') {
+  //     setError("Your membership application was declined. Please contact support for more information.");
+  //   } else {
+  //     // New user or no application yet
+  //     navigate('/towncrier');
+  //   }
+  // };
+
+
+const handleUserRouting = (userData) => {
+  if (!userData) {
+    console.error('❌ No user data provided to handleUserRouting');
+    return;
+  }
+  
+  console.log('🔍 Routing user based on data:', userData);
+  
+  // Use the access matrix to determine routing
+  const access = getUserAccess(userData);
+  
+  console.log('📍 User access determined:', access);
+  console.log('➡️ Redirecting to:', access.defaultRoute);
+  
+  // Navigate to the default route for this user type
+  navigate(access.defaultRoute);
+};
 
   const handlePendingUser = (data) => {
     const { applicationStatus, applicationTicket } = data;

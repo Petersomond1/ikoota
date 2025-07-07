@@ -32,7 +32,7 @@
     border-bottom: 2px solid #ccc; /* Optional: Add a bottom border for separation */
 }
 
-.mainCOntent {
+.mainContent {
     max-height: 85%;
     margin: 5px;
     padding: 5px;
@@ -187,3 +187,616 @@
     padding: 1rem;
   }
 }
+
+
+/* ==================================================
+   RESPONSIVE ADMIN DASHBOARD CSS
+   ikootaclient/src/components/admin/admin.css
+   ================================================== */
+
+/* Base Desktop Styles (your existing styles) */
+.adminContainer {
+    display: flex;
+    column-gap: 10px;
+    height: 90vh;
+    border: 3px solid rgb(196, 11, 11);
+    border-radius: 5px;
+    margin-right: 2px;
+    overflow: hidden;
+}
+
+.adminSidebar {
+    flex: 2;
+    max-width: 250px;
+    min-width: 250px;
+    overflow-y: auto;
+    background-color: #f4f4f4;
+    transition: all 0.3s ease;
+}
+
+.headerContent {
+    flex: 7;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 5px;
+    overflow: hidden;
+}
+
+.adminNav {
+    flex: 0 0 50px;
+    max-height: 50px;
+    background-color: #ffffff6c;
+    border-bottom: 2px solid #ccc;
+}
+
+.mainContent {
+    max-height: 85%;
+    margin: 5px;
+    padding: 5px;
+    flex: 1;
+    overflow-y: auto;
+    background-color: #fafafa62;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+/* Sidebar Styles */
+.admin_sidebar {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    height: 100%;
+}
+
+.admin_sidebar_item {
+    display: block;
+    text-decoration: none;
+    padding: 12px 16px;
+    color: #333;
+    border-bottom: 1px solid #e0e0e0;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.admin_sidebar_item:hover {
+    background-color: #e0e0e0;
+    color: #333;
+}
+
+.admin_sidebar_item.active {
+    background-color: #4CAF50;
+    color: white;
+    font-weight: bold;
+}
+
+.admin_sidebar_item.active:hover {
+    background-color: #45a049;
+}
+
+/* Mobile Menu Toggle Button */
+.mobile-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 10px;
+    color: #333;
+}
+
+.mobile-menu-toggle:hover {
+    background-color: #f0f0f0;
+    border-radius: 4px;
+}
+
+/* ==================================================
+   TABLET STYLES (768px - 1024px)
+   ================================================== */
+
+@media (max-width: 1024px) {
+    .adminContainer {
+        height: 95vh;
+        margin-right: 5px;
+        column-gap: 5px;
+    }
+
+    .adminSidebar {
+        max-width: 200px;
+        min-width: 200px;
+    }
+
+    .admin_sidebar_item {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .mainContent {
+        margin: 3px;
+        padding: 3px;
+    }
+}
+
+/* ==================================================
+   MOBILE STYLES (max-width: 768px)
+   ================================================== */
+
+@media (max-width: 768px) {
+    .adminContainer {
+        flex-direction: column;
+        height: 100vh;
+        margin-right: 0;
+        column-gap: 0;
+        border: 2px solid rgb(196, 11, 11);
+    }
+
+    /* Mobile Navigation Header */
+    .adminNav {
+        flex: 0 0 60px;
+        max-height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 15px;
+        position: relative;
+    }
+
+    .mobile-menu-toggle {
+        display: block;
+        order: -1;
+    }
+
+    /* Mobile Sidebar */
+    .adminSidebar {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        width: 80%;
+        max-width: 300px;
+        min-width: 250px;
+        height: 100vh;
+        z-index: 1000;
+        background-color: #f4f4f4;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        transition: left 0.3s ease;
+        overflow-y: auto;
+    }
+
+    .adminSidebar.mobile-open {
+        left: 0;
+    }
+
+    /* Mobile Sidebar Header */
+    .mobile-sidebar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        background-color: #e0e0e0;
+        border-bottom: 2px solid #ccc;
+    }
+
+    .mobile-sidebar-title {
+        font-weight: bold;
+        font-size: 18px;
+        color: #333;
+    }
+
+    .mobile-close-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #666;
+        padding: 5px;
+    }
+
+    /* Mobile Sidebar Items */
+    .admin_sidebar {
+        flex-direction: column;
+        padding-top: 0;
+    }
+
+    .admin_sidebar_item {
+        padding: 15px 20px;
+        font-size: 16px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .admin_sidebar_item:last-child {
+        border-bottom: none;
+    }
+
+    /* Mobile Overlay */
+    .mobile-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .mobile-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* Mobile Main Content */
+    .headerContent {
+        flex: 1;
+        gap: 0;
+    }
+
+    .mainContent {
+        max-height: none;
+        height: calc(100vh - 60px);
+        margin: 0;
+        padding: 15px;
+        border-radius: 0;
+        border: none;
+        overflow-y: auto;
+    }
+}
+
+/* ==================================================
+   SMALL MOBILE STYLES (max-width: 480px)
+   ================================================== */
+
+@media (max-width: 480px) {
+    .adminContainer {
+        border: 1px solid rgb(196, 11, 11);
+    }
+
+    .adminNav {
+        flex: 0 0 50px;
+        max-height: 50px;
+        padding: 0 10px;
+    }
+
+    .adminSidebar {
+        width: 90%;
+        min-width: 280px;
+    }
+
+    .admin_sidebar_item {
+        padding: 12px 16px;
+        font-size: 15px;
+    }
+
+    .mainContent {
+        padding: 10px;
+        height: calc(100vh - 50px);
+    }
+
+    .mobile-sidebar-header {
+        padding: 12px;
+    }
+
+    .mobile-sidebar-title {
+        font-size: 16px;
+    }
+}
+
+/* ==================================================
+   LANDSCAPE MOBILE STYLES
+   ================================================== */
+
+@media (max-width: 768px) and (orientation: landscape) {
+    .adminContainer {
+        height: 100vh;
+    }
+
+    .adminNav {
+        flex: 0 0 50px;
+        max-height: 50px;
+    }
+
+    .mainContent {
+        height: calc(100vh - 50px);
+        padding: 10px;
+    }
+
+    .adminSidebar {
+        width: 70%;
+        max-width: 350px;
+    }
+}
+
+/* ==================================================
+   PRINT STYLES
+   ================================================== */
+
+@media print {
+    .adminSidebar,
+    .adminNav,
+    .mobile-menu-toggle,
+    .mobile-overlay {
+        display: none !important;
+    }
+
+    .adminContainer {
+        height: auto;
+        border: none;
+        flex-direction: column;
+    }
+
+    .headerContent {
+        width: 100%;
+    }
+
+    .mainContent {
+        max-height: none;
+        height: auto;
+        margin: 0;
+        padding: 20px;
+        border: none;
+        background-color: white;
+    }
+}
+
+/* ==================================================
+   ACCESSIBILITY IMPROVEMENTS
+   ================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .adminSidebar,
+    .admin_sidebar_item,
+    .mobile-overlay {
+        transition: none;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .admin_sidebar_item {
+        border: 1px solid #000;
+    }
+
+    .admin_sidebar_item.active {
+        background-color: #000;
+        color: #fff;
+        border-color: #fff;
+    }
+}
+
+
+
+/* ==================================================
+   ADMIN MAIN CONTENT CSS FIX
+   Update your admin.css with these corrections
+   ================================================== */
+
+/* Fix the mainContent container (note: you have a typo "mainCOntent") */
+.mainContent,
+.mainCOntent {
+    /* Ensure strict boundary enforcement */
+    max-height: 85%;
+    margin: 5px;
+    padding: 5px;
+    flex: 1;
+    overflow: hidden; /* Changed from overflow-y: auto to prevent any overflow */
+    background-color: #fafafa62;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    
+    /* Add these critical properties */
+    width: calc(100% - 10px); /* Account for margins */
+    max-width: calc(100% - 10px);
+    box-sizing: border-box;
+    position: relative; /* Establish containing block */
+}
+
+/* Ensure all direct children respect the container boundaries */
+.mainContent > *,
+.mainCOntent > * {
+    max-width: 100%;
+    max-height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* Specific fix for components that render inside admin */
+.mainContent .towncrier_container,
+.mainCOntent .towncrier_container,
+.mainContent .iko_container,
+.mainCOntent .iko_container {
+    /* Force components to respect admin boundaries */
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    
+    /* Reset any viewport-based sizing */
+    --iko-width: 100% !important;
+    --iko-height: 100% !important;
+}
+
+/* Fix headerContent to prevent overflow */
+.headerContent {
+    flex: 7;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 5px;
+    overflow: hidden;
+    max-width: 100%; /* Add this */
+    box-sizing: border-box; /* Add this */
+}
+
+/* Fix adminContainer to ensure proper containment */
+.adminContainer {
+    display: flex;
+    column-gap: 10px;
+    height: 90vh;
+    border: 3px solid rgb(196, 11, 11);
+    border-radius: 5px;
+    margin-right: 2px;
+    overflow: hidden;
+    max-width: 100vw; /* Add this to prevent horizontal overflow */
+    box-sizing: border-box; /* Add this */
+}
+
+/* Ensure sidebar doesn't cause overflow */
+.adminSidebar {
+    flex: 2;
+    max-width: 250px;
+    min-width: 250px;
+    overflow-y: auto;
+    background-color: #f4f4f4;
+    transition: all 0.3s ease;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+/* ==================================================
+   RESPONSIVE FIXES FOR ADMIN LAYOUT
+   ================================================== */
+
+@media (max-width: 1024px) {
+    .adminContainer {
+        height: 95vh;
+        margin-right: 5px;
+        column-gap: 5px;
+        max-width: 100vw;
+    }
+
+    .adminSidebar {
+        max-width: 200px;
+        min-width: 200px;
+    }
+
+    .mainContent,
+    .mainCOntent {
+        margin: 3px;
+        padding: 3px;
+        width: calc(100% - 6px);
+        max-width: calc(100% - 6px);
+    }
+}
+
+@media (max-width: 768px) {
+    .adminContainer {
+        flex-direction: column;
+        height: 100vh;
+        margin-right: 0;
+        column-gap: 0;
+        border: 2px solid rgb(196, 11, 11);
+        max-width: 100vw;
+    }
+
+    .headerContent {
+        flex: 1;
+        gap: 0;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .mainContent,
+    .mainCOntent {
+        max-height: none;
+        height: calc(100vh - 60px);
+        margin: 0;
+        padding: 15px;
+        border-radius: 0;
+        border: none;
+        overflow: hidden; /* Keep hidden to prevent any overflow */
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+/* ==================================================
+   COMPONENT-SPECIFIC CONTAINMENT RULES
+   ================================================== */
+
+/* Iko specific containment when in admin */
+.mainContent .iko_container,
+.mainCOntent .iko_container {
+    /* Use flexbox layout like towncrier */
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    width: 100% !important;
+    
+    /* Override any CSS custom properties */
+    --iko-width: 100% !important;
+    --iko-height: 100% !important;
+}
+
+.mainContent .iko_viewport,
+.mainCOntent .iko_viewport {
+    display: flex !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+    max-width: 100% !important;
+}
+
+/* Towncrier already works well, but ensure it stays contained */
+.mainContent .towncrier_container,
+.mainCOntent .towncrier_container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+.mainContent .towncrier_viewport,
+.mainCOntent .towncrier_viewport {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    max-width: 100%;
+}
+
+/* ==================================================
+   DEBUGGING UTILITIES (Remove after fixing)
+   ================================================== */
+
+/* Uncomment to visualize boundaries during debugging */
+/*
+.adminContainer {
+    border: 5px solid red !important;
+}
+
+.headerContent {
+    border: 3px solid blue !important;
+}
+
+.mainContent,
+.mainCOntent {
+    border: 3px solid green !important;
+    position: relative;
+}
+
+.mainContent::before,
+.mainCOntent::before {
+    content: "mainContent boundary - should contain all content";
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: green;
+    color: white;
+    padding: 2px 5px;
+    font-size: 10px;
+    z-index: 10000;
+}
+
+.iko_container {
+    border: 2px solid orange !important;
+}
+
+.towncrier_container {
+    border: 2px solid purple !important;
+}
+*/

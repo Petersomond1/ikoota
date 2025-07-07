@@ -33,3 +33,80 @@
     color: goldenrod;
     border: 3px solid goldenrod;
 }
+
+/* ==================================================
+   MINIMAL UPDATE: ikootaclient/src/components/admin/sidbar.css
+   Keep all your existing styles, just add active state
+   ================================================== */
+
+/* Your existing styles remain exactly the same */
+.adminContainer {
+    display: flex;
+    column-gap: 10px;
+    height: 90vh;
+    border: 3px solid rgb(196, 11, 11);
+    border-radius: 5px;
+    margin-right: 2px;
+    overflow: hidden;
+}
+
+.adminSidebar {
+    flex: 2;
+    max-width: 250px;
+    min-width: 250px;
+    overflow-y: auto;
+    background-color: #f4f4f4;
+}
+
+.headerContent {
+    flex: 7;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 5px;
+    overflow: hidden;
+}
+
+.adminNav {
+    flex: 0 0 50px;
+    max-height: 50px;
+    background-color: #ffffff6c;
+    border-bottom: 2px solid #ccc;
+}
+
+.mainContent {
+    max-height: 85%;
+    margin: 5px;
+    padding: 5px;
+    flex: 1;
+    overflow-y: auto;
+    background-color: #fafafa62;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+/* Keep your existing admin_sidebar_item styles */
+.admin_sidebar_item {
+    /* Keep all your existing styles here - whatever they are */
+    display: block;
+    text-decoration: none;
+    /* Add your existing styles... */
+}
+
+/* ✅ ONLY ADD THIS - Active state for selected item */
+.admin_sidebar_item.active {
+    background-color: #4CAF50; /* Green background for active */
+    color: white;
+    font-weight: bold;
+    /* You can change this color to anything you prefer */
+}
+
+/* Optional: Add a subtle hover effect if you don't have one */
+.admin_sidebar_item:hover {
+    background-color: #e0e0e0;
+}
+
+/* Make sure active state overrides hover */
+.admin_sidebar_item.active:hover {
+    background-color: #45a049; /* Slightly darker green on hover */
+}

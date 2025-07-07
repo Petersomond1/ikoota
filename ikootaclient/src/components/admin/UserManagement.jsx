@@ -40,7 +40,7 @@ const bulkApproveApplications = async ({ userIds, action, adminNotes }) => {
   });
   return data;
 };
-
+// THis fxn also exist at membershipcontroller.js
 const updateApplicationStatus = async ({ userId, status, adminNotes }) => {
   const { data } = await api.put(`/membership/admin/update-user-status/${userId}`, {
     status,
@@ -49,11 +49,31 @@ const updateApplicationStatus = async ({ userId, status, adminNotes }) => {
   return data;
 };
 
+
+
 // Legacy APIs (preserve existing functionality)
+// const fetchUsers = async () => {
+//   const { data } = await api.get('/admin/users');
+//   return data;
+// };
+
 const fetchUsers = async () => {
-  const { data } = await api.get('/admin/users');
-  return data;
+  try {
+    const { data } = await api.get('/admin/users');
+    // Handle different response formats
+    if (data?.success && Array.isArray(data.users)) {
+      return data.users;
+    }
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return [];
+  }
 };
+
 
 const fetchClasses = async () => {
   const { data } = await api.get('/classes');
@@ -383,18 +403,34 @@ const UserManagement = () => {
   // ==================================================
 
   // Filter users by legacy membership status (preserve existing logic)
-  const filteredUsers = users?.filter(user => {
-    switch (activeTab) {
-      case 'legacy_pending':
-        return user.is_member === 'applied';
-      case 'legacy_granted':
-        return user.is_member === 'granted';
-      case 'legacy_declined':
-        return user.is_member === 'declined';
-      default:
-        return true;
-    }
-  });
+  // const filteredUsers = users?.filter(user => {
+  //   switch (activeTab) {
+  //     case 'legacy_pending':
+  //       return user.is_member === 'applied';
+  //     case 'legacy_granted':
+  //       return user.is_member === 'granted';
+  //     case 'legacy_declined':
+  //       return user.is_member === 'declined';
+  //     default:
+  //       return true;
+  //   }
+  // });
+
+  // Replace the existing filteredUsers with this safer version:
+const filteredUsers = React.useMemo(() => {
+  const userArray = Array.isArray(users) ? users : [];
+  
+  switch (activeTab) {
+    case 'legacy_pending':
+      return userArray.filter(user => user.is_member === 'applied');
+    case 'legacy_granted':
+      return userArray.filter(user => user.is_member === 'granted');
+    case 'legacy_declined':
+      return userArray.filter(user => user.is_member === 'declined');
+    default:
+      return userArray;
+  }
+}, [users, activeTab]);
 
   // Reset form data
   const resetFormData = () => {

@@ -6,8 +6,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '../auth/UserStatus';
-import api from '../service/api';
-import './userDashboard.css';
+import api from '../service/api'; 
+import './UserDashboard.css'; // Assuming you have a CSS file for styling
 
 // ==================================================
 // API FUNCTIONS
@@ -189,10 +189,16 @@ const QuickActions = ({ actions, user }) => {
       icon: '👤'
     },
     {
-      text: 'Browse Courses',
-      link: '/courses',
+      text: 'Towncrier Content',
+      link: '/towncrier',
       type: 'secondary',
       icon: '📚'
+    },
+    {
+      text: 'Iko Chat',
+      link: '/iko',
+      type: 'info',
+      icon: '💬'
     },
     {
       text: 'Help Center',

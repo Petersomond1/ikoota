@@ -1,17 +1,37 @@
+// ==================================================
+// CORRECTED: ikootaapi/routes/userRoutes.js
+// ==================================================
+
 import express from 'express';
-import { 
-  getUserProfile, 
-  updateUserProfile, 
+import {
+  // Existing user controller functions
+  getUserProfile,
+  updateUserProfile,
   updateUserRole,
   fetchAllUsers,
   fetchUserStats,
   fetchUserActivity,
   fetchUserById,
-  removeUser
+  removeUser,
+  
+  // ✅ ADDED: Import the new admin management functions
+  getAllUsers,
+  getAllMentors,
+  updateUser,
+  getMembershipOverview,
+  getClasses
 } from '../controllers/userControllers.js';
-import { authenticate } from '../middlewares/auth.middleware.js';
+
+import { 
+  authenticate,  
+  requireAdmin  
+} from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
+
+// ==================================================
+// EXISTING USER ROUTES
+// ==================================================
 
 // GET /users/profile - Get current user's profile
 router.get('/profile', authenticate, getUserProfile);
@@ -39,5 +59,39 @@ router.put('/:user_id', authenticate, updateUserRole);
 
 // DELETE /users/:user_id - Soft delete user (super admin only)
 router.delete('/:user_id', authenticate, removeUser);
+
+// ==================================================
+// ✅ CORRECTED: ADMIN USER MANAGEMENT ROUTES
+// ==================================================
+
+// Admin Users Management Routes
+router.get('/admin/users', 
+  authenticate, 
+  requireAdmin, 
+  getAllUsers  // ✅ FIXED: Use imported function directly
+);
+
+router.get('/admin/mentors', 
+  authenticate, 
+  requireAdmin, 
+  getAllMentors  // ✅ FIXED: Use imported function directly
+);
+
+router.put('/admin/update-user/:id', 
+  authenticate, 
+  requireAdmin, 
+  updateUser  // ✅ FIXED: Use imported function directly
+);
+
+router.get('/admin/membership-overview', 
+  authenticate, 
+  requireAdmin, 
+  getMembershipOverview  // ✅ FIXED: Use imported function directly
+);
+
+router.get('/classes', 
+  authenticate, 
+  getClasses  // ✅ FIXED: Use imported function directly
+);
 
 export default router;

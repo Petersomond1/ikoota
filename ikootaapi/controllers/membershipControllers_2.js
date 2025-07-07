@@ -1,0 +1,792 @@
+// ikootaapi/controllers/membershipControllers_2.js
+// ==================================================
+// USER DASHBOARD, STATUS & APPLICATION MANAGEMENT
+// ==================================================
+
+import db from '../config/db.js';
+import { sendEmail } from '../utils/notifications.js';
+import CustomError from '../utils/CustomError.js';
+import { 
+  getUserById, 
+  generateApplicationTicket, 
+  successResponse, 
+  errorResponse,
+  executeQuery 
+} from './membershipControllers_1.js';
+
+// ==================================================
+// USER DASHBOARD & STATUS FUNCTIONS
+// ==================================================
+
+/**
+ * Enhanced user dashboard with comprehensive data
+ */
+export const getUserDashboard = async (req, res) => {
+  try {
+    const userId = req.user.user_id || req.user.id;
+    const userRole = req.user.role;
+    
+    console.log('🎯 getUserDashboard called for userId:', userId, 'role:', userRole);
+    
+    if (!userId) {
+      throw new CustomError('User ID not found', 401);
+    }
+    
+    // Try direct database query first
+    console.log('🔍 Attempting direct database query...');
+    const result = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
+    console.log('🔍 Direct query result check');
+    
+    // Handle the result properly
+    let user;
+    if (Array.isArray(result) && result.length > 0) {
+      if (Array.isArray(result[0]) && result[0].length > 0) {
+        user = result[0][0]; // MySQL2 format: [rows, fields]
+        console.log('✅ Using MySQL2 format: result[0][0]');
+      } else if (result[0] && typeof result[0] === 'object') {
+        user = result[0]; // Direct format
+        console.log('✅ Using direct format: result[0]');
+      }
+    }
+    
+    console.log('✅ User extracted:', user?.id, user?.username);
+    
+    if (!user || !user.id) {
+      console.error('❌ No valid user data found');
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Handle empty is_member for admin users
+    let memberStatus = user.is_member;
+    if (!memberStatus || memberStatus === '' || memberStatus === null) {
+      if (userRole === 'admin' || userRole === 'super_admin') {
+        memberStatus = 'active';
+        // Update in database
+        await db.query(
+          'UPDATE users SET is_member = ? WHERE id = ?',
+          ['active', userId]
+        );
+        console.log('🔧 Fixed empty is_member for admin user');
+      } else {
+        memberStatus = 'pending';
+      }
+    }
+    
+    // Create status object
+    const status = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      membership_stage: user.membership_stage || 'none',
+      is_member: memberStatus,
+      initial_application_status: 'approved', // Simplified for testing
+      full_membership_application_status: 'approved',
+      has_accessed_full_membership: true,
+      user_created: user.createdAt
+    };
+    
+    // Define quick actions based on user status
+    const quickActions = [];
+    
+    if (user.role === 'admin' || user.role === 'super_admin') {
+      quickActions.push(
+        { type: 'primary', text: 'Admin Panel', link: '/admin' },
+        { type: 'info', text: 'User Management', link: '/admin/users' },
+        { type: 'success', text: 'Applications', link: '/admin/applications' }
+      );
+    } else {
+      quickActions.push({ type: 'primary', text: 'View Profile', link: '/profile' });
+      
+      if (user.membership_stage === 'member') {
+        quickActions.push({ type: 'success', text: 'Iko Chat', link: '/iko' });
+      } else if (user.membership_stage === 'pre_member') {
+        quickActions.push({ type: 'info', text: 'Towncrier', link: '/towncrier' });
+        quickActions.push({ type: 'warning', text: 'Apply for Full Membership', link: '/full-membership' });
+      } else {
+        quickActions.push({ type: 'warning', text: 'Submit Application', link: '/application-survey' });
+      }
+    }
+    
+    quickActions.push({ type: 'secondary', text: 'Settings', link: '/settings' });
+    
+    console.log('✅ Sending dashboard response');
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Dashboard data retrieved successfully',
+      membershipStatus: status,
+      recentActivities: [],
+      notifications: [{
+        type: 'system',
+        message: `Welcome back, ${user.username}!`,
+        date: new Date().toISOString()
+      }],
+      quickActions
+    });
+    
+  } catch (error) {
+    console.error('❌ getUserDashboard error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'An error occurred',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+/**
+ * Check application status with detailed information
+ */
+export const checkApplicationStatus = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.user_id;
+    
+    console.log('🔍 checkApplicationStatus called for userId:', userId);
+    
+    if (!userId) {
+      throw new CustomError('User authentication required', 401);
+    }
+
+    // Get user data
+    const user = await getUserById(userId);
+    
+    console.log('👤 User found:', user.username);
+
+    // Get application details
+    const [applications] = await db.query(`
+      SELECT 
+        sl.application_type,
+        sl.approval_status,
+        sl.createdAt as submitted_at,
+        sl.reviewed_at,
+        sl.admin_notes,
+        sl.application_ticket,
+        reviewer.username as reviewed_by
+      FROM surveylog sl
+      LEFT JOIN users reviewer ON sl.reviewed_by = reviewer.id
+      WHERE CAST(sl.user_id AS UNSIGNED) = ?
+      ORDER BY sl.createdAt DESC
+    `, [userId]);
+
+    console.log('📋 Applications found:', applications.length);
+
+    // Determine current application status
+    const initialApp = applications.find(app => app.application_type === 'initial_application');
+    const fullApp = applications.find(app => app.application_type === 'full_membership');
+
+    let applicationStatus = 'not_submitted';
+    let canSubmitApplication = true;
+    let nextSteps = [];
+
+    // Determine status based on membership stage and applications
+    if (!user.membership_stage || user.membership_stage === 'none') {
+      applicationStatus = 'not_submitted';
+      canSubmitApplication = true;
+      nextSteps = [
+        'Complete your initial application survey',
+        'Submit required information',
+        'Wait for admin review (3-5 business days)'
+      ];
+    } else if (user.membership_stage === 'applicant') {
+      applicationStatus = initialApp?.approval_status || 'pending';
+      canSubmitApplication = false;
+      nextSteps = [
+        'Your application is under review',
+        'You will receive an email notification once reviewed',
+        'Check back in 3-5 business days'
+      ];
+    } else if (user.membership_stage === 'pre_member') {
+      applicationStatus = 'approved';
+      canSubmitApplication = false;
+      nextSteps = [
+        'Congratulations! Your initial application was approved',
+        'You now have access to Towncrier content',
+        'Consider applying for full membership when eligible'
+      ];
+    } else if (user.membership_stage === 'member') {
+      applicationStatus = 'approved';
+      canSubmitApplication = false;
+      nextSteps = [
+        'Welcome! You are now a full member',
+        'Access all member benefits and resources',
+        'Participate in member-exclusive activities'
+      ];
+    }
+
+    // Calculate progress percentage
+    let progressPercentage = 0;
+    switch (user.membership_stage) {
+      case 'none':
+      case null:
+      case undefined:
+        progressPercentage = 0;
+        break;
+      case 'applicant':
+        progressPercentage = 25;
+        break;
+      case 'pre_member':
+        progressPercentage = 50;
+        break;
+      case 'member':
+        progressPercentage = 100;
+        break;
+    }
+
+    const response = {
+      currentStatus: {
+        membership_stage: user.membership_stage || 'none',
+        initial_application_status: applicationStatus,
+        full_membership_application_status: fullApp?.approval_status || 'not_submitted',
+        is_member: user.is_member,
+        progressPercentage
+      },
+      applicationDetails: initialApp || null,
+      nextSteps,
+      canSubmitApplication,
+      timeline: {
+        registered: user.createdAt,
+        initialSubmitted: initialApp?.submitted_at || null,
+        initialReviewed: initialApp?.reviewed_at || null,
+        fullMembershipAccessed: user.membership_stage === 'member' ? user.createdAt : null,
+        fullMembershipSubmitted: fullApp?.submitted_at || null
+      }
+    };
+
+    console.log('✅ Sending checkApplicationStatus response');
+    return successResponse(res, response);
+
+  } catch (error) {
+    console.error('❌ checkApplicationStatus error:', error);
+    return errorResponse(res, error, error.statusCode || 500);
+  }
+};
+
+/**
+ * Submit initial application with enhanced validation
+ */
+export const submitInitialApplication = async (req, res) => {
+  try {
+    console.log('🎯 submitInitialApplication called!');
+    console.log('📝 Request body:', req.body);
+
+    const { answers, applicationTicket } = req.body;
+    const user = req.user;
+    
+    console.log('👤 User:', user);
+    
+    if (!user || !user.id) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const userId = user.id;
+    console.log('🔍 Extracted userId:', userId);
+
+    const result = await db.transaction(async (connection) => {
+      // Get user details
+      const [userRows] = await connection.execute(
+        'SELECT * FROM users WHERE id = ?',
+        [userId]
+      );
+
+      if (userRows.length === 0) {
+        throw new Error('User not found');
+      }
+
+      const userData = userRows[0];
+      console.log('✅ User found:', userData.username);
+
+      // Insert application into surveylog (not applications table)
+      const insertQuery = `
+        INSERT INTO surveylog (
+          user_id, application_type, answers, application_ticket,
+          approval_status, createdAt
+        ) VALUES (?, ?, ?, ?, ?, NOW())
+      `;
+
+      const [insertResult] = await connection.execute(insertQuery, [
+        userId.toString(),
+        'initial_application',
+        JSON.stringify(answers),
+        applicationTicket,
+        'pending'
+      ]);
+
+      // Update user record
+      const updateQuery = `
+        UPDATE users 
+        SET application_ticket = ?, membership_stage = ?
+        WHERE id = ?
+      `;
+
+      await connection.execute(updateQuery, [
+        applicationTicket,
+        'applicant',
+        userId
+      ]);
+
+      return {
+        applicationId: insertResult.insertId,
+        applicationTicket,
+        userId
+      };
+    });
+
+    console.log('✅ Application submitted successfully:', result);
+    
+    res.json({
+      success: true,
+      message: 'Application submitted successfully',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('❌ submitInitialApplication error:', error);
+    res.status(500).json({ 
+      error: 'Failed to submit application',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get application history for user
+ */
+export const getApplicationHistory = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.user_id;
+    
+    // Get application history
+    const [history] = await db.query(`
+      SELECT 
+        sl.application_type,
+        sl.approval_status,
+        sl.createdAt as submitted_at,
+        sl.reviewed_at,
+        sl.admin_notes,
+        reviewer.username as reviewed_by,
+        sl.application_ticket as ticket
+      FROM surveylog sl
+      LEFT JOIN users reviewer ON sl.reviewed_by = reviewer.id
+      WHERE CAST(sl.user_id AS UNSIGNED) = ?
+      ORDER BY sl.createdAt DESC
+    `, [userId]);
+
+    // Get review history if available
+    const [reviews] = await db.query(`
+      SELECT 
+        mrh.application_type,
+        mrh.previous_status,
+        mrh.new_status,
+        mrh.review_notes,
+        mrh.action_taken,
+        mrh.reviewed_at,
+        reviewer.username as reviewer_name
+      FROM membership_review_history mrh
+      LEFT JOIN users reviewer ON mrh.reviewer_id = reviewer.id
+      WHERE mrh.user_id = ?
+      ORDER BY mrh.reviewed_at DESC
+    `, [userId]);
+
+    return successResponse(res, {
+      applications: history,
+      reviews
+    });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+};
+
+/**
+ * Get user's current membership stage and permissions
+ */
+export const getUserPermissions = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.user_id;
+    
+    const user = await getUserById(userId);
+    
+    // Define permissions based on membership stage and role
+    const permissions = {
+      canAccessTowncrier: ['pre_member', 'member'].includes(user.membership_stage) || ['admin', 'super_admin'].includes(user.role),
+      canAccessIko: user.membership_stage === 'member' || ['admin', 'super_admin'].includes(user.role),
+      canSubmitInitialApplication: !user.membership_stage || user.membership_stage === 'none' || (user.membership_stage === 'applicant' && user.is_member === 'rejected'),
+      canSubmitFullMembershipApplication: user.membership_stage === 'pre_member',
+      canAccessAdmin: ['admin', 'super_admin'].includes(user.role),
+      canManageUsers: user.role === 'super_admin',
+      canReviewApplications: ['admin', 'super_admin'].includes(user.role)
+    };
+    
+    return successResponse(res, {
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        membership_stage: user.membership_stage,
+        is_member: user.is_member,
+        role: user.role
+      },
+      permissions
+    });
+    
+  } catch (error) {
+    return errorResponse(res, error, error.statusCode || 500);
+  }
+};
+
+// ==================================================
+// FULL MEMBERSHIP FUNCTIONS
+// ==================================================
+
+/**
+ * Get full membership status and eligibility
+ */
+export const getFullMembershipStatus = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.user_id;
+    
+    const user = await getUserById(userId);
+    
+    // Get full membership application details if exists
+    const [fullMembershipApps] = await db.query(`
+      SELECT 
+        sl.answers,
+        sl.approval_status,
+        sl.createdAt as submitted_at,
+        sl.reviewed_at,
+        sl.admin_notes,
+        reviewer.username as reviewed_by
+      FROM surveylog sl
+      LEFT JOIN users reviewer ON sl.reviewed_by = reviewer.id
+      WHERE CAST(sl.user_id AS UNSIGNED) = ? AND sl.application_type = 'full_membership'
+      ORDER BY sl.createdAt DESC
+      LIMIT 1
+    `, [userId]);
+    
+    // Check eligibility for full membership
+    const isEligible = user.membership_stage === 'pre_member';
+    const currentApp = fullMembershipApps[0] || null;
+    
+    // Get requirements and benefits
+    const requirements = [
+      'Completed initial membership application',
+      'Active participation for at least 30 days',
+      'Attended at least 2 community events',
+      'Good standing with community guidelines'
+    ];
+    
+    const benefits = [
+      'Access to exclusive member events',
+      'Voting rights in community decisions',
+      'Advanced class access',
+      'Mentorship opportunities',
+      'Priority support'
+    ];
+    
+    return successResponse(res, {
+      currentStatus: {
+        membership_stage: user.membership_stage,
+        is_member: user.is_member,
+        full_membership_application_status: currentApp?.approval_status || 'not_submitted'
+      },
+      fullMembershipApplication: currentApp,
+      eligibility: {
+        isEligible,
+        canApply: isEligible && (!currentApp || currentApp.approval_status === 'rejected'),
+        requirements,
+        benefits
+      },
+      nextSteps: isEligible ? [
+        'Review full membership benefits',
+        'Complete full membership application',
+        'Submit required documentation'
+      ] : [
+        'Complete initial membership process first'
+      ]
+    });
+    
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+};
+
+/**
+ * Submit full membership application
+ */
+export const submitFullMembershipApplication = async (req, res) => {
+  try {
+    const { answers, additionalDocuments } = req.body;
+    const userId = req.user.id || req.user.user_id;
+        
+    // Validate input
+    if (!answers || !Array.isArray(answers) || answers.length === 0) {
+      throw new CustomError('Application answers are required', 400);
+    }
+        
+    const user = await getUserById(userId);
+        
+    // Check eligibility
+    if (user.membership_stage !== 'pre_member') {
+      throw new CustomError('Not eligible for full membership application', 403);
+    }
+        
+    // Check for existing application
+    const [existingApps] = await db.query(`
+      SELECT approval_status FROM surveylog 
+      WHERE CAST(user_id AS UNSIGNED) = ? AND application_type = 'full_membership'
+      ORDER BY createdAt DESC LIMIT 1
+    `, [userId]);
+        
+    if (existingApps.length > 0 && existingApps[0].approval_status === 'pending') {
+      throw new CustomError('Full membership application already submitted', 400);
+    }
+        
+    const result = await db.transaction(async (connection) => {
+      // Generate application ticket
+      const applicationTicket = generateApplicationTicket(user.username, user.email, 'FULL');
+            
+      // Submit application
+      await connection.execute(`
+        INSERT INTO surveylog (
+          user_id, 
+          answers, 
+          application_type, 
+          approval_status, 
+          application_ticket,
+          additional_data,
+          createdAt
+        ) VALUES (?, ?, 'full_membership', 'pending', ?, ?, NOW())
+      `, [
+        userId.toString(), 
+        JSON.stringify(answers), 
+        applicationTicket,
+        JSON.stringify({ additionalDocuments: additionalDocuments || [] })
+      ]);
+            
+      return { applicationTicket };
+    });
+        
+    // Send confirmation email
+    try {
+      await sendEmail(user.email, 'full_membership_application_submitted', {
+        USERNAME: user.username,
+        APPLICATION_TICKET: result.applicationTicket,
+        SUBMISSION_DATE: new Date().toLocaleDateString()
+      });
+    } catch (emailError) {
+      console.error('Confirmation email failed:', emailError);
+    }
+        
+    return successResponse(res, {
+      applicationTicket: result.applicationTicket,
+      nextSteps: [
+        'Your application is now under review',
+        'Review process typically takes 5-7 business days',
+        'You will receive email notification once reviewed',
+        'Continue participating in community activities'
+      ]
+    }, 'Full membership application submitted successfully', 201);
+        
+  } catch (error) {
+    return errorResponse(res, error, error.statusCode || 500);
+  }
+};
+
+/**
+ * Log full membership access
+ */
+export const logFullMembershipAccess = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.user_id;
+    
+    // Insert or update access log
+    await db.query(`
+      INSERT INTO full_membership_access (user_id, first_accessed_at, last_accessed_at, access_count)
+      VALUES (?, NOW(), NOW(), 1)
+      ON DUPLICATE KEY UPDATE 
+        last_accessed_at = NOW(),
+        access_count = access_count + 1
+    `, [userId]);
+    
+    // Get updated access info
+    const [accessInfo] = await db.query(`
+      SELECT first_accessed_at, last_accessed_at, access_count
+      FROM full_membership_access
+      WHERE user_id = ?
+    `, [userId]);
+    
+    return successResponse(res, {
+      accessInfo: accessInfo[0] || null
+    }, 'Access logged successfully');
+    
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+};
+
+// ==================================================
+// APPLICATION UTILITY FUNCTIONS
+// ==================================================
+
+/**
+ * Update application answers (before submission)
+ */
+export const updateApplicationAnswers = async (req, res) => {
+  try {
+    const { answers, applicationType = 'initial_application' } = req.body;
+    const userId = req.user.id || req.user.user_id;
+    
+    if (!answers || !Array.isArray(answers)) {
+      throw new CustomError('Valid answers array is required', 400);
+    }
+    
+    // Check if application exists and is still pending
+    const applications = await executeQuery(`
+      SELECT id, approval_status 
+      FROM surveylog 
+      WHERE CAST(user_id AS UNSIGNED) = ? AND application_type = ?
+      ORDER BY createdAt DESC LIMIT 1
+    `, [userId, applicationType]);
+    
+    if (!applications.length) {
+      throw new CustomError('No application found to update', 404);
+    }
+    
+    const application = applications[0];
+    
+    if (application.approval_status !== 'pending') {
+      throw new CustomError('Cannot update application that has already been reviewed', 400);
+    }
+    
+    // Update application answers
+    await executeQuery(`
+      UPDATE surveylog 
+      SET answers = ?, updated_at = NOW()
+      WHERE id = ?
+    `, [JSON.stringify(answers), application.id]);
+    
+    return successResponse(res, {
+      applicationId: application.id,
+      updatedAnswers: answers.length
+    }, 'Application answers updated successfully');
+    
+  } catch (error) {
+    return errorResponse(res, error, error.statusCode || 500);
+  }
+};
+
+/**
+ * Withdraw application (user can withdraw pending applications)
+ */
+export const withdrawApplication = async (req, res) => {
+  try {
+    const { applicationType = 'initial_application', reason } = req.body;
+    const userId = req.user.id || req.user.user_id;
+        
+    // Check if application exists and is pending
+    const applications = await executeQuery(`
+      SELECT id, approval_status 
+      FROM surveylog 
+      WHERE CAST(user_id AS UNSIGNED) = ? AND application_type = ?
+      ORDER BY createdAt DESC LIMIT 1
+    `, [userId, applicationType]);
+        
+    if (!applications.length) {
+      throw new CustomError('No application found to withdraw', 404);
+    }
+        
+    const application = applications[0];
+        
+    if (application.approval_status !== 'pending') {
+      throw new CustomError('Can only withdraw pending applications', 400);
+    }
+        
+    const result = await db.transaction(async (connection) => {
+      // Update application status to withdrawn
+      await connection.execute(`
+        UPDATE surveylog 
+        SET approval_status = 'withdrawn', admin_notes = ?, reviewed_at = NOW()
+        WHERE id = ?
+      `, [reason || 'Withdrawn by user', application.id]);
+            
+      // If withdrawing initial application, reset user status
+      if (applicationType === 'initial_application') {
+        await connection.execute(`
+          UPDATE users 
+          SET membership_stage = 'none', is_member = 'pending'
+          WHERE id = ?
+        `, [userId]);
+      }
+            
+      return {
+        applicationId: application.id,
+        applicationType
+      };
+    });
+        
+    return successResponse(res, result, 'Application withdrawn successfully');
+        
+  } catch (error) {
+    return errorResponse(res, error, error.statusCode || 500);
+  }
+};
+
+/**
+ * Get application requirements and guidelines
+ */
+export const getApplicationRequirements = async (req, res) => {
+  try {
+    const { type = 'initial' } = req.query;
+    
+    let requirements, guidelines, estimatedTime;
+    
+    if (type === 'initial') {
+      requirements = [
+        'Valid email address for verification',
+        'Complete personal information',
+        'Answer all application questions',
+        'Agree to community guidelines',
+        'Provide reason for joining'
+      ];
+      
+      guidelines = [
+        'Be honest and thorough in your responses',
+        'Provide specific examples where requested',
+        'Review your answers before submission',
+        'Application processing takes 3-5 business days',
+        'You will receive email notification of decision'
+      ];
+      
+      estimatedTime = '10-15 minutes';
+    } else {
+      requirements = [
+        'Must be an approved pre-member',
+        'Active participation for at least 30 days',
+        'Good standing with community guidelines',
+        'Complete full membership questionnaire',
+        'Provide references if requested'
+      ];
+      
+      guidelines = [
+        'Demonstrate your commitment to the community',
+        'Show examples of your participation and contributions',
+        'Be prepared for potential interview process',
+        'Full membership review takes 5-7 business days',
+        'Decision will be communicated via email'
+      ];
+      
+      estimatedTime = '20-30 minutes';
+    }
+    
+    return successResponse(res, {
+      applicationType: type,
+      requirements,
+      guidelines,
+      estimatedTime,
+      supportContact: 'support@ikoota.com'
+    });
+    
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+};

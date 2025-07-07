@@ -418,3 +418,178 @@ export const deleteUser = async (user_id) => {
     throw new CustomError(error.message || 'Failed to delete user');
   }
 };
+
+
+
+
+// Get all users for admin panel
+export const getAllUsersForAdmin = async () => {
+  try {
+    const [users] = await db.query(`
+      SELECT 
+        id, username, email, phone, role, membership_stage, is_member,
+        converse_id, mentor_id, primary_class_id as class_id, 
+        isblocked, isbanned, createdAt, updatedAt,
+        full_membership_status, is_identity_masked, total_classes
+      FROM users 
+      ORDER BY createdAt DESC
+    `);
+    
+    return users;
+  } catch (error) {
+    console.error('❌ Database error in getAllUsersForAdmin:', error);
+    throw new Error(`Failed to fetch users: ${error.message}`);
+  }
+};
+
+// Get all mentors for admin panel
+export const getAllMentorsForAdmin = async () => {
+  try {
+    const [mentors] = await db.query(`
+      SELECT 
+        id, username, email, converse_id, role, 
+        primary_class_id as class_id, total_classes
+      FROM users 
+      WHERE role IN ('admin', 'super_admin') 
+         OR converse_id IS NOT NULL
+      ORDER BY role DESC, username ASC
+    `);
+    
+    return mentors;
+  } catch (error) {
+    console.error('❌ Database error in getAllMentorsForAdmin:', error);
+    throw new Error(`Failed to fetch mentors: ${error.message}`);
+  }
+};
+
+// Update user by admin
+export const updateUserByAdmin = async (userId, updateData) => {
+  try {
+    // Map frontend field names to database field names
+    const fieldMapping = {
+      'class_id': 'primary_class_id',
+      'isblocked': 'isblocked',
+      'isbanned': 'isbanned'
+    };
+    
+    // Clean and map the data
+    const cleanData = {};
+    for (const [key, value] of Object.entries(updateData)) {
+      if (value !== undefined && value !== null && value !== '') {
+        const dbField = fieldMapping[key] || key;
+        cleanData[dbField] = value;
+      }
+    }
+    
+    if (Object.keys(cleanData).length === 0) {
+      throw new Error('No valid update data provided');
+    }
+    
+    // Special handling for isblocked (it's JSON in your schema)
+    if (cleanData.isblocked !== undefined) {
+      cleanData.isblocked = JSON.stringify(cleanData.isblocked);
+    }
+    
+    // Build dynamic update query
+    const setClause = Object.keys(cleanData)
+      .map(key => `${key} = ?`)
+      .join(', ');
+    
+    const values = Object.values(cleanData);
+    values.push(userId);
+    
+    const updateQuery = `UPDATE users SET ${setClause} WHERE id = ?`;
+    
+    await db.query(updateQuery, values);
+    
+    // Get updated user
+    const [updatedUser] = await db.query(
+      `SELECT id, username, email, role, membership_stage, is_member, 
+              primary_class_id as class_id, isblocked, isbanned 
+       FROM users WHERE id = ?`,
+      [userId]
+    );
+    
+    return updatedUser[0] || null;
+  } catch (error) {
+    console.error('❌ Database error in updateUserByAdmin:', error);
+    throw new Error(`Failed to update user: ${error.message}`);
+  }
+};
+
+// Get membership overview statistics
+export const getMembershipOverviewStats = async () => {
+  try {
+    // Get user statistics
+    const [userStats] = await db.query(`
+      SELECT 
+        COUNT(*) as total_users,
+        COUNT(CASE WHEN role IN ('admin', 'super_admin') THEN 1 END) as admin_users,
+        COUNT(CASE WHEN membership_stage = 'member' THEN 1 END) as full_members,
+        COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END) as pre_members,
+        COUNT(CASE WHEN membership_stage = 'applicant' THEN 1 END) as applicants,
+        COUNT(CASE WHEN is_member = 'applied' THEN 1 END) as applied_members,
+        COUNT(CASE WHEN is_member = 'pending' THEN 1 END) as pending_members,
+        COUNT(CASE WHEN is_member = 'granted' THEN 1 END) as granted_members,
+        COUNT(CASE WHEN is_member = 'declined' THEN 1 END) as declined_members,
+        COUNT(CASE WHEN JSON_EXTRACT(isblocked, '$') = true OR isblocked = '1' THEN 1 END) as blocked_users,
+        COUNT(CASE WHEN isbanned = 1 THEN 1 END) as banned_users,
+        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as new_users_30d,
+        COUNT(CASE WHEN is_identity_masked = 1 THEN 1 END) as masked_identities
+      FROM users
+    `);
+    
+    // Get application stats from surveylog
+    const [applicationStats] = await db.query(`
+      SELECT 
+        COUNT(*) as total_applications,
+        COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_initial,
+        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_applications,
+        COUNT(CASE WHEN approval_status = 'rejected' THEN 1 END) as rejected_applications,
+        COUNT(CASE WHEN application_type = 'initial_application' THEN 1 END) as initial_applications,
+        COUNT(CASE WHEN application_type = 'full_membership' THEN 1 END) as full_membership_applications
+      FROM surveylog
+    `);
+    
+    // Get reports stats
+    const [reportStats] = await db.query(`
+      SELECT 
+        COUNT(*) as total_reports,
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_reports,
+        COUNT(CASE WHEN status = 'resolved' THEN 1 END) as resolved_reports
+      FROM reports
+    `);
+    
+    return {
+      ...userStats[0],
+      ...applicationStats[0],
+      ...reportStats[0]
+    };
+  } catch (error) {
+    console.error('❌ Database error in getMembershipOverviewStats:', error);
+    throw new Error(`Failed to fetch membership overview: ${error.message}`);
+  }
+};
+
+// Get all classes
+export const getAllClasses = async () => {
+  try {
+    // Since there's no classes table in your schema, 
+    // get unique class IDs from users table
+    const [classes] = await db.query(`
+      SELECT DISTINCT 
+        primary_class_id as class_id,
+        primary_class_id as class_name,
+        COUNT(*) as member_count
+      FROM users 
+      WHERE primary_class_id IS NOT NULL
+      GROUP BY primary_class_id
+      ORDER BY primary_class_id
+    `);
+    
+    return classes;
+  } catch (error) {
+    console.error('❌ Database error in getAllClasses:', error);
+    throw new Error(`Failed to fetch classes: ${error.message}`);
+  }
+};

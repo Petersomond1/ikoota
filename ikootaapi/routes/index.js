@@ -34,6 +34,12 @@ router.get('/health', (req, res) => {
   });
 });
 
+// Debug middleware to log all routes
+router.use((req, res, next) => {
+  console.log(`🔍 ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // API routes with enhanced organization
 router.use('/auth', authRoutes);
 router.use('/survey', surveyRoutes);
@@ -46,6 +52,29 @@ router.use('/comments', commentRoutes);
 router.use('/communication', communicationRoutes);
 router.use('/membership', membershipRoutes);
 router.use('/identity', identityRoutes);
+
+
+
+// Add specific debugging for membership routes
+router.use('/membership', (req, res, next) => {
+  console.log(`🎯 Membership route hit: ${req.method} ${req.path}`);
+  next();
+});
+
+// Add debugging to show what's mounted
+console.log('📋 Routes mounted:');
+console.log('  - /api/auth');
+console.log('  - /api/membership');
+console.log('  - /api/survey');
+console.log('  - /api/teachings');
+console.log('  - /api/users');
+console.log('  - /api/chats');
+console.log('  - /api/comments');
+console.log('  - /api/communication');
+console.log('  - /api/admin');
+console.log('  - /api/classes');
+console.log('  - /api/identity');
+
 
 // Enhanced API documentation endpoint
 
