@@ -1,3 +1,5 @@
+import db from '../config/db.js';
+
 // Get pending applications with pagination and filtering
 export const getPendingApplicationsWithPagination = async (options) => {
   try {

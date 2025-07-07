@@ -21,16 +21,40 @@ import {
 // ==================================================
 
 // NEW: Two-Stage Membership System APIs
+// const fetchMembershipOverview = async () => {
+//   const { data } = await api.get('/membership/admin/membership-overview');
+//   return data;
+// };
+
 const fetchMembershipOverview = async () => {
-  const { data } = await api.get('/membership/admin/membership-overview');
-  return data;
+  try {
+    const { data } = await api.get('/membership/admin/membership-overview');
+    return data?.overview || {};
+  } catch (error) {
+    console.error('❌ Error fetching membership overview:', error);
+    return {};
+  }
 };
 
+
+// const fetchPendingApplications = async (filters = {}) => {
+//   const params = new URLSearchParams(filters);
+//   const { data } = await api.get(`/membership/admin/pending-applications?${params}`);
+//   return data;
+// };
+
+
 const fetchPendingApplications = async (filters = {}) => {
-  const params = new URLSearchParams(filters);
-  const { data } = await api.get(`/membership/admin/pending-applications?${params}`);
-  return data;
+  try {
+    const params = new URLSearchParams(filters);
+    const { data } = await api.get(`/membership/admin/pending-applications?${params}`);
+    return data || { applications: [], pagination: { total: 0, page: 1, totalPages: 1 } };
+  } catch (error) {
+    console.error('❌ Error fetching pending applications:', error);
+    return { applications: [], pagination: { total: 0, page: 1, totalPages: 1 } };
+  }
 };
+
 
 const bulkApproveApplications = async ({ userIds, action, adminNotes }) => {
   const { data } = await api.post('/membership/admin/bulk-approve', {
@@ -57,37 +81,111 @@ const updateApplicationStatus = async ({ userId, status, adminNotes }) => {
 //   return data;
 // };
 
+
+
+// const fetchUsers = async () => {
+//   try {
+//     const { data } = await api.get('/admin/users');
+//     // Handle different response formats
+//     if (data?.success && Array.isArray(data.users)) {
+//       return data.users;
+//     }
+//     if (Array.isArray(data)) {
+//       return data;
+//     }
+//     return [];
+//   } catch (error) {
+//     console.error('Error fetching users:', error);
+//     return [];
+//   }
+// };
+
+
 const fetchUsers = async () => {
   try {
     const { data } = await api.get('/admin/users');
-    // Handle different response formats
+    console.log('👤 Users API Response:', data);
+    
+    // Handle different response formats safely
     if (data?.success && Array.isArray(data.users)) {
+      return data.users;
+    }
+    if (data?.users && Array.isArray(data.users)) {
       return data.users;
     }
     if (Array.isArray(data)) {
       return data;
     }
+    
+    console.warn('⚠️ Unexpected users API response format:', data);
     return [];
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error('❌ Error fetching users:', error);
+    // Return empty array instead of throwing to prevent crash
+    return [];
+  }
+};
+
+// const fetchClasses = async () => {
+//   const { data } = await api.get('/classes');
+//   return data;
+// };
+
+const fetchClasses = async () => {
+  try {
+    const { data } = await api.get('/classes');
+    return Array.isArray(data?.classes) ? data.classes : [];
+  } catch (error) {
+    console.error('❌ Error fetching classes:', error);
     return [];
   }
 };
 
 
-const fetchClasses = async () => {
-  const { data } = await api.get('/classes');
-  return data;
-};
+// const fetchMentors = async () => {
+//   const { data } = await api.get('/admin/mentors');
+//   return data;
+// };
 
 const fetchMentors = async () => {
-  const { data } = await api.get('/admin/mentors');
-  return data;
+  try {
+    const { data } = await api.get('/admin/mentors');
+    return Array.isArray(data?.mentors) ? data.mentors : [];
+  } catch (error) {
+    console.error('❌ Error fetching mentors:', error);
+    return [];
+  }
 };
 
+
+// const fetchReports = async () => {
+//   const { data } = await api.get('/admin/reports');
+//   return data;
+// };
+
 const fetchReports = async () => {
-  const { data } = await api.get('/admin/reports');
-  return data;
+  try {
+    const { data } = await api.get('/admin/reports');
+    console.log('📊 Reports API Response:', data);
+    
+    // Handle different response formats safely
+    if (data?.success && Array.isArray(data.reports)) {
+      return data.reports;
+    }
+    if (data?.reports && Array.isArray(data.reports)) {
+      return data.reports;
+    }
+    if (Array.isArray(data)) {
+      return data;
+    }
+    
+    console.warn('⚠️ Unexpected reports API response format:', data);
+    return [];
+  } catch (error) {
+    console.error('❌ Error fetching reports:', error);
+    // Return empty array instead of throwing to prevent crash
+    return [];
+  }
 };
 
 const updateUser = async ({ id, formData }) => {
