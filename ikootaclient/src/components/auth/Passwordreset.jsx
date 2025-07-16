@@ -1,3 +1,4 @@
+//ikootaclient\src\components\auth\Passwordreset.jsx
 import React, { useState } from "react";
 import axios from "axios";
 import "./passwordreset.css";

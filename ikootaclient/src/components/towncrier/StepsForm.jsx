@@ -1,6 +1,4 @@
-/*    Needs to be delected as infused inside towncrierControls.jsx */
-
-
+// ikootaclient\src\components\towncrier\StepsForm.jsx
 import React, { useState } from 'react';
 
 const StepsForm = ({ addTopic}) => {

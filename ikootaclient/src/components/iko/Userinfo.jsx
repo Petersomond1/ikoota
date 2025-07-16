@@ -1,3 +1,4 @@
+//ikootaclient\src\components\iko\Userinfo.jsx
 import React, { useEffect, useState } from 'react';
 import api from '../service/api';
 import {jwtDecode} from 'jwt-decode';

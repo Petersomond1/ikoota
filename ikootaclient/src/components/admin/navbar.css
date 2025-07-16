@@ -1,4 +1,6 @@
+/* ikootaclient/src/components/admin/navbar.css */
 
+/* ===== EXISTING STYLES (PRESERVED) ===== */
 .navbar {
     display: flex;
     flex-direction: row;
@@ -44,7 +46,6 @@
     flex-direction: row;
 }
 
-
 .admin_controls_body {
     display: flex;
     flex-direction: column;
@@ -55,23 +56,13 @@
     border-radius: 5px;
     border: 3px solid goldenrod;
     padding: 10px;
+}
 
-
-    .towncrier_controls_body, .iko_controls_body, .auth_controls_body .search_controls_body {
-       width: 100%;
-       
-        /* display: flex;
-        flex-direction: column;
-        gap: 10px;
-        align-items: center;
-        width: 100%;
-        padding: 10px;
-        border-radius: 5px;
-        background-color: rgba(255, 255, 255, 0.068);
-        border: 3px solid goldenrod;
-        color: white;
-        margin: 5px 0; */
-    }
+.admin_controls_body .towncrier_controls_body,
+.admin_controls_body .iko_controls_body,
+.admin_controls_body .auth_controls_body,
+.admin_controls_body .search_controls_body {
+    width: 100%;
 }
 
 .admin_controls_header {
@@ -88,7 +79,6 @@
     margin: 5px 0;
 }
 
-
 .icons {
     display: flex;
     gap: 20px;
@@ -104,8 +94,7 @@
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    width: '100%';
-
+    width: 100%;
     padding: 10px;
     background-color: rgba(17, 25, 40, 0.5);
     border-radius: 5px;
@@ -156,4 +145,183 @@
 .bottom textarea {
     height: 80px;
     resize: none;
+}
+
+/* ===== NEW ADMIN NAVBAR STYLES ===== */
+.admin-navbar-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+    padding: 0 15px;
+}
+
+.navbar-left .navbar-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.navbar-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.status-indicators {
+    display: flex;
+    gap: 15px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.875rem;
+    color: #666;
+}
+
+.status-indicator.online {
+    color: #4CAF50;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #4CAF50;
+    animation: pulse 2s infinite;
+}
+
+.navbar-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.time-display {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 0.875rem;
+    color: #666;
+}
+
+.current-time {
+    font-weight: 600;
+    color: #333;
+}
+
+.current-date {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 0.875rem;
+}
+
+.user-name {
+    font-weight: 600;
+    color: #333;
+}
+
+.user-role {
+    font-size: 0.75rem;
+    color: #666;
+}
+
+.navbar-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: background-color 0.2s ease;
+}
+
+.action-btn:hover {
+    background-color: #f0f0f0;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+/* Tablet styles */
+@media (max-width: 1024px) {
+    .navbar-left .navbar-title {
+        font-size: 1.3rem;
+    }
+
+    .time-display,
+    .user-info {
+        font-size: 0.8rem;
+    }
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+    .admin-navbar-content {
+        padding: 0 10px;
+    }
+
+    .navbar-left .navbar-title {
+        font-size: 1.2rem;
+    }
+
+    .navbar-center {
+        display: none;
+    }
+
+    .time-display {
+        display: none;
+    }
+
+    .user-info {
+        display: none;
+    }
+
+    .navbar-actions {
+        gap: 5px;
+    }
+
+    .action-btn {
+        padding: 6px;
+        font-size: 1.1rem;
+    }
+}
+
+/* Small mobile styles */
+@media (max-width: 480px) {
+    .navbar-left .navbar-title {
+        font-size: 1.1rem;
+    }
+
+    .action-btn {
+        padding: 5px;
+        font-size: 1rem;
+    }
 }

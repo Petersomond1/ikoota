@@ -1,3 +1,4 @@
+//ikootaclient\src\components\service\useFetchComments.js
 import { useQuery } from "@tanstack/react-query";
 import api from "./api.js";
 

@@ -1,5 +1,5 @@
 
-// ==================================================
+// ikootaclient\src\components\iko\Iko.jsx
 // COMPLETE IKO JSX FIX
 // Updated Iko.jsx with proper admin layout support
 // ==================================================

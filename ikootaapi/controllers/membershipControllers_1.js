@@ -26,43 +26,240 @@ export const generateApplicationTicket = (username, email, type = 'INITIAL') => 
 /**
  * FIXED: Get user by ID with proper error handling
  */
+
+// ✅ FIXED: Use db.query instead of destructured query
+const query = db.query; 
+
 export const getUserById = async (userId) => {
-  try {
-    console.log('🔍 getUserById called with userId:', userId);
-    
-    const result = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
-    console.log('🔍 Raw DB result structure check');
-    
-    // Handle different possible result structures
-    let users;
-    if (Array.isArray(result) && result.length > 0) {
-      if (Array.isArray(result[0])) {
-        users = result[0]; // MySQL2 format: [rows, fields]
-        console.log('✅ Using MySQL2 format: result[0]');
-      } else {
-        users = result; // Direct array format
-        console.log('✅ Using direct array format: result');
-      }
-    } else {
-      console.log('❌ Unexpected result structure');
-      throw new CustomError('Unexpected database result structure', 500);
+    try {
+        console.log('🔍 getUserById called with userId:', userId);
+        
+        // Validate input
+        if (!userId || (typeof userId !== 'number' && typeof userId !== 'string')) {
+            throw new CustomError('Invalid user ID provided', 400);
+        }
+        
+        const result = await query('SELECT * FROM users WHERE id = ?', [userId]);
+        console.log('🔍 Raw DB result structure check');
+        
+        // Handle different possible result structures
+        let users;
+        if (Array.isArray(result) && result.length > 0) {
+            if (Array.isArray(result[0])) {
+                users = result[0]; // MySQL2 format: [rows, fields]
+                console.log('✅ Using MySQL2 format: result[0]');
+            } else {
+                users = result; // Direct array format
+                console.log('✅ Using direct array format: result');
+            }
+        } else {
+            console.log('❌ Unexpected result structure');
+            throw new CustomError('Unexpected database result structure', 500);
+        }
+        
+        if (!users || users.length === 0) {
+            console.log('❌ No users found');
+            throw new CustomError('User not found', 404);
+        }
+        
+        const user = users[0];
+        console.log('✅ User extracted:', user.id, user.username);
+        
+        return user;
+    } catch (error) {
+        console.error('❌ Database query error in getUserById:', error);
+        throw new CustomError('Database operation failed: ' + error.message, 500);
     }
-    
-    if (!users || users.length === 0) {
-      console.log('❌ No users found');
-      throw new CustomError('User not found', 404);
-    }
-    
-    const user = users[0];
-    console.log('✅ User extracted:', user.id, user.username);
-    
-    return user;
-  } catch (error) {
-    console.error('❌ Database query error in getUserById:', error);
-    throw new CustomError('Database operation failed: ' + error.message, 500);
-  }
 };
 
+// ✅ ENHANCED: Backend-safe converse ID generation
+export const generateConverseId = () => {
+    const prefix = 'OTO#';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    
+    // ✅ Use crypto if available (Node.js 15.6+ or with crypto polyfill)
+    try {
+        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+            const array = new Uint8Array(6);
+            crypto.getRandomValues(array);
+            
+            for (let i = 0; i < 6; i++) {
+                result += chars[array[i] % chars.length];
+            }
+        } else {
+            // Fallback for older Node.js environments
+            const crypto = require('crypto');
+            for (let i = 0; i < 6; i++) {
+                result += chars[crypto.randomInt(0, chars.length)];
+            }
+        }
+    } catch (error) {
+        console.warn('⚠️ Crypto not available, using Math.random fallback');
+        // Fallback to Math.random (less secure but functional)
+        for (let i = 0; i < 6; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+    }
+    
+    return prefix + result;
+};
+
+// ✅ ENHANCED: Check if converse ID is unique in database
+export const ensureUniqueConverseId = async () => {
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+        const candidateId = generateConverseId();
+        
+        try {
+            // Check if this ID already exists
+            const result = await query('SELECT id FROM users WHERE converse_id = ?', [candidateId]);
+            
+            // Handle result format
+            let existingUsers;
+            if (Array.isArray(result)) {
+                existingUsers = Array.isArray(result[0]) ? result[0] : result;
+            } else {
+                existingUsers = [];
+            }
+            
+            if (existingUsers.length === 0) {
+                console.log('✅ Generated unique converse ID:', candidateId);
+                return candidateId;
+            }
+            
+            console.log('⚠️ Converse ID collision, retrying...', candidateId);
+            attempts++;
+        } catch (error) {
+            console.error('❌ Error checking converse ID uniqueness:', error);
+            // Return the candidate ID anyway to avoid blocking
+            return candidateId;
+        }
+    }
+    
+    // If we've exhausted attempts, return the last generated ID
+    console.warn('⚠️ Max attempts reached, using last generated ID');
+    return generateConverseId();
+};
+
+// Update user profile using your existing table structure
+export const updateUserProfile = async (userId, updates) => {
+    try {
+        // Map to your actual column names
+        const fieldMapping = {
+            'role': 'role',
+            'is_member': 'is_member',
+            'is_identity_masked': 'is_identity_masked',
+            'converse_id': 'converse_id',
+            'membership_stage': 'membership_stage',
+            'isbanned': 'isbanned'
+        };
+        
+        const updateFields = [];
+        const values = [];
+        
+        Object.keys(updates).forEach(key => {
+            if (fieldMapping[key] && updates[key] !== undefined) {
+                updateFields.push(`${fieldMapping[key]} = ?`);
+                values.push(updates[key]);
+            }
+        });
+        
+        if (updateFields.length === 0) {
+            throw new CustomError('No valid fields to update', 400);
+        }
+        
+        values.push(userId);
+        const sql = `UPDATE users SET ${updateFields.join(', ')}, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
+        
+        const result = await query(sql, values);
+        
+        if (result.affectedRows === 0) {
+            throw new CustomError('User not found or no changes made', 404);
+        }
+        
+        return await getUserById(userId);
+    } catch (error) {
+        console.error('❌ Error updating user profile:', error);
+        throw new CustomError(`Update failed: ${error.message}`, 500);
+    }
+};
+
+// ✅ NEW: Assign converse ID to user if they don't have one
+export const assignConverseIdToUser = async (userId) => {
+    try {
+        const user = await getUserById(userId);
+        
+        if (user.converse_id) {
+            console.log('✅ User already has converse ID:', user.converse_id);
+            return user.converse_id;
+        }
+        
+        const newConverseId = await ensureUniqueConverseId();
+        
+        await updateUserProfile(userId, {
+            converse_id: newConverseId,
+            is_identity_masked: 1
+        });
+        
+        console.log('✅ Assigned new converse ID to user:', userId, newConverseId);
+        return newConverseId;
+    } catch (error) {
+        console.error('❌ Error assigning converse ID:', error);
+        throw new CustomError(`Failed to assign converse ID: ${error.message}`, 500);
+    }
+};
+
+// ✅ NEW: Bulk assign converse IDs to users without them
+export const assignConverseIdsToUsersWithoutThem = async () => {
+    try {
+        console.log('🔍 Finding users without converse IDs...');
+        
+        const result = await query('SELECT id, username, email FROM users WHERE converse_id IS NULL OR converse_id = ""');
+        
+        // Handle result format
+        let usersWithoutIds;
+        if (Array.isArray(result)) {
+            usersWithoutIds = Array.isArray(result[0]) ? result[0] : result;
+        } else {
+            usersWithoutIds = [];
+        }
+        
+        if (usersWithoutIds.length === 0) {
+            console.log('✅ All users already have converse IDs');
+            return { updated: 0, users: [] };
+        }
+        
+        console.log(`📝 Found ${usersWithoutIds.length} users without converse IDs`);
+        
+        const updatedUsers = [];
+        
+        for (const user of usersWithoutIds) {
+            try {
+                const converseId = await assignConverseIdToUser(user.id);
+                updatedUsers.push({
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    converseId
+                });
+                console.log(`✅ Assigned ${converseId} to user ${user.id}`);
+            } catch (error) {
+                console.error(`❌ Failed to assign converse ID to user ${user.id}:`, error);
+            }
+        }
+        
+        return {
+            updated: updatedUsers.length,
+            users: updatedUsers
+        };
+    } catch (error) {
+        console.error('❌ Error in bulk converse ID assignment:', error);
+        throw new CustomError(`Bulk assignment failed: ${error.message}`, 500);
+    }
+};
 /**
  * Standardized database query executor with proper error handling
  */
@@ -139,18 +336,18 @@ export const errorResponse = (res, error, statusCode = 500) => {
 // ==================================================
 
 /**
- * Enhanced login with comprehensive membership status
+ * Enhanced login - SIMPLE FIX: Back to using email like before
  */
 export const enhancedLogin = async (req, res) => {
   try {
-    const { identifier, password } = req.body;
+    const { email, password } = req.body;  // ✅ Back to email like before
     
-    if (!identifier || !password) {
-      throw new CustomError('Email/username and password are required', 400);
+    if (!email || !password) {
+      throw new CustomError('Email and password are required', 400);
     }
     
-    // Get user with membership information
-    const [users] = await db.query(`
+    // ✅ FIXED: Proper database query result handling
+    const result = await db.query(`
       SELECT u.*, 
              COALESCE(sl.approval_status, 'not_submitted') as initial_application_status,
              sl.createdAt as initial_application_date,
@@ -160,9 +357,22 @@ export const enhancedLogin = async (req, res) => {
       LEFT JOIN surveylog sl ON u.id = CAST(sl.user_id AS UNSIGNED) 
         AND sl.application_type = 'initial_application'
       LEFT JOIN full_membership_access fma ON u.id = fma.user_id
-      WHERE u.email = ? OR u.username = ?
+      WHERE u.email = ?
       GROUP BY u.id
-    `, [identifier, identifier]);
+    `, [email]);  // ✅ Just use email, simple
+    
+    // ✅ FIXED: Handle database result properly
+    let users;
+    if (Array.isArray(result) && result.length > 0) {
+      // Check if it's MySQL2 format [rows, fields] or direct array
+      if (Array.isArray(result[0])) {
+        users = result[0]; // MySQL2 format
+      } else {
+        users = result; // Direct array format
+      }
+    } else {
+      users = [];
+    }
     
     if (!users || users.length === 0) {
       throw new CustomError('Invalid credentials', 401);
@@ -195,7 +405,7 @@ export const enhancedLogin = async (req, res) => {
     
     if (user.role === 'admin' || user.role === 'super_admin') {
       redirectTo = '/admin';
-    } else if (user.membership_stage === 'member' && user.is_member === 'active') {
+    } else if (user.membership_stage === 'member' && user.is_member === 'member') {
       redirectTo = '/iko';
     } else if (user.membership_stage === 'pre_member') {
       redirectTo = '/towncrier';

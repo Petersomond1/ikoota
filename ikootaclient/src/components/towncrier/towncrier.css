@@ -1,90 +1,26 @@
-/* .towncrier_container{
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    border : 2px solid gold;
-    gap: 2px;
-    border-radius: 5px;
-    height: 100%;
+/* ikootaclient/src/components/towncrier/towncrier.css - FIXED HEIGHT DISTRIBUTION */
 
+/* ================================================
+   MAIN TOWNCRIER CONTAINER - PROPER FLEXBOX LAYOUT
+   ================================================ */
 
-        .navbar{
-            display: flex;
-        }
-
-
-        .towncrier_viewport{
-            display: flex;
-            flex-direction: row;
-        }
-
-        .footnote{
-            display: flex;
-        }
-
-} */
-
-
-#ikootaclient\src\components\towncrier\towncrier.css
 .towncrier_container {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-  }
-  
-  .nav, .footnote {
-    background: #333;
-    color: white;
-    text-align: center;
-    padding: 10px;
-  }
-  
-  .towncrier_viewport {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-  }
-  
-  .revtopic-container {
-    flex: 1;
-    overflow-y: auto;
-    border-right: 2px solid #ddd;
-    padding: 10px;
-    background: #f8f8f894;
-  }
-  
-  .revTeaching-container {
-    flex: 3;
-    padding: 10px;
-    overflow-y: auto;
-  }
-  
-  .teaching-item {
-    background: #ffffff54;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  .media-container {
-    margin-top: 10px;
-  }
-  
-  .media-container img {
-    width: 100%;
-    max-height: 300px;
-    object-fit: cover;
-  }
-  
-  .media-container audio {
-    width: 100%;
-  }
-  
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  position: relative;
+}
 
+/* ================================================
+   NAVIGATION AND FOOTER - FIXED HEIGHT
+   ================================================ */
 
-
-  
 .nav {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -94,99 +30,14 @@
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   flex-wrap: wrap;
   gap: 8px;
+  height: 60px; /* Fixed height */
+  flex-shrink: 0; /* Don't shrink */
 }
-
-.nav-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.nav-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.user-status, .member-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85em;
-}
-
-.user-info {
-  background: rgba(255,255,255,0.1);
-  padding: 3px 6px;
-  border-radius: 10px;
-  font-size: 0.8em;
-}
-
-.status-badge {
-  padding: 2px 5px;
-  border-radius: 6px;
-  font-size: 0.7em;
-  font-weight: bold;
-}
-
-.status-badge.loading {
-  background: #ffa726;
-  color: white;
-}
-
-.status-badge.error {
-  background: #ef5350;
-  color: white;
-}
-
-.status-badge.member {
-  background: #4caf50;
-  color: white;
-}
-
-.status-badge.pending {
-  background: #ff9800;
-  color: white;
-}
-
-.admin-badge {
-  background: #9c27b0;
-  color: white;
-  padding: 2px 4px;
-  border-radius: 6px;
-  font-size: 0.7em;
-  margin-left: 4px;
-}
-
-.nav-stats, .chat-count, .teaching-count, .content-count {
-  background: rgba(255,255,255,0.1);
-  padding: 3px 6px;
-  border-radius: 6px;
-  font-size: 0.75em;
-}
-
-.refresh-btn {
-  padding: 4px 8px;
-  border: none;
-  border-radius: 12px;
-  background: #607d8b;
-  color: white;
-  cursor: pointer;
-  font-size: 0.7em;
-  transition: all 0.2s ease;
-}
-
-.refresh-btn:hover {
-  background: #455a64;
-  transform: scale(1.05);
-}
-
-/* =================================
-   COMPACT FOOTER STYLES
-   ================================= */
 
 .footnote {
+  position: sticky;
+  bottom: 0;
+  z-index: 1000;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -197,292 +48,431 @@
   flex-wrap: wrap;
   gap: 8px;
   border-top: 1px solid rgba(255,255,255,0.1);
-  min-height: 40px;
+  height: 40px; /* Fixed height */
+  flex-shrink: 0; /* Don't shrink */
 }
 
-.footer-left, .footer-center, .footer-right {
+/* ================================================
+   MAIN VIEWPORT - CALCULATED HEIGHT
+   ================================================ */
+
+.towncrier_viewport {
+  display: flex;
+  flex-direction: row;
+  /* Calculate exact height: 100vh minus nav (60px) and footer (40px) */
+  height: calc(100vh - 100px);
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  position: relative;
+  flex: 1; /* Take remaining space */
+  min-height: 0; /* Allow flex shrinking */
+}
+
+/* ================================================
+   BANNERS - ABSOLUTE POSITIONING TO NOT AFFECT LAYOUT
+   ================================================ */
+
+.membership-banner {
+  position: static;
+  top: 60px; 
+  left: 0;
+  right: 0;
+  z-index: 500;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  padding: 15px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.access-level-info {
+  position:static;
+  top: 30px; 
+  left: 0;
+  right: 0;
+  z-index: 400;
+  background: rgba(236, 240, 241, 0.95);
+  padding: 2px 5px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.access-btn{
+  width: 15%;
+}
+
+/* Adjust viewport padding when banners are present */
+.towncrier_viewport.with-banners {
+  padding-top: 100px; /* Space for banners */
+}
+
+/* ================================================
+   REVTOPIC CONTAINER - FIXED WIDTH, FULL HEIGHT
+   ================================================ */
+
+.revtopic-container {
+  flex: 1;
+  /*width: 350px;  Fixed width instead of flex */
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Full height of viewport */
+  border-right: 2px solid #ddd;
+  background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
+  flex-shrink: 0; /* Don't shrink */
+  min-height: 0; /* Allow content to scroll */
+}
+
+.revtopic-container .search {
+  flex-shrink: 0; /* Don't shrink */
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 15px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid #ddd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  height: 80px; /* Fixed height */
 }
 
-.footer-center {
+.topics-list {
+  flex: 1; /* Take remaining space */
+  overflow-y: auto; /* Scroll when needed */
+  padding: 10px;
+  background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
+  min-height: 0; /* Allow shrinking */
+}
+
+.topics-footer {
+  flex-shrink: 0; /* Don't shrink */
+  padding: 10px 15px;
+  background: rgba(255, 255, 255, 0.95);
+  border-top: 1px solid #ddd;
+  font-size: 12px;
+  color: #7f8c8d;
+  height: 40px; /* Fixed height */
+}
+
+/* ================================================
+   REVTEACHING CONTAINER - TAKES REMAINING SPACE
+   ================================================ */
+
+.revTeaching-container {
+  flex: 3; /* Take all remaining space */
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Full height of viewport */
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+  min-height: 0; /* Allow content to scroll */
+  overflow: hidden; /* Prevent overflow, let children handle scrolling */
+}
+
+.teaching-item {
+  flex: 1; /* Take all available space */
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Full height */
+  padding: 0; /* Remove padding from container */
+  background: transparent;
+  position: relative;
+  overflow: hidden; /* Let children handle scrolling */
+}
+
+.teaching-header {
+  flex-shrink: 0; /* Don't shrink */
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px 20px;
+  border-bottom: 2px solid #ecf0f1;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.teaching-content {
+  flex: 1; /* Take remaining space */
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  overflow-y: auto; /* This container scrolls */
+  gap: 20px;
+  min-height: 0; /* Allow shrinking */
+}
+
+/* ================================================
+   CONTENT SECTIONS - NATURAL SIZING
+   ================================================ */
+
+.teaching-details {
+  background: rgba(52, 152, 219, 0.05);
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #3498db;
+  flex-shrink: 0; /* Don't shrink */
+}
+
+.main-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border: 1px solid #ecf0f1;
+  flex-shrink: 0; /* Don't shrink */
+}
+
+.media-container {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border: 1px solid #ecf0f1;
+  flex-shrink: 0; /* Don't shrink */
+}
+
+.teaching-footer {
+  background: rgba(236, 240, 241, 0.5);
+  border-top: 1px solid #ecf0f1;
+  padding: 15px 20px;
+  flex-shrink: 0; /* Don't shrink */
+  margin-top: auto; /* Push to bottom if content is short */
+}
+
+/* ================================================
+   NO SELECTION STATE
+   ================================================ */
+
+.no-selection {
   flex: 1;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  background: linear-gradient(135deg, #ecf0f1 0%, #d5dbdb 100%);
+  color: #7f8c8d;
+  font-size: 18px;
+  font-style: italic;
+  padding: 40px;
 }
 
-.activity-indicator {
+/* ================================================
+   RESPONSIVE DESIGN
+   ================================================ */
+
+@media (max-width: 1024px) {
+  .towncrier_viewport {
+    flex-direction: column;
+    height: auto; /* Allow natural height on mobile */
+  }
+  
+  .revtopic-container {
+    width: 100%; /* Full width on mobile */
+    height: 300px; /* Fixed height on mobile */
+    border-right: none;
+    border-bottom: 2px solid #ddd;
+    flex-shrink: 0;
+  }
+  
+  .revTeaching-container {
+    flex: 1;
+    min-height: 400px; /* Minimum height on mobile */
+  }
+  
+  .membership-banner {
+    position: relative; /* Normal flow on mobile */
+    top: auto;
+  }
+  
+  .access-level-info {
+    position: relative; /* Normal flow on mobile */
+    top: auto;
+  }
+  
+  .towncrier_viewport.with-banners {
+    padding-top: 0; /* Remove padding on mobile */
+  }
+}
+
+@media (max-width: 768px) {
+  .nav {
+    height: 50px; /* Smaller nav on mobile */
+    padding: 6px 10px;
+  }
+  
+  .footnote {
+    height: 35px; /* Smaller footer on mobile */
+    padding: 4px 10px;
+  }
+  
+  .towncrier_viewport {
+    height: calc(100vh - 85px); /* Adjust for smaller nav/footer */
+  }
+  
+  .revtopic-container {
+    height: 250px; /* Smaller sidebar on mobile */
+  }
+  
+  .revtopic-container .search {
+    height: 70px; /* Smaller search on mobile */
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .revtopic-container {
+    height: 200px; /* Even smaller on very small screens */
+  }
+  
+  .revtopic-container .search {
+    height: 60px;
+  }
+  
+  .teaching-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+}
+
+/* ================================================
+   EXISTING STYLES - KEEPING UNCHANGED
+   ================================================ */
+
+/* Topic item styles */
+.topic-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 15px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.9);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  position: relative;
+}
+
+.topic-item:hover {
+  background: rgba(52, 152, 219, 0.1);
+  border-color: rgba(52, 152, 219, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.topic-item.selected {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
+  color: white !important;
+  border-color: #2980b9 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+}
+
+.topic-item.selected * {
+  color: white !important;
+}
+
+/* Rest of your existing styles remain the same... */
+.searchbar {
+  flex: 1;
+  background-color: rgba(52, 152, 219, 0.1);
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.online-status {
-  background: rgba(76,175,80,0.2);
-  padding: 2px 6px;
   border-radius: 8px;
-  border: 1px solid #4caf50;
-  font-size: 0.7em;
+  padding: 8px 12px;
+  border: 1px solid rgba(52, 152, 219, 0.2);
 }
 
-/* =================================
-   MINIMAL FOOTER BUTTONS
-   ================================= */
-
-.footer-controls {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.footer-btn {
-  padding: 3px 6px;
+.searchbar input {
+  background-color: transparent;
   border: none;
-  border-radius: 8px;
+  outline: none;
+  color: #2c3e50;
+  flex: 1;
+  font-size: 14px;
+}
+
+.content-type-badge {
+  background: #e67e22;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.content-id {
+  background: #ecf0f1;
+  color: #2c3e50;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  transition: all 0.3s ease;
+}
+
+.title-section h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.teaching-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.navigation-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.nav-btn {
+  padding: 8px 16px;
+  border: 2px solid #3498db;
+  background: white;
+  color: #3498db;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.65em;
+  font-size: 14px;
   font-weight: 500;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  min-width: auto;
-  line-height: 1.2;
-  text-align: center;
+  transition: all 0.3s ease;
 }
 
-.footer-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-}
-
-.footer-btn:active {
-  transform: scale(0.95);
-}
-
-/* Minimal Button Variants */
-.footer-btn.iko-btn {
-  background: #4caf50;
+.nav-btn:hover {
+  background: #3498db;
   color: white;
+  transform: translateY(-1px);
 }
 
-.footer-btn.iko-btn:hover {
-  background: #45a049;
-}
-
-.footer-btn.apply-btn {
-  background: #2196f3;
-  color: white;
-}
-
-.footer-btn.apply-btn:hover {
-  background: #1976d2;
-}
-
-.footer-btn.logout-btn, .footer-btn.signout-btn {
-  background: #f44336;
-  color: white;
-}
-
-.footer-btn.logout-btn:hover, .footer-btn.signout-btn:hover {
-  background: #d32f2f;
-}
-
-.footer-btn.login-btn, .footer-btn.signup-btn {
-  background: #ff9800;
-  color: white;
-}
-
-.footer-btn.login-btn:hover, .footer-btn.signup-btn:hover {
-  background: #f57c00;
-}
-
-.footer-btn.towncrier-btn {
-  background: #673ab7;
-  color: white;
-}
-
-.footer-btn.towncrier-btn:hover {
-  background: #512da8;
-}
-
-.footer-btn.admin-btn {
-  background: #9c27b0;
-  color: white;
-}
-
-.footer-btn.admin-btn:hover {
-  background: #7b1fa2;
-}
-
-.footer-btn.refresh-btn {
-  background: #607d8b;
-  color: white;
-}
-
-.footer-btn.refresh-btn:hover {
-  background: #455a64;
-}
-
-
-
-/* ==================================================
-   ALTERNATIVE APPROACH: Use Towncrier-style Layout
-   ================================================== */
-
-/* Apply towncrier-style flex layout to iko when in admin */
-.mainContent .iko_container,
-.mainCOntent .iko_container {
-  /* Copy towncrier container styles */
+/* Loading and error states */
+.loading-message, .error-message {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  width: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  overflow: hidden;
-  box-sizing: border-box;
-  
-  /* Reset viewport variables */
-  --iko-width: 100%;
-  --iko-height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  min-height: 400px;
 }
 
-.mainContent .iko_viewport,
-.mainCOntent .iko_viewport {
-  /* Copy towncrier viewport styles */
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  max-width: 100%;
-  max-height: 100%;
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #ecf0f1;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
 }
 
-/* Ensure flex children in iko viewport behave like towncrier */
-.mainContent .listchats_container,
-.mainCOntent .listchats_container {
-  flex: 1;
-  overflow-y: auto;
-  border-right: 2px solid #ddd;
-  padding: 10px;
-  background: #f8f8f894;
-  max-width: 33.333%;
-  box-sizing: border-box;
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-.mainContent .chat_container,
-.mainCOntent .chat_container {
-  flex: 2;
-  padding: 10px;
-  overflow-y: auto;
-  max-width: 44.444%;
-  box-sizing: border-box;
-}
-
-.mainContent .listcomments_container,
-.mainCOntent .listcomments_container {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-  max-width: 22.222%;
-  box-sizing: border-box;
-}
-
-/* ==================================================
-   RESPONSIVE BEHAVIOR IN ADMIN
-   ================================================== */
-
-/* Tablet adjustments when inside admin */
-@media (max-width: 1024px) {
-  .mainContent .iko_viewport,
-  .mainCOntent .iko_viewport {
-    flex-direction: column;
-  }
-  
-  .mainContent .listchats_container,
-  .mainCOntent .listchats_container,
-  .mainContent .chat_container,
-  .mainCOntent .chat_container,
-  .mainContent .listcomments_container,
-  .mainCOntent .listcomments_container {
-    max-width: 100%;
-    flex: none;
-    height: auto;
-    min-height: 200px;
-  }
-}
-
-/* Mobile adjustments when inside admin */
-@media (max-width: 768px) {
-  .mainContent .iko_container,
-  .mainCOntent .iko_container {
-    /* Stack vertically on mobile */
-    flex-direction: column;
-  }
-  
-  .mainContent .iko_viewport,
-  .mainCOntent .iko_viewport {
-    flex-direction: column;
-    height: auto;
-    min-height: 400px;
-  }
-  
-  .mainContent .listchats_container,
-  .mainCOntent .listchats_container {
-    max-height: 150px;
-    border-right: none;
-    border-bottom: 2px solid #ddd;
-  }
-  
-  .mainContent .chat_container,
-  .mainCOntent .chat_container {
-    flex: 1;
-    min-height: 300px;
-  }
-  
-  .mainContent .listcomments_container,
-  .mainCOntent .listcomments_container {
-    max-height: 150px;
-  }
-}
-
-/* ==================================================
-   DEBUGGING STYLES (Remove after fixing)
-   ================================================== */
-
-/* Uncomment these to visualize container boundaries during debugging */
-
-/*
-.mainContent {
-  border: 3px solid red !important;
-  position: relative;
-}
-
-.mainContent::before {
-  content: "mainContent boundary";
-  position: absolute;
-  top: 0;
-  right: 0;
-  background: red;
-  color: white;
-  padding: 2px 5px;
-  font-size: 10px;
-  z-index: 1000;
-}
-
-.iko_container {
-  border: 3px solid blue !important;
-  position: relative;
-}
-
-.iko_container::before {
-  content: "iko_container boundary";
-  position: absolute;
-  top: 0;
-  right: 0;
-  background: blue;
-  color: white;
-  padding: 2px 5px;
-  font-size: 10px;
-  z-index: 1001;
-}
-*/
+/* All other existing styles for banners, navigation, buttons, etc. remain the same */

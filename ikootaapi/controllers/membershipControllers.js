@@ -41,7 +41,11 @@ import {
   // Full Membership
   getFullMembershipStatus,
   submitFullMembershipApplication,
-  logFullMembershipAccess
+  logFullMembershipAccess,
+  
+  // ✅ NEW: Debug and Testing Functions
+  getUserByIdFixed,
+  testUserLookup
 } from './membershipControllers_2.js';
 
 import {
@@ -94,8 +98,7 @@ export {
   submitInitialApplication,
   updateApplicationAnswers,
   withdrawApplication,
-  getApplicationRequirements,
-  
+  getApplicationRequirements
 };
 
 // Full Membership
@@ -105,6 +108,12 @@ export {
   logFullMembershipAccess
 };
 
+// ✅ NEW: Debug and Testing Functions
+export {
+  getUserByIdFixed,
+  testUserLookup
+};
+
 // Admin Functions
 export {
   getPendingApplications,
@@ -112,7 +121,7 @@ export {
   bulkApproveApplications,
   getPendingFullMemberships,
   updateFullMembershipStatus,
-   getAllReports,
+  getAllReports
 };
 
 // Analytics & Reporting
@@ -182,6 +191,10 @@ export default {
   submitFullMembershipApplication,
   logFullMembershipAccess,
   
+  // Debug and Testing Functions
+  getUserByIdFixed,
+  testUserLookup,
+  
   // Admin Functions
   getPendingApplications,
   updateApplicationStatus,
@@ -220,8 +233,6 @@ export default {
   successResponse,
   errorResponse
 };
-
-
 
 
 

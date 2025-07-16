@@ -138,129 +138,231 @@ export const getUserDashboard = async (req, res) => {
 /**
  * Check application status with detailed information
  */
+const query = db.query;
+
 export const checkApplicationStatus = async (req, res) => {
-  try {
-    const userId = req.user.id || req.user.user_id;
-    
-    console.log('🔍 checkApplicationStatus called for userId:', userId);
-    
-    if (!userId) {
-      throw new CustomError('User authentication required', 401);
+    try {
+        // ✅ CRITICAL FIX: Extract user ID properly and validate it exists
+        const userId = req.user?.id;
+        
+        console.log('🔍 Checking application status for user:', {
+            userId,
+            userObject: req.user,
+            type: typeof userId
+        });
+        
+        // ✅ CRITICAL: Validate userId before proceeding
+        if (!userId) {
+            console.error('❌ No user ID found in request');
+            return res.status(400).json({
+                error: 'User ID not found in request'
+            });
+        }
+        
+        // ✅ FIXED: Pass only the user ID, ensure it's a number
+        const numericUserId = parseInt(userId, 10);
+        if (isNaN(numericUserId)) {
+            console.error('❌ Invalid user ID format:', userId);
+            return res.status(400).json({
+                error: 'Invalid user ID format'
+            });
+        }
+        
+        console.log('✅ Using numeric user ID:', numericUserId);
+        
+        // ✅ FIXED: Pass only the numeric user ID
+        const user = await getUserById(numericUserId);
+        
+        console.log('✅ User retrieved successfully:', {
+            id: user.id,
+            email: user.email,
+            role: user.role
+        });
+        
+        // Check survey completion using existing surveylog table
+        const surveyQuery = `
+            SELECT * FROM surveylog 
+            WHERE user_id = ? 
+            AND application_type = 'initial_application'
+            ORDER BY createdAt DESC 
+            LIMIT 1
+        `;
+        const surveyResult = await query(surveyQuery, [numericUserId]);
+        
+        // Handle result format
+        let surveys = [];
+        if (Array.isArray(surveyResult)) {
+            surveys = Array.isArray(surveyResult[0]) ? surveyResult[0] : surveyResult;
+        }
+        
+        const latestSurvey = surveys[0] || null;
+        const hasSurvey = latestSurvey !== null;
+        const surveyCompleted = hasSurvey && latestSurvey.answers && latestSurvey.answers.trim() !== '';
+        
+        const response = {
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                converse_id: user.converse_id,
+                role: user.role,
+                is_member: user.is_member,
+                membership_stage: user.membership_stage,
+                is_identity_masked: user.is_identity_masked
+            },
+            survey_completed: surveyCompleted,
+            survey_data: latestSurvey,
+            approval_status: latestSurvey?.approval_status || 'pending',
+            needs_survey: !hasSurvey || !surveyCompleted,
+            redirect_to: (!hasSurvey || !surveyCompleted) ? '/applicationsurvey' : '/dashboard'
+        };
+        
+        console.log('✅ Application status check complete:', {
+            userId: numericUserId,
+            hasSurvey,
+            surveyCompleted,
+            redirect: response.redirect_to
+        });
+        
+        res.json(response);
+        
+    } catch (error) {
+        console.error('❌ checkApplicationStatus error:', error);
+        
+        // Enhanced error response
+        const errorResponse = {
+            error: error.message || 'Failed to check application status',
+            code: error.statusCode || 500
+        };
+        
+        // Add debug info in development
+        if (process.env.NODE_ENV === 'development') {
+            errorResponse.debug = {
+                stack: error.stack,
+                userId: req.user?.id,
+                userObject: req.user
+            };
+        }
+        
+        res.status(error.statusCode || 500).json(errorResponse);
     }
-
-    // Get user data
-    const user = await getUserById(userId);
-    
-    console.log('👤 User found:', user.username);
-
-    // Get application details
-    const [applications] = await db.query(`
-      SELECT 
-        sl.application_type,
-        sl.approval_status,
-        sl.createdAt as submitted_at,
-        sl.reviewed_at,
-        sl.admin_notes,
-        sl.application_ticket,
-        reviewer.username as reviewed_by
-      FROM surveylog sl
-      LEFT JOIN users reviewer ON sl.reviewed_by = reviewer.id
-      WHERE CAST(sl.user_id AS UNSIGNED) = ?
-      ORDER BY sl.createdAt DESC
-    `, [userId]);
-
-    console.log('📋 Applications found:', applications.length);
-
-    // Determine current application status
-    const initialApp = applications.find(app => app.application_type === 'initial_application');
-    const fullApp = applications.find(app => app.application_type === 'full_membership');
-
-    let applicationStatus = 'not_submitted';
-    let canSubmitApplication = true;
-    let nextSteps = [];
-
-    // Determine status based on membership stage and applications
-    if (!user.membership_stage || user.membership_stage === 'none') {
-      applicationStatus = 'not_submitted';
-      canSubmitApplication = true;
-      nextSteps = [
-        'Complete your initial application survey',
-        'Submit required information',
-        'Wait for admin review (3-5 business days)'
-      ];
-    } else if (user.membership_stage === 'applicant') {
-      applicationStatus = initialApp?.approval_status || 'pending';
-      canSubmitApplication = false;
-      nextSteps = [
-        'Your application is under review',
-        'You will receive an email notification once reviewed',
-        'Check back in 3-5 business days'
-      ];
-    } else if (user.membership_stage === 'pre_member') {
-      applicationStatus = 'approved';
-      canSubmitApplication = false;
-      nextSteps = [
-        'Congratulations! Your initial application was approved',
-        'You now have access to Towncrier content',
-        'Consider applying for full membership when eligible'
-      ];
-    } else if (user.membership_stage === 'member') {
-      applicationStatus = 'approved';
-      canSubmitApplication = false;
-      nextSteps = [
-        'Welcome! You are now a full member',
-        'Access all member benefits and resources',
-        'Participate in member-exclusive activities'
-      ];
-    }
-
-    // Calculate progress percentage
-    let progressPercentage = 0;
-    switch (user.membership_stage) {
-      case 'none':
-      case null:
-      case undefined:
-        progressPercentage = 0;
-        break;
-      case 'applicant':
-        progressPercentage = 25;
-        break;
-      case 'pre_member':
-        progressPercentage = 50;
-        break;
-      case 'member':
-        progressPercentage = 100;
-        break;
-    }
-
-    const response = {
-      currentStatus: {
-        membership_stage: user.membership_stage || 'none',
-        initial_application_status: applicationStatus,
-        full_membership_application_status: fullApp?.approval_status || 'not_submitted',
-        is_member: user.is_member,
-        progressPercentage
-      },
-      applicationDetails: initialApp || null,
-      nextSteps,
-      canSubmitApplication,
-      timeline: {
-        registered: user.createdAt,
-        initialSubmitted: initialApp?.submitted_at || null,
-        initialReviewed: initialApp?.reviewed_at || null,
-        fullMembershipAccessed: user.membership_stage === 'member' ? user.createdAt : null,
-        fullMembershipSubmitted: fullApp?.submitted_at || null
-      }
-    };
-
-    console.log('✅ Sending checkApplicationStatus response');
-    return successResponse(res, response);
-
-  } catch (error) {
-    console.error('❌ checkApplicationStatus error:', error);
-    return errorResponse(res, error, error.statusCode || 500);
-  }
 };
+
+// ✅ ENHANCED: Also fix getUserById validation to be more robust
+export const getUserByIdFixed = async (userId) => {
+    try {
+        console.log('🔍 getUserById called with userId:', {
+            value: userId,
+            type: typeof userId,
+            isNumber: !isNaN(Number(userId))
+        });
+        
+        // ✅ ENHANCED: More robust validation
+        if (userId === null || userId === undefined) {
+            throw new CustomError('User ID is required', 400);
+        }
+        
+        // Convert to number if it's a string representation of a number
+        let numericUserId;
+        if (typeof userId === 'string') {
+            numericUserId = parseInt(userId, 10);
+            if (isNaN(numericUserId)) {
+                throw new CustomError('Invalid user ID format', 400);
+            }
+        } else if (typeof userId === 'number') {
+            numericUserId = userId;
+        } else {
+            throw new CustomError('User ID must be a number or numeric string', 400);
+        }
+        
+        // Validate it's a positive integer
+        if (numericUserId <= 0) {
+            throw new CustomError('User ID must be a positive number', 400);
+        }
+        
+        console.log('✅ Validated user ID:', numericUserId);
+        
+        const result = await query('SELECT * FROM users WHERE id = ?', [numericUserId]);
+        console.log('🔍 Raw DB result structure check');
+        
+        // Handle different possible result structures
+        let users;
+        if (Array.isArray(result) && result.length > 0) {
+            if (Array.isArray(result[0])) {
+                users = result[0]; // MySQL2 format: [rows, fields]
+                console.log('✅ Using MySQL2 format: result[0]');
+            } else {
+                users = result; // Direct array format
+                console.log('✅ Using direct array format: result');
+            }
+        } else {
+            console.log('❌ Unexpected result structure or empty result');
+            throw new CustomError('User not found', 404);
+        }
+        
+        if (!users || users.length === 0) {
+            console.log('❌ No users found for ID:', numericUserId);
+            throw new CustomError('User not found', 404);
+        }
+        
+        const user = users[0];
+        console.log('✅ User extracted:', {
+            id: user.id,
+            username: user.username || 'N/A',
+            email: user.email
+        });
+        
+        return user;
+    } catch (error) {
+        console.error('❌ Database query error in getUserById:', {
+            error: error.message,
+            userId,
+            stack: error.stack
+        });
+        
+        // Re-throw CustomError as-is, wrap other errors
+        if (error instanceof CustomError) {
+            throw error;
+        }
+        
+        throw new CustomError('Database operation failed: ' + error.message, 500);
+    }
+};
+
+// ✅ DEBUG: Add a test endpoint to verify the fix
+export const testUserLookup = async (req, res) => {
+    try {
+        const userId = req.params.userId || req.user?.id;
+        
+        console.log('🧪 Testing user lookup for:', {
+            paramUserId: req.params.userId,
+            authUserId: req.user?.id,
+            finalUserId: userId
+        });
+        
+        const user = await getUserByIdFixed(userId);
+        
+        res.json({
+            success: true,
+            user,
+            debug: {
+                originalUserId: userId,
+                type: typeof userId,
+                converted: parseInt(userId, 10)
+            }
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({
+            error: error.message,
+            debug: {
+                userId,
+                type: typeof userId,
+                stack: error.stack
+            }
+        });
+    }
+};
+
 
 /**
  * Submit initial application with enhanced validation

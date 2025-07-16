@@ -1,3 +1,4 @@
+//ikootaapi\controllers\teachingsControllers.js
 import {
   getAllTeachings,
   getTeachingsByUserId,

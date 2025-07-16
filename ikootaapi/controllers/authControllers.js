@@ -1,3 +1,4 @@
+//ikootaapi\controllers\authControllers.js
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';

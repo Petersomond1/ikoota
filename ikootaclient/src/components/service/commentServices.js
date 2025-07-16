@@ -1,3 +1,4 @@
+//ikootaclient\src\components\service\commentServices.js
 import api from './api.js';
 
 export const postComment = async ({ chatId, userId, comment, mediaData }) => {

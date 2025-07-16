@@ -5,8 +5,9 @@
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
-    height: 80vh;
     border: 2px solid white;
+    height:100vh;
+    overflow-y: scroll;
     border-radius: 5px;
     margin-right: 2px;
     margin-left: 2px;

@@ -1,3 +1,4 @@
+//ikootaapi\services\communicationServices.js
 import { sendEmail as sendEmailUtil, sendBulkEmail, emailTemplates, testEmailConnection } from '../utils/email.js';
 import { sendSMS, sendBulkSMS, smsTemplates, testSMSConnection } from '../utils/sms.js';
 import db from '../config/db.js';

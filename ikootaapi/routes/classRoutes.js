@@ -1,3 +1,4 @@
+// ikootaapi/routes/classRoutes.js
 import express from 'express';
 import { getClasses, postClass, putClass, assignUserToClass, getClassContent } from '../controllers/classControllers.js';
 import { authenticate } from '../middlewares/auth.middleware.js';

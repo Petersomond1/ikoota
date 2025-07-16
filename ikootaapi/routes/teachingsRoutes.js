@@ -1,3 +1,4 @@
+// File: ikootaapi/routes/teachingsRoutes.js
 import express from 'express';
 import { uploadMiddleware, uploadToS3 } from '../middlewares/upload.middleware.js';
 import {

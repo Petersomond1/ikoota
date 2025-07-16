@@ -1,3 +1,4 @@
+// ikootaapi/services/authServices.js
 import bcrypt from 'bcrypt';
 import CustomError from '../utils/CustomError.js';
 import { sendEmail } from '../utils/email.js';

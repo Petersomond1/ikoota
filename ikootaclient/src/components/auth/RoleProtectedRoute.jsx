@@ -1,3 +1,4 @@
+//ikootaclient\src\components\auth\RoleProtectedRoute.jsx
 const RoleProtectedRoute = ({ children, requiredRole, requiredMembership }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);

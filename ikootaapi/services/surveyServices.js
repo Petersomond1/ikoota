@@ -1,3 +1,4 @@
+//ikootaapi\services\surveyServices.js
 import db from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
 import { sendEmail } from '../utils/email.js';
@@ -59,11 +60,69 @@ export const modifySurveyQuestions = async (questions) => {
 };
 
 // Fetch survey logs from the database
+// export const fetchSurveyLogs = async () => {
+//   const query = 'SELECT * FROM surveylog';
+//   const rows = await db.query(query);
+//   return rows;
+// };
+
 export const fetchSurveyLogs = async () => {
-  const query = 'SELECT * FROM surveylog';
-  const rows = await db.query(query);
-  return rows;
+  try {
+    console.log('🔍 Fetching survey logs with user information...');
+    
+    const query = `
+      SELECT 
+        sl.id,
+        sl.user_id,
+        sl.answers,
+        sl.approval_status,
+        sl.createdAt,
+        sl.updatedAt,
+        sl.admin_notes,
+        sl.application_type,
+        sl.reviewed_at,
+        sl.reviewed_by,
+        sl.application_ticket,
+        u.username,
+        u.email as user_email,
+        u.membership_stage,
+        u.is_member
+      FROM surveylog sl
+      INNER JOIN users u ON sl.user_id = u.id
+      ORDER BY sl.createdAt DESC
+    `;
+    
+    const result = await db.query(query);
+    console.log('🔍 Raw survey logs result:', result);
+    
+    // ✅ Handle different database result formats
+    let rows;
+    if (Array.isArray(result) && result.length > 0) {
+      // Check if it's MySQL2 format [rows, fields] or direct array
+      if (Array.isArray(result[0]) && typeof result[0][0] === 'object') {
+        rows = result[0]; // MySQL2 format
+        console.log('✅ Using MySQL2 format for survey logs');
+      } else if (typeof result[0] === 'object' && result[0].id) {
+        rows = result; // Direct array format
+        console.log('✅ Using direct array format for survey logs');
+      } else {
+        rows = [];
+        console.log('✅ Empty survey logs result');
+      }
+    } else {
+      rows = [];
+      console.log('✅ No survey logs found');
+    }
+    
+    console.log(`✅ Successfully fetched ${rows.length} survey logs`);
+    return rows;
+    
+  } catch (error) {
+    console.error('❌ Error fetching survey logs:', error);
+    throw new CustomError(`Failed to fetch survey logs: ${error.message}`, 500);
+  }
 };
+
 
 // Update survey approval status in the database
 export const approveUserSurvey = async (surveyId, userId, status) => {

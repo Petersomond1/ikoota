@@ -1,5 +1,7 @@
 // ikootaclient/src/components/auth/UserStatus.jsx
 // ==================================================
+// COMPLETE VERSION - ALL FUNCTIONALITY PRESERVED
+// ==================================================
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
@@ -20,6 +22,68 @@ export const UserProvider = ({ children }) => {
   const [membershipStatus, setMembershipStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // ✅ ENHANCED: Determine user status based on your database schema
+  const determineUserStatus = useCallback((userData) => {
+    if (!userData) {
+      return {
+        isMember: false,
+        isPending: false,
+        isAuthenticated: false,
+        userType: 'guest'
+      };
+    }
+
+    const role = userData.role?.toLowerCase();
+    const memberStatus = userData.is_member?.toLowerCase();
+    const membershipStage = userData.membership_stage?.toLowerCase();
+
+    console.log('🔍 Status determination input:', {
+      role,
+      memberStatus,
+      membershipStage,
+      userId: userData.id || userData.user_id
+    });
+
+    // ✅ Admin and super_admin are always full members
+    if (role === 'admin' || role === 'super_admin') {
+      console.log('✅ Admin/Super-admin detected');
+      return {
+        isMember: true,
+        isPending: false,
+        isAuthenticated: true,
+        userType: 'admin'
+      };
+    }
+
+    // ✅ Regular users - check membership status
+    // Based on your database: 'member', 'granted', 'pending', 'applied'
+    const isFullMember = (
+      memberStatus === 'member' || 
+      memberStatus === 'granted' ||
+      membershipStage === 'member'
+    );
+
+    const isPendingMember = (
+      memberStatus === 'applied' || 
+      memberStatus === 'pending' ||
+      membershipStage === 'applicant' ||
+      membershipStage === 'pre_member'
+    );
+
+    console.log('✅ Status determined:', {
+      isFullMember,
+      isPendingMember,
+      userType: isFullMember ? 'member' : isPendingMember ? 'applicant' : 'user'
+    });
+
+    return {
+      isMember: isFullMember,
+      isPending: isPendingMember,
+      isAuthenticated: true,
+      userType: isFullMember ? 'member' : isPendingMember ? 'applicant' : 'user'
+    };
+  }, []);
 
   const getUserFromToken = useCallback(() => {
     const token = localStorage.getItem("token");
@@ -58,7 +122,7 @@ export const UserProvider = ({ children }) => {
     }
   }, []);
 
-  // Enhanced: Fetch complete membership status with better error handling
+  // ✅ ENHANCED: Fetch membership status with proper API endpoints
   const fetchMembershipStatus = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
@@ -68,17 +132,33 @@ export const UserProvider = ({ children }) => {
       }
 
       console.log('🔍 Fetching membership status...');
-      const response = await api.get('/membership/dashboard', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
       
-      console.log('✅ Membership status fetched:', response.data);
-      setError(null); // Clear any previous errors
+      // ✅ Try dashboard first, then survey check
+      let response;
+      try {
+        response = await api.get('/membership/dashboard', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        console.log('✅ Dashboard response:', response.data);
+      } catch (dashboardError) {
+        console.warn('⚠️ Dashboard failed, trying survey check');
+        try {
+          response = await api.get('/membership/survey/check-status', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          console.log('✅ Survey check response:', response.data);
+        } catch (surveyError) {
+          console.error('❌ Both endpoints failed');
+          throw dashboardError;
+        }
+      }
+      
+      setError(null);
       return response.data;
+      
     } catch (error) {
       console.error('❌ Failed to fetch membership status:', error);
       
-      // Handle specific error cases
       if (error.response?.status === 401) {
         console.log('🔐 Authentication failed, clearing tokens');
         localStorage.removeItem("token");
@@ -108,26 +188,50 @@ export const UserProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
-      const userData = getUserFromToken();
-      console.log('🔍 User data from token:', userData);
+      // ✅ Get user from token first
+      const tokenUser = getUserFromToken();
+      console.log('🔍 Token user data:', tokenUser);
       
-      setUser(userData);
-      
-      if (userData) {
-        // Fetch detailed membership status
-        const membershipData = await fetchMembershipStatus();
-        setMembershipStatus(membershipData);
-      } else {
+      if (!tokenUser) {
+        setUser(null);
         setMembershipStatus(null);
-        console.log('📝 No user data, clearing membership status');
+        setLoading(false);
+        return;
       }
+      
+      // ✅ Fetch detailed membership data
+      const membershipData = await fetchMembershipStatus();
+      setMembershipStatus(membershipData);
+      
+      // ✅ Combine token data with membership data
+      let combinedUserData = tokenUser;
+      
+      if (membershipData) {
+        // Handle different response formats
+        if (membershipData.membershipStatus) {
+          combinedUserData = { ...tokenUser, ...membershipData.membershipStatus };
+        } else if (membershipData.user) {
+          combinedUserData = { ...tokenUser, ...membershipData.user };
+        } else if (membershipData.success && membershipData.data) {
+          combinedUserData = { ...tokenUser, ...membershipData.data };
+        }
+      }
+      
+      console.log('✅ Combined user data:', combinedUserData);
+      
+      // ✅ Determine status and set user
+      const statusInfo = determineUserStatus(combinedUserData);
+      const enhancedUser = { ...combinedUserData, ...statusInfo };
+      
+      setUser(enhancedUser);
+      
     } catch (error) {
       console.error('❌ Error updating user:', error);
       setError(`Failed to update user data: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  }, [getUserFromToken, fetchMembershipStatus]);
+  }, [getUserFromToken, fetchMembershipStatus, determineUserStatus]);
 
   const logout = useCallback(() => {
     console.log('🚪 Logging out user');
@@ -138,7 +242,7 @@ export const UserProvider = ({ children }) => {
     setError(null);
   }, []);
 
-  // ENHANCED: Better user status detection with error handling
+  // ✅ ENHANCED: Better user status detection with error handling
   const getUserStatus = useCallback(() => {
     try {
       if (!user) return 'guest';
@@ -168,7 +272,11 @@ export const UserProvider = ({ children }) => {
         }
       }
       
-      // Fallback to JWT token data
+      // ✅ ENHANCED: Fallback to user object data
+      if (user.isMember) return 'full_member';
+      if (user.isPending) return 'pending_review';
+      
+      // Additional fallback to JWT token data
       if (user.membership_stage === 'member') return 'full_member';
       if (user.membership_stage === 'pre_member') return 'pre_member';
       if (user.membership_stage === 'applicant') return 'pending_review';
@@ -180,7 +288,7 @@ export const UserProvider = ({ children }) => {
     }
   }, [user, membershipStatus]);
 
-  // ENHANCED: Smart routing based on membership status
+  // ✅ ENHANCED: Smart routing based on membership status
   const getDefaultRoute = useCallback(() => {
     try {
       const status = getUserStatus();
@@ -207,7 +315,7 @@ export const UserProvider = ({ children }) => {
     }
   }, [getUserStatus]);
 
-  // Clear error after some time
+  // ✅ Clear error after some time
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => {
@@ -218,13 +326,13 @@ export const UserProvider = ({ children }) => {
     }
   }, [error]);
 
-  // Initialize user on mount
+  // ✅ Initialize user on mount
   useEffect(() => {
     console.log('🚀 Initializing UserProvider');
     updateUser();
   }, []);
 
-  // Listen for storage changes
+  // ✅ Listen for storage changes
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'token' || e.key === null) {
@@ -237,16 +345,32 @@ export const UserProvider = ({ children }) => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [updateUser]);
 
-  // Debug logging
+  // ✅ Debug logging
   useEffect(() => {
     console.log('👤 User state updated:', {
-      user: user ? { id: user.user_id, username: user.username, role: user.role } : null,
+      user: user ? { 
+        id: user.user_id || user.id, 
+        username: user.username, 
+        role: user.role,
+        is_member: user.is_member,
+        membership_stage: user.membership_stage,
+        isMember: user.isMember,
+        isPending: user.isPending
+      } : null,
       membershipStatus: membershipStatus ? 'loaded' : 'not loaded',
+      status: getUserStatus(),
       loading,
-      error,
-      status: getUserStatus()
+      error
     });
   }, [user, membershipStatus, loading, error, getUserStatus]);
+
+  // ✅ COMPUTED VALUES: Maintain all original functionality
+  const isAuthenticated = !!user;
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isMember = getUserStatus() === 'full_member';
+  const isPreMember = getUserStatus() === 'pre_member';
+  const isPending = getUserStatus() === 'pending_review';
+  const needsApplication = getUserStatus() === 'needs_application';
 
   const value = React.useMemo(() => ({
     user,
@@ -257,14 +381,29 @@ export const UserProvider = ({ children }) => {
     logout,
     getUserStatus,
     getDefaultRoute,
-    isAuthenticated: !!user,
-    isAdmin: user?.role === 'admin' || user?.role === 'super_admin',
-    isMember: getUserStatus() === 'full_member',
-    isPreMember: getUserStatus() === 'pre_member',
-    isPending: getUserStatus() === 'pending_review',
-    needsApplication: getUserStatus() === 'needs_application',
+    isAuthenticated,
+    isAdmin,
+    isMember,
+    isPreMember,
+    isPending,
+    needsApplication,
     clearError: () => setError(null)
-  }), [user, membershipStatus, loading, error, updateUser, logout, getUserStatus, getDefaultRoute]);
+  }), [
+    user, 
+    membershipStatus, 
+    loading, 
+    error, 
+    updateUser, 
+    logout, 
+    getUserStatus, 
+    getDefaultRoute,
+    isAuthenticated,
+    isAdmin,
+    isMember,
+    isPreMember,
+    isPending,
+    needsApplication
+  ]);
 
   return (
     <UserContext.Provider value={value}>
@@ -301,7 +440,6 @@ export const UserProvider = ({ children }) => {
     </UserContext.Provider>
   );
 };
-
 
 
 // // ikootaclient/src/components/auth/UserStatus.jsx

@@ -1,3 +1,4 @@
+//ikootaclient\src\components\iko\Chat.jsx
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import useUpload from "../../hooks/useUpload";

@@ -1,3 +1,4 @@
+//ikootaapi\routes\index.js
 import express from 'express';
 import authRoutes from './authRoutes.js';
 import surveyRoutes from './surveyRoutes.js';

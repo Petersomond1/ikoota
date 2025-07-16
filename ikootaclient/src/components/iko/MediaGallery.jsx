@@ -1,3 +1,4 @@
+//ikootaclient\src\components\iko\MediaGallery.jsx
 import React, { useState } from "react";
 import ReactPlayer from "react-player";
 

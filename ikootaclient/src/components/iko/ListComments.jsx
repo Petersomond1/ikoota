@@ -1,3 +1,4 @@
+//ikootaclient\src\components\iko\ListComments.jsx
 import React, { useEffect, useState } from 'react';
 import SearchControls from '../search/SearchControls';
 import { jwtDecode } from 'jwt-decode';

@@ -28,7 +28,13 @@ import {
   requireAdmin,
   requireSuperAdmin,
   validateRequest,
-  getAllReports
+  getAllReports,
+  // ✅ NEW: Missing function imports
+  updateApplicationAnswers,
+  withdrawApplication,
+  getApplicationRequirements,
+  getUserByIdFixed,
+  testUserLookup
 } from '../controllers/membershipControllers.js';
 import { authenticate, cacheMiddleware } from '../middlewares/auth.middleware.js';
 import db from '../config/db.js';
@@ -77,6 +83,10 @@ router.get('/test-dashboard', authenticate, async (req, res) => {
     res.status(500).json({ error: 'Test dashboard failed' });
   }
 });
+
+// ✅ NEW: Debug user lookup routes
+router.get('/test-user-lookup/:userId', authenticate, requireAdmin, testUserLookup);
+router.get('/test-user-lookup', authenticate, testUserLookup);
 
 // Development admin setup (ONLY for development)
 if (process.env.NODE_ENV === 'development') {
@@ -161,6 +171,11 @@ router.get('/application-history', authenticate, getApplicationHistory);
 router.get('/survey/check-status', authenticate, checkApplicationStatus);
 router.post('/survey/submit-application', authenticate, submitInitialApplication);
 
+// ✅ NEW: Application Management Routes
+router.put('/application/update-answers', authenticate, updateApplicationAnswers);
+router.post('/application/withdraw', authenticate, withdrawApplication);
+router.get('/application/requirements', authenticate, getApplicationRequirements);
+
 // Admin endpoints for initial applications (KEEP ORIGINAL PATHS)
 router.get('/admin/pending-applications', authenticate, requireAdmin, getPendingApplications);
 router.put('/admin/update-user-status/:userId', authenticate, requireAdmin, updateApplicationStatus);
@@ -208,6 +223,12 @@ router.post('/register', registerWithVerification);
 router.get('/status', authenticate, checkApplicationStatus);
 router.get('/history', authenticate, getApplicationHistory);
 router.get('/permissions', authenticate, getUserPermissions);
+
+// ✅ NEW: Additional application management routes
+router.get('/application/status', authenticate, checkApplicationStatus);
+router.put('/application/answers', authenticate, updateApplicationAnswers);
+router.delete('/application', authenticate, withdrawApplication);
+router.get('/application/info', authenticate, getApplicationRequirements);
 
 // Application routes - MISSING ROUTES ADDED
 router.post('/application', authenticate, submitInitialApplication);
@@ -305,6 +326,19 @@ router.post('/admin/applications/validated-bulk',
   bulkApproveApplications
 );
 
+// ✅ NEW: Application management with validation
+router.put('/application/answers/validated',
+  authenticate,
+  validateRequest(['answers']),
+  updateApplicationAnswers
+);
+
+router.post('/application/withdraw/validated',
+  authenticate,
+  validateRequest(['reason']),
+  withdrawApplication
+);
+
 // ==================================================
 // SUPER ADMIN ROUTES (NEW ADDITIONS)
 // ==================================================
@@ -323,18 +357,23 @@ router.post('/admin/super/emergency-reset/:userId',
     // Emergency user reset functionality
     res.json({
       success: true,
-      message: 'Emergency reset functionality - implement as needed'
+      message: 'Emergency user reset functionality - implement as needed'
     });
   }
 );
 
+// ✅ NEW: Super admin debug routes
+router.get('/admin/super/debug/user/:userId',
+  authenticate,
+  requireSuperAdmin,
+  testUserLookup
+);
 
 router.get('/admin/reports', 
   authenticate, 
   requireAdmin, 
- getAllReports
+  getAllReports
 );
-
 
 // ==================================================
 // ERROR HANDLING & LOGGING
@@ -347,6 +386,7 @@ if (process.env.NODE_ENV === 'development') {
   console.log('   Alternative auth: /login, /send-verification, /register');
   console.log('   User: /dashboard, /application-history, /status, /history, /permissions');
   console.log('   Survey: /survey/check-status, /survey/submit-application');
+  console.log('   ✅ NEW Applications: /application/*, /application/update-answers, /application/withdraw');
   console.log('   Applications: /application, /full-membership/*');
   console.log('   Full Membership: /membership/full-membership-status, /membership/log-full-membership-access');
   console.log('   Admin Applications: /admin/pending-applications, /admin/applications/*');
@@ -354,6 +394,7 @@ if (process.env.NODE_ENV === 'development') {
   console.log('   Admin Analytics: /admin/membership-overview, /admin/analytics, /admin/overview');
   console.log('   Admin Communication: /admin/send-notification, /admin/notifications/*');
   console.log('   System: /health, /admin/config');
+  console.log('   ✅ NEW Debug: /test-user-lookup, /test-user-lookup/:userId');
   console.log('   Test: /test-simple, /test-auth, /test-dashboard');
   console.log('   Dev: /dev/setup-admin/:userId');
 }
@@ -387,6 +428,13 @@ router.use('*', (req, res) => {
       ],
       applications: [
         'POST /application',
+        'GET /application/status',
+        'PUT /application/update-answers',
+        'PUT /application/answers',
+        'POST /application/withdraw',
+        'DELETE /application',
+        'GET /application/requirements',
+        'GET /application/info',
         'GET /full-membership/status',
         'POST /full-membership/apply',
         'POST /full-membership/access'
@@ -427,6 +475,11 @@ router.use('*', (req, res) => {
         'GET /health',
         'GET /admin/config'
       ],
+      debug: [
+        'GET /test-user-lookup',
+        'GET /test-user-lookup/:userId',
+        'GET /admin/super/debug/user/:userId'
+      ],
       development: [
         'GET /test-simple',
         'GET /test-auth',
@@ -450,11 +503,7 @@ router.use((error, req, res, next) => {
   });
 });
 
-
 export default router;
-
-
-
 
 // // ikootaapi/routes/membershipRoutes.js
 // import express from 'express';

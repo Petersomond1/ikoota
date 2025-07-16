@@ -1,106 +1,358 @@
-/* .revtopic_container{
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
-    height: 80vh;
-    border : 2px solid white;
-    border-radius: 5px;
-    margin-right: 2px;
-    margin-left: 2px;
-} */
+/* ikootaclient/src/components/towncrier/revtopics.css */
 
-.revtopic_container{
-    flex:1;
-    overflow: scroll;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
-    height: 80vh;
-    border : 2px solid white;
-    border-radius: 5px;
-    margin-right: 2px;
-    margin-left: 2px;
-.search{
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    padding: 20px;
+.revtopic-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Full height of viewport */
+  border-right: 2px solid #ddd;
+  background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
+  overflow: hidden; /* Prevent overflow */
+}
 
-    .searchbar{
-        flex: 1;
-        background-color: rgba(17, 25, 40, 0.5);
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        border-radius: 10px;
-        padding: 10px;
+.revtopic-container .search {
+  flex-shrink: 0; /* Don't shrink */
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid #ddd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
 
-        input {
-            background-color: transparent;
-            border: none;
-            outline: none;
-            color: white;
-            flex: 1;
-        }
+.revtopic-container .searchbar {
+  flex: 1;
+  background-color: rgba(52, 152, 219, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(52, 152, 219, 0.2);
+}
 
-        img {
-            width: 20px;
-            height: 20px;
-            margin-right: 10px;
-        }
-    }
-  .add{
-    width: 35px;
-    height: 35px;
-    background-color: rgba(17, 25, 40, 0.5);
+.revtopic-container .searchbar input {
+  background-color: transparent;
+  border: none;
+  outline: none;
+  color: #2c3e50;
+  flex: 1;
+  font-size: 14px;
+}
+
+.revtopic-container .searchbar img {
+  width: 18px;
+  height: 18px;
+  opacity: 0.6;
+}
+
+.search-stats {
+  font-size: 12px;
+  color: #7f8c8d;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+/* ✅ FIXED: Topics List Container */
+.topics-list {
+  flex: 1;
+  overflow-y: auto; /* Only this scrolls */
+  padding: 10px;
+  background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
+  min-height: 0;
+}
+
+/* ✅ FIXED: Topic Item Highlighting */
+.topic-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 15px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.9);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  position: relative;
+}
+
+.topic-item:hover {
+  background: rgba(52, 152, 219, 0.1);
+  border-color: rgba(52, 152, 219, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* ✅ CRITICAL: Selected state styling */
+.topic-item.selected {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
+  color: white !important;
+  border-color: #2980b9 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+}
+
+.topic-item.selected * {
+  color: white !important;
+}
+
+.topic-item.selected .content-type-badge {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+.topic-item.selected .content-id {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+.topic-item.selected .topic-meta p,
+.topic-item.selected .topic-dates p {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.topic-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.content-type-badge {
+  background: #e67e22;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.content-id {
+  background: #ecf0f1;
+  color: #2c3e50;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  transition: all 0.3s ease;
+}
+
+.texts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.topic-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+  line-height: 1.3;
+  transition: color 0.3s ease;
+}
+
+.topic-description {
+  font-size: 13px;
+  color: #5d6d7e;
+  line-height: 1.4;
+  margin: 0;
+  transition: color 0.3s ease;
+}
+
+.topic-meta {
+  margin: 5px 0;
+}
+
+.topic-meta p {
+  font-size: 12px;
+  color: #7f8c8d;
+  margin: 2px 0;
+  transition: color 0.3s ease;
+}
+
+.topic-dates {
+  margin-top: 5px;
+}
+
+.topic-dates p {
+  font-size: 11px;
+  color: #95a5a6;
+  margin: 1px 0;
+  transition: color 0.3s ease;
+}
+
+.selected-indicator {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: white;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.topic-item.selected .selected-indicator {
+  opacity: 1;
+}
+
+.topics-footer {
+  flex-shrink: 0;
+  padding: 10px 15px;
+  background: rgba(255, 255, 255, 0.95);
+  border-top: 1px solid #ddd;
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.summary-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Empty state styling */
+.no-teachings {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.empty-state {
+  text-align: center;
+  color: #7f8c8d;
+}
+
+.empty-state h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+  color: #95a5a6;
+}
+
+.empty-state p {
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 300px;
+}
+
+/* Loading and error states */
+.loading-message, .error-message {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #ecf0f1;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-message h3 {
+  color: #e74c3c;
+  margin-bottom: 10px;
+  font-size: 18px;
+}
+
+.error-message p {
+  color: #7f8c8d;
+  margin-bottom: 15px;
+}
+
+.retry-btn {
+  padding: 10px 20px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.retry-btn:hover {
+  background: #2980b9;
+  transform: translateY(-1px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .revtopic-container {
+    border-right: none;
+    border-bottom: 2px solid #ddd;
+  }
+  
+  .topic-item {
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  
+  .topic-title {
+    font-size: 14px;
+  }
+  
+  .topic-description {
+    font-size: 12px;
+  }
+  
+  .topic-meta p {
+    font-size: 11px;
+  }
+  
+  .topic-dates p {
+    font-size: 10px;
+  }
+  
+  .selected-indicator {
+    right: 10px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .revtopic-container .search {
     padding: 10px;
-    border-radius: 10%;
-    cursor: pointer;
-  }  
+  }
+  
+  .topic-item {
+    padding: 10px;
+  }
+  
+  .topic-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+  
+  .content-type-badge {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+  
+  .content-id {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
 }
-
-.item{
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    padding: 20px;
-    cursor: pointer;
-    border-bottom: 2px solid #dddddd35;
-/* we go to th list_container to make flex, column, overflow to make this scrool*/
-
-    img{
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        object-fit: cover;
-    }
-
-    .texts{
-        /* flex: 1; */
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-
-        span{ /* or username*/
-            font-size: 18px;
-            font-weight: 500;
-            color: white;
-        }
-
-        p{ /* or message*/
-            font-size: 14px;
-            font-weight: 300;
-            color: rgba(255, 255, 255, 0.5);
-        }
-    }
-
-    .time{
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.5);
-    }
-}
-
-} 

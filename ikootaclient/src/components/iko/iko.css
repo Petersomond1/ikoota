@@ -1,68 +1,351 @@
-/* ==================================================
-   COMPLETE IKO CSS FIX
-   Replace your iko.css with this updated version
-   ================================================== */
 
-/* ===== BASE IKO CONTAINER ===== */
+
+
+/* ikootaclient/src/components/iko/iko.css - FULL PAGE SCROLLABLE VERSION */
+
+/* ================================================
+   IKO CONTAINER - FULL PAGE SCROLLABLE
+   See ReadMe ending for not-scrollable version
+   ================================================ */
+
 .iko_container {
   display: flex;
   flex-direction: column;
-  width: var(--iko-width, 90vw);
-  height: var(--iko-height, 90vh);
-  border: 3px solid goldenrod;
-  border-radius: 5px;
-  margin: 10px;
-  overflow: hidden;
-  position: fixed; /* Keep fixed for standalone use */
-  box-sizing: border-box;
+  min-height: 100vh; /* Changed from height: 100vh */
+  width: 100%;
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  position: relative;
 }
 
-.iko_container .iko_viewport {
-  display: flex;
-  flex-direction: row;
-  flex-grow: 1;
-  overflow: hidden; /* Changed from auto to hidden */
-  max-width: 100%;
-  max-height: 100%;
-}
+/* ================================================
+   NAVIGATION AND FOOTER - STICKY POSITIONING
+   ================================================ */
 
-/* ===== IKO SPECIFIC STYLES ===== */
 .iko_container .nav {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-  flex-shrink: 0;
+  position: sticky; /* Changed from flex-shrink: 0 */
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 8px 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.iko_container .footnote {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-  flex-shrink: 0;
-  padding: 6px 15px;
-  color: white;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.75em;
-}
-
-/* ===== NAVIGATION STYLES ===== */
-.nav-left, .nav-right, .footer-left, .footer-right {
-  display: flex;
-  align-items: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-.footer-center {
-  flex: 1;
+.iko_container .footnote {
+  position: sticky; /* Changed from flex-shrink: 0 */
+  bottom: 0;
+  z-index: 1000;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
+  padding: 6px 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 0.75em;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  min-height: 40px;
 }
 
-.member-status, .user-status {
+/* ================================================
+   MAIN VIEWPORT - SCROLLABLE CONTENT
+   ================================================ */
+
+.iko_viewport {
+  display: flex;
+  flex-direction: row;
+  min-height: calc(100vh - 100px); /* Account for nav and footer */
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  position: relative;
+}
+
+/* Remove the ::before pseudo-element since we want natural scrolling */
+
+/* ================================================
+   LISTCHATS CONTAINER - SCROLLABLE
+   ================================================ */
+
+.listchats_container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+ height: auto;
+  border-right: 2px solid #ddd;
+  background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
+  /* Remove overflow: hidden - allow natural scrolling */
+}
+
+.listchats_container .search {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-bottom: 1px solid #ddd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.chats-list {
+  flex: 2;
+  padding: 10px;
+  overflow: auto;
+  /* Natural scrolling - no overflow hidden */
+}
+
+.chat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 15px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.9);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.chat-item:hover {
+  background: rgba(52, 152, 219, 0.1);
+  border-color: rgba(52, 152, 219, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.chat-item.active {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
+  color: white !important;
+  border-color: #2980b9 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+}
+
+.chat-item.active * {
+  color: white !important;
+}
+
+/* ================================================
+   CHAT CONTAINER - SCROLLABLE
+   ================================================ */
+
+.chat_container {
+  flex: 4;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+  border-left: 2px solid #ddd;
+  border-right: 2px solid #ddd;
+}
+
+.chat_container .top {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-bottom: 1px solid #ddd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.chat_container .center {
+  flex: 1;
+  padding: 20px;
+  /* Natural scrolling - no overflow hidden */
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.chat_container .bottom {
+  position: sticky;
+  bottom: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-top: 1px solid #ddd;
+  box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+}
+
+.message {
+  max-width: 70%;
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.message.own {
+  align-self: flex-end;
+  margin-left: auto;
+}
+
+.message.own .texts p {
+  background-color: #5183fe;
+  color: white;
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.message .texts {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.message .texts p {
+  padding: 10px;
+  background-color: rgba(17, 25, 40, 0.1);
+  border-radius: 10px;
+  color: #2c3e50;
+}
+
+.message .texts span {
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.message img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.message .texts img {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+/* ================================================
+   LISTCOMMENTS CONTAINER - SCROLLABLE
+   ================================================ */
+
+.listcomments_container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
+  border-left: 2px solid #ddd;
+}
+
+.listcomments_container .search {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-bottom: 1px solid #ddd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.comments-list {
+  flex: 1;
+  padding: 10px;
+  /* Natural scrolling - no overflow hidden */
+}
+
+.comment-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.9);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.comment-item:hover {
+  background: rgba(52, 152, 219, 0.1);
+  border-color: rgba(52, 152, 219, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.comment-item.active {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
+  color: white !important;
+  border-color: #2980b9 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+}
+
+.comment-item.active * {
+  color: white !important;
+}
+
+/* ================================================
+   FORM ELEMENTS
+   ================================================ */
+
+.input_div {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  outline: none;
+  color: #2c3e50;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 40px;
+  max-height: 120px;
+}
+
+.input_div:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.SendButton {
+  background-color: #3498db;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.SendButton:hover {
+  background-color: #2980b9;
+  transform: translateY(-1px);
+}
+
+/* ================================================
+   NAVIGATION ELEMENTS
+   ================================================ */
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.member-status {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -81,6 +364,16 @@
   border-radius: 6px;
   font-size: 0.7em;
   font-weight: bold;
+}
+
+.status-badge.loading {
+  background: #ffa726;
+  color: white;
+}
+
+.status-badge.error {
+  background: #ef5350;
+  color: white;
 }
 
 .status-badge.member {
@@ -104,6 +397,27 @@
   font-size: 0.75em;
 }
 
+/* ================================================
+   FOOTER CONTROLS
+   ================================================ */
+
+.footer-left, .footer-center, .footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-center {
+  flex: 1;
+  justify-content: center;
+}
+
+.activity-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .online-status {
   background: rgba(76,175,80,0.2);
   padding: 2px 6px;
@@ -112,17 +426,17 @@
   font-size: 0.7em;
 }
 
-/* ===== FOOTER BUTTONS ===== */
 .footer-controls {
   display: flex;
   gap: 4px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .footer-btn {
-  padding: 3px 6px;
+  padding: 4px 8px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 0.65em;
   font-weight: 500;
@@ -132,7 +446,7 @@
 
 .footer-btn:hover {
   transform: scale(1.05);
-  filter: brightness(1.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .footer-btn.towncrier-btn {
@@ -155,328 +469,126 @@
   color: white;
 }
 
-/* ===== STATUS STYLES ===== */
+/* ================================================
+   LOADING AND ERROR STATES
+   ================================================ */
+
 .status {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  font-size: 1.2em;
-  font-weight: bold;
+  padding: 40px;
+  text-align: center;
 }
 
 .status.loading {
-  color: #ff9800;
-  animation: pulse 2s infinite;
+  background: linear-gradient(135deg, #ecf0f1 0%, #d5dbdb 100%);
+  color: #7f8c8d;
 }
 
 .status.error {
-  color: #f44336;
+  background: linear-gradient(135deg, #fadbd8 0%, #f1948a 100%);
+  color: #e74c3c;
 }
 
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.7; }
-  100% { opacity: 1; }
-}
-
-/* ==================================================
-   ADMIN LAYOUT OVERRIDES - CRITICAL FIXES
-   ================================================== */
-
-/* When Iko is inside admin, completely override its positioning and sizing */
-.mainContent .iko_container,
-.mainCOntent .iko_container {
-  /* CRITICAL: Remove fixed positioning */
-  position: static !important;
-  
-  /* CRITICAL: Override viewport sizing */
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-  
-  /* CRITICAL: Remove margins that cause overflow */
-  margin: 0 !important;
-  padding: 0 !important;
-  
-  /* CRITICAL: Reset CSS variables */
-  --iko-width: 100% !important;
-  --iko-height: 100% !important;
-  
-  /* Ensure proper flex layout */
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  box-sizing: border-box !important;
-}
-
-/* Fix the viewport container */
-.mainContent .iko_viewport,
-.mainCOntent .iko_viewport {
-  display: flex !important;
-  flex: 1 !important;
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-  overflow: hidden !important;
-  box-sizing: border-box !important;
-  flex-direction: row !important;
-}
-
-/* ===== THREE COLUMN LAYOUT WITH PROPER SCROLLING ===== */
-
-/* Left Column: List Chats */
-.mainContent .listchats_container,
-.mainCOntent .listchats_container {
-  flex: 1 !important;
-  min-width: 250px !important;
-  max-width: 350px !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  
-  /* Enable scrolling */
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  
-  /* Layout */
-  display: flex !important;
-  flex-direction: column !important;
-  
-  /* Styling */
-  border-right: 3px solid brown !important;
-  background: #f8f8f894 !important;
-  
-  /* Ensure proper sizing */
-  box-sizing: border-box !important;
-}
-
-/* Middle Column: Chat Container */
-.mainContent .chat_container,
-.mainCOntent .chat_container {
-  flex: 2 !important;
-  min-width: 400px !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  
-  /* Layout */
-  display: flex !important;
-  flex-direction: column !important;
-  
-  /* Styling */
-  border: 3px solid red !important;
-  
-  /* Ensure proper sizing */
-  box-sizing: border-box !important;
-  overflow: hidden !important;
-}
-
-/* Right Column: List Comments */
-.mainContent .listcomments_container,
-.mainCOntent .listcomments_container {
-  flex: 1 !important;
-  min-width: 250px !important;
-  max-width: 350px !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  
-  /* Enable scrolling */
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  
-  /* Layout */
-  display: flex !important;
-  flex-direction: column !important;
-  
-  /* Styling */
-  background: #f0f0f0 !important;
-  
-  /* Ensure proper sizing */
-  box-sizing: border-box !important;
-}
-
-/* ===== CHAT CONTAINER INTERNAL LAYOUT ===== */
-
-/* Fixed sections in chat container */
-.mainContent .chat_container .top,
-.mainCOntent .chat_container .top,
-.mainContent .chat_container .bottom,
-.mainCOntent .chat_container .bottom {
-  flex-shrink: 0 !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-/* Scrollable center section */
-.mainContent .chat_container .center,
-.mainCOntent .chat_container .center {
-  flex: 1 !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-  min-height: 0 !important;
-}
-
-/* ===== MEDIA CONTENT FIXES ===== */
-
-.mainContent .media-container,
-.mainCOntent .media-container {
-  max-width: 100% !important;
-  overflow: hidden !important;
-  box-sizing: border-box !important;
-}
-
-.mainContent .media-container img,
-.mainCOntent .media-container img,
-.mainContent .media-container video,
-.mainCOntent .media-container video {
-  max-width: 100% !important;
-  height: auto !important;
-  object-fit: contain !important;
-}
-
-/* ===== SCROLLBAR STYLING ===== */
-
-.mainContent .listchats_container::-webkit-scrollbar,
-.mainCOntent .listchats_container::-webkit-scrollbar,
-.mainContent .listcomments_container::-webkit-scrollbar,
-.mainCOntent .listcomments_container::-webkit-scrollbar,
-.mainContent .chat_container .center::-webkit-scrollbar,
-.mainCOntent .chat_container .center::-webkit-scrollbar {
-  width: 8px;
-}
-
-.mainContent .listchats_container::-webkit-scrollbar-thumb,
-.mainCOntent .listchats_container::-webkit-scrollbar-thumb,
-.mainContent .listcomments_container::-webkit-scrollbar-thumb,
-.mainCOntent .listcomments_container::-webkit-scrollbar-thumb,
-.mainContent .chat_container .center::-webkit-scrollbar-thumb,
-.mainCOntent .chat_container .center::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
-}
-
-.mainContent .listchats_container::-webkit-scrollbar-thumb:hover,
-.mainCOntent .listchats_container::-webkit-scrollbar-thumb:hover,
-.mainContent .listcomments_container::-webkit-scrollbar-thumb:hover,
-.mainCOntent .listcomments_container::-webkit-scrollbar-thumb:hover,
-.mainContent .chat_container .center::-webkit-scrollbar-thumb:hover,
-.mainCOntent .chat_container .center::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-/* ==================================================
+/* ================================================
    RESPONSIVE DESIGN
-   ================================================== */
+   ================================================ */
 
-/* Original responsive styles for standalone Iko */
-@media (max-width: 768px) {
-  .nav, .footnote {
+@media (max-width: 1024px) {
+  .iko_viewport {
     flex-direction: column;
-    gap: 6px;
-    text-align: center;
+    min-height: auto;
+  }
+  
+  .listchats_container {
+    flex: none;
+    height: 300px;
+    border-right: none;
+    border-bottom: 2px solid #ddd;
+  }
+  
+  .chat_container {
+    flex: 1;
+    border-left: none;
+    border-right: none;
+    border-top: 2px solid #ddd;
+    border-bottom: 2px solid #ddd;
+  }
+  
+  .listcomments_container {
+    flex: none;
+    height: 250px;
+    border-left: none;
+    border-top: 2px solid #ddd;
+  }
+}
+
+@media (max-width: 768px) {
+  .iko_container .nav {
     padding: 6px 10px;
   }
   
-  .nav-left, .nav-right, .footer-left, .footer-right {
-    gap: 4px;
+  .iko_container .footnote {
+    padding: 4px 10px;
   }
   
-  .footer-controls {
-    gap: 3px;
-    justify-content: center;
-  }
-  
-  .footer-btn {
-    font-size: 0.6em;
-    padding: 2px 4px;
+  .nav-left, .nav-right {
+    gap: 6px;
   }
   
   .user-info {
-    font-size: 0.75em;
-  }
-  
-  .status-badge {
-    font-size: 0.65em;
-  }
-}
-
-/* Responsive behavior when inside admin */
-@media (max-width: 1024px) {
-  .mainContent .iko_viewport,
-  .mainCOntent .iko_viewport {
-    flex-direction: column !important;
-  }
-  
-  .mainContent .listchats_container,
-  .mainCOntent .listchats_container,
-  .mainContent .chat_container,
-  .mainCOntent .chat_container,
-  .mainContent .listcomments_container,
-  .mainCOntent .listcomments_container {
-    max-width: 100% !important;
-    min-width: auto !important;
-    flex: none !important;
-    height: 250px !important;
-    max-height: 250px !important;
-  }
-  
-  .mainContent .listchats_container,
-  .mainCOntent .listchats_container {
-    border-right: none !important;
-    border-bottom: 2px solid brown !important;
-  }
-  
-  .mainContent .chat_container,
-  .mainCOntent .chat_container {
-    flex: 1 !important;
-    min-height: 300px !important;
-    height: auto !important;
-    max-height: none !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .mainContent .listchats_container,
-  .mainCOntent .listchats_container,
-  .mainContent .listcomments_container,
-  .mainCOntent .listcomments_container {
-    height: 180px !important;
-    max-height: 180px !important;
-  }
-  
-  .mainContent .chat_container,
-  .mainCOntent .chat_container {
-    min-height: 400px !important;
-  }
-}
-
-@media (max-width: 480px) {
-  .footer-btn {
-    font-size: 0.55em;
-    padding: 2px 3px;
-  }
-  
-  .footnote {
     font-size: 0.7em;
-    padding: 4px 8px;
   }
   
   .footer-controls {
     gap: 2px;
   }
   
-  .user-info {
-    font-size: 0.7em;
-    padding: 2px 4px;
+  .footer-btn {
+    padding: 3px 6px;
+    font-size: 0.6em;
   }
   
-  .status-badge {
-    font-size: 0.6em;
-    padding: 1px 3px;
+  .listchats_container {
+    height: 250px;
+  }
+  
+  .listcomments_container {
+    height: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .iko_viewport {
+    flex-direction: column;
+  }
+  
+  .listchats_container {
+    height: 200px;
+  }
+  
+  .chat_container .center {
+    padding: 10px;
+  }
+  
+  .message {
+    margin-bottom: 15px;
+  }
+  
+  .message img {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .input_div {
+    padding: 10px;
+    font-size: 13px;
+  }
+  
+  .SendButton {
+    padding: 10px 16px;
+    font-size: 13px;
   }
 }

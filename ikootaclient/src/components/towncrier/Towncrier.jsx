@@ -1,5 +1,5 @@
 // ikootaclient/src/components/towncrier/Towncrier.jsx
-// Enhanced with Full Membership Application Button
+// Enhanced with Full Membership Application Button and Banner Detection
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import "./towncrier.css";
@@ -43,6 +43,11 @@ const Towncrier = () => {
       return [];
     }
   }, [rawTeachings]);
+
+  // ✅ NEW: Banner detection logic
+  const hasBanners = useMemo(() => {
+    return isAuthenticated && (isPending || !isMember);
+  }, [isAuthenticated, isPending, isMember]);
 
   useEffect(() => {
     if (enhancedTeachings.length > 0 && !selectedTeaching) {
@@ -115,7 +120,7 @@ const Towncrier = () => {
     navigate('/applicationsurvey');
   };
 
-  // NEW: Handle Full Membership Application
+  // Handle Full Membership Application
   const handleApplyForFullMembership = () => {
     if (!isAuthenticated) {
       alert("Please sign in first to apply for full membership.");
@@ -211,6 +216,9 @@ const Towncrier = () => {
           )}
         </div>
         
+
+
+        
         <div className="nav-right">
           <span className="content-count">
             📚 {enhancedTeachings.length} Resources
@@ -242,7 +250,7 @@ const Towncrier = () => {
         </div>
       )}
 
-      {/* Access Level Information */}
+      {/* Access Level Information
       {isAuthenticated && (
         <div className="access-level-info">
           <div className="access-content">
@@ -272,9 +280,10 @@ const Towncrier = () => {
             )}
           </div>
         </div>
-      )}
+      )} */}
       
-      <div className="towncrier_viewport">
+      {/* ✅ UPDATED: Viewport with banner detection */}
+      <div className={`towncrier_viewport ${hasBanners ? 'with-banners' : ''}`}>
         <RevTopics 
           teachings={enhancedTeachings} 
           onSelect={handleSelectTeaching}
@@ -368,8 +377,6 @@ const Towncrier = () => {
 };
 
 export default Towncrier;
-
-
 
 
 

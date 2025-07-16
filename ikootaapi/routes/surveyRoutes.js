@@ -1,3 +1,4 @@
+//ikootaapi\routes\surveyRoutes.js
 import express from 'express';
 import { submitSurvey, getSurveyQuestions, updateSurveyQuestions, getSurveyLogs, approveSurvey } from '../controllers/surveyControllers.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
