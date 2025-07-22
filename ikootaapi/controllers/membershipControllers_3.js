@@ -1150,3 +1150,282 @@ export const getAllReports = async (req, res) => {
 };
 
 
+
+// =====================================================
+// ✅ ADD TO: ikootaapi/controllers/membershipControllers_3.js  
+// (Admin functions go here)
+// =====================================================
+
+// ✅ ADD THIS to membershipControllers_3.js (Admin functions)
+export const approvePreMemberApplication = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const { userId } = req.params;
+    const { mentorId, classId, adminNotes } = req.body;
+    
+    console.log('✅ Approving pre-member application for user:', userId);
+    
+    await db.beginTransaction();
+    
+    try {
+      // Generate unique converse ID
+      const converseId = await generateUniqueConverseId();
+      
+      // Update user with approval and assignments
+      await db.execute(`
+        UPDATE users 
+        SET 
+          is_member = 'approved',
+          membership_stage = 'pre_member',
+          application_status = 'approved',
+          application_reviewed_at = NOW(),
+          reviewed_by = ?,
+          converse_id = ?,
+          mentor_id = ?,
+          primary_class_id = ?,
+          updatedAt = NOW()
+        WHERE id = ?
+      `, [req.user.userId, converseId, mentorId, classId, userId]);
+      
+      // Update surveylog
+      await db.execute(`
+        UPDATE surveylog 
+        SET 
+          approval_status = 'approved',
+          reviewed_at = NOW(),
+          reviewed_by = ?,
+          admin_notes = ?,
+          mentor_assigned = ?,
+          class_assigned = ?,
+          converse_id_generated = ?
+        WHERE user_id = ? AND application_type = 'initial_application'
+      `, [req.user.userId, adminNotes, mentorId, classId, converseId, userId]);
+      
+      // Add to class membership
+      await db.execute(`
+        INSERT INTO user_class_memberships (user_id, class_id, membership_status, joined_at)
+        VALUES (?, ?, 'active', NOW())
+        ON DUPLICATE KEY UPDATE membership_status = 'active'
+      `, [userId, classId]);
+      
+      await db.commit();
+      
+      // Send approval notification
+      await sendApprovalNotification(userId, converseId, mentorId, classId);
+      
+      res.json({
+        success: true,
+        message: 'Application approved successfully',
+        user_status: 'approved',
+        converse_id: converseId,
+        access_granted: 'towncrier'
+      });
+      
+    } catch (error) {
+      await db.rollback();
+      throw error;
+    }
+    
+  } catch (error) {
+    console.error('❌ Application approval error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ ADD THIS to membershipControllers_3.js (Admin functions)
+export const declinePreMemberApplication = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const { userId } = req.params;
+    const { declineReason, adminNotes } = req.body;
+    
+    console.log('❌ Declining pre-member application for user:', userId);
+    
+    await db.beginTransaction();
+    
+    try {
+      // Update user with decline status
+      await db.execute(`
+        UPDATE users 
+        SET 
+          is_member = 'declined',
+          membership_stage = 'none',
+          application_status = 'declined',
+          application_reviewed_at = NOW(),
+          reviewed_by = ?,
+          converse_id = '000000',
+          mentor_id = '000000',
+          primary_class_id = '000000',
+          decline_reason = ?,
+          decline_notification_sent = FALSE,
+          updatedAt = NOW()
+        WHERE id = ?
+      `, [req.user.userId, declineReason, userId]);
+      
+      // Update surveylog
+      await db.execute(`
+        UPDATE surveylog 
+        SET 
+          approval_status = 'declined',
+          reviewed_at = NOW(),
+          reviewed_by = ?,
+          admin_notes = ?,
+          approval_decision_reason = ?
+        WHERE user_id = ? AND application_type = 'initial_application'
+      `, [req.user.userId, adminNotes, declineReason, userId]);
+      
+      await db.commit();
+      
+      // Send decline notification
+      await sendDeclineNotification(userId, declineReason);
+      
+      res.json({
+        success: true,
+        message: 'Application declined',
+        user_status: 'declined',
+        notification_sent: true
+      });
+      
+    } catch (error) {
+      await db.rollback();
+      throw error;
+    }
+    
+  } catch (error) {
+    console.error('❌ Application decline error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ UTILITY: Send Approval Notification (add to membershipControllers_3.js)
+const sendApprovalNotification = async (userId, converseId, mentorId, classId) => {
+  try {
+    const [user] = await db.execute(
+      'SELECT email, username FROM users WHERE id = ?',
+      [userId]
+    );
+    
+    if (user.length > 0) {
+      await sendEmailWithTemplate(user[0].email, 'pre_member_approval', {
+        USERNAME: user[0].username,
+        CONVERSE_ID: converseId,
+        MENTOR_ID: mentorId,
+        CLASS_ID: classId,
+        ACCESS_URL: `${process.env.FRONTEND_URL}/towncrier`
+      });
+    }
+  } catch (error) {
+    console.error('❌ Approval notification error:', error);
+  }
+};
+
+// ✅ UTILITY: Send Decline Notification (add to membershipControllers_3.js)
+const sendDeclineNotification = async (userId, reason) => {
+  try {
+    const [user] = await db.execute(
+      'SELECT email, username FROM users WHERE id = ?',
+      [userId]
+    );
+    
+    if (user.length > 0) {
+      await sendEmailWithTemplate(user[0].email, 'pre_member_decline', {
+        USERNAME: user[0].username,
+        DECLINE_REASON: reason,
+        REAPPLY_URL: `${process.env.FRONTEND_URL}/applicationsurvey`
+      });
+      
+      // Mark notification as sent
+      await db.execute(
+        'UPDATE users SET decline_notification_sent = TRUE WHERE id = ?',
+        [userId]
+      );
+    }
+  } catch (error) {
+    console.error('❌ Decline notification error:', error);
+  }
+};
+
+// ✅ ADD THIS to membershipControllers_3.js (Admin utilities)
+export const getAvailableMentors = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const [mentors] = await db.execute(`
+      SELECT 
+        u.id,
+        u.username,
+        u.converse_id,
+        u.email,
+        COALESCE(m.current_mentees, 0) as current_mentees,
+        COALESCE(m.max_mentees, 5) as max_mentees,
+        (COALESCE(m.max_mentees, 5) - COALESCE(m.current_mentees, 0)) as available_slots
+      FROM users u
+      LEFT JOIN mentors m ON u.converse_id = m.mentor_converse_id
+      WHERE u.role IN ('admin', 'super_admin') 
+        OR (u.is_member = 'member' AND u.membership_stage = 'member')
+      ORDER BY available_slots DESC, u.username ASC
+    `);
+    
+    res.json({
+      success: true,
+      mentors: mentors.filter(mentor => mentor.available_slots > 0)
+    });
+    
+  } catch (error) {
+    console.error('❌ Get mentors error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ ADD THIS to membershipControllers_3.js (Admin utilities)
+export const getAvailableClasses = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const [classes] = await db.execute(`
+      SELECT 
+        c.id,
+        c.class_id,
+        c.class_name,
+        c.class_type,
+        c.description,
+        c.max_members,
+        COALESCE(cm.current_members, 0) as current_members,
+        (c.max_members - COALESCE(cm.current_members, 0)) as available_slots
+      FROM classes c
+      LEFT JOIN (
+        SELECT 
+          class_id, 
+          COUNT(*) as current_members
+        FROM user_class_memberships 
+        WHERE membership_status = 'active'
+        GROUP BY class_id
+      ) cm ON c.class_id = cm.class_id
+      WHERE c.is_active = 1
+      ORDER BY c.class_type, available_slots DESC, c.class_name ASC
+    `);
+    
+    res.json({
+      success: true,
+      classes: classes.filter(cls => cls.available_slots > 0)
+    });
+    
+  } catch (error) {
+    console.error('❌ Get classes error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+
+

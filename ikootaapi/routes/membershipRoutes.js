@@ -1,9 +1,12 @@
-// ikootaapi/routes/membershipRoutes.js
+// ikootaapi/routes/membershipRoutes.js - AUTH ENDPOINTS REMOVED
 import express from 'express';
 import { 
-  sendVerificationCode,
-  registerWithVerification,
-  enhancedLogin,
+  // ✅ REMOVED: Authentication endpoints moved to authRoutes
+  // sendVerificationCode,
+  // registerWithVerification,
+  // enhancedLogin,
+  
+  // ✅ KEEP: Membership-specific endpoints
   checkApplicationStatus,
   submitInitialApplication,
   submitFullMembershipApplication,
@@ -34,8 +37,16 @@ import {
   withdrawApplication,
   getApplicationRequirements,
   getUserByIdFixed,
-  testUserLookup
+  testUserLookup,
+   getCurrentMembershipStatus,
+  approvePreMemberApplication,
+  declinePreMemberApplication,
+  getAvailableMentors,
+  getAvailableClasses
 } from '../controllers/membershipControllers.js';
+
+
+
 import { authenticate, cacheMiddleware } from '../middlewares/auth.middleware.js';
 import db from '../config/db.js';
 
@@ -155,19 +166,22 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // ==================================================
+// ✅ REMOVED: AUTHENTICATION ENDPOINTS (Now in authRoutes.js)
+// ==================================================
+// These endpoints have been moved to /api/auth/
+// - POST /auth/send-verification -> moved to authRoutes.js
+// - POST /auth/register -> moved to authRoutes.js  
+// - POST /auth/login -> moved to authRoutes.js
+
+// ==================================================
 // STAGE 1: INITIAL APPLICATION ENDPOINTS
 // ==================================================
 
-// Verification and Registration (KEEP ORIGINAL PATHS)
-router.post('/auth/send-verification', sendVerificationCode);
-router.post('/auth/register', registerWithVerification);
-router.post('/auth/login', enhancedLogin);
-
-// User Dashboard and Status (KEEP ORIGINAL PATHS)
+// User Dashboard and Status
 router.get('/dashboard', authenticate, getUserDashboard);
 router.get('/application-history', authenticate, getApplicationHistory);
 
-// Initial Application Survey (KEEP ORIGINAL PATHS)
+// Initial Application Survey
 router.get('/survey/check-status', authenticate, checkApplicationStatus);
 router.post('/survey/submit-application', authenticate, submitInitialApplication);
 
@@ -176,7 +190,7 @@ router.put('/application/update-answers', authenticate, updateApplicationAnswers
 router.post('/application/withdraw', authenticate, withdrawApplication);
 router.get('/application/requirements', authenticate, getApplicationRequirements);
 
-// Admin endpoints for initial applications (KEEP ORIGINAL PATHS)
+// Admin endpoints for initial applications
 router.get('/admin/pending-applications', authenticate, requireAdmin, getPendingApplications);
 router.put('/admin/update-user-status/:userId', authenticate, requireAdmin, updateApplicationStatus);
 router.post('/admin/bulk-approve', authenticate, requireAdmin, bulkApproveApplications);
@@ -185,17 +199,17 @@ router.post('/admin/bulk-approve', authenticate, requireAdmin, bulkApproveApplic
 // STAGE 2: FULL MEMBERSHIP ENDPOINTS
 // ==================================================
 
-// Full Membership Application (KEEP ORIGINAL PATHS)
+// Full Membership Application
 router.get('/membership/full-membership-status', authenticate, getFullMembershipStatus);
 router.post('/membership/log-full-membership-access', authenticate, logFullMembershipAccess);
 router.post('/membership/submit-full-membership', authenticate, submitFullMembershipApplication);
 
-// Admin endpoints for full membership (KEEP ORIGINAL PATHS)
+// Admin endpoints for full membership
 router.get('/admin/pending-full-memberships', authenticate, requireAdmin, getPendingFullMemberships);
 router.put('/admin/review-full-membership/:applicationId', authenticate, requireAdmin, updateFullMembershipStatus);
 
 // ==================================================
-// ENHANCED ADMIN ENDPOINTS (KEEP ORIGINAL PATHS)
+// ENHANCED ADMIN ENDPOINTS
 // ==================================================
 
 // Analytics and Overview
@@ -210,14 +224,18 @@ router.post('/admin/send-membership-notification', authenticate, requireAdmin, s
 // Data Export
 router.get('/admin/export-membership-data', authenticate, requireAdmin, exportMembershipData);
 
-// ==================================================
-// MISSING ROUTES FROM WORKING VERSION - ADDED BACK
-// ==================================================
 
-// Authentication routes (alternative paths for compatibility)
-router.post('/login', enhancedLogin);
-router.post('/send-verification', sendVerificationCode);
-router.post('/register', registerWithVerification);
+
+
+// Add these routes:
+router.get('/status', authenticate, getCurrentMembershipStatus);
+router.post('/approve/:userId', authenticate, requireAdmin, approvePreMemberApplication);
+router.post('/decline/:userId', authenticate, requireAdmin, declinePreMemberApplication);
+router.get('/admin/mentors', authenticate, requireAdmin, getAvailableMentors);
+router.get('/admin/classes', authenticate, requireAdmin, getAvailableClasses);
+// ==================================================
+// ALTERNATIVE ROUTES FOR COMPATIBILITY
+// ==================================================
 
 // User routes (require authentication) - MISSING ROUTES ADDED
 router.get('/status', authenticate, checkApplicationStatus);
@@ -308,7 +326,7 @@ router.get('/admin/config',
 );
 
 // ==================================================
-// VALIDATION MIDDLEWARE EXAMPLES (NEW ADDITIONS)
+// VALIDATION MIDDLEWARE EXAMPLES
 // ==================================================
 
 // Example routes with validation middleware
@@ -340,7 +358,7 @@ router.post('/application/withdraw/validated',
 );
 
 // ==================================================
-// SUPER ADMIN ROUTES (NEW ADDITIONS)
+// SUPER ADMIN ROUTES
 // ==================================================
 
 // Super admin only routes
@@ -382,8 +400,7 @@ router.get('/admin/reports',
 // Log all routes in development
 if (process.env.NODE_ENV === 'development') {
   console.log('🛣️ Membership routes loaded:');
-  console.log('   Authentication: /auth/login, /auth/send-verification, /auth/register');
-  console.log('   Alternative auth: /login, /send-verification, /register');
+  console.log('   ❌ REMOVED Auth: /auth/login, /auth/send-verification, /auth/register -> Now in authRoutes.js');
   console.log('   User: /dashboard, /application-history, /status, /history, /permissions');
   console.log('   Survey: /survey/check-status, /survey/submit-application');
   console.log('   ✅ NEW Applications: /application/*, /application/update-answers, /application/withdraw');
@@ -403,17 +420,15 @@ if (process.env.NODE_ENV === 'development') {
 router.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    error: 'Route not found',
+    error: 'Membership route not found',
     path: req.path,
     method: req.method,
+    note: 'Authentication endpoints have been moved to /api/auth/',
     availableRoutes: {
-      authentication: [
-        'POST /auth/login',
-        'POST /auth/send-verification', 
-        'POST /auth/register',
-        'POST /login',
-        'POST /send-verification',
-        'POST /register'
+      authentication_moved: [
+        'POST /api/auth/send-verification (MOVED from here)',
+        'POST /api/auth/register (MOVED from here)', 
+        'POST /api/auth/login (MOVED from here)'
       ],
       user: [
         'GET /dashboard',
@@ -505,217 +520,3 @@ router.use((error, req, res, next) => {
 
 export default router;
 
-// // ikootaapi/routes/membershipRoutes.js
-// import express from 'express';
-// import { 
-//   sendVerificationCode,
-//   registerWithVerification,
-//   enhancedLogin,
-//   checkApplicationStatus,
-//   submitInitialApplication,
-//   submitFullMembershipApplication,
-//   getFullMembershipStatus,
-//   logFullMembershipAccess,
-//   getPendingApplications,
-//   updateApplicationStatus,
-//   updateFullMembershipStatus,
-//   sendNotification,
-//   getPendingFullMemberships,
-//   sendMembershipNotification,
-//   getMembershipOverview,
-//   getMembershipStats,
-//   getUserDashboard,
-//   getApplicationHistory,
-//   bulkApproveApplications,
-//   exportMembershipData,
-//   getMembershipAnalytics
-// } from '../controllers/membershipControllers.js';
-// import { authenticate, requireAdmin, cacheMiddleware } from '../middlewares/auth.middleware.js';
-
-// const router = express.Router();
-
-// // Add this to the TOP of your membershipRoutes.js file (right after imports)
-
-// // Simple test route to verify routing works
-// router.get('/test-simple', (req, res) => {
-//   res.json({
-//     success: true,
-//     message: 'Membership routes are working!',
-//     timestamp: new Date().toISOString(),
-//     path: req.path,
-//     method: req.method
-//   });
-// });
-
-// // Test route with authentication
-// router.get('/test-auth', authenticate, (req, res) => {
-//   res.json({
-//     success: true,
-//     message: 'Authentication is working!',
-//     user: req.user,
-//     timestamp: new Date().toISOString()
-//   });
-// });
-
-// // Test the getUserDashboard function directly
-// router.get('/test-dashboard', authenticate, async (req, res) => {
-//   try {
-//     console.log('🧪 Test dashboard route called');
-//     console.log('🧪 User:', req.user);
-    
-//     // Simple response without complex logic
-//     res.json({
-//       success: true,
-//       message: 'Test dashboard route working',
-//       user: req.user,
-//       timestamp: new Date().toISOString()
-//     });
-//   } catch (error) {
-//     console.error('🧪 Test dashboard error:', error);
-//     res.status(500).json({ error: 'Test dashboard failed' });
-//   }
-// });
-
-
-
-// // Add this to your membershipRoutes.js (ONLY for development)
-
-// if (process.env.NODE_ENV === 'development') {
-//   router.post('/dev/setup-admin/:userId', authenticate, async (req, res) => {
-//     try {
-//       const { userId } = req.params;
-      
-//       // Only allow if user is admin
-//       if (req.user.role !== 'admin') {
-//         return res.status(403).json({ error: 'Admin access required' });
-//       }
-      
-//       console.log('🛠️ Setting up admin account for development...');
-      
-//       // Update user status with correct ENUM values
-//       await db.query(`
-//         UPDATE users 
-//         SET 
-//           membership_stage = 'member',
-//           is_member = 'member',
-//           updatedAt = NOW()
-//         WHERE id = ?
-//       `, [userId]);
-      
-//       // Insert initial application
-//       await db.query(`
-//         INSERT INTO surveylog (
-//           user_id, 
-//           answers, 
-//           application_type, 
-//           approval_status, 
-//           admin_notes,
-//           reviewed_by,
-//           reviewed_at,
-//           createdAt
-//         ) VALUES (?, ?, 'initial_application', 'approved', 'Dev setup', ?, NOW(), NOW())
-//         ON DUPLICATE KEY UPDATE
-//           approval_status = 'approved',
-//           admin_notes = 'Dev setup - updated'
-//       `, [userId.toString(), JSON.stringify({dev: 'setup'}), userId]);
-      
-//       // Insert full membership
-//       await db.query(`
-//         INSERT INTO surveylog (
-//           user_id, 
-//           answers, 
-//           application_type, 
-//           approval_status, 
-//           admin_notes,
-//           reviewed_by,
-//           reviewed_at,
-//           createdAt
-//         ) VALUES (?, ?, 'full_membership', 'approved', 'Dev setup', ?, NOW(), NOW())
-//         ON DUPLICATE KEY UPDATE
-//           approval_status = 'approved',
-//           admin_notes = 'Dev setup - updated'
-//       `, [userId.toString(), JSON.stringify({dev: 'setup'}), userId]);
-      
-//       // Add full membership access
-//       await db.query(`
-//         INSERT INTO full_membership_access (
-//           user_id, 
-//           first_accessed_at, 
-//           last_accessed_at, 
-//           access_count
-//         ) VALUES (?, NOW(), NOW(), 1)
-//         ON DUPLICATE KEY UPDATE
-//           last_accessed_at = NOW(),
-//           access_count = access_count + 1
-//       `, [userId]);
-      
-//       res.json({
-//         success: true,
-//         message: 'Admin account setup completed for development',
-//         userId: userId,
-//         newStatus: {
-//           membership_stage: 'member',
-//           is_member: 'member'
-//         }
-//       });
-      
-//     } catch (error) {
-//       console.error('❌ Dev setup error:', error);
-//       res.status(500).json({ error: 'Failed to setup admin account' });
-//     }
-//   });
-// }
-
-// // ==================================================
-// // STAGE 1: INITIAL APPLICATION ENDPOINTS
-// // ==================================================
-
-// // Verification and Registration
-// router.post('/auth/send-verification', sendVerificationCode);
-// router.post('/auth/register', registerWithVerification);
-// router.post('/auth/login', enhancedLogin);
-
-// console.log('getUserDashboard function:', getUserDashboard);
-// // User Dashboard and Status
-// router.get('/dashboard', authenticate, getUserDashboard);
-// router.get('/application-history', authenticate, getApplicationHistory);
-
-// // Initial Application Survey
-// router.get('/survey/check-status', authenticate, checkApplicationStatus);
-// router.post('/survey/submit-application', authenticate, submitInitialApplication);
-
-// // Admin endpoints for initial applications
-// router.get('/admin/pending-applications', authenticate, requireAdmin, getPendingApplications);
-// router.put('/admin/update-user-status/:userId', authenticate, requireAdmin, updateApplicationStatus);
-// router.post('/admin/bulk-approve', authenticate, requireAdmin, bulkApproveApplications);
-
-// // ==================================================
-// // STAGE 2: FULL MEMBERSHIP ENDPOINTS
-// // ==================================================
-
-// // Full Membership Application
-// router.get('/membership/full-membership-status', authenticate, getFullMembershipStatus);
-// router.post('/membership/log-full-membership-access', authenticate, logFullMembershipAccess);
-// router.post('/membership/submit-full-membership', authenticate, submitFullMembershipApplication);
-
-// // Admin endpoints for full membership
-// router.get('/admin/pending-full-memberships', authenticate, requireAdmin, getPendingFullMemberships);
-// router.put('/admin/review-full-membership/:applicationId', authenticate, requireAdmin, updateFullMembershipStatus);
-
-// // ==================================================
-// // ENHANCED ADMIN ENDPOINTS
-// // ==================================================
-
-// // Analytics and Overview
-// router.get('/admin/membership-overview', authenticate, requireAdmin, cacheMiddleware(600), getMembershipOverview);
-// router.get('/admin/membership-stats', authenticate, requireAdmin, cacheMiddleware(600), getMembershipStats);
-// router.get('/admin/analytics', authenticate, requireAdmin, cacheMiddleware(600), getMembershipAnalytics);
-
-// // Communication
-// router.post('/admin/send-notification', authenticate, requireAdmin, sendNotification);
-// router.post('/admin/send-membership-notification', authenticate, requireAdmin, sendMembershipNotification);
-
-// // Data Export
-// router.get('/admin/export-membership-data', authenticate, requireAdmin, exportMembershipData);
-
-// export default router;

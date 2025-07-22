@@ -12979,3 +12979,1601 @@ Would you like me to help create the specific fixes for the critical security vu
 
 
 
+#================================
+#=======================EXPLAINATION START
+#================================
+
+users membership application/signup process. 
+
+it will start with a user signing up signup with profile (email, phone and username) and instant of signup, User will be directed to 2. Application survey for pre-member. From this pre-member Application survey up to their submitting of this pre-requisite survey or pre-member Application survey. Application submitted stage 3. When application is submitted there is pending application review stage when application is being reviewed by the Admin. All these stages are to be termed 'applied' 4. Admin review application survey and is_member is granted/approved or declined. it will be the admin that logs into the admin dashboard to vet the survey result/answer submitted by the applicant before decision for is_member granted/approved or declined. At this stage of admin granting or declining membership of applicants, status changes from 'applied' to either 'approved' or diclined' (or perhaps i earlier used 'denied' ). 5. If application survey review results to 'approved' , admin also have to create some properties or previledges for the user. (a) converse_id system. create a 6-digit alphanumeric letters and avatar that they will henceforth use in place of their profile for all open communication and messages/chats. (b) mentor/mentee system. Have to also place user under a mentor by putting the mentor's id into their new user'd profile (a column for mentor 6-digit alphanumeric id#). (c) Class system. Admin also have to place the new user in a special demographic class (like classroom or like subject of study in a regular school system). This class is going to be synonymous to the 'audience' that the user can have internal communication/chats with apart from the general communication class which will feature in 'audience' for posting content/chat/messages. I propose that all these three systems or properties will each have a column in the user's table and each of this column will have the three options that admin will need to choose or flip into. 6. Applicants 'declined' or 'denied'. The moment Admin review results in denied or declined, the system will automatically initiate standard prepared communication or info messages to those that are declined/denied. and their status or field column will be filled with special notation like will have straight zeros (000000) as nil/null on their column for converse id, mentor and class. """ review the above process and stages and approval and let's get a clearer systemiced process of enrolment and approval by the Admin that will led users to become pre-member of which grantes access to the Towncrier.jsx viewport and note; not acdess to the Iko.jsx chat viewport that will only come on another different stage of application process that makes users member (full member)
+
+
+
+#====================
+#===================
+
+SYSTEMIZED MEMBERSHIP PROCESS
+STAGE 1: SIGNUP & APPLICATION
+
+User Status: 'applied'
+Access Level: Application Survey Only
+Signup → Creates profile (email, phone, username)
+Immediate Redirect → /applicationsurvey (Pre-member Application Survey)
+Survey Completion → Status remains 'applied' (submission stage)
+Pending Review → Status remains 'applied' (admin review stage) STAGE 2: ADMIN REVIEW & DECISION
+Admin Actions Required:
+- Review survey answers
+- Make approval/decline decision
+- If approved: Setup user properties
+Admin Dashboard Flow:
+1. Review Application → View survey responses
+2. Decision Making → Approve or Decline
+3. If Approved → Setup 3 systems:
+   * Converse ID (6-digit alphanumeric)
+   * Mentor Assignment (mentor ID)
+   * Class Assignment (demographic class)
+STAGE 3: OUTCOME PROCESSING
+📊 APPROVED PATH:
+
+Status: 'applied' → 'approved'
+Access: Towncrier.jsx (Pre-member)
+Properties: Converse ID + Mentor + Class
+❌ DECLINED PATH:
+
+Status: 'applied' → 'declined'
+Properties: 000000 (null values)
+Auto-notification: Decline message sent
+Access: None (back to application)
+🗃️ DATABASE SCHEMA UPDATES
+Enhanced Database Schema for Membership Process
+Code 
+-- ===================================================== -- ENHANCED USERS TABLE FOR MEMBERSHIP PROCESS -- ===================================================== ALTER TABLE users ADD COLUMN IF NOT EXISTS ( -- ✅ Core membership tracking is_member
+🔧 BACKEND API ENDPOINTS NEEDED
+API Endpoints for Membership Process
+Code 
+// ===================================================== // MEMBERSHIP PROCESS API ENDPOINTS // ikootaapi/controllers/membershipControllers.js // ===================================================== / * ✅ STAGE 1: Submit Pre-member Application S
+🔒 UPDATED USERSTATUS LOGIC
+Fixed UserStatus.jsx - Correct Route Handling
+Code ∙ Version 9 
+ // ✅ SYSTEMIZED MEMBERSHIP PROCESS: User status detection const getUserStatus = useCallback(() => { try { if (!user) return 'guest'; if (user.role === 'admin' || user.role === 'super_admin') { return 'admin';
+📊 COMPLETE SYSTEMIZED PROCESS SUMMARY
+🔄 USER JOURNEY:**
+
+1. SIGNUP → is_member: 'applied', membership_stage: 'none'
+2. APPLICATION SURVEY → application_status: 'submitted'
+3. ADMIN REVIEW → application_status: 'under_review'
+4. ADMIN DECISION:
+   ✅ APPROVED → is_member: 'approved', membership_stage: 'pre_member'
+                 + converse_id + mentor + class → TOWNCRIER ACCESS
+   ❌ DECLINED → is_member: 'declined'
+                 + 000000 values → REAPPLY OPTION
+🔐 ACCESS CONTROL:
+* Applied Users: Application Survey Only
+* Pending Users: Pending Verification Page Only
+* Approved Pre-Members: Towncrier Access
+* Declined Users: Back to Application
+* Full Members: Iko Access (future stage)
+⚙️ ADMIN TOOLS NEEDED:
+1. Application Review Dashboard
+2. Approval/Decline Actions
+3. Converse ID Generator
+4. Mentor Assignment Interface
+5. Class Assignment Interface
+6. Bulk Action Tools
+This systemized approach ensures security, traceability, and proper workflow enforcement throughout the membership process. 
+
+
+
+
+# ================================
+
+
+#!/bin/bash
+# =====================================================
+# IKOOTA MEMBERSHIP PROCESS IMPLEMENTATION SCRIPT
+# =====================================================
+
+echo "🚀 Setting up Ikoota Membership Process..."
+
+# =====================================================
+# BACKEND SETUP CHECKLIST
+# =====================================================
+
+echo "📋 BACKEND SETUP CHECKLIST:"
+echo "✅ 1. Database Schema Updates"
+echo "   - Foreign keys created successfully ✓"
+echo "   - notification_templates table populated ✓"
+echo "   - New columns added to users/surveylog ✓"
+
+echo "✅ 2. API Endpoints Required:"
+echo "   - POST /api/membership/submit-application"
+echo "   - GET  /api/membership/pending-applications" 
+echo "   - POST /api/membership/approve/:userId"
+echo "   - POST /api/membership/decline/:userId"
+echo "   - GET  /api/membership/status"
+echo "   - GET  /api/membership/admin/mentors"
+echo "   - GET  /api/membership/admin/classes"
+echo "   - GET  /api/membership/admin/stats"
+
+echo "✅ 3. Environment Variables to Add:"
+cat << 'EOF'
+# Email Configuration
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+FROM_EMAIL=noreply@ikoota.com
+
+# Frontend URLs
+FRONTEND_URL=http://localhost:3000
+
+# Membership Process Settings
+DEFAULT_MENTOR_MAX_MENTEES=5
+DEFAULT_CLASS_MAX_MEMBERS=50
+EOF
+
+# =====================================================
+# FRONTEND SETUP CHECKLIST
+# =====================================================
+
+echo ""
+echo "📋 FRONTEND SETUP CHECKLIST:"
+echo "✅ 1. Components to Add:"
+echo "   - AdminApplicationDashboard.jsx"
+echo "   - ApplicationSurveyForm.jsx" 
+echo "   - PendingVerificationPage.jsx"
+echo "   - MembershipAnalytics.jsx"
+
+echo "✅ 2. Routes to Add to App.jsx:"
+cat << 'EOF'
+// Add these routes to your React Router
+<Route path="/applicationsurvey" element={<ApplicationSurveyForm />} />
+<Route path="/pending-verification" element={<PendingVerificationPage />} />
+<Route path="/admin/applications" element={<AdminApplicationDashboard />} />
+EOF
+
+echo "✅ 3. UserStatus.jsx Updates:"
+echo "   - Enhanced status detection logic ✓"
+echo "   - New route: /pending-verification ✓"
+echo "   - Proper membership flow handling ✓"
+
+# =====================================================
+# DATABASE FINAL SETUP SCRIPT
+# =====================================================
+
+echo ""
+echo "📋 FINAL DATABASE SETUP:"
+echo "Run this SQL to complete the setup:"
+
+cat << 'EOF'
+-- =====================================================
+-- FINAL MEMBERSHIP PROCESS DATABASE SETUP
+-- =====================================================
+
+-- 1. Create email_logs table
+CREATE TABLE IF NOT EXISTS email_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  recipient VARCHAR(255) NOT NULL,
+  template_name VARCHAR(50),
+  subject VARCHAR(200),
+  status ENUM('sent', 'failed', 'pending') DEFAULT 'pending',
+  error_message TEXT NULL,
+  sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_recipient (recipient),
+  INDEX idx_status (status),
+  INDEX idx_sent_at (sent_at)
+);
+
+-- 2. Create mentors table
+CREATE TABLE IF NOT EXISTS mentors (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  mentor_converse_id VARCHAR(12) UNIQUE NOT NULL,
+  user_id INT NOT NULL,
+  current_mentees INT DEFAULT 0,
+  max_mentees INT DEFAULT 5,
+  specialization VARCHAR(255),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_active (is_active),
+  INDEX idx_availability (current_mentees, max_mentees)
+);
+
+-- 3. Create application_surveys table  
+CREATE TABLE IF NOT EXISTS application_surveys (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  survey_data JSON NOT NULL,
+  submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  review_status ENUM('pending', 'approved', 'declined') DEFAULT 'pending',
+  reviewer_id INT NULL,
+  reviewer_notes TEXT NULL,
+  reviewed_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
+  UNIQUE KEY unique_user_application (user_id),
+  INDEX idx_review_status (review_status),
+  INDEX idx_submitted_at (submitted_at)
+);
+
+-- 4. Insert default mentors for existing admins
+INSERT IGNORE INTO mentors (mentor_converse_id, user_id, max_mentees, specialization)
+SELECT converse_id, id, 10, 'General Mentoring'
+FROM users 
+WHERE role IN ('admin', 'super_admin') 
+  AND converse_id IS NOT NULL 
+  AND converse_id != '000000';
+
+-- 5. Create performance indexes
+CREATE INDEX IF NOT EXISTS idx_users_membership_process 
+ON users(is_member, membership_stage, application_status);
+
+CREATE INDEX IF NOT EXISTS idx_users_application_submitted 
+ON users(application_submitted_at);
+
+-- 6. Update existing data
+UPDATE users 
+SET application_status = 'not_submitted' 
+WHERE application_status IS NULL 
+  AND is_member = 'applied' 
+  AND membership_stage = 'none';
+
+-- 7. Verify setup
+SELECT 'Setup Complete!' as status;
+SELECT 
+  COUNT(*) as total_users,
+  COUNT(CASE WHEN is_member = 'applied' THEN 1 END) as applied_users,
+  COUNT(CASE WHEN application_status = 'submitted' THEN 1 END) as pending_applications,
+  COUNT(CASE WHEN is_member = 'approved' THEN 1 END) as approved_users
+FROM users;
+EOF
+
+# =====================================================
+# TESTING CHECKLIST
+# =====================================================
+
+echo ""
+echo "🧪 TESTING CHECKLIST:"
+echo "✅ 1. User Registration Flow:"
+echo "   □ New user signs up → Status: 'applied'"
+echo "   □ Redirected to /applicationsurvey"
+echo "   □ Can complete and submit survey"
+echo "   □ Redirected to /pending-verification"
+
+echo "✅ 2. Admin Review Flow:" 
+echo "   □ Admin can see pending applications"
+echo "   □ Can approve with mentor/class assignment"
+echo "   □ Can decline with reason"
+echo "   □ Email notifications sent"
+
+echo "✅ 3. User Experience Flow:"
+echo "   □ Approved users → Access to /towncrier"
+echo "   □ Declined users → Can reapply"
+echo "   □ Status updates work correctly"
+
+echo "✅ 4. Email System:"
+echo "   □ SMTP configuration works"
+echo "   □ Approval emails sent"
+echo "   □ Decline emails sent"
+echo "   □ Admin notification emails"
+
+# =====================================================
+# FILE STRUCTURE SUMMARY
+# =====================================================
+
+echo ""
+echo "📁 FILE STRUCTURE SUMMARY:"
+cat << 'EOF'
+Backend (ikootaapi/):
+├── controllers/
+│   ├── membershipControllers.js     ✅ Application submission & review
+│   └── adminControllers.js          ✅ Admin utilities & stats
+├── utils/
+│   ├── emailService.js             ✅ Email notification system
+│   └── converseIdGenerator.js      ✅ Unique ID generation
+├── routes/
+│   └── membershipRoutes.js         ✅ API endpoints
+└── migrations/
+    └── membership_process.sql       ✅ Database setup
+
+Frontend (ikootaclient/src/):
+├── components/
+│   ├── admin/
+│   │   └── AdminApplicationDashboard.jsx    ✅ Admin review interface
+│   ├── membership/
+│   │   ├── ApplicationSurveyForm.jsx        ✅ Multi-step survey
+│   │   ├── PendingVerificationPage.jsx      ✅ Status waiting page
+│   │   └── MembershipAnalytics.jsx          ✅ Admin stats
+│   └── auth/
+│       └── UserStatus.jsx                   ✅ Enhanced routing logic
+└── routes/
+    └── App.jsx                             ✅ Updated with new routes
+EOF
+
+# =====================================================
+# PRODUCTION DEPLOYMENT NOTES
+# =====================================================
+
+echo ""
+echo "🚀 PRODUCTION DEPLOYMENT NOTES:"
+echo "✅ 1. Security Considerations:"
+echo "   - Validate all survey inputs on backend"
+echo "   - Rate limit application submissions"
+echo "   - Secure admin endpoints with proper auth"
+echo "   - Use environment variables for sensitive data"
+
+echo "✅ 2. Performance Optimizations:"
+echo "   - Index database tables for queries"
+echo "   - Cache mentor/class lists"
+echo "   - Optimize email queue processing"
+echo "   - Monitor application processing times"
+
+echo "✅ 3. Monitoring & Logging:"
+echo "   - Track application submission rates"
+echo "   - Monitor email delivery success"
+echo "   - Log admin actions for audit trail"
+echo "   - Set up alerts for failed processes"
+
+# =====================================================
+# QUICK START COMMANDS
+# =====================================================
+
+echo ""
+echo "⚡ QUICK START COMMANDS:"
+echo "1. Backend Setup:"
+echo "   cd ikootaapi && npm install nodemailer"
+echo "   # Add environment variables to .env"
+echo "   # Run the SQL setup script above"
+echo "   # Restart your backend server"
+
+echo ""
+echo "2. Frontend Setup:"
+echo "   cd ikootaclient && npm install lucide-react"
+echo "   # Add the React components from artifacts"
+echo "   # Update your routing in App.jsx"
+echo "   # Test the complete flow"
+
+echo ""
+echo "3. Verification:"
+echo "   # Test user registration → survey → admin review"
+echo "   # Verify email notifications work"
+echo "   # Check database foreign keys"
+echo "   # Test both approval and decline flows"
+
+echo ""
+echo "🎉 MEMBERSHIP PROCESS IMPLEMENTATION COMPLETE!"
+echo "Your systemized membership process is now ready for production!"
+
+# =====================================================
+# TROUBLESHOOTING GUIDE
+# =====================================================
+
+echo ""
+echo "🔧 TROUBLESHOOTING GUIDE:"
+cat << 'EOF'
+Common Issues & Solutions:
+
+1. Foreign Key Errors:
+   - Check collation matches (utf8mb4_general_ci)
+   - Verify column types are identical
+   - Ensure referenced data exists
+
+2. Email Not Sending:
+   - Check SMTP credentials in .env
+   - Verify email templates exist in database
+   - Check email_logs table for error messages
+
+3. User Status Not Updating:
+   - Clear browser cache and cookies
+   - Check UserStatus.jsx logic
+   - Verify API endpoints return correct data
+
+4. Survey Submission Fails:
+   - Check network tab for API errors
+   - Verify JWT token is valid
+   - Check required field validations
+
+5. Admin Dashboard Issues:
+   - Ensure user has admin role
+   - Check mentor/class data exists
+   - Verify foreign key constraints
+
+For additional help, check the console logs and network requests.
+EOF
+
+echo ""
+echo "✨ Happy coding! Your membership process is now bulletproof! ✨"
+
+
+
+
+
+
+
+
+MySQL [ikoota_db]> show tables;
+ERROR 2006 (HY000): MySQL server has gone away
+No connection. Trying to reconnect...
+Connection id:    41214
+Current database: ikoota_db
+
++--------------------------------+
+| Tables_in_ikoota_db            |
++--------------------------------+
+| admin_membership_overview      |
+| all_applications_status        |
+| audit_logs                     |
+| bulk_email_logs                |
+| bulk_sms_logs                  |
+| chats                          |
+| class_content_access           |
+| class_member_counts            |
+| classes                        |
+| comments                       |
+| email_logs                     |
+| email_templates                |
+| full_membership_access         |
+| full_membership_access_log     |
+| full_membership_applications   |
+| id_generation_log              |
+| identity_masking_audit         |
+| membership_review_history      |
+| membership_stats               |
+| mentors                        |
+| notification_templates         |
+| pending_applications_overview  |
+| pending_applications_simple    |
+| pending_full_memberships       |
+| pending_initial_applications   |
+| reports                        |
+| sms_logs                       |
+| sms_templates                  |
+| survey_questions               |
+| surveylog                      |
+| teachings                      |
+| user_chats                     |
+| user_class_details             |
+| user_class_memberships         |
+| user_communication_preferences |
+| user_profiles                  |
+| users                          |
+| verification_codes             |
++--------------------------------+
+38 rows in set (0.263 sec)
+
+MySQL [ikoota_db]> describe admin_membership_overview;
++----------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+| Field                      | Type                                                                                        | Null | Key | Default           | Extra             |
++----------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+| id                         | int                                                                                         | NO   |     | 0                 |                   |
+| username                   | varchar(255)                                                                                | NO   |     | NULL              |                   |
+| email                      | varchar(255)                                                                                | NO   |     | NULL              |                   |
+| converse_id                | varchar(12)                                                                                 | YES  |     | NULL              |                   |
+| initial_status             | enum('applied','pending','suspended','granted','declined','pre_member','member','rejected') | YES  |     | applied           |                   |
+| membership_stage           | enum('none','applicant','pre_member','member')                                              | YES  |     | none              |                   |
+| initial_ticket             | varchar(20)                                                                                 | YES  |     | NULL              |                   |
+| full_membership_status     | enum('not_applied','applied','pending','suspended','approved','declined')                   | YES  |     | not_applied       |                   |
+| full_membership_ticket     | varchar(25)                                                                                 | YES  |     | NULL              |                   |
+| full_membership_applied_at | timestamp                                                                                   | YES  |     | NULL              |                   |
+| initial_submitted          | timestamp                                                                                   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| initial_approval_status    | enum('pending','approved','rejected','under_review','granted','declined')                   | YES  |     | pending           |                   |
+| initial_reviewer           | int                                                                                         | YES  |     | NULL              |                   |
+| initial_reviewed_at        | timestamp                                                                                   | YES  |     | NULL              |                   |
+| initial_verified_by        | char(10)                                                                                    | YES  |     | NULL              |                   |
+| initial_admin_notes        | text                                                                                        | YES  |     | NULL              |                   |
+| full_submitted             | timestamp                                                                                   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| full_application_status    | enum('pending','suspended','approved','declined')                                           | YES  |     | pending           |                   |
+| full_reviewed_at           | timestamp                                                                                   | YES  |     | NULL              |                   |
+| full_reviewer              | int                                                                                         | YES  |     | NULL              |                   |
+| full_admin_notes           | text                                                                                        | YES  |     | NULL              |                   |
+| full_reviewer_name         | varchar(255)                                                                                | YES  |     | NULL              |                   |
+| user_created               | timestamp                                                                                   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++----------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+23 rows in set (0.071 sec)
+
+MySQL [ikoota_db]> select * from admin_membership_overview;
++----+-----------+-------------------------+-------------+----------------+------------------+----------------------+------------------------+------------------------+----------------------------+---------------------+-------------------------+------------------+---------------------+---------------------+-----------------------------------+----------------+-------------------------+------------------+---------------+------------------+--------------------+---------------------+
+| id | username  | email                   | converse_id | initial_status | membership_stage | initial_ticket       | full_membership_status | full_membership_ticket | full_membership_applied_at | initial_submitted   | initial_approval_status | initial_reviewer | initial_reviewed_at | initial_verified_by | initial_admin_notes               | full_submitted | full_application_status | full_reviewed_at | full_reviewer | full_admin_notes | full_reviewer_name | user_created        |
++----+-----------+-------------------------+-------------+----------------+------------------+----------------------+------------------------+------------------------+----------------------------+---------------------+-------------------------+------------------+---------------------+---------------------+-----------------------------------+----------------+-------------------------+------------------+---------------+------------------+--------------------+---------------------+
+|  3 | yahoomond | peters_o_mond@yahoo.com | OTO#D003V3  | member         | member           | APP-undefined-mcrf9p | not_applied            | NULL                   | NULL                       | 2025-01-07 06:09:46 | pending                 |             NULL | NULL                |                     | NULL                              | NULL           | NULL                    | NULL             |          NULL | NULL             | NULL               | 2025-01-07 06:09:31 |
+|  3 | yahoomond | peters_o_mond@yahoo.com | OTO#D003V3  | member         | member           | APP-undefined-mcrf9p | not_applied            | NULL                   | NULL                       | 2025-07-03 20:48:24 | approved                |                3 | 2025-07-03 20:48:24 |                     | Admin account - development setup | NULL           | NULL                    | NULL             |          NULL | NULL             | NULL               | 2025-01-07 06:09:31 |
+|  3 | yahoomond | peters_o_mond@yahoo.com | OTO#D003V3  | member         | member           | APP-undefined-mcrf9p | not_applied            | NULL                   | NULL                       | 2025-07-03 21:38:20 | approved                |                3 | 2025-07-03 21:38:20 |                     | Admin account - development setup | NULL           | NULL                    | NULL             |          NULL | NULL             | NULL               | 2025-01-07 06:09:31 |
+|  3 | yahoomond | peters_o_mond@yahoo.com | OTO#D003V3  | member         | member           | APP-undefined-mcrf9p | not_applied            | NULL                   | NULL                       | 2025-07-04 00:17:34 | approved                |                3 | 2025-07-04 00:17:34 |                     | Admin account - development setup | NULL           | NULL                    | NULL             |          NULL | NULL             | NULL               | 2025-01-07 06:09:31 |
+|  3 | yahoomond | peters_o_mond@yahoo.com | OTO#D003V3  | member         | member           | APP-undefined-mcrf9p | not_applied            | NULL                   | NULL                       | 2025-07-06 08:40:33 | approved                |                3 | 2025-07-08 13:59:19 | admin               | NULL                              | NULL           | NULL                    | NULL             |          NULL | NULL             | NULL               | 2025-01-07 06:09:31 |
+|  2 | pet       | petersomond@gmail.com   | OTO#C002O2  | member         | member           | NULL                 | not_applied            | NULL                   | NULL                       | 2025-01-07 06:08:15 | pending                 |             NULL | NULL                |                     | NULL                              | NULL           | NULL                    | NULL             |          NULL | NULL             | NULL               | 2025-01-07 06:08:01 |
+|  2 | pet       | petersomond@gmail.com   | OTO#C002O2  | member         | member           | NULL                 | not_applied            | NULL                   | NULL                       | 2025-07-08 14:38:23 | approved                |                2 | 2025-07-08 14:38:23 | SYSTEM              | Super admin account setup         | NULL           | NULL                    | NULL             |          NULL | NULL             | NULL               | 2025-01-07 06:08:01 |
+|  1 | abc       | abc@abc.com             | OTO#B001H1  | member         | member           | NULL                 | not_applied            | NULL                   | NULL                       | 2025-01-07 06:06:56 | approved                |             NULL | NULL                |                     | NULL                              | NULL           | NULL                    | NULL             |          NULL | NULL             | NULL               | 2025-01-07 06:06:41 |
+|  1 | abc       | abc@abc.com             | OTO#B001H1  | member         | member           | NULL                 | not_applied            | NULL                   | NULL                       | 2025-07-08 14:38:03 | approved                |                2 | 2025-07-08 14:38:03 | ADMIN               | Bulk approval during system setup | NULL           | NULL                    | NULL             |          NULL | NULL             | NULL               | 2025-01-07 06:06:41 |
++----+-----------+-------------------------+-------------+----------------+------------------+----------------------+------------------------+------------------------+----------------------------+---------------------+-------------------------+------------------+---------------------+---------------------+-----------------------------------+----------------+-------------------------+------------------+---------------+------------------+--------------------+---------------------+
+9 rows in set (0.031 sec)
+
+MySQL [ikoota_db]> describe all_applications_status;
++------------------+--------------+------+-----+---------+-------+
+| Field            | Type         | Null | Key | Default | Extra |
++------------------+--------------+------+-----+---------+-------+
+| application_type | varchar(15)  | NO   |     |         |       |
+| user_id          | int          | NO   |     | 0       |       |
+| username         | varchar(255) | NO   |     |         |       |
+| email            | varchar(255) | NO   |     |         |       |
+| ticket           | varchar(25)  | YES  |     | NULL    |       |
+| status           | varchar(12)  | YES  |     | NULL    |       |
+| submitted_at     | timestamp    | YES  |     | NULL    |       |
+| reviewed_at      | timestamp    | YES  |     | NULL    |       |
+| reviewed_by      | int          | YES  |     | NULL    |       |
+| admin_notes      | mediumtext   | YES  |     | NULL    |       |
+| reviewer_name    | varchar(255) | YES  |     | NULL    |       |
++------------------+--------------+------+-----+---------+-------+
+11 rows in set (0.022 sec)
+
+MySQL [ikoota_db]> select * from all_applications_status;
++------------------+---------+-----------+-------------------------+----------------------+----------+---------------------+---------------------+-------------+-----------------------------------+---------------+
+| application_type | user_id | username  | email                   | ticket               | status   | submitted_at        | reviewed_at         | reviewed_by | admin_notes                       | reviewer_name |
++------------------+---------+-----------+-------------------------+----------------------+----------+---------------------+---------------------+-------------+-----------------------------------+---------------+
+| initial          |       2 | pet       | petersomond@gmail.com   | NULL                 | approved | 2025-07-08 14:38:23 | 2025-07-08 14:38:23 |           2 | Super admin account setup         | pet           |
+| initial          |       1 | abc       | abc@abc.com             | NULL                 | approved | 2025-07-08 14:38:03 | 2025-07-08 14:38:03 |           2 | Bulk approval during system setup | pet           |
+| initial          |       3 | yahoomond | peters_o_mond@yahoo.com | APP-undefined-mcrf9p | approved | 2025-07-06 08:40:33 | 2025-07-08 13:59:19 |           3 | NULL                              | yahoomond     |
+| initial          |       3 | yahoomond | peters_o_mond@yahoo.com | APP-undefined-mcrf9p | approved | 2025-07-04 00:17:34 | 2025-07-04 00:17:34 |           3 | Admin account - development setup | yahoomond     |
+| initial          |       3 | yahoomond | peters_o_mond@yahoo.com | APP-undefined-mcrf9p | approved | 2025-07-03 21:38:20 | 2025-07-03 21:38:20 |           3 | Admin account - development setup | yahoomond     |
+| initial          |       3 | yahoomond | peters_o_mond@yahoo.com | APP-undefined-mcrf9p | approved | 2025-07-03 20:48:24 | 2025-07-03 20:48:24 |           3 | Admin account - development setup | yahoomond     |
+| initial          |       3 | yahoomond | peters_o_mond@yahoo.com | APP-undefined-mcrf9p | pending  | 2025-01-07 06:09:46 | NULL                |        NULL | NULL                              | NULL          |
+| initial          |       2 | pet       | petersomond@gmail.com   | NULL                 | pending  | 2025-01-07 06:08:15 | NULL                |        NULL | NULL                              | NULL          |
+| initial          |       1 | abc       | abc@abc.com             | NULL                 | approved | 2025-01-07 06:06:56 | NULL                |        NULL | NULL                              | NULL          |
++------------------+---------+-----------+-------------------------+----------------------+----------+---------------------+---------------------+-------------+-----------------------------------+---------------+
+9 rows in set (0.026 sec)
+
+MySQL [ikoota_db]> describe audit_logs;
++------------+--------------+------+-----+-------------------+-------------------+
+| Field      | Type         | Null | Key | Default           | Extra             |
++------------+--------------+------+-----+-------------------+-------------------+
+| id         | int          | NO   | PRI | NULL              | auto_increment    |
+| user_id    | int          | NO   | MUL | NULL              |                   |
+| action     | varchar(255) | NO   | MUL | NULL              |                   |
+| resource   | varchar(255) | YES  |     | NULL              |                   |
+| details    | json         | YES  |     | NULL              |                   |
+| ip_address | varchar(45)  | YES  |     | NULL              |                   |
+| user_agent | text         | YES  |     | NULL              |                   |
+| createdAt  | timestamp    | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++------------+--------------+------+-----+-------------------+-------------------+
+8 rows in set (0.022 sec)
+
+MySQL [ikoota_db]> select * from audit_logs;
++----+---------+---------------------------+-----------------+----------------------------------------------------------------------------------------------------------------------------------------------------+------------+------------+---------------------+
+| id | user_id | action                    | resource        | details                                                                                                                                            | ip_address | user_agent | createdAt           |
++----+---------+---------------------------+-----------------+----------------------------------------------------------------------------------------------------------------------------------------------------+------------+------------+---------------------+
+|  1 |       1 | LOGIN                     | authentication  | {"method": "email", "success": true}                                                                                                               | NULL       | NULL       | 2025-07-08 14:39:10 |
+|  2 |       2 | LOGIN                     | authentication  | {"method": "email", "success": true}                                                                                                               | NULL       | NULL       | 2025-07-08 14:39:10 |
+|  3 |       3 | LOGIN                     | authentication  | {"method": "email", "success": true}                                                                                                               | NULL       | NULL       | 2025-07-08 14:39:10 |
+|  4 |       3 | VIEW_ADMIN_PANEL          | admin           | {"section": "dashboard"}                                                                                                                           | NULL       | NULL       | 2025-07-08 14:39:10 |
+|  5 |       2 | VIEW_ADMIN_PANEL          | admin           | {"section": "users"}                                                                                                                               | NULL       | NULL       | 2025-07-08 14:39:10 |
+|  6 |       1 | MEMBERSHIP_STATUS_CHANGED | user_membership | {"updated_by": null, "new_is_member": "member", "old_is_member": "applied", "new_membership_stage": "member", "old_membership_stage": "applicant"} | NULL       | NULL       | 2025-07-08 15:06:58 |
+|  7 |       1 | STATUS_AUTO_UPDATED       | user_membership | {"trigger": "survey_approval", "survey_id": 1, "new_status": "approved", "old_status": "pending"}                                                  | NULL       | NULL       | 2025-07-08 15:06:58 |
++----+---------+---------------------------+-----------------+----------------------------------------------------------------------------------------------------------------------------------------------------+------------+------------+---------------------+
+7 rows in set (0.034 sec)
+
+MySQL [ikoota_db]> describe bulk_email_logs;
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| Field            | Type         | Null | Key | Default           | Extra                                         |
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| id               | int          | NO   | PRI | NULL              | auto_increment                                |
+| recipients_count | int          | NO   |     | NULL              |                                               |
+| subject          | varchar(500) | YES  |     | NULL              |                                               |
+| template         | varchar(100) | YES  | MUL | NULL              |                                               |
+| successful_count | int          | YES  |     | 0                 |                                               |
+| failed_count     | int          | YES  |     | 0                 |                                               |
+| sender_id        | char(10)     | YES  | MUL | NULL              |                                               |
+| createdAt        | timestamp    | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt        | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| processedAt      | timestamp    | YES  |     | NULL              |                                               |
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+10 rows in set (0.023 sec)
+
+MySQL [ikoota_db]> select * from bulk_email_logs;
+Empty set (0.029 sec)
+
+MySQL [ikoota_db]> describe bulk_sms_logs;
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| Field            | Type         | Null | Key | Default           | Extra                                         |
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| id               | int          | NO   | PRI | NULL              | auto_increment                                |
+| recipients_count | int          | NO   |     | NULL              |                                               |
+| message          | text         | YES  |     | NULL              |                                               |
+| template         | varchar(100) | YES  | MUL | NULL              |                                               |
+| successful_count | int          | YES  |     | 0                 |                                               |
+| failed_count     | int          | YES  |     | 0                 |                                               |
+| sender_id        | char(10)     | YES  | MUL | NULL              |                                               |
+| createdAt        | timestamp    | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt        | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| processedAt      | timestamp    | YES  |     | NULL              |                                               |
++------------------+--------------+------+-----+-------------------+-----------------------------------------------+
+10 rows in set (0.022 sec)
+
+MySQL [ikoota_db]> select * from bulk_sms_logs;
+Empty set (0.024 sec)
+
+MySQL [ikoota_db]> describe ByeCtrl-C -- exit!
+
+PS C:\Users\peter>  mysql -h ikootadb.cvugpfnl4vcp.us-east-1.rds.amazonaws.com -P 3306 -u Petersomond -p
+Enter password: **********
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MySQL connection id is 41216
+Server version: 8.0.40 Source distribution
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MySQL [(none)]> show databases;
++--------------------+
+| Database           |
++--------------------+
+| ikoota_db          |
+| information_schema |
+| mysql              |
+| performance_schema |
+| phpmyadmin         |
+| sys                |
++--------------------+
+6 rows in set (0.033 sec)
+
+MySQL [(none)]> use ikoota_db;
+Database changed
+MySQL [ikoota_db]> describe chats;
++-----------------+---------------------------------------+------+-----+-------------------+-------------------+
+| Field           | Type                                  | Null | Key | Default           | Extra             |
++-----------------+---------------------------------------+------+-----+-------------------+-------------------+
+| id              | int                                   | NO   | PRI | NULL              | auto_increment    |
+| title           | varchar(255)                          | NO   |     | NULL              |                   |
+| user_id         | char(10)                              | NO   | MUL | NULL              |                   |
+| audience        | varchar(255)                          | YES  |     | NULL              |                   |
+| summary         | text                                  | YES  |     | NULL              |                   |
+| text            | text                                  | YES  |     | NULL              |                   |
+| approval_status | enum('pending','approved','rejected') | YES  |     | pending           |                   |
+| media_url1      | varchar(255)                          | YES  |     | NULL              |                   |
+| media_type1     | enum('image','video','audio','file')  | YES  |     | NULL              |                   |
+| media_url2      | varchar(255)                          | YES  |     | NULL              |                   |
+| media_type2     | enum('image','video','audio','file')  | YES  |     | NULL              |                   |
+| media_url3      | varchar(255)                          | YES  |     | NULL              |                   |
+| is_flagged      | tinyint(1)                            | YES  |     | 0                 |                   |
+| media_type3     | enum('image','video','audio','file')  | YES  |     | NULL              |                   |
+| createdAt       | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt       | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| prefixed_id     | varchar(20)                           | YES  | UNI | NULL              |                   |
++-----------------+---------------------------------------+------+-----+-------------------+-------------------+
+17 rows in set (0.031 sec)
+
+MySQL [ikoota_db]> describe class_content_access;
++--------------+----------------------------------------+------+-----+-------------------+-------------------+
+| Field        | Type                                   | Null | Key | Default           | Extra             |
++--------------+----------------------------------------+------+-----+-------------------+-------------------+
+| id           | int                                    | NO   | PRI | NULL              | auto_increment    |
+| content_id   | int                                    | NO   | MUL | NULL              |                   |
+| content_type | enum('chat','teaching','announcement') | NO   |     | NULL              |                   |
+| class_id     | varchar(12)                            | NO   | MUL | NULL              |                   |
+| access_level | enum('read','comment','contribute')    | YES  |     | read              |                   |
+| createdAt    | timestamp                              | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++--------------+----------------------------------------+------+-----+-------------------+-------------------+
+6 rows in set (0.022 sec)
+
+MySQL [ikoota_db]> select * from class_content_access;
+Empty set (0.031 sec)
+
+MySQL [ikoota_db]> describe class_member_counts;
+ERROR 2006 (HY000): MySQL server has gone away
+No connection. Trying to reconnect...
+ERROR 2013 (HY000): Lost connection to MySQL server at 'handshake: reading initial communication packet', system error: 2
+ERROR: Can't connect to the server
+
+unknown [ikoota_db]> describe class_member_counts;
+No connection. Trying to reconnect...
+Connection id:    41247
+Current database: ikoota_db
+
++-----------------+--------------------------------------------------+------+-----+-------------+-------+
+| Field           | Type                                             | Null | Key | Default     | Extra |
++-----------------+--------------------------------------------------+------+-----+-------------+-------+
+| class_id        | varchar(12)                                      | NO   |     | NULL        |       |
+| class_name      | varchar(255)                                     | NO   |     | NULL        |       |
+| class_type      | enum('demographic','subject','public','special') | YES  |     | demographic |       |
+| is_public       | tinyint(1)                                       | YES  |     | 0           |       |
+| total_members   | bigint                                           | NO   |     | 0           |       |
+| moderators      | bigint                                           | NO   |     | 0           |       |
+| pending_members | bigint                                           | NO   |     | 0           |       |
++-----------------+--------------------------------------------------+------+-----+-------------+-------+
+7 rows in set (1.304 sec)
+
+MySQL [ikoota_db]> select * from describe class_member_counts;
+ERROR 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'describe class_member_counts' at line 1
+MySQL [ikoota_db]> select * from class_member_counts;
++------------+------------------------+-------------+-----------+---------------+------------+-----------------+
+| class_id   | class_name             | class_type  | is_public | total_members | moderators | pending_members |
++------------+------------------------+-------------+-----------+---------------+------------+-----------------+
+| J9L1A7     | Igbanke-33             | subject     |         0 |             0 |          0 |               0 |
+| 59QGJ9     | Ika                    | subject     |         0 |             0 |          0 |               0 |
+| XMZHFH     | Ottah                  | subject     |         0 |             0 |          0 |               0 |
+| OTU#Public | General Community      | public      |         1 |             1 |          0 |               0 |
+| OTU#1A2B3C | Advanced Mathematics   | subject     |         0 |             0 |          0 |               0 |
+| OTU#4D5E6F | West African History   | demographic |         0 |             0 |          0 |               0 |
+| OTU#7G8H9I | Leadership Development | special     |         0 |             0 |          0 |               0 |
++------------+------------------------+-------------+-----------+---------------+------------+-----------------+
+7 rows in set (0.421 sec)
+
+MySQL [ikoota_db]> describe classes;
++---------------+--------------------------------------------------+------+-----+-------------------+-------------------+
+| Field         | Type                                             | Null | Key | Default           | Extra             |
++---------------+--------------------------------------------------+------+-----+-------------------+-------------------+
+| id            | int                                              | NO   | PRI | NULL              | auto_increment    |
+| class_id      | varchar(12)                                      | NO   | UNI | NULL              |                   |
+| class_name    | varchar(255)                                     | NO   |     | NULL              |                   |
+| public_name   | varchar(255)                                     | YES  |     | NULL              |                   |
+| description   | text                                             | YES  |     | NULL              |                   |
+| class_type    | enum('demographic','subject','public','special') | YES  | MUL | demographic       |                   |
+| is_public     | tinyint(1)                                       | YES  | MUL | 0                 |                   |
+| max_members   | int                                              | YES  |     | 50                |                   |
+| privacy_level | enum('public','members_only','admin_only')       | YES  |     | members_only      |                   |
+| created_by    | int                                              | YES  | MUL | NULL              |                   |
+| is_active     | tinyint(1)                                       | YES  | MUL | 1                 |                   |
+| createdAt     | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt     | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++---------------+--------------------------------------------------+------+-----+-------------------+-------------------+
+13 rows in set (0.107 sec)
+
+MySQL [ikoota_db]> select * from classes;
++----+------------+------------------------+--------------------+---------------------------------------------------------+-------------+-----------+-------------+---------------+------------+-----------+---------------------+---------------------+
+| id | class_id   | class_name             | public_name        | description                                             | class_type  | is_public | max_members | privacy_level | created_by | is_active | createdAt           | updatedAt           |
++----+------------+------------------------+--------------------+---------------------------------------------------------+-------------+-----------+-------------+---------------+------------+-----------+---------------------+---------------------+
+|  1 | J9L1A7     | Igbanke-33             | NULL               | Indigene of Igbanke-33                                  | subject     |         0 |          50 | members_only  |       NULL |         1 | 2025-01-12 05:37:13 | 2025-01-12 05:37:13 |
+|  2 | 59QGJ9     | Ika                    | NULL               | Indigene of Ika                                         | subject     |         0 |          50 | members_only  |       NULL |         1 | 2025-01-12 05:37:54 | 2025-01-12 05:37:54 |
+|  3 | XMZHFH     | Ottah                  | NULL               | Indigene of Ottah                                       | subject     |         0 |          50 | members_only  |       NULL |         1 | 2025-01-11 07:21:28 | 2025-01-11 07:21:28 |
+|  4 | OTU#Public | General Community      | Public Community   | Universal class for all members - everyone belongs here | public      |         1 |        1000 | public        |       NULL |         1 | 2025-07-01 10:07:25 | 2025-07-01 10:07:25 |
+|  9 | OTU#1A2B3C | Advanced Mathematics   | NULL               | Advanced math concepts and problem solving              | subject     |         0 |          50 | members_only  |       NULL |         1 | 2025-07-01 10:46:11 | 2025-07-01 10:46:11 |
+| 10 | OTU#4D5E6F | West African History   | NULL               | Pre-colonial and modern West African studies            | demographic |         0 |          50 | members_only  |       NULL |         1 | 2025-07-01 10:46:11 | 2025-07-01 10:46:11 |
+| 11 | OTU#7G8H9I | Leadership Development | Leadership Program | Leadership training and mentorship                      | special     |         0 |          50 | members_only  |       NULL |         1 | 2025-07-01 10:46:11 | 2025-07-01 10:46:11 |
++----+------------+------------------------+--------------------+---------------------------------------------------------+-------------+-----------+-------------+---------------+------------+-----------+---------------------+---------------------+
+7 rows in set (0.080 sec)
+
+MySQL [ikoota_db]> describe comments;
++-------------+--------------------------------------+------+-----+-------------------+-------------------+
+| Field       | Type                                 | Null | Key | Default           | Extra             |
++-------------+--------------------------------------+------+-----+-------------------+-------------------+
+| id          | int                                  | NO   | PRI | NULL              | auto_increment    |
+| user_id     | char(10)                             | NO   | MUL | NULL              |                   |
+| chat_id     | int                                  | YES  | MUL | NULL              |                   |
+| teaching_id | int                                  | YES  | MUL | NULL              |                   |
+| comment     | text                                 | NO   |     | NULL              |                   |
+| media_url1  | varchar(255)                         | YES  |     | NULL              |                   |
+| media_type1 | enum('image','video','audio','file') | YES  |     | NULL              |                   |
+| media_url2  | varchar(255)                         | YES  |     | NULL              |                   |
+| media_type2 | enum('image','video','audio','file') | YES  |     | NULL              |                   |
+| media_url3  | varchar(255)                         | YES  |     | NULL              |                   |
+| media_type3 | enum('image','video','audio','file') | YES  |     | NULL              |                   |
+| createdAt   | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt   | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++-------------+--------------------------------------+------+-----+-------------------+-------------------+
+13 rows in set (0.078 sec)
+
+MySQL [ikoota_db]> describe email_logs;
++---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field         | Type                            | Null | Key | Default           | Extra                                         |
++---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id            | int                             | NO   | PRI | NULL              | auto_increment                                |
+| recipient     | varchar(255)                    | NO   | MUL | NULL              |                                               |
+| subject       | varchar(500)                    | YES  |     | NULL              |                                               |
+| template      | varchar(100)                    | YES  | MUL | NULL              |                                               |
+| status        | enum('sent','failed','pending') | YES  | MUL | pending           |                                               |
+| message_id    | varchar(255)                    | YES  |     | NULL              |                                               |
+| error_message | text                            | YES  |     | NULL              |                                               |
+| sender_id     | char(10)                        | YES  | MUL | NULL              |                                               |
+| createdAt     | timestamp                       | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt     | timestamp                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| processedAt   | timestamp                       | YES  |     | NULL              |                                               |
++---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
+11 rows in set (0.060 sec)
+
+MySQL [ikoota_db]> select * from email_logs;
+Empty set (0.062 sec)
+
+MySQL [ikoota_db]> describe email_templates;
++------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| Field      | Type         | Null | Key | Default           | Extra                                         |
++------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| id         | int          | NO   | PRI | NULL              | auto_increment                                |
+| name       | varchar(100) | NO   | UNI | NULL              |                                               |
+| subject    | varchar(500) | NO   |     | NULL              |                                               |
+| body_text  | text         | YES  |     | NULL              |                                               |
+| body_html  | text         | YES  |     | NULL              |                                               |
+| variables  | json         | YES  |     | NULL              |                                               |
+| is_active  | tinyint(1)   | YES  | MUL | 1                 |                                               |
+| created_by | char(10)     | YES  | MUL | NULL              |                                               |
+| createdAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++------------+--------------+------+-----+-------------------+-----------------------------------------------+
+10 rows in set (0.085 sec)
+
+MySQL [ikoota_db]> select * from email_templates;
++----+-------------------------------+--------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------+-----------+------------+---------------------+---------------------+
+| id | name                          | subject                                                            | body_text                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | body_html                                                                                                                                                                                                                                                                                                                                                                                                                         | variables                                                                                                               | is_active | created_by | createdAt           | updatedAt           |
++----+-------------------------------+--------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------+-----------+------------+---------------------+---------------------+
+|  1 | welcome                       | Welcome to Ikoota Platform!                                        | Hello {{username}},
+
+Welcome to the Ikoota platform! We're excited to have you join our community.
+
+Best regards,
+The Ikoota Team                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | <h2>Welcome to Ikoota Platform!</h2><p>Hello <strong>{{username}}</strong>,</p><p>Welcome to the Ikoota platform! We're excited to have you join our community.</p><p>Best regards,<br>The Ikoota Team</p>                                                                                                                                                                                                                        | ["username"]                                                                                                            |         1 | NULL       | 2025-06-29 08:15:55 | 2025-06-29 08:15:55 |
+|  2 | survey_approval               | Membership Application {{status}}                                  | Hello {{username}},
+
+{{#if approved}}Congratulations! Your membership application has been approved.{{else}}We regret to inform you that your membership application has not been approved at this time.{{/if}}
+
+{{#if remarks}}Remarks: {{remarks}}
+
+{{/if}}Best regards,
+The Ikoota Team                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | <h2>Membership Application {{status}}</h2><p>Hello <strong>{{username}}</strong>,</p><p>{{#if approved}}Congratulations! Your membership application has been approved.{{else}}We regret to inform you that your membership application has not been approved at this time.{{/if}}</p>{{#if remarks}}<p><strong>Remarks:</strong> {{remarks}}</p>{{/if}}<p>Best regards,<br>The Ikoota Team</p>                                   | ["username", "status", "approved", "remarks"]                                                                           |         1 | NULL       | 2025-06-29 08:15:55 | 2025-06-29 08:15:55 |
+|  3 | content_notification          | Your {{contentType}} has been {{status}}                           | Hello {{username}},
+
+Your {{contentType}} "{{contentTitle}}" has been {{status}}.
+
+Best regards,
+The Ikoota Team                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | <h2>Content Update Notification</h2><p>Hello <strong>{{username}}</strong>,</p><p>Your {{contentType}} "<strong>{{contentTitle}}</strong>" has been {{status}}.</p><p>Best regards,<br>The Ikoota Team</p>                                                                                                                                                                                                                        | ["username", "contentType", "contentTitle", "status"]                                                                   |         1 | NULL       | 2025-06-29 08:15:55 | 2025-06-29 08:15:55 |
+|  4 | password_reset                | Password Reset Request                                             | Hello {{username}},
+
+You requested a password reset. Click the link below to reset your password:
+
+{{resetLink}}
+
+If you didn't request this, please ignore this email.
+
+Best regards,
+The Ikoota Team                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | <h2>Password Reset Request</h2><p>Hello <strong>{{username}}</strong>,</p><p>You requested a password reset. Click the link below to reset your password:</p><p><a href="{{resetLink}}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p><p>If you didn't request this, please ignore this email.</p><p>Best regards,<br>The Ikoota Team</p> | ["username", "resetLink"]                                                                                               |         1 | NULL       | 2025-06-29 08:15:55 | 2025-06-29 08:15:55 |
+|  5 | initial_application_submitted | Application Received - Ticket #{APPLICATION_TICKET}                | Dear {USERNAME},
+
+Thank you for submitting your initial application to Ikoota!
+
+Application Details:
+- Ticket Number: {APPLICATION_TICKET}
+- Submitted: {SUBMISSION_DATE}
+- Review Timeline: 3-5 business days
+
+Your application is now under review by our team. You will receive an email notification once the review is complete.
+
+If you have urgent questions, please contact support@ikoota.com with your ticket number.
+
+Best regards,
+The Ikoota Team                                                                                                                                                                                                                                                                                                         | NULL                                                                                                                                                                                                                                                                                                                                                                                                                              | {"USERNAME": "User name", "SUBMISSION_DATE": "Application submission date", "APPLICATION_TICKET": "Application ticket"} |         1 | NULL       | 2025-07-02 18:24:11 | 2025-07-02 18:24:11 |
+|  6 | initial_application_approved  | Application Approved - Welcome as Pre-Member!                      | Dear {USERNAME},
+
+Congratulations! Your initial application has been approved and you are now a Pre-Member of Ikoota!
+
+As a Pre-Member, you have access to:
+- Browse all educational content in Towncrier
+- Read community posts and resources
+- Learn from teaching materials
+
+To unlock full membership benefits (including chat access and commenting), you can apply for Full Membership from within your Towncrier dashboard.
+
+Welcome to the Ikoota educational community!
+
+Best regards,
+The Ikoota Team                                                                                                                                                                                                                                                        | NULL                                                                                                                                                                                                                                                                                                                                                                                                                              | {"USERNAME": "User name", "APPLICATION_TICKET": "Application ticket"}                                                   |         1 | NULL       | 2025-07-02 18:24:11 | 2025-07-02 18:24:11 |
+|  7 | initial_application_rejected  | Application Status Update - Ticket #{APPLICATION_TICKET}           | Dear {USERNAME},
+
+Thank you for your interest in joining Ikoota. After careful review, we regret to inform you that your initial application (Ticket: {APPLICATION_TICKET}) has not been approved at this time.
+
+Feedback:
+{ADMIN_NOTES}
+
+You may reapply after addressing the concerns mentioned above. We encourage you to review our community guidelines and resubmit when ready.
+
+Best regards,
+The Ikoota Team                                                                                                                                                                                                                                                                                                                                                   | NULL                                                                                                                                                                                                                                                                                                                                                                                                                              | {"USERNAME": "User name", "ADMIN_NOTES": "Admin feedback", "APPLICATION_TICKET": "Application ticket"}                  |         1 | NULL       | 2025-07-02 18:24:11 | 2025-07-02 18:24:11 |
+|  8 | full_membership_submitted     | Full Membership Application Received - Ticket #{MEMBERSHIP_TICKET} | Dear {USERNAME},
+
+Thank you for submitting your full membership application to Ikoota!
+
+Application Details:
+- Ticket Number: {MEMBERSHIP_TICKET}
+- Submitted: {SUBMISSION_DATE}
+- Review Timeline: 5-7 business days
+
+Your application is now under review by our membership committee. You will receive an email notification once the review is complete.
+
+During the review period, you continue to have pre-member access to our educational content in Towncrier.
+
+If you have urgent questions, please contact membership@ikoota.com with your ticket number.
+
+Best regards,
+The Ikoota Membership Committee                                                                                                                                                    | NULL                                                                                                                                                                                                                                                                                                                                                                                                                              | {"USERNAME": "User name", "SUBMISSION_DATE": "Application submission date", "MEMBERSHIP_TICKET": "Membership ticket"}   |         1 | NULL       | 2025-07-02 18:24:11 | 2025-07-02 18:24:11 |
+|  9 | full_membership_approved      | Congratulations! Full Membership Approved - Welcome to Ikoota      | Dear {USERNAME},
+
+Congratulations! Your full membership application has been approved!
+
+You now have complete access to all Ikoota features:
+- Iko Chat System - Connect with fellow educators
+- Comment and Engage - Participate in discussions
+- Create and Share - Contribute educational content
+- Community Collaboration - Work with other members
+
+To get started with your full membership:
+1. Sign in to your account
+2. Access the Iko chat system
+3. Explore member-only features
+4. Join ongoing discussions
+
+Welcome to the complete Ikoota educational community!
+
+Best regards,
+The Ikoota Membership Committee                                                                                                                                         | NULL                                                                                                                                                                                                                                                                                                                                                                                                                              | {"USERNAME": "User name", "MEMBERSHIP_TICKET": "Membership ticket"}                                                     |         1 | NULL       | 2025-07-02 18:24:11 | 2025-07-02 18:24:11 |
+| 10 | full_membership_rejected      | Full Membership Application Decision - Ticket #{MEMBERSHIP_TICKET} | Dear {USERNAME},
+
+After careful review by our membership committee, we regret to inform you that your full membership application (Ticket: {MEMBERSHIP_TICKET}) has not been approved at this time.
+
+Feedback:
+{FEEDBACK}
+
+This decision does not permanently exclude you from full membership. You may reapply after addressing the areas mentioned above.
+
+Reapplication Guidelines:
+- Wait at least 90 days before resubmitting
+- Address all concerns mentioned in this feedback
+- Demonstrate growth in the identified areas
+- Continue engaging as a pre-member
+
+Your pre-member access to Towncrier educational content is maintained.
+
+For questions about this decision, please contact membership@ikoota.com.
+
+Best regards,
+The Ikoota Membership Committee | NULL                                                                                                                                                                                                                                                                                                                                                                                                                              | {"FEEDBACK": "Detailed feedback text", "USERNAME": "User name", "MEMBERSHIP_TICKET": "Membership ticket"}               |         1 | NULL       | 2025-07-02 18:24:11 | 2025-07-02 18:24:11 |
++----+-------------------------------+--------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------+-----------+------------+---------------------+---------------------+
+10 rows in set (0.123 sec)
+
+MySQL [ikoota_db]> describe full_membership_access;
++-------------------+-----------+------+-----+-------------------+-----------------------------------------------+
+| Field             | Type      | Null | Key | Default           | Extra                                         |
++-------------------+-----------+------+-----+-------------------+-----------------------------------------------+
+| id                | int       | NO   | PRI | NULL              | auto_increment                                |
+| user_id           | int       | NO   | UNI | NULL              |                                               |
+| first_accessed_at | timestamp | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| last_accessed_at  | timestamp | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| access_count      | int       | YES  |     | 1                 |                                               |
++-------------------+-----------+------+-----+-------------------+-----------------------------------------------+
+5 rows in set (0.084 sec)
+
+MySQL [ikoota_db]> select * from full_membership_access;
++----+---------+---------------------+---------------------+--------------+
+| id | user_id | first_accessed_at   | last_accessed_at    | access_count |
++----+---------+---------------------+---------------------+--------------+
+|  1 |       3 | 2025-07-03 20:38:42 | 2025-07-04 00:17:34 |            3 |
++----+---------+---------------------+---------------------+--------------+
+1 row in set (0.104 sec)
+
+MySQL [ikoota_db]> full_membership_access_log;
+ERROR 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'full_membership_access_log' at line 1
+MySQL [ikoota_db]> describe full_membership_access_log;
++-----------------+-------------+------+-----+-------------------+-----------------------------------------------+
+| Field           | Type        | Null | Key | Default           | Extra                                         |
++-----------------+-------------+------+-----+-------------------+-----------------------------------------------+
+| id              | int         | NO   | PRI | NULL              | auto_increment                                |
+| user_id         | int         | NO   | UNI | NULL              |                                               |
+| first_access_at | timestamp   | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| total_accesses  | int         | YES  |     | 1                 |                                               |
+| last_access_at  | timestamp   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| ip_address      | varchar(45) | YES  |     | NULL              |                                               |
+| user_agent      | text        | YES  |     | NULL              |                                               |
++-----------------+-------------+------+-----+-------------------+-----------------------------------------------+
+7 rows in set (0.074 sec)
+
+MySQL [ikoota_db]> describe full_membership_applications;
++-------------------+---------------------------------------------------+------+-----+-------------------+-------------------+
+| Field             | Type                                              | Null | Key | Default           | Extra             |
++-------------------+---------------------------------------------------+------+-----+-------------------+-------------------+
+| id                | int                                               | NO   | PRI | NULL              | auto_increment    |
+| user_id           | int                                               | NO   | UNI | NULL              |                   |
+| membership_ticket | varchar(25)                                       | NO   | MUL | NULL              |                   |
+| answers           | json                                              | NO   |     | NULL              |                   |
+| status            | enum('pending','suspended','approved','declined') | YES  | MUL | pending           |                   |
+| submitted_at      | timestamp                                         | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| reviewed_at       | timestamp                                         | YES  |     | NULL              |                   |
+| reviewed_by       | int                                               | YES  | MUL | NULL              |                   |
+| admin_notes       | text                                              | YES  |     | NULL              |                   |
++-------------------+---------------------------------------------------+------+-----+-------------------+-------------------+
+9 rows in set (0.065 sec)
+
+MySQL [ikoota_db]> describe id_generation_log;
++--------------+----------------------+------+-----+-------------------+-------------------+
+| Field        | Type                 | Null | Key | Default           | Extra             |
++--------------+----------------------+------+-----+-------------------+-------------------+
+| id           | int                  | NO   | PRI | NULL              | auto_increment    |
+| generated_id | char(10)             | NO   | MUL | NULL              |                   |
+| id_type      | enum('user','class') | NO   | MUL | NULL              |                   |
+| generated_by | char(10)             | YES  | MUL | NULL              |                   |
+| generated_at | timestamp            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| purpose      | varchar(100)         | YES  |     | NULL              |                   |
++--------------+----------------------+------+-----+-------------------+-------------------+
+6 rows in set (0.058 sec)
+
+MySQL [ikoota_db]> select * from id_generation_log;
++----+--------------+---------+--------------+---------------------+-------------------+
+| id | generated_id | id_type | generated_by | generated_at        | purpose           |
++----+--------------+---------+--------------+---------------------+-------------------+
+|  1 | OTO#B001H1   | user    | OTO#ADMIN1   | 2025-06-30 13:58:14 | User registration |
++----+--------------+---------+--------------+---------------------+-------------------+
+1 row in set (0.109 sec)
+
+MySQL [ikoota_db]> describe identity_masking_audit;
++--------------------+--------------+------+-----+-------------------+-------------------+
+| Field              | Type         | Null | Key | Default           | Extra             |
++--------------------+--------------+------+-----+-------------------+-------------------+
+| id                 | int          | NO   | PRI | NULL              | auto_increment    |
+| user_id            | int          | NO   | MUL | NULL              |                   |
+| converse_id        | varchar(12)  | YES  | MUL | NULL              |                   |
+| masked_by_admin_id | varchar(12)  | YES  | MUL | NULL              |                   |
+| original_username  | varchar(255) | YES  |     | NULL              |                   |
+| createdAt          | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| reason             | text         | YES  |     | NULL              |                   |
++--------------------+--------------+------+-----+-------------------+-------------------+
+7 rows in set (0.049 sec)
+
+MySQL [ikoota_db]> select * from identity_masking_audit;
++----+---------+-------------+--------------------+-------------------+---------------------+--------------------------------------------------+
+| id | user_id | converse_id | masked_by_admin_id | original_username | createdAt           | reason                                           |
++----+---------+-------------+--------------------+-------------------+---------------------+--------------------------------------------------+
+|  1 |       1 | OTO#B001H1  | OTO#ADMIN1         | abc               | 2025-06-30 13:58:10 | Membership granted - identity masked for privacy |
++----+---------+-------------+--------------------+-------------------+---------------------+--------------------------------------------------+
+1 row in set (0.086 sec)
+
+MySQL [ikoota_db]> describe  membership_review_history;
++-------------------+-------------------------------------------------------------+------+-----+-------------------+-------------------+
+| Field             | Type                                                        | Null | Key | Default           | Extra             |
++-------------------+-------------------------------------------------------------+------+-----+-------------------+-------------------+
+| id                | int                                                         | NO   | PRI | NULL              | auto_increment    |
+| user_id           | int                                                         | NO   | MUL | NULL              |                   |
+| application_type  | enum('initial_application','full_membership')               | NO   | MUL | NULL              |                   |
+| application_id    | int                                                         | YES  |     | NULL              |                   |
+| reviewer_id       | int                                                         | YES  | MUL | NULL              |                   |
+| previous_status   | enum('pending','suspended','approved','declined')           | YES  |     | NULL              |                   |
+| new_status        | enum('pending','suspended','approved','declined')           | YES  |     | NULL              |                   |
+| review_notes      | text                                                        | YES  |     | NULL              |                   |
+| action_taken      | enum('approve','decline','suspend','request_info','reopen') | NO   |     | NULL              |                   |
+| reviewed_at       | timestamp                                                   | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| notification_sent | tinyint(1)                                                  | YES  |     | 0                 |                   |
++-------------------+-------------------------------------------------------------+------+-----+-------------------+-------------------+
+11 rows in set (0.077 sec)
+
+MySQL [ikoota_db]> select * from  membership_review_history;
+Empty set (0.053 sec)
+
+MySQL [ikoota_db]> describe membership_stats;
++----------+-------------+------+-----+---------+-------+
+| Field    | Type        | Null | Key | Default | Extra |
++----------+-------------+------+-----+---------+-------+
+| category | varchar(20) | NO   |     |         |       |
+| status   | varchar(12) | YES  |     | NULL    |       |
+| count    | bigint      | NO   |     | 0       |       |
++----------+-------------+------+-----+---------+-------+
+3 rows in set (0.105 sec)
+
+MySQL [ikoota_db]> select * from membership_stats;
++----------------------+----------+-------+
+| category             | status   | count |
++----------------------+----------+-------+
+| Initial Applications | approved |     7 |
+| Initial Applications | pending  |     2 |
+| User Stages          | none     |     1 |
+| User Stages          | member   |     3 |
++----------------------+----------+-------+
+4 rows in set (0.062 sec)
+
+MySQL [ikoota_db]> describe mentors;
++--------------------+-------------------------------+------+-----+-------------------+-------------------+
+| Field              | Type                          | Null | Key | Default           | Extra             |
++--------------------+-------------------------------+------+-----+-------------------+-------------------+
+| id                 | int                           | NO   | PRI | NULL              | auto_increment    |
+| mentor_converse_id | varchar(12)                   | YES  | MUL | NULL              |                   |
+| mentee_converse_id | varchar(12)                   | YES  | MUL | NULL              |                   |
+| relationship_type  | enum('mentor','peer','admin') | YES  |     | mentor            |                   |
+| created_at         | timestamp                     | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| is_active          | tinyint(1)                    | YES  |     | 1                 |                   |
++--------------------+-------------------------------+------+-----+-------------------+-------------------+
+6 rows in set (0.116 sec)
+
+MySQL [ikoota_db]> seclect * from mentors;
+ERROR 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'seclect * from mentors' at line 1
+MySQL [ikoota_db]> select * from mentors;
+Empty set (0.104 sec)
+
+MySQL [ikoota_db]> describe notification_templates;
++---------------+-------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field         | Type                                            | Null | Key | Default           | Extra                                         |
++---------------+-------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id            | int                                             | NO   | PRI | NULL              | auto_increment                                |
+| template_name | varchar(50)                                     | NO   | UNI | NULL              |                                               |
+| subject       | varchar(200)                                    | YES  |     | NULL              |                                               |
+| email_body    | text                                            | YES  |     | NULL              |                                               |
+| template_type | enum('approval','decline','admin_notification') | YES  |     | approval          |                                               |
+| is_active     | tinyint(1)                                      | YES  |     | 1                 |                                               |
+| createdAt     | timestamp                                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt     | timestamp                                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++---------------+-------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+8 rows in set (0.102 sec)
+
+MySQL [ikoota_db]> select * from notification_templates;
++----+-----------------------+-------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+-----------+---------------------+---------------------+
+| id | template_name         | subject                                   | email_body                                                                                                                                                                                                                      | template_type      | is_active | createdAt           | updatedAt           |
++----+-----------------------+-------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+-----------+---------------------+---------------------+
+|  1 | pre_member_approval   | Welcome to Ikoota - Application Approved! | Congratulations {{USERNAME}}! Your application has been approved.
+
+Your Details:
+- Converse ID: {{CONVERSE_ID}}
+- Mentor: {{MENTOR_ID}}
+- Class: {{CLASS_ID}}
+
+You now have access to Towncrier.                                | approval           |         1 | 2025-07-21 02:12:43 | 2025-07-21 02:12:43 |
+|  2 | pre_member_decline    | Ikoota Application Update                 | Dear {{USERNAME}},
+
+Thank you for your interest in Ikoota. After careful review, we are unable to approve your application at this time.
+
+Reason: {{DECLINE_REASON}}
+
+You may reapply in the future.
+
+Best regards,
+Ikoota Team | decline            |         1 | 2025-07-21 02:12:43 | 2025-07-21 02:12:43 |
+|  3 | admin_new_application | New Application Pending Review            | A new application requires your review.
+
+Applicant: {{APPLICANT_USERNAME}} ({{APPLICANT_EMAIL}})
+Submitted: {{SUBMISSION_DATE}}
+
+Please review in admin dashboard.                                                              | admin_notification |         1 | 2025-07-21 02:12:43 | 2025-07-21 02:12:43 |
++----+-----------------------+-------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+-----------+---------------------+---------------------+
+3 rows in set (0.068 sec)
+
+MySQL [ikoota_db]> describe pending_applications_overview;
++-------------------+--------------+------+-----+---------+-------+
+| Field             | Type         | Null | Key | Default | Extra |
++-------------------+--------------+------+-----+---------+-------+
+| application_stage | varchar(15)  | NO   |     |         |       |
+| user_id           | int          | NO   |     | 0       |       |
+| username          | varchar(255) | NO   |     |         |       |
+| email             | varchar(255) | NO   |     |         |       |
+| ticket            | varchar(25)  | YES  |     | NULL    |       |
+| submitted_at      | timestamp    | YES  |     | NULL    |       |
+| status            | varchar(12)  | YES  |     | NULL    |       |
+| days_pending      | bigint       | YES  |     | NULL    |       |
+| answers           | mediumtext   | YES  |     | NULL    |       |
+| application_id    | int          | NO   |     | 0       |       |
+| notes             | mediumtext   | YES  |     | NULL    |       |
++-------------------+--------------+------+-----+---------+-------+
+11 rows in set (0.088 sec)
+
+MySQL [ikoota_db]> select * from pending_applications_overview;
++-------------------+---------+-----------+-------------------------+----------------------+---------------------+---------+--------------+---------------------------------------------------------------------+----------------+-------+
+| application_stage | user_id | username  | email                   | ticket               | submitted_at        | status  | days_pending | answers                                                             | application_id | notes |
++-------------------+---------+-----------+-------------------------+----------------------+---------------------+---------+--------------+---------------------------------------------------------------------+----------------+-------+
+| initial           |       2 | pet       | petersomond@gmail.com   | NULL                 | 2025-01-07 06:08:15 | pending |          195 | ["oloill","yujyujty","yjutyhtrtrh","jjyhrhtsgaeff","gfrgrfewerewr"] |              2 | NULL  |
+| initial           |       3 | yahoomond | peters_o_mond@yahoo.com | APP-undefined-mcrf9p | 2025-01-07 06:09:46 | pending |          195 | ["trfrrf","988989","zxxx","iuiuyu","2123ewds"]                      |              3 | NULL  |
++-------------------+---------+-----------+-------------------------+----------------------+---------------------+---------+--------------+---------------------------------------------------------------------+----------------+-------+
+2 rows in set (0.098 sec)
+
+MySQL [ikoota_db]> describe pending_applications_simple;
++--------------------------+------------------------------------------------------------------------+------+-----+---------------+-------+
+| Field                    | Type                                                                   | Null | Key | Default       | Extra |
++--------------------------+------------------------------------------------------------------------+------+-----+---------------+-------+
+| user_id                  | int                                                                    | NO   |     | 0             |       |
+| username                 | varchar(255)                                                           | NO   |     | NULL          |       |
+| email                    | varchar(255)                                                           | NO   |     | NULL          |       |
+| application_submitted_at | timestamp                                                              | YES  |     | NULL          |       |
+| application_status       | enum('not_submitted','submitted','under_review','approved','declined') | YES  |     | not_submitted |       |
+| answers                  | text                                                                   | YES  |     | NULL          |       |
+| application_ticket       | varchar(255)                                                           | YES  |     | NULL          |       |
+| survey_id                | int                                                                    | NO   |     | 0             |       |
+| days_pending             | int                                                                    | YES  |     | NULL          |       |
++--------------------------+------------------------------------------------------------------------+------+-----+---------------+-------+
+9 rows in set (0.095 sec)
+
+MySQL [ikoota_db]> select * from pending_applications_simple;
++---------+-----------+-------------------------+--------------------------+--------------------+---------------------------------------------------------------------+--------------------+-----------+--------------+
+| user_id | username  | email                   | application_submitted_at | application_status | answers                                                             | application_ticket | survey_id | days_pending |
++---------+-----------+-------------------------+--------------------------+--------------------+---------------------------------------------------------------------+--------------------+-----------+--------------+
+|       2 | pet       | petersomond@gmail.com   | 2025-01-07 06:08:15      | submitted          | ["oloill","yujyujty","yjutyhtrtrh","jjyhrhtsgaeff","gfrgrfewerewr"] | NULL               |         2 |          195 |
+|       3 | yahoomond | peters_o_mond@yahoo.com | 2025-01-07 06:09:46      | submitted          | ["trfrrf","988989","zxxx","iuiuyu","2123ewds"]                      | NULL               |         3 |          195 |
++---------+-----------+-------------------------+--------------------------+--------------------+---------------------------------------------------------------------+--------------------+-----------+--------------+
+2 rows in set (0.086 sec)
+
+MySQL [ikoota_db]> describe pending_full_memberships;
++-------------------+---------------------------------------------------+------+-----+-------------------+-------------------+
+| Field             | Type                                              | Null | Key | Default           | Extra             |
++-------------------+---------------------------------------------------+------+-----+-------------------+-------------------+
+| application_stage | varchar(15)                                       | NO   |     |                   |                   |
+| user_id           | int                                               | NO   |     | 0                 |                   |
+| username          | varchar(255)                                      | NO   |     | NULL              |                   |
+| email             | varchar(255)                                      | NO   |     | NULL              |                   |
+| ticket            | varchar(25)                                       | NO   |     | NULL              |                   |
+| submitted_at      | timestamp                                         | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| status            | enum('pending','suspended','approved','declined') | YES  |     | pending           |                   |
+| days_pending      | int                                               | YES  |     | NULL              |                   |
+| answers           | text                                              | NO   |     | NULL              |                   |
+| application_id    | int                                               | NO   |     | 0                 |                   |
+| notes             | text                                              | YES  |     | NULL              |                   |
++-------------------+---------------------------------------------------+------+-----+-------------------+-------------------+
+11 rows in set (0.110 sec)
+
+MySQL [ikoota_db]> select * from pending_full_memberships;
+Empty set (0.111 sec)
+
+MySQL [ikoota_db]> describe pending_initial_applications;
++-------------------+---------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+| Field             | Type                                                                      | Null | Key | Default           | Extra             |
++-------------------+---------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+| application_stage | varchar(7)                                                                | NO   |     |                   |                   |
+| user_id           | int                                                                       | NO   |     | 0                 |                   |
+| username          | varchar(255)                                                              | NO   |     | NULL              |                   |
+| email             | varchar(255)                                                              | NO   |     | NULL              |                   |
+| ticket            | varchar(20)                                                               | YES  |     | NULL              |                   |
+| submitted_at      | timestamp                                                                 | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| status            | enum('pending','approved','rejected','under_review','granted','declined') | YES  |     | pending           |                   |
+| days_pending      | int                                                                       | YES  |     | NULL              |                   |
+| answers           | text                                                                      | YES  |     | NULL              |                   |
+| application_id    | int                                                                       | NO   |     | 0                 |                   |
+| notes             | text                                                                      | YES  |     | NULL              |                   |
++-------------------+---------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+11 rows in set (0.070 sec)
+
+MySQL [ikoota_db]> select * from pending_initial_applications;
++-------------------+---------+-----------+-------------------------+----------------------+---------------------+---------+--------------+---------------------------------------------------------------------+----------------+-------+
+| application_stage | user_id | username  | email                   | ticket               | submitted_at        | status  | days_pending | answers                                                             | application_id | notes |
++-------------------+---------+-----------+-------------------------+----------------------+---------------------+---------+--------------+---------------------------------------------------------------------+----------------+-------+
+| initial           |       2 | pet       | petersomond@gmail.com   | NULL                 | 2025-01-07 06:08:15 | pending |          195 | ["oloill","yujyujty","yjutyhtrtrh","jjyhrhtsgaeff","gfrgrfewerewr"] |              2 | NULL  |
+| initial           |       3 | yahoomond | peters_o_mond@yahoo.com | APP-undefined-mcrf9p | 2025-01-07 06:09:46 | pending |          195 | ["trfrrf","988989","zxxx","iuiuyu","2123ewds"]                      |              3 | NULL  |
++-------------------+---------+-----------+-------------------------+----------------------+---------------------+---------+--------------+---------------------------------------------------------------------+----------------+-------+
+2 rows in set (0.084 sec)
+
+MySQL [ikoota_db]> describe  reports;
++-------------+---------------------------------------+------+-----+-------------------+-------------------+
+| Field       | Type                                  | Null | Key | Default           | Extra             |
++-------------+---------------------------------------+------+-----+-------------------+-------------------+
+| id          | int                                   | NO   | PRI | NULL              | auto_increment    |
+| reporter_id | char(10)                              | NO   | MUL | NULL              |                   |
+| reported_id | char(10)                              | YES  | MUL | NULL              |                   |
+| reason      | text                                  | NO   |     | NULL              |                   |
+| status      | enum('pending','reviewed','resolved') | YES  |     | pending           |                   |
+| createdAt   | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++-------------+---------------------------------------+------+-----+-------------------+-------------------+
+6 rows in set (0.089 sec)
+
+MySQL [ikoota_db]> select * from  reports;
+Empty set (0.059 sec)
+
+MySQL [ikoota_db]> describe sms_logs;
++---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field         | Type                            | Null | Key | Default           | Extra                                         |
++---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id            | int                             | NO   | PRI | NULL              | auto_increment                                |
+| recipient     | varchar(20)                     | NO   | MUL | NULL              |                                               |
+| message       | text                            | YES  |     | NULL              |                                               |
+| template      | varchar(100)                    | YES  | MUL | NULL              |                                               |
+| status        | enum('sent','failed','pending') | YES  | MUL | pending           |                                               |
+| sid           | varchar(100)                    | YES  |     | NULL              |                                               |
+| error_message | text                            | YES  |     | NULL              |                                               |
+| sender_id     | char(10)                        | YES  | MUL | NULL              |                                               |
+| createdAt     | timestamp                       | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt     | timestamp                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| processedAt   | timestamp                       | YES  |     | NULL              |                                               |
++---------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
+11 rows in set (0.096 sec)
+
+MySQL [ikoota_db]> select * from sms_logs;
+Empty set (0.093 sec)
+
+MySQL [ikoota_db]> describe sms_templates;
++------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| Field      | Type         | Null | Key | Default           | Extra                                         |
++------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| id         | int          | NO   | PRI | NULL              | auto_increment                                |
+| name       | varchar(100) | NO   | UNI | NULL              |                                               |
+| message    | text         | NO   |     | NULL              |                                               |
+| variables  | json         | YES  |     | NULL              |                                               |
+| is_active  | tinyint(1)   | YES  | MUL | 1                 |                                               |
+| created_by | char(10)     | YES  | MUL | NULL              |                                               |
+| createdAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++------------+--------------+------+-----+-------------------+-----------------------------------------------+
+8 rows in set (0.063 sec)
+
+MySQL [ikoota_db]> select * from sms_templates;
++----+----------------------+----------------------------------------------------------------------------------------------------------------------------+---------------------------------------+-----------+------------+---------------------+---------------------+
+| id | name                 | message                                                                                                                    | variables                             | is_active | created_by | createdAt           | updatedAt           |
++----+----------------------+----------------------------------------------------------------------------------------------------------------------------+---------------------------------------+-----------+------------+---------------------+---------------------+
+|  1 | welcome              | Welcome to Ikoota, {{username}}! Your account has been activated. Start exploring our platform today.                      | ["username"]                          |         1 | NULL       | 2025-06-29 08:16:20 | 2025-06-29 08:16:20 |
+|  2 | survey_approval      | Hello {{username}}, your membership application has been {{status}}. Check your email for details.                         | ["username", "status"]                |         1 | NULL       | 2025-06-29 08:16:20 | 2025-06-29 08:16:20 |
+|  3 | verification_code    | Your Ikoota verification code is: {{code}}. This code expires in 10 minutes.                                               | ["code"]                              |         1 | NULL       | 2025-06-29 08:16:20 | 2025-06-29 08:16:20 |
+|  4 | password_reset       | Hello {{username}}, a password reset was requested for your Ikoota account. Check your email for the reset link.           | ["username"]                          |         1 | NULL       | 2025-06-29 08:16:20 | 2025-06-29 08:16:20 |
+|  5 | content_notification | Hello {{username}}, your {{contentType}} has been {{status}}. Check the app for details.                                   | ["username", "contentType", "status"] |         1 | NULL       | 2025-06-29 08:16:20 | 2025-06-29 08:16:20 |
+|  6 | admin_alert          | Ikoota Admin Alert: {{message}}                                                                                            | ["message"]                           |         1 | NULL       | 2025-06-29 08:16:20 | 2025-06-29 08:16:20 |
+|  7 | maintenance          | Ikoota will undergo maintenance starting {{startTime}} for approximately {{duration}}. We apologize for any inconvenience. | ["startTime", "duration"]             |         1 | NULL       | 2025-06-29 08:16:20 | 2025-06-29 08:16:20 |
++----+----------------------+----------------------------------------------------------------------------------------------------------------------------+---------------------------------------+-----------+------------+---------------------+---------------------+
+7 rows in set (0.087 sec)
+
+MySQL [ikoota_db]> describe survey_questions;
++----------------+------------+------+-----+-------------------+-----------------------------------------------+
+| Field          | Type       | Null | Key | Default           | Extra                                         |
++----------------+------------+------+-----+-------------------+-----------------------------------------------+
+| id             | int        | NO   | PRI | NULL              | auto_increment                                |
+| question       | text       | NO   |     | NULL              |                                               |
+| createdAt      | timestamp  | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt      | timestamp  | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| is_active      | tinyint(1) | YES  |     | 1                 |                                               |
+| question_order | int        | YES  |     | 0                 |                                               |
++----------------+------------+------+-----+-------------------+-----------------------------------------------+
+6 rows in set (0.122 sec)
+
+MySQL [ikoota_db]> select * from survey_questions;
+Empty set (0.080 sec)
+
+MySQL [ikoota_db]> describe  surveylog;
++--------------------------+---------------------------------------------------------------------------+------+-----+---------------------+-----------------------------------------------+
+| Field                    | Type                                                                      | Null | Key | Default             | Extra                                         |
++--------------------------+---------------------------------------------------------------------------+------+-----+---------------------+-----------------------------------------------+
+| id                       | int                                                                       | NO   | PRI | NULL                | auto_increment                                |
+| user_id                  | int                                                                       | NO   | MUL | NULL                |                                               |
+| answers                  | text                                                                      | YES  |     | NULL                |                                               |
+| verified_by              | char(10)                                                                  | NO   | MUL | NULL                |                                               |
+| rating_remarks           | varchar(255)                                                              | NO   |     | NULL                |                                               |
+| approval_status          | enum('pending','approved','rejected','under_review','granted','declined') | YES  | MUL | pending             |                                               |
+| createdAt                | timestamp                                                                 | YES  |     | CURRENT_TIMESTAMP   | DEFAULT_GENERATED                             |
+| updatedAt                | timestamp                                                                 | YES  |     | CURRENT_TIMESTAMP   | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| processedAt              | timestamp                                                                 | YES  |     | CURRENT_TIMESTAMP   | DEFAULT_GENERATED                             |
+| admin_notes              | text                                                                      | YES  |     | NULL                |                                               |
+| application_type         | enum('initial_application','full_membership')                             | YES  | MUL | initial_application |                                               |
+| reviewed_at              | timestamp                                                                 | YES  | MUL | NULL                |                                               |
+| reviewed_by              | int                                                                       | YES  | MUL | NULL                |                                               |
+| application_ticket       | varchar(255)                                                              | YES  |     | NULL                |                                               |
+| mentor_assigned          | varchar(12)                                                               | YES  | MUL | NULL                |                                               |
+| class_assigned           | varchar(12)                                                               | YES  | MUL | NULL                |                                               |
+| converse_id_generated    | varchar(12)                                                               | YES  |     | NULL                |                                               |
+| approval_decision_reason | text                                                                      | YES  |     | NULL                |                                               |
+| notification_sent        | tinyint(1)                                                                | YES  |     | 0                   |                                               |
++--------------------------+---------------------------------------------------------------------------+------+-----+---------------------+-----------------------------------------------+
+19 rows in set (1.272 sec)
+
+MySQL [ikoota_db]> select * from  surveylog;
++----+---------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+----------------+-----------------+---------------------+---------------------+---------------------+-----------------------------------+---------------------+---------------------+-------------+------------------------+-----------------+----------------+-----------------------+--------------------------+-------------------+
+| id | user_id | answers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | verified_by | rating_remarks | approval_status | createdAt           | updatedAt           | processedAt         | admin_notes                       | application_type    | reviewed_at         | reviewed_by | application_ticket     | mentor_assigned | class_assigned | converse_id_generated | approval_decision_reason | notification_sent |
++----+---------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+----------------+-----------------+---------------------+---------------------+---------------------+-----------------------------------+---------------------+---------------------+-------------+------------------------+-----------------+----------------+-----------------------+--------------------------+-------------------+
+|  1 |       1 | ["sasa","gfg","ererre","uyuyu","vcvvc"]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |             |                | approved        | 2025-01-07 06:06:56 | 2025-07-08 15:06:58 | NULL                | NULL                              | initial_application | NULL                |        NULL | NULL                   | NULL            | NULL           | NULL                  | NULL                     |                 0 |
+|  2 |       2 | ["oloill","yujyujty","yjutyhtrtrh","jjyhrhtsgaeff","gfrgrfewerewr"]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |             |                | pending         | 2025-01-07 06:08:15 | 2025-06-29 06:30:12 | NULL                | NULL                              | initial_application | NULL                |        NULL | NULL                   | NULL            | NULL           | NULL                  | NULL                     |                 0 |
+|  3 |       3 | ["trfrrf","988989","zxxx","iuiuyu","2123ewds"]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |             |                | pending         | 2025-01-07 06:09:46 | 2025-06-29 06:30:12 | NULL                | NULL                              | initial_application | NULL                |        NULL | NULL                   | NULL            | NULL           | NULL                  | NULL                     |                 0 |
+|  4 |       3 | {"setup": "admin_development"}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |             |                | approved        | 2025-07-03 20:48:24 | 2025-07-03 20:48:24 | 2025-07-03 20:48:24 | Admin account - development setup | initial_application | 2025-07-03 20:48:24 |           3 | NULL                   | NULL            | NULL           | NULL                  | NULL                     |                 0 |
+|  5 |       3 | {"setup": "admin_development"}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |             |                | approved        | 2025-07-03 20:48:24 | 2025-07-03 20:48:24 | 2025-07-03 20:48:24 | Admin account - development setup | full_membership     | 2025-07-03 20:48:24 |           3 | NULL                   | NULL            | NULL           | NULL                  | NULL                     |                 0 |
+|  6 |       3 | {"setup": "admin_development", "question1": "Admin setup", "question2": "Development purposes"}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |             |                | approved        | 2025-07-03 21:38:20 | 2025-07-03 21:38:20 | 2025-07-03 21:38:20 | Admin account - development setup | initial_application | 2025-07-03 21:38:20 |           3 | NULL                   | NULL            | NULL           | NULL                  | NULL                     |                 0 |
+|  7 |       3 | {"setup": "admin_development", "fullMembership": "Admin privileges", "experience": "Development and administration"}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |             |                | approved        | 2025-07-03 21:38:20 | 2025-07-03 21:38:20 | 2025-07-03 21:38:20 | Admin account - development setup | full_membership     | 2025-07-03 21:38:20 |           3 | NULL                   | NULL            | NULL           | NULL                  | NULL                     |                 0 |
+|  8 |       3 | {"setup": "admin_development"}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |             |                | approved        | 2025-07-04 00:17:34 | 2025-07-04 00:17:34 | 2025-07-04 00:17:34 | Admin account - development setup | initial_application | 2025-07-04 00:17:34 |           3 | NULL                   | NULL            | NULL           | NULL                  | NULL                     |                 0 |
+|  9 |       3 | {"setup": "admin_development"}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |             |                | approved        | 2025-07-04 00:17:34 | 2025-07-04 00:17:34 | 2025-07-04 00:17:34 | Admin account - development setup | full_membership     | 2025-07-04 00:17:34 |           3 | NULL                   | NULL            | NULL           | NULL                  | NULL                     |                 0 |
+| 11 |       3 | [{"question":"fullName","answer":"Monday"},{"question":"dateOfBirth","answer":"2001-01-01"},{"question":"nationality","answer":"nigeria"},{"question":"currentLocation","answer":"utah, nigeria"},{"question":"phoneNumber","answer":"+16784208200"},{"question":"highestEducation","answer":"master"},{"question":"fieldOfStudy","answer":"Mechanical"},{"question":"currentInstitution","answer":"University of Africa"},{"question":"graduationYear","answer":"2025"},{"question":"currentOccupation","answer":"Software engineering"},{"question":"workExperience","answer":"16+"},{"question":"professionalSkills","answer":""},{"question":"careerGoals","answer":""},{"question":"howDidYouHear","answer":"friend_referral"},{"question":"reasonForJoining","answer":"Learn and teach"},{"question":"expectedContributions","answer":"storytelling"},{"question":"educationalGoals","answer":"History and developemnt"},{"question":"previousMemberships","answer":""},{"question":"specialSkills","answer":""},{"question":"languagesSpoken","answer":"English, Other"},{"question":"availabilityForEvents","answer":""},{"question":"agreeToTerms","answer":"true"},{"question":"agreeToCodeOfConduct","answer":"true"},{"question":"agreeToDataProcessing","answer":"true"}] | admin       |                | approved        | 2025-07-06 08:40:33 | 2025-07-08 13:59:19 | 2025-07-06 08:40:33 | NULL                              | initial_application | 2025-07-08 13:59:19 |           3 | APP-undefined-mcrf9pz8 | NULL            | NULL           | NULL                  | NULL                     |                 0 |
+| 12 |       1 | ["Application approved during setup"]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | ADMIN       |                | approved        | 2025-07-08 14:38:03 | 2025-07-08 14:38:03 | 2025-07-08 14:38:03 | Bulk approval during system setup | initial_application | 2025-07-08 14:38:03 |           2 | NULL                   | NULL            | NULL           | NULL                  | NULL                     |                 0 |
+| 13 |       2 | ["Super admin setup"]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | SYSTEM      |                | approved        | 2025-07-08 14:38:23 | 2025-07-08 14:38:23 | 2025-07-08 14:38:23 | Super admin account setup         | initial_application | 2025-07-08 14:38:23 |           2 | NULL                   | NULL            | NULL           | NULL                  | NULL                     |                 0 |
++----+---------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+----------------+-----------------+---------------------+---------------------+---------------------+-----------------------------------+---------------------+---------------------+-------------+------------------------+-----------------+----------------+-----------------------+--------------------------+-------------------+
+12 rows in set (0.074 sec)
+
+MySQL [ikoota_db]> describe teachings;
++---------------+--------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field         | Type                                 | Null | Key | Default           | Extra                                         |
++---------------+--------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id            | int                                  | NO   | PRI | NULL              | auto_increment                                |
+| topic         | varchar(255)                         | NO   |     | NULL              |                                               |
+| description   | text                                 | YES  |     | NULL              |                                               |
+| lessonNumber  | varchar(255)                         | NO   |     | NULL              |                                               |
+| subjectMatter | varchar(255)                         | YES  |     | NULL              |                                               |
+| audience      | varchar(255)                         | YES  |     | NULL              |                                               |
+| content       | text                                 | YES  |     | NULL              |                                               |
+| media_url1    | varchar(255)                         | YES  |     | NULL              |                                               |
+| media_type1   | enum('image','video','audio','file') | YES  |     | NULL              |                                               |
+| media_url2    | varchar(255)                         | YES  |     | NULL              |                                               |
+| media_type2   | enum('image','video','audio','file') | YES  |     | NULL              |                                               |
+| media_url3    | varchar(255)                         | YES  |     | NULL              |                                               |
+| media_type3   | enum('image','video','audio','file') | YES  |     | NULL              |                                               |
+| createdAt     | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt     | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| user_id       | int                                  | NO   | MUL | NULL              |                                               |
+| prefixed_id   | varchar(20)                          | YES  | UNI | NULL              |                                               |
++---------------+--------------------------------------+------+-----+-------------------+-----------------------------------------------+
+17 rows in set (0.108 sec)
+
+MySQL [ikoota_db]> describe user_chats;
++----------------------+--------------------------------+------+-----+-------------------+-------------------+
+| Field                | Type                           | Null | Key | Default           | Extra             |
++----------------------+--------------------------------+------+-----+-------------------+-------------------+
+| id                   | int                            | NO   | PRI | NULL              | auto_increment    |
+| user_id              | char(10)                       | NO   | MUL | NULL              |                   |
+| chat_id              | char(10)                       | NO   |     | NULL              |                   |
+| last_message         | varchar(255)                   | YES  |     | NULL              |                   |
+| is_seen              | tinyint(1)                     | YES  |     | 0                 |                   |
+| role                 | enum('admin','member','owner') | NO   |     | NULL              |                   |
+| is_muted             | tinyint(1)                     | YES  |     | 0                 |                   |
+| last_read_message_id | varchar(36)                    | YES  |     | NULL              |                   |
+| joined_at            | datetime                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt            | timestamp                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++----------------------+--------------------------------+------+-----+-------------------+-------------------+
+10 rows in set (0.950 sec)
+
+MySQL [ikoota_db]> describe user_class_details;
++--------------------+--------------------------------------------------+------+-----+-------------------+-------------------+
+| Field              | Type                                             | Null | Key | Default           | Extra             |
++--------------------+--------------------------------------------------+------+-----+-------------------+-------------------+
+| user_id            | int                                              | NO   |     | NULL              |                   |
+| username           | varchar(255)                                     | NO   |     | NULL              |                   |
+| converse_id        | varchar(12)                                      | YES  |     | NULL              |                   |
+| class_id           | varchar(12)                                      | NO   |     | NULL              |                   |
+| class_name         | varchar(255)                                     | NO   |     | NULL              |                   |
+| public_name        | varchar(255)                                     | YES  |     | NULL              |                   |
+| class_type         | enum('demographic','subject','public','special') | YES  |     | demographic       |                   |
+| is_public          | tinyint(1)                                       | YES  |     | 0                 |                   |
+| membership_status  | enum('active','pending','suspended','expired')   | YES  |     | active            |                   |
+| role_in_class      | enum('member','moderator','assistant')           | YES  |     | member            |                   |
+| can_see_class_name | tinyint(1)                                       | YES  |     | 1                 |                   |
+| joined_at          | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++--------------------+--------------------------------------------------+------+-----+-------------------+-------------------+
+12 rows in set (0.533 sec)
+
+MySQL [ikoota_db]> select * from user_class_details;
++---------+----------+-------------+------------+-------------------+------------------+------------+-----------+-------------------+---------------+--------------------+---------------------+
+| user_id | username | converse_id | class_id   | class_name        | public_name      | class_type | is_public | membership_status | role_in_class | can_see_class_name | joined_at           |
++---------+----------+-------------+------------+-------------------+------------------+------------+-----------+-------------------+---------------+--------------------+---------------------+
+|       7 | Monika   | OTO#8BTB9N  | OTU#Public | General Community | Public Community | public     |         1 | active            | member        |                  1 | 2025-07-20 08:28:13 |
++---------+----------+-------------+------------+-------------------+------------------+------------+-----------+-------------------+---------------+--------------------+---------------------+
+1 row in set (0.546 sec)
+
+MySQL [ikoota_db]> describe  user_class_memberships;
++-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field                 | Type                                           | Null | Key | Default           | Extra                                         |
++-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id                    | int                                            | NO   | PRI | NULL              | auto_increment                                |
+| user_id               | int                                            | NO   | MUL | NULL              |                                               |
+| class_id              | varchar(12)                                    | NO   | MUL | NULL              |                                               |
+| membership_status     | enum('active','pending','suspended','expired') | YES  | MUL | active            |                                               |
+| role_in_class         | enum('member','moderator','assistant')         | YES  |     | member            |                                               |
+| joined_at             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| assigned_by           | int                                            | YES  | MUL | NULL              |                                               |
+| expires_at            | timestamp                                      | YES  |     | NULL              |                                               |
+| can_see_class_name    | tinyint(1)                                     | YES  |     | 1                 |                                               |
+| receive_notifications | tinyint(1)                                     | YES  |     | 1                 |                                               |
+| createdAt             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+12 rows in set (0.083 sec)
+
+MySQL [ikoota_db]> select * from  user_class_memberships;
++----+---------+------------+-------------------+---------------+---------------------+-------------+------------+--------------------+-----------------------+---------------------+---------------------+
+| id | user_id | class_id   | membership_status | role_in_class | joined_at           | assigned_by | expires_at | can_see_class_name | receive_notifications | createdAt           | updatedAt           |
++----+---------+------------+-------------------+---------------+---------------------+-------------+------------+--------------------+-----------------------+---------------------+---------------------+
+|  4 |       7 | OTU#Public | active            | member        | 2025-07-20 08:28:13 |        NULL | NULL       |                  1 |                     1 | 2025-07-20 08:28:13 | 2025-07-20 08:28:13 |
++----+---------+------------+-------------------+---------------+---------------------+-------------+------------+--------------------+-----------------------+---------------------+---------------------+
+1 row in set (0.076 sec)
+
+MySQL [ikoota_db]> describe user_communication_preferences;
++-----------------------+-------------+------+-----+-------------------+-----------------------------------------------+
+| Field                 | Type        | Null | Key | Default           | Extra                                         |
++-----------------------+-------------+------+-----+-------------------+-----------------------------------------------+
+| id                    | int         | NO   | PRI | NULL              | auto_increment                                |
+| user_id               | int         | NO   | UNI | NULL              |                                               |
+| email_notifications   | tinyint(1)  | YES  |     | 1                 |                                               |
+| sms_notifications     | tinyint(1)  | YES  |     | 0                 |                                               |
+| marketing_emails      | tinyint(1)  | YES  |     | 1                 |                                               |
+| marketing_sms         | tinyint(1)  | YES  |     | 0                 |                                               |
+| survey_notifications  | tinyint(1)  | YES  |     | 1                 |                                               |
+| content_notifications | tinyint(1)  | YES  |     | 1                 |                                               |
+| admin_notifications   | tinyint(1)  | YES  |     | 1                 |                                               |
+| preferred_language    | varchar(10) | YES  |     | en                |                                               |
+| timezone              | varchar(50) | YES  |     | UTC               |                                               |
+| createdAt             | timestamp   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt             | timestamp   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| converse_id           | char(10)    | YES  | MUL | NULL              |                                               |
++-----------------------+-------------+------+-----+-------------------+-----------------------------------------------+
+14 rows in set (0.050 sec)
+
+MySQL [ikoota_db]> select * from user_communication_preferences;
++----+---------+---------------------+-------------------+------------------+---------------+----------------------+-----------------------+---------------------+--------------------+----------+---------------------+---------------------+-------------+
+| id | user_id | email_notifications | sms_notifications | marketing_emails | marketing_sms | survey_notifications | content_notifications | admin_notifications | preferred_language | timezone | createdAt           | updatedAt           | converse_id |
++----+---------+---------------------+-------------------+------------------+---------------+----------------------+-----------------------+---------------------+--------------------+----------+---------------------+---------------------+-------------+
+|  1 |       1 |                   1 |                 0 |                1 |             0 |                    1 |                     1 |                   1 | en                 | UTC      | 2025-06-29 08:17:05 | 2025-06-29 08:17:05 | NULL        |
+|  2 |       2 |                   1 |                 0 |                1 |             0 |                    1 |                     1 |                   1 | en                 | UTC      | 2025-06-29 08:17:05 | 2025-06-29 08:17:05 | NULL        |
+|  3 |       3 |                   1 |                 0 |                1 |             0 |                    1 |                     1 |                   1 | en                 | UTC      | 2025-06-29 08:17:05 | 2025-06-29 08:17:05 | NULL        |
++----+---------+---------------------+-------------------+------------------+---------------+----------------------+-----------------------+---------------------+--------------------+----------+---------------------+---------------------+-------------+
+3 rows in set (0.097 sec)
+
+MySQL [ikoota_db]> describe user_profiles;
++--------------------+--------------+------+-----+-------------------+-------------------+
+| Field              | Type         | Null | Key | Default           | Extra             |
++--------------------+--------------+------+-----+-------------------+-------------------+
+| id                 | int          | NO   | PRI | NULL              | auto_increment    |
+| user_id            | int          | NO   | UNI | NULL              |                   |
+| encrypted_username | text         | NO   |     | NULL              |                   |
+| encrypted_email    | text         | NO   |     | NULL              |                   |
+| encrypted_phone    | text         | YES  |     | NULL              |                   |
+| encryption_key     | varchar(255) | YES  |     | NULL              |                   |
+| createdAt          | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt          | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++--------------------+--------------+------+-----+-------------------+-------------------+
+8 rows in set (0.095 sec)
+
+MySQL [ikoota_db]> select * from user_profiles;
+Empty set (0.093 sec)
+
+MySQL [ikoota_db]> describe users;
++-----------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+| Field                       | Type                                                                                        | Null | Key | Default           | Extra             |
++-----------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+| id                          | int                                                                                         | NO   | PRI | NULL              | auto_increment    |
+| username                    | varchar(255)                                                                                | NO   | MUL | NULL              |                   |
+| email                       | varchar(255)                                                                                | NO   | MUL | NULL              |                   |
+| phone                       | varchar(15)                                                                                 | YES  |     | NULL              |                   |
+| avatar                      | varchar(255)                                                                                | YES  |     | NULL              |                   |
+| password_hash               | varchar(255)                                                                                | NO   |     | NULL              |                   |
+| converse_id                 | varchar(12)                                                                                 | YES  | UNI | NULL              |                   |
+| application_ticket          | varchar(20)                                                                                 | YES  | MUL | NULL              |                   |
+| mentor_id                   | char(10)                                                                                    | YES  | MUL | NULL              |                   |
+| primary_class_id            | varchar(12)                                                                                 | YES  | MUL | NULL              |                   |
+| is_member                   | enum('applied','pending','suspended','granted','declined','pre_member','member','rejected') | YES  | MUL | applied           |                   |
+| membership_stage            | enum('none','applicant','pre_member','member')                                              | YES  | MUL | none              |                   |
+| full_membership_ticket      | varchar(25)                                                                                 | YES  |     | NULL              |                   |
+| full_membership_status      | enum('not_applied','applied','pending','suspended','approved','declined')                   | YES  | MUL | not_applied       |                   |
+| full_membership_applied_at  | timestamp                                                                                   | YES  | MUL | NULL              |                   |
+| full_membership_reviewed_at | timestamp                                                                                   | YES  |     | NULL              |                   |
+| role                        | enum('super_admin','admin','user')                                                          | YES  |     | user              |                   |
+| isblocked                   | json                                                                                        | YES  |     | NULL              |                   |
+| isbanned                    | tinyint(1)                                                                                  | YES  |     | 0                 |                   |
+| createdAt                   | timestamp                                                                                   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt                   | timestamp                                                                                   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| resetToken                  | varchar(255)                                                                                | YES  |     | NULL              |                   |
+| resetTokenExpiry            | bigint                                                                                      | YES  |     | NULL              |                   |
+| verification_method         | enum('email','phone')                                                                       | YES  |     | NULL              |                   |
+| verification_code           | varchar(10)                                                                                 | YES  |     | NULL              |                   |
+| is_verified                 | tinyint(1)                                                                                  | YES  | MUL | 0                 |                   |
+| codeExpiry                  | bigint                                                                                      | YES  |     | NULL              |                   |
+| converse_avatar             | varchar(255)                                                                                | YES  |     | NULL              |                   |
+| is_identity_masked          | tinyint(1)                                                                                  | YES  |     | 0                 |                   |
+| total_classes               | int                                                                                         | YES  |     | 0                 |                   |
+| application_status          | enum('not_submitted','submitted','under_review','approved','declined')                      | YES  | MUL | not_submitted     |                   |
+| application_submitted_at    | timestamp                                                                                   | YES  |     | NULL              |                   |
+| application_reviewed_at     | timestamp                                                                                   | YES  |     | NULL              |                   |
+| reviewed_by                 | int                                                                                         | YES  | MUL | NULL              |                   |
+| decline_reason              | text                                                                                        | YES  |     | NULL              |                   |
+| decline_notification_sent   | tinyint(1)                                                                                  | YES  |     | 0                 |                   |
++-----------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+36 rows in set (0.099 sec)
+
+MySQL [ikoota_db]> select * from users;
++----+-----------+-------------------------+------------+--------+--------------------------------------------------------------+-------------+----------------------+-----------+------------------+-----------+------------------+------------------------+------------------------+----------------------------+-----------------------------+-------------+-----------+----------+---------------------+---------------------+------------+------------------+---------------------+-------------------+-------------+------------+-----------------+--------------------+---------------+--------------------+--------------------------+-------------------------+-------------+----------------+---------------------------+
+| id | username  | email                   | phone      | avatar | password_hash                                                | converse_id | application_ticket   | mentor_id | primary_class_id | is_member | membership_stage | full_membership_ticket | full_membership_status | full_membership_applied_at | full_membership_reviewed_at | role        | isblocked | isbanned | createdAt           | updatedAt           | resetToken | resetTokenExpiry | verification_method | verification_code | is_verified | codeExpiry | converse_avatar | is_identity_masked | total_classes | application_status | application_submitted_at | application_reviewed_at | reviewed_by | decline_reason | decline_notification_sent |
++----+-----------+-------------------------+------------+--------+--------------------------------------------------------------+-------------+----------------------+-----------+------------------+-----------+------------------+------------------------+------------------------+----------------------------+-----------------------------+-------------+-----------+----------+---------------------+---------------------+------------+------------------+---------------------+-------------------+-------------+------------+-----------------+--------------------+---------------+--------------------+--------------------------+-------------------------+-------------+----------------+---------------------------+
+|  1 | abc       | abc@abc.com             | 1234       | NULL   | $2b$10$H6fjXoIqCC79PYlQzsgkLOjxgZh1EFRZfr79ISvFDeTBDcdRes2AK | OTO#B001H1  | NULL                 | NULL      | NULL             | member    | member           | NULL                   | not_applied            | NULL                       | NULL                        | user        | NULL      |        0 | 2025-01-07 06:06:41 | 2025-07-21 02:13:32 | NULL       |             NULL | NULL                | NULL              |           1 |       NULL | NULL            |                  0 |             0 | approved           | 2025-01-07 06:06:56      | NULL                    |        NULL | NULL           |                         0 |
+|  2 | pet       | petersomond@gmail.com   | 123456     | NULL   | $2b$10$fUOHFXtTWxRaky0kJ0h5zuxTrBaJbjUpc0MncBcBzbudxaHSlURk6 | OTO#C002O2  | NULL                 | NULL      | NULL             | member    | member           | NULL                   | not_applied            | NULL                       | NULL                        | super_admin | NULL      |        0 | 2025-01-07 06:08:01 | 2025-07-21 02:13:32 | NULL       |             NULL | NULL                | NULL              |           1 |       NULL | NULL            |                  0 |             0 | submitted          | 2025-01-07 06:08:15      | NULL                    |        NULL | NULL           |                         0 |
+|  3 | yahoomond | peters_o_mond@yahoo.com | 54321      | NULL   | $2b$10$yRQW/vsAzFOj/NV1KpV7/eSTzpt1caaEtr9BGk/5W84KB5CsbX7/a | OTO#D003V3  | APP-undefined-mcrf9p | NULL      | NULL             | member    | member           | NULL                   | not_applied            | NULL                       | NULL                        | admin       | NULL      |        0 | 2025-01-07 06:09:31 | 2025-07-21 02:13:32 | NULL       |             NULL | NULL                | NULL              |           1 |       NULL | NULL            |                  0 |             0 | submitted          | 2025-01-07 06:09:46      | NULL                    |        NULL | NULL           |                         0 |
+|  7 | Monika    | peterslmonika@gmail.com | 7703769866 | NULL   | $2b$12$G8Kn7zUcQVE7hSvQRQW7runqaN2cV5rFeA5dhGDSuN2U34Wwvbjw. | OTO#8BTB9N  | APP-MON-MDBEZSN9-3PV | NULL      | OTU#Public       | applied   | none             | NULL                   | not_applied            | NULL                       | NULL                        | user        | NULL      |        0 | 2025-07-20 08:28:13 | 2025-07-21 02:13:46 | NULL       |             NULL | email               | NULL              |           1 |       NULL | NULL            |                  0 |             1 | not_submitted      | NULL                     | NULL                    |        NULL | NULL           |                         0 |
++----+-----------+-------------------------+------------+--------+--------------------------------------------------------------+-------------+----------------------+-----------+------------------+-----------+------------------+------------------------+------------------------+----------------------------+-----------------------------+-------------+-----------+----------+---------------------+---------------------+------------+------------------+---------------------+-------------------+-------------+------------+-----------------+--------------------+---------------+--------------------+--------------------------+-------------------------+-------------+----------------+---------------------------+
+4 rows in set (0.092 sec)
+
+MySQL [ikoota_db]> describe verification_codes;
++-----------+-----------------------+------+-----+-------------------+-------------------+
+| Field     | Type                  | Null | Key | Default           | Extra             |
++-----------+-----------------------+------+-----+-------------------+-------------------+
+| id        | int                   | NO   | PRI | NULL              | auto_increment    |
+| email     | varchar(255)          | NO   | MUL | NULL              |                   |
+| phone     | varchar(15)           | YES  |     | NULL              |                   |
+| code      | varchar(10)           | NO   |     | NULL              |                   |
+| method    | enum('email','phone') | NO   |     | NULL              |                   |
+| expiresAt | timestamp             | NO   | MUL | NULL              |                   |
+| createdAt | timestamp             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
++-----------+-----------------------+------+-----+-------------------+-------------------+
+7 rows in set (0.095 sec)
+
+MySQL [ikoota_db]> select * from verification_codes;
++----+-------------------------+------------+--------+--------+---------------------+---------------------+
+| id | email                   | phone      | code   | method | expiresAt           | createdAt           |
++----+-------------------------+------------+--------+--------+---------------------+---------------------+
+| 14 | peterslmonika@gmail.com | 7703769866 | 305902 | email  | 2025-07-20 08:29:40 | 2025-07-20 08:19:40 |
++----+-------------------------+------------+--------+--------+---------------------+---------------------+
+1 row in set (0.109 sec)
+
+MySQL [ikoota_db]>

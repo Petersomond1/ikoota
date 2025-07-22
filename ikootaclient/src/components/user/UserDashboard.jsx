@@ -1,13 +1,9 @@
-// ==================================================
-// USER DASHBOARD COMPONENT (NEW)
 // ikootaclient/src/components/user/UserDashboard.jsx
-// ==================================================
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '../auth/UserStatus';
 import api from '../service/api'; 
-import './UserDashboard.css'; // Assuming you have a CSS file for styling
+import './UserDashboard.css';
 
 // ==================================================
 // API FUNCTIONS
@@ -16,22 +12,6 @@ import './UserDashboard.css'; // Assuming you have a CSS file for styling
 const fetchUserDashboard = async () => {
   const token = localStorage.getItem("token");
   const { data } = await api.get('/membership/dashboard', {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  return data;
-};
-
-const submitMembershipApplication = async (applicationData) => {
-  const token = localStorage.getItem("token");
-  const { data } = await api.post('/membership/apply', applicationData, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  return data;
-};
-
-const updateUserProfile = async (profileData) => {
-  const token = localStorage.getItem("token");
-  const { data } = await api.put('/user/profile', profileData, {
     headers: { Authorization: `Bearer ${token}` }
   });
   return data;
@@ -65,8 +45,10 @@ const MembershipStatus = ({ status, onApplyClick }) => {
       case 'pre_member':
         return 'info';
       case 'applicant':
+      case 'applied':
         return 'warning';
       case 'declined':
+      case 'rejected':
         return 'danger';
       default:
         return 'default';
@@ -81,29 +63,27 @@ const MembershipStatus = ({ status, onApplyClick }) => {
       case 'pre_member':
         return '👤';
       case 'applicant':
+      case 'applied':
         return '⏳';
       case 'declined':
+      case 'rejected':
         return '❌';
       default:
         return '📝';
     }
   };
 
-  const canApplyForFullMembership = status.membership_stage === 'pre_member' && 
-    status.full_membership_application_status !== 'pending' &&
-    status.full_membership_application_status !== 'approved';
-
-  const canApplyInitially = !status.membership_stage || 
-    (status.membership_stage === 'applicant' && status.initial_application_status === 'declined');
-
+  const membershipStage = status.membership_stage || 'none';
+  const memberStatus = status.is_member || 'not_applied';
+  
   return (
     <div className="membership-status">
       <div className="status-header">
         <h3>Membership Status</h3>
-        <div className={`status-badge ${getStatusColor(status.membership_stage)}`}>
-          <span className="status-icon">{getStatusIcon(status.membership_stage)}</span>
+        <div className={`status-badge ${getStatusColor(membershipStage)}`}>
+          <span className="status-icon">{getStatusIcon(membershipStage)}</span>
           <span className="status-text">
-            {status.membership_stage?.replace('_', ' ').toUpperCase() || 'NOT APPLIED'}
+            {membershipStage === 'none' ? 'APPLIED' : membershipStage.replace('_', ' ').toUpperCase()}
           </span>
         </div>
       </div>
@@ -111,67 +91,62 @@ const MembershipStatus = ({ status, onApplyClick }) => {
       <div className="status-details">
         <div className="detail-item">
           <strong>Current Status:</strong> 
-          <span>{status.current_status?.replace(/_/g, ' ') || 'No application'}</span>
+          <span className={`status-indicator ${getStatusColor(memberStatus)}`}>
+            {memberStatus === 'applied' ? 'Application Submitted' : memberStatus.replace(/_/g, ' ')}
+          </span>
         </div>
         
         <div className="detail-item">
-          <strong>Initial Application:</strong> 
+          <strong>Application Status:</strong> 
           <span className={`status-indicator ${getStatusColor(status.initial_application_status)}`}>
-            {status.initial_application_status || 'Not submitted'}
+            {status.initial_application_status === 'not_submitted' ? 'Ready to Submit' : 
+             status.initial_application_status || 'Pending Review'}
           </span>
         </div>
 
-        {status.membership_stage === 'pre_member' && (
+        {status.user_created && (
           <div className="detail-item">
-            <strong>Full Membership:</strong> 
-            <span className={`status-indicator ${getStatusColor(status.full_membership_application_status)}`}>
-              {status.full_membership_application_status || 'Not submitted'}
-            </span>
+            <strong>Member Since:</strong> 
+            <span>{new Date(status.user_created).toLocaleDateString()}</span>
           </div>
         )}
 
-        {status.application_date && (
+        {status.application_ticket && (
           <div className="detail-item">
-            <strong>Applied:</strong> 
-            <span>{new Date(status.application_date).toLocaleDateString()}</span>
-          </div>
-        )}
-
-        {status.approved_date && (
-          <div className="detail-item">
-            <strong>Approved:</strong> 
-            <span>{new Date(status.approved_date).toLocaleDateString()}</span>
+            <strong>Application ID:</strong> 
+            <span className="application-ticket">{status.application_ticket}</span>
           </div>
         )}
       </div>
 
       <div className="status-actions">
-        {canApplyInitially && (
-          <button 
-            onClick={() => onApplyClick('initial')}
-            className="btn-apply initial"
-          >
-            Apply for Membership
-          </button>
-        )}
-        
-        {canApplyForFullMembership && (
-          <button 
-            onClick={() => onApplyClick('full')}
-            className="btn-apply full"
-          >
-            Apply for Full Membership
-          </button>
+        {membershipStage === 'none' && memberStatus === 'applied' && (
+          <div className="pending-message">
+            <div className="pending-icon">⏳</div>
+            <h4>Application Under Review</h4>
+            <p>Your application has been submitted and is currently being reviewed by our team. You'll receive an update soon!</p>
+          </div>
         )}
 
-        {status.membership_stage === 'member' && (
+        {membershipStage === 'member' && (
           <div className="member-benefits">
             <h4>Member Benefits Active</h4>
             <ul>
-              <li>✅ Access to all courses</li>
-              <li>✅ Mentor assignment</li>
-              <li>✅ Community forums</li>
+              <li>✅ Access to Iko Chat</li>
+              <li>✅ Full platform access</li>
+              <li>✅ Community participation</li>
               <li>✅ Priority support</li>
+            </ul>
+          </div>
+        )}
+
+        {membershipStage === 'pre_member' && (
+          <div className="premember-benefits">
+            <h4>Pre-Member Access</h4>
+            <ul>
+              <li>✅ Towncrier content access</li>
+              <li>✅ Limited community features</li>
+              <li>📝 Full membership application available</li>
             </ul>
           </div>
         )}
@@ -181,25 +156,83 @@ const MembershipStatus = ({ status, onApplyClick }) => {
 };
 
 const QuickActions = ({ actions, user }) => {
+  const { getUserStatus } = useUser();
+  const userStatus = getUserStatus();
+
+  // Dynamic actions based on user status
+  const getActionsForUser = () => {
+    const baseActions = [
+      {
+        text: 'View Profile',
+        link: '/profile',
+        type: 'primary',
+        icon: '👤'
+      }
+    ];
+
+    switch (userStatus) {
+      case 'full_member':
+        return [
+          ...baseActions,
+          {
+            text: 'Iko Chat',
+            link: '/iko',
+            type: 'info',
+            icon: '💬'
+          },
+          {
+            text: 'Towncrier',
+            link: '/towncrier',
+            type: 'secondary',
+            icon: '📚'
+          }
+        ];
+      
+      case 'pre_member':
+        return [
+          ...baseActions,
+          {
+            text: 'Towncrier Content',
+            link: '/towncrier',
+            type: 'secondary',
+            icon: '📚'
+          },
+          {
+            text: 'Apply for Full Membership',
+            link: '/full-membership-application',
+            type: 'success',
+            icon: '📝'
+          }
+        ];
+      
+      case 'pending_verification':
+        return [
+          ...baseActions,
+          {
+            text: 'Application Status',
+            link: '/pending-verification',
+            type: 'warning',
+            icon: '⏳'
+          }
+        ];
+      
+      case 'needs_application':
+        return [
+          ...baseActions,
+          {
+            text: 'Complete Application',
+            link: '/applicationsurvey',
+            type: 'primary',
+            icon: '📝'
+          }
+        ];
+      
+      default:
+        return baseActions;
+    }
+  };
+
   const defaultActions = [
-    {
-      text: 'View Profile',
-      link: '/profile',
-      type: 'primary',
-      icon: '👤'
-    },
-    {
-      text: 'Towncrier Content',
-      link: '/towncrier',
-      type: 'secondary',
-      icon: '📚'
-    },
-    {
-      text: 'Iko Chat',
-      link: '/iko',
-      type: 'info',
-      icon: '💬'
-    },
     {
       text: 'Help Center',
       link: '/help',
@@ -214,7 +247,8 @@ const QuickActions = ({ actions, user }) => {
     }
   ];
 
-  const allActions = [...(actions || []), ...defaultActions];
+  const userSpecificActions = getActionsForUser();
+  const allActions = [...userSpecificActions, ...defaultActions, ...(actions || [])];
 
   return (
     <div className="quick-actions">
@@ -252,6 +286,8 @@ const RecentActivities = ({ activities }) => {
         return '💬';
       case 'login':
         return '🔐';
+      case 'registration':
+        return '🎉';
       default:
         return '📋';
     }
@@ -272,50 +308,68 @@ const RecentActivities = ({ activities }) => {
     }
   };
 
+  // Default activities if none provided
+  const defaultActivities = [
+    {
+      type: 'registration',
+      title: 'Account Created',
+      description: 'Welcome to the Ikoota platform!',
+      date: new Date().toISOString(),
+      status: 'completed'
+    },
+    {
+      type: 'application',
+      title: 'Application Submitted',
+      description: 'Your membership application is under review',
+      date: new Date().toISOString(),
+      status: 'pending'
+    }
+  ];
+
+  const displayActivities = activities && activities.length > 0 ? activities : defaultActivities;
+
   return (
     <div className="recent-activities">
       <h3>Recent Activities</h3>
-      {!activities || activities.length === 0 ? (
-        <div className="empty-activities">
-          <div className="empty-icon">📭</div>
-          <p>No recent activities</p>
-          <small>Your activities will appear here as you use the platform</small>
-        </div>
-      ) : (
-        <div className="activities-list">
-          {activities.map((activity, index) => (
-            <div key={index} className="activity-item">
-              <div className="activity-icon">
-                {getActivityIcon(activity.type)}
-              </div>
-              <div className="activity-content">
-                <h4 className="activity-title">{activity.title}</h4>
-                <p className="activity-description">{activity.description}</p>
-                <div className="activity-meta">
-                  <span className="activity-date">
-                    {new Date(activity.date).toLocaleDateString()}
-                  </span>
-                  <span className={`activity-status ${getActivityColor(activity.status)}`}>
-                    {activity.status}
-                  </span>
-                </div>
-              </div>
-              {activity.actionRequired && (
-                <div className="activity-action">
-                  <button className="btn-small primary">
-                    Take Action
-                  </button>
-                </div>
-              )}
+      <div className="activities-list">
+        {displayActivities.map((activity, index) => (
+          <div key={index} className="activity-item">
+            <div className="activity-icon">
+              {getActivityIcon(activity.type)}
             </div>
-          ))}
-        </div>
-      )}
+            <div className="activity-content">
+              <h4 className="activity-title">{activity.title}</h4>
+              <p className="activity-description">{activity.description}</p>
+              <div className="activity-meta">
+                <span className="activity-date">
+                  {new Date(activity.date).toLocaleDateString()}
+                </span>
+                <span className={`activity-status ${getActivityColor(activity.status)}`}>
+                  {activity.status}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
 
 const NotificationsSection = ({ notifications, onMarkAsRead }) => {
+  if (!notifications || notifications.length === 0) {
+    return (
+      <div className="notifications-section">
+        <h3>Notifications</h3>
+        <div className="empty-notifications">
+          <div className="empty-icon">🔔</div>
+          <p>No new notifications</p>
+          <small>You're all caught up!</small>
+        </div>
+      </div>
+    );
+  }
+
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'success':
@@ -347,9 +401,9 @@ const NotificationsSection = ({ notifications, onMarkAsRead }) => {
               <p className="notification-message">{notification.message}</p>
               <div className="notification-meta">
                 <span className="notification-date">
-                  {new Date(notification.date).toLocaleDateString()}
+                  {new Date(notification.date || Date.now()).toLocaleDateString()}
                 </span>
-                {!notification.read && (
+                {!notification.read && onMarkAsRead && (
                   <button 
                     onClick={() => onMarkAsRead(notification.id)}
                     className="mark-read-btn"
@@ -375,18 +429,6 @@ const WelcomeSection = ({ user, dashboardData }) => {
     return 'Good evening';
   };
 
-  const getLastLoginMessage = () => {
-    if (!user?.last_login) return null;
-    const lastLogin = new Date(user.last_login);
-    const now = new Date();
-    const diffTime = Math.abs(now - lastLogin);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 1) return 'Last seen yesterday';
-    if (diffDays < 7) return `Last seen ${diffDays} days ago`;
-    return `Last seen on ${lastLogin.toLocaleDateString()}`;
-  };
-
   return (
     <div className="welcome-section">
       <div className="welcome-content">
@@ -399,21 +441,18 @@ const WelcomeSection = ({ user, dashboardData }) => {
             : "Here's your current status and available actions"
           }
         </p>
-        {getLastLoginMessage() && (
-          <p className="last-login">{getLastLoginMessage()}</p>
-        )}
       </div>
       <div className="welcome-stats">
         <div className="stat-item">
           <span className="stat-number">{dashboardData?.stats?.coursesCompleted || 0}</span>
-          <span className="stat-label">Courses</span>
+          <span className="stat-label">Activities</span>
         </div>
         <div className="stat-item">
           <span className="stat-number">{dashboardData?.stats?.achievementsUnlocked || 0}</span>
           <span className="stat-label">Achievements</span>
         </div>
         <div className="stat-item">
-          <span className="stat-number">{dashboardData?.stats?.daysActive || 0}</span>
+          <span className="stat-number">{dashboardData?.stats?.daysActive || 1}</span>
           <span className="stat-label">Days Active</span>
         </div>
       </div>
@@ -426,18 +465,17 @@ const WelcomeSection = ({ user, dashboardData }) => {
 // ==================================================
 
 const UserDashboard = () => {
-  const { user } = useUser();
+  const { user, isAuthenticated } = useUser();
   const queryClient = useQueryClient();
-  const [showApplicationModal, setShowApplicationModal] = useState(false);
-  const [applicationType, setApplicationType] = useState(null);
 
   // Queries
   const { data: dashboardData, isLoading, error } = useQuery({
     queryKey: ['userDashboard'],
     queryFn: fetchUserDashboard,
-    enabled: !!user,
+    enabled: !!user && isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000 // 10 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    retry: 1
   });
 
   // Mutations
@@ -445,39 +483,31 @@ const UserDashboard = () => {
     mutationFn: markNotificationAsRead,
     onSuccess: () => {
       queryClient.invalidateQueries(['userDashboard']);
-    }
-  });
-
-  const applicationMutation = useMutation({
-    mutationFn: submitMembershipApplication,
-    onSuccess: () => {
-      alert('Application submitted successfully!');
-      setShowApplicationModal(false);
-      queryClient.invalidateQueries(['userDashboard']);
     },
     onError: (error) => {
-      alert(`Application failed: ${error.response?.data?.message || error.message}`);
+      console.error('Failed to mark notification as read:', error);
     }
   });
 
   // Event Handlers
-  const handleApplyClick = (type) => {
-    setApplicationType(type);
-    setShowApplicationModal(true);
-  };
-
   const handleMarkAsRead = (notificationId) => {
     markAsReadMutation.mutate(notificationId);
   };
 
-  const handleSubmitApplication = (applicationData) => {
-    applicationMutation.mutate({
-      type: applicationType,
-      ...applicationData
-    });
-  };
-
   // Loading and Error States
+  if (!isAuthenticated) {
+    return (
+      <div className="dashboard-auth-error">
+        <div className="auth-error-container">
+          <div className="auth-error-icon">🔐</div>
+          <h3>Authentication Required</h3>
+          <p>Please log in to view your dashboard</p>
+          <a href="/login" className="login-btn">Go to Login</a>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="dashboard-loading">
@@ -514,8 +544,7 @@ const UserDashboard = () => {
       
       <div className="dashboard-grid">
         <MembershipStatus 
-          status={dashboardData?.membershipStatus} 
-          onApplyClick={handleApplyClick}
+          status={dashboardData?.membershipStatus || user} 
         />
         <QuickActions 
           actions={dashboardData?.quickActions}
@@ -526,57 +555,15 @@ const UserDashboard = () => {
         />
       </div>
 
-      {dashboardData?.notifications?.length > 0 && (
+      {(dashboardData?.notifications?.length > 0) && (
         <NotificationsSection 
           notifications={dashboardData.notifications}
           onMarkAsRead={handleMarkAsRead}
         />
-      )}
-
-      {/* Application Modal - Simple version for now */}
-      {showApplicationModal && (
-        <div className="modal-overlay">
-          <div className="modal-container application-modal">
-            <div className="modal-header">
-              <h3>
-                {applicationType === 'initial' ? 'Initial Membership Application' : 'Full Membership Application'}
-              </h3>
-              <button 
-                onClick={() => setShowApplicationModal(false)}
-                className="modal-close"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="modal-content">
-              <p>
-                {applicationType === 'initial' 
-                  ? 'You are about to submit your initial membership application.'
-                  : 'You are about to submit your full membership application.'
-                }
-              </p>
-              <p>This will redirect you to the application form.</p>
-            </div>
-            <div className="modal-actions">
-              <button 
-                onClick={() => handleSubmitApplication({})}
-                className="btn-primary"
-                disabled={applicationMutation.isLoading}
-              >
-                {applicationMutation.isLoading ? 'Submitting...' : 'Continue to Application'}
-              </button>
-              <button 
-                onClick={() => setShowApplicationModal(false)}
-                className="btn-cancel"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
 };
 
 export default UserDashboard;
+

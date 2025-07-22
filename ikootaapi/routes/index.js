@@ -111,15 +111,15 @@ router.get('/docs', (req, res) => {
       auth: {
         path: '/api/auth',
         description: 'Authentication and authorization',
-        methods: ['POST /login', 'POST /register', 'POST /logout', 'POST /refresh']
+        methods: [ 'POST /send-verification', 'POST /login', 'POST /register', 'POST /logout', 'POST /refresh']
       },
 
       membership: {
     path: '/api/membership', 
     description: 'Membership application and management',
     methods: [
-      'POST /auth/send-verification',
-      'POST /auth/register', 
+     // 'POST /auth/send-verification',
+      //'POST /auth/register', 
       'GET /dashboard',
       'GET /survey/check-status',
       'POST /survey/submit-application',

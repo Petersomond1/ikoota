@@ -13,6 +13,10 @@ import {
   errorResponse,
   executeQuery 
 } from './membershipControllers_1.js';
+import { sendEmailWithTemplate } from '../utils/email.js';
+import { generateUniqueConverseId } from '../utils/idGenerator.js';
+// import { successResponse, errorResponse } from './membershipControllers_1.js';
+
 
 // ==================================================
 // USER DASHBOARD & STATUS FUNCTIONS
@@ -364,15 +368,179 @@ export const testUserLookup = async (req, res) => {
 };
 
 
+
+export const getCurrentMembershipStatus = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    
+    console.log('🔍 Checking membership status for user:', userId);
+    
+    const [userStatus] = await db.execute(`
+      SELECT 
+        u.id,
+        u.username,
+        u.email,
+        u.is_member,
+        u.membership_stage,
+        u.application_status,
+        u.application_submitted_at,
+        u.application_reviewed_at,
+        u.converse_id,
+        u.mentor_id,
+        u.primary_class_id,
+        u.decline_reason,
+        s.approval_status,
+        s.reviewed_at as survey_reviewed_at
+      FROM users u
+      LEFT JOIN surveylog s ON u.id = s.user_id 
+        AND s.application_type = 'initial_application'
+        AND s.id = (
+          SELECT MAX(id) FROM surveylog 
+          WHERE user_id = u.id AND application_type = 'initial_application'
+        )
+      WHERE u.id = ?
+    `, [userId]);
+    
+    if (userStatus.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = userStatus[0];
+    
+    // Determine if user needs to complete survey
+    const needsSurvey = (
+      user.is_member === 'applied' && 
+      user.membership_stage === 'none' && 
+      user.application_status === 'not_submitted'
+    );
+    
+    const surveyCompleted = user.application_status !== 'not_submitted';
+    
+    res.json({
+      success: true,
+      user_status: user.is_member,
+      membership_stage: user.membership_stage,
+      application_status: user.application_status,
+      needs_survey: needsSurvey,
+      survey_completed: surveyCompleted,
+      approval_status: user.approval_status,
+      converse_id: user.converse_id,
+      submitted_at: user.application_submitted_at,
+      reviewed_at: user.application_reviewed_at || user.survey_reviewed_at,
+      decline_reason: user.decline_reason
+    });
+    
+  } catch (error) {
+    console.error('❌ Status check error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+
 /**
  * Submit initial application with enhanced validation
  */
+// export const submitInitialApplication = async (req, res) => {
+//   try {
+//     console.log('🎯 submitInitialApplication called!');
+//     console.log('📝 Request body:', req.body);
+
+//     const { answers, applicationTicket } = req.body;
+//     const user = req.user;
+    
+//     console.log('👤 User:', user);
+    
+//     if (!user || !user.id) {
+//       return res.status(401).json({ error: 'User not authenticated' });
+//     }
+
+//     const userId = user.id;
+//     console.log('🔍 Extracted userId:', userId);
+
+//     const result = await db.transaction(async (connection) => {
+//       // Get user details
+//       const [userRows] = await connection.execute(
+//         'SELECT * FROM users WHERE id = ?',
+//         [userId]
+//       );
+
+//       if (userRows.length === 0) {
+//         throw new Error('User not found');
+//       }
+
+//       const userData = userRows[0];
+//       console.log('✅ User found:', userData.username);
+
+//       // Insert application into surveylog (not applications table)
+//       const insertQuery = `
+//         INSERT INTO surveylog (
+//           user_id, application_type, answers, application_ticket,
+//           approval_status, createdAt
+//         ) VALUES (?, ?, ?, ?, ?, NOW())
+//       `;
+
+//       const [insertResult] = await connection.execute(insertQuery, [
+//         userId.toString(),
+//         'initial_application',
+//         JSON.stringify(answers),
+//         applicationTicket,
+//         'pending'
+//       ]);
+
+//       // Update user record
+//       const updateQuery = `
+//         UPDATE users 
+//         SET application_ticket = ?, membership_stage = ?
+//         WHERE id = ?
+//       `;
+
+//       await connection.execute(updateQuery, [
+//         applicationTicket,
+//         'applicant',
+//         userId
+//       ]);
+
+//       return {
+//         applicationId: insertResult.insertId,
+//         applicationTicket,
+//         userId
+//       };
+//     });
+
+//     console.log('✅ Application submitted successfully:', result);
+    
+//     res.json({
+//       success: true,
+//       message: 'Application submitted successfully',
+//       data: result
+//     });
+
+//   } catch (error) {
+//     console.error('❌ submitInitialApplication error:', error);
+//     res.status(500).json({ 
+//       error: 'Failed to submit application',
+//       details: error.message 
+//     });
+//   }
+// };
+
+// =====================================================
+// MERGED AND ENHANCED submitInitialApplication
+// ikootaapi/controllers/membershipControllers_2.js
+// =====================================================
+
+// import { sendEmailWithTemplate } from '../utils/email.js';
+// import { generateApplicationTicket } from './membershipControllers_1.js';
+// import db from '../config/db.js';
+
 export const submitInitialApplication = async (req, res) => {
   try {
     console.log('🎯 submitInitialApplication called!');
     console.log('📝 Request body:', req.body);
-
-    const { answers, applicationTicket } = req.body;
+    
+    // ✅ ENHANCED: Support both old and new request formats
+    const { answers, applicationTicket, surveyData } = req.body;
     const user = req.user;
     
     console.log('👤 User:', user);
@@ -380,76 +548,263 @@ export const submitInitialApplication = async (req, res) => {
     if (!user || !user.id) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
-
+    
     const userId = user.id;
     console.log('🔍 Extracted userId:', userId);
-
+    
+    // ✅ ENHANCED: Determine which data format we're using
+    const applicationData = surveyData || answers;
+    const ticket = applicationTicket || generateApplicationTicket(user.username, user.email, 'INITIAL');
+    
+    if (!applicationData) {
+      return res.status(400).json({ 
+        error: 'Missing application data', 
+        expected: 'Either "answers" or "surveyData" required' 
+      });
+    }
+    
+    console.log('📋 Using application data format:', surveyData ? 'surveyData' : 'answers');
+    
+    // ✅ ENHANCED: Validate user eligibility for submission
+    const [userCheck] = await db.execute(
+      'SELECT id, username, email, is_member, application_status, membership_stage FROM users WHERE id = ?',
+      [userId]
+    );
+    
+    if (userCheck.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userData = userCheck[0];
+    console.log('✅ User found:', userData.username);
+    
+    // ✅ ENHANCED: Check if user is eligible to submit application
+    if (userData.is_member !== 'applied') {
+      return res.status(400).json({ 
+        error: 'User not eligible for application submission',
+        current_status: userData.is_member,
+        note: 'Only users with status "applied" can submit initial applications'
+      });
+    }
+    
+    // ✅ ENHANCED: Prevent duplicate submissions (optional check)
+    if (userData.application_status === 'submitted') {
+      return res.status(400).json({
+        error: 'Application already submitted',
+        current_status: userData.application_status,
+        note: 'You can update your application instead of resubmitting'
+      });
+    }
+    
+    // ✅ ENHANCED: Use proper database transaction
     const result = await db.transaction(async (connection) => {
-      // Get user details
-      const [userRows] = await connection.execute(
-        'SELECT * FROM users WHERE id = ?',
-        [userId]
-      );
-
-      if (userRows.length === 0) {
-        throw new Error('User not found');
-      }
-
-      const userData = userRows[0];
-      console.log('✅ User found:', userData.username);
-
-      // Insert application into surveylog (not applications table)
-      const insertQuery = `
+      // ✅ NEW: Insert/Update survey response with enhanced data
+      const surveyQuery = `
         INSERT INTO surveylog (
-          user_id, application_type, answers, application_ticket,
-          approval_status, createdAt
-        ) VALUES (?, ?, ?, ?, ?, NOW())
+          user_id, 
+          answers, 
+          application_type, 
+          approval_status, 
+          application_ticket,
+          createdAt,
+          updatedAt
+        ) VALUES (?, ?, 'initial_application', 'pending', ?, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE 
+          answers = VALUES(answers),
+          approval_status = 'pending',
+          application_ticket = VALUES(application_ticket),
+          updatedAt = NOW()
       `;
-
-      const [insertResult] = await connection.execute(insertQuery, [
+      
+      const [surveyResult] = await connection.execute(surveyQuery, [
         userId.toString(),
-        'initial_application',
-        JSON.stringify(answers),
-        applicationTicket,
-        'pending'
+        JSON.stringify(applicationData),
+        ticket
       ]);
-
-      // Update user record
+      
+      // ✅ ENHANCED: Update user status with comprehensive data
       const updateQuery = `
         UPDATE users 
-        SET application_ticket = ?, membership_stage = ?
+        SET 
+          application_ticket = ?, 
+          membership_stage = 'applicant',
+          application_status = 'submitted',
+          application_submitted_at = NOW(),
+          updatedAt = NOW()
         WHERE id = ?
       `;
-
-      await connection.execute(updateQuery, [
-        applicationTicket,
-        'applicant',
-        userId
-      ]);
-
+      
+      await connection.execute(updateQuery, [ticket, userId]);
+      
       return {
-        applicationId: insertResult.insertId,
-        applicationTicket,
-        userId
+        applicationId: surveyResult.insertId,
+        applicationTicket: ticket,
+        userId,
+        status: 'submitted',
+        membershipStage: 'applicant'
       };
     });
-
+    
     console.log('✅ Application submitted successfully:', result);
     
+    // ✅ NEW: Notify admins of new application
+    try {
+      await notifyAdminsOfNewApplication(userId, userData.username, userData.email);
+      console.log('✅ Admin notifications sent');
+    } catch (emailError) {
+      console.warn('⚠️ Admin notification failed (non-critical):', emailError.message);
+      // Don't fail the application submission if email fails
+    }
+    
+    // ✅ ENHANCED: Comprehensive response
     res.json({
       success: true,
       message: 'Application submitted successfully',
-      data: result
+      data: result,
+      next_steps: {
+        status: 'pending_review',
+        description: 'Your application is now under admin review',
+        estimated_review_time: '2-5 business days',
+        notification_method: 'email'
+      }
     });
-
+    
   } catch (error) {
     console.error('❌ submitInitialApplication error:', error);
-    res.status(500).json({ 
-      error: 'Failed to submit application',
-      details: error.message 
+    
+    // ✅ ENHANCED: Better error handling
+    let errorMessage = 'Failed to submit application';
+    let statusCode = 500;
+    
+    if (error.message.includes('not eligible')) {
+      errorMessage = error.message;
+      statusCode = 400;
+    } else if (error.message.includes('not found')) {
+      errorMessage = 'User not found';
+      statusCode = 404;
+    } else if (error.message.includes('Duplicate entry')) {
+      errorMessage = 'Application already exists for this user';
+      statusCode = 409;
+    }
+    
+    res.status(statusCode).json({
+      success: false,
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      timestamp: new Date().toISOString()
     });
   }
 };
+
+// =====================================================
+// ✅ ENHANCED: Admin Notification Function
+// =====================================================
+
+const notifyAdminsOfNewApplication = async (userId, username, email) => {
+  try {
+    console.log('📧 Sending admin notifications for new application...');
+    
+    // Get all admin users
+    const [admins] = await db.execute(
+      'SELECT email, username FROM users WHERE role IN ("admin", "super_admin") AND email IS NOT NULL'
+    );
+    
+    if (admins.length === 0) {
+      console.warn('⚠️ No admin users found to notify');
+      return;
+    }
+    
+    console.log(`📧 Found ${admins.length} admin(s) to notify`);
+    
+    // Send notification to each admin
+    const notificationPromises = admins.map(async (admin) => {
+      try {
+        await sendEmailWithTemplate(admin.email, 'admin_new_application', {
+          APPLICANT_USERNAME: username,
+          APPLICANT_EMAIL: email,
+          SUBMISSION_DATE: new Date().toLocaleDateString(),
+          REVIEW_URL: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/applications`,
+          ADMIN_NAME: admin.username
+        });
+        console.log(`✅ Notification sent to admin: ${admin.email}`);
+      } catch (emailError) {
+        console.error(`❌ Failed to notify admin ${admin.email}:`, emailError.message);
+      }
+    });
+    
+    // Wait for all notifications to complete (but don't fail if some fail)
+    await Promise.allSettled(notificationPromises);
+    console.log('✅ Admin notification process completed');
+    
+  } catch (error) {
+    console.error('❌ Admin notification error:', error);
+    throw error; // Re-throw so caller knows notification failed
+  }
+};
+
+// =====================================================
+// ✅ ADDITIONAL: Application Update Function (Bonus)
+// =====================================================
+
+export const updateInitialApplication = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const { surveyData, answers } = req.body;
+    
+    console.log('📝 Updating application for user:', userId);
+    
+    const applicationData = surveyData || answers;
+    
+    if (!applicationData) {
+      return res.status(400).json({ 
+        error: 'Missing application data to update' 
+      });
+    }
+    
+    // Check if user has a submitted application that can be updated
+    const [userCheck] = await db.execute(
+      'SELECT application_status FROM users WHERE id = ?',
+      [userId]
+    );
+    
+    if (userCheck.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (userCheck[0].application_status !== 'submitted') {
+      return res.status(400).json({
+        error: 'No submitted application found to update',
+        current_status: userCheck[0].application_status
+      });
+    }
+    
+    // Update the application
+    await db.execute(`
+      UPDATE surveylog 
+      SET 
+        answers = ?,
+        updatedAt = NOW()
+      WHERE user_id = ? AND application_type = 'initial_application'
+    `, [JSON.stringify(applicationData), userId]);
+    
+    res.json({
+      success: true,
+      message: 'Application updated successfully',
+      status: 'submitted',
+      updated_at: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Update application error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update application',
+      details: error.message
+    });
+  }
+};
+
+
 
 /**
  * Get application history for user

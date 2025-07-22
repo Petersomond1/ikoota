@@ -73,7 +73,7 @@ const Login = () => {
       setLoading(true);
       
       // ✅ FIXED: Use correct API endpoint
-      const response = await axios.post("http://localhost:3000/api/membership/auth/login", {
+      const response = await axios.post("http://localhost:3000/api/auth/login", {
         email: values.email,
         password: values.password
       }, { withCredentials: true });

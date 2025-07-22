@@ -660,178 +660,135 @@ export const getReportsEnhanced = async (req, res) => {
   }
 };
 
+// =====================================================
+// ADDITIONAL API ENDPOINTS FOR ADMIN FUNCTIONALITY
+// ikootaapi/controllers/adminControllers.js
+// =====================================================
 
-
-
-
-// //ikootaapi\controllers\adminControllers.js
-// import {
-//    getUsersService,
-//    updateUserByIdService, 
-//    updateUserColumnsService,
-//     getPendingContentService,
-//     approveContentService,
-//     rejectContentService,
-//     manageUsersService,
-//     manageContentService,
-//     banUserService,
-//     unbanUserService,
-//     grantPostingRightsService,
-//     updateUserService,
+/**
+ * ✅ Get Available Mentors for Assignment
+ */
+export const getAvailableMentors = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
     
-  
-//   getReportsService,
-//   getAuditLogsService
-//   } from '../services/adminServices.js';
-  
+    const [mentors] = await db.execute(`
+      SELECT 
+        u.id,
+        u.username,
+        u.converse_id,
+        u.email,
+        m.current_mentees,
+        m.max_mentees,
+        (m.max_mentees - m.current_mentees) as available_slots
+      FROM users u
+      LEFT JOIN mentors m ON u.converse_id = m.mentor_converse_id
+      WHERE u.role IN ('admin', 'super_admin') 
+        OR (u.is_member = 'member' AND u.membership_stage = 'member')
+      ORDER BY available_slots DESC, u.username ASC
+    `);
+    
+    res.json({
+      success: true,
+      mentors: mentors.filter(mentor => mentor.available_slots > 0)
+    });
+    
+  } catch (error) {
+    console.error('❌ Get mentors error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
 
-//   // GET /admin/users
-// export const getUsers = async (req, res) => {
-//   try {
-//     const users = await getUsersService();
-//     res.status(200).json(users);
-//   } catch (error) {
-//     console.error('Error fetching users:', error.message);
-//     res.status(500).json({ error: 'An error occurred while fetching users.' });
-//   }
-// };
+/**
+ * ✅ Get Available Classes for Assignment
+ */
+export const getAvailableClasses = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const [classes] = await db.execute(`
+      SELECT 
+        c.id,
+        c.class_id,
+        c.class_name,
+        c.class_type,
+        c.description,
+        c.max_members,
+        COALESCE(cm.current_members, 0) as current_members,
+        (c.max_members - COALESCE(cm.current_members, 0)) as available_slots
+      FROM classes c
+      LEFT JOIN (
+        SELECT 
+          class_id, 
+          COUNT(*) as current_members
+        FROM user_class_memberships 
+        WHERE membership_status = 'active'
+        GROUP BY class_id
+      ) cm ON c.class_id = cm.class_id
+      WHERE c.is_active = 1
+      ORDER BY c.class_type, available_slots DESC, c.class_name ASC
+    `);
+    
+    res.json({
+      success: true,
+      classes: classes.filter(cls => cls.available_slots > 0)
+    });
+    
+  } catch (error) {
+    console.error('❌ Get classes error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
 
-// // PUT /admin/update-user/:id
-// export const updateUserById = async (req, res) => {
-//   try {
-//     const userId = req.params.id;
-//     const { isblocked, isbanned } = req.body;
-
-//     const updatedUser = await updateUserByIdService(userId, isblocked, isbanned);
-//     res.status(200).json({ message: 'User updated successfully', updatedUser });
-//   } catch (error) {
-//     console.error('Error updating user:', error.message);
-//     res.status(500).json({ error: 'An error occurred while updating the user.' });
-//   }
-// };
-
-
-//  export const updateUser = async (req, res) => {
-//     try {
-//       const { userId, rating, userclass } = req.body;
-//       const updatedUser = await updateUserService(userId, rating, userclass);
-//       res.status(200).json(updatedUser);
-//     } catch (error) {
-//       console.error('Error in updateUser:', error.message);
-//       res.status(500).json({ error: 'An error occurred while updating the user.' });
-//     }
-//   };
-
-//  export const banUser = async (req, res) => {
-//     try {
-//       const { userId } = req.body;
-//       await banUserService(userId);
-//       res.status(200).json({ message: 'User banned successfully' });
-//     } catch (error) {
-//       console.error('Error in banUser:', error.message);
-//       res.status(500).json({ error: 'An error occurred while banning the user.' });
-//     }
-//   };
-  
-//   export const unbanUser = async (req, res) => {
-//     try {
-//       const { userId } = req.body;
-//       await unbanUserService(userId);
-//       res.status(200).json({ message: 'User unbanned successfully' });
-//     } catch (error) {
-//       console.error('Error in unbanUser:', error.message);
-//       res.status(500).json({ error: 'An error occurred while unbanning the user.' });
-//     }
-//   };
-
-// export const manageUsers = async (req, res) => {
-//     try {
-//       const users = await manageUsersService();
-//       res.status(200).json(users);
-//     } catch (error) {
-//       console.error('Error in manageUsers:', error.message);
-//       res.status(500).json({ error: 'An error occurred while managing users.' });
-//     }
-//   };
-
-
-  
-//   export const grantPostingRights = async (req, res) => {
-//     try {
-//       const { userId } = req.body;
-//       await grantPostingRightsService(userId);
-//       res.status(200).json({ message: 'Posting rights granted successfully' });
-//     } catch (error) {
-//       console.error('Error in grantPostingRights:', error.message);
-//       res.status(500).json({ error: 'An error occurred while granting posting rights.' });
-//     }
-//   };
-
-
-//   export const getPendingContent = async (req, res) => {
-//     try {
-//       const pendingContent = await getPendingContentService();
-//       res.status(200).json(pendingContent);
-//     } catch (error) {
-//       console.error('Error in getPendingContent:', error.message);
-//       res.status(500).json({ error: 'An error occurred while fetching pending content.' });
-//     }
-//   };
-  
-
-//    export const manageContent = async (req, res) => {
-//     try {
-//       const content = await manageContentService();
-//       res.status(200).json(content);
-//     } catch (error) {
-//       console.error('Error in manageContent:', error.message);
-//       res.status(500).json({ error: 'An error occurred while managing content.' });
-//     }
-//   }; 
+/**
+ * ✅ Get Application Statistics for Admin Dashboard
+ */
+export const getApplicationStats = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const [stats] = await db.execute(`
+      SELECT 
+        COUNT(CASE WHEN application_status = 'submitted' THEN 1 END) as pending_applications,
+        COUNT(CASE WHEN application_status = 'approved' THEN 1 END) as approved_today,
+        COUNT(CASE WHEN application_status = 'declined' THEN 1 END) as declined_today,
+        COUNT(CASE WHEN is_member = 'pre_member' THEN 1 END) as active_pre_members,
+        COUNT(CASE WHEN is_member = 'member' THEN 1 END) as full_members
+      FROM users 
+      WHERE DATE(application_reviewed_at) = CURDATE() OR application_status = 'submitted'
+    `);
+    
+    const [recentActivity] = await db.execute(`
+      SELECT 
+        u.username,
+        u.application_status,
+        u.application_reviewed_at,
+        reviewer.username as reviewer_name
+      FROM users u
+      LEFT JOIN users reviewer ON u.reviewed_by = reviewer.id
+      WHERE u.application_reviewed_at >= DATE_SUB(NOW(), INTERVAL 7 DAYS)
+      ORDER BY u.application_reviewed_at DESC
+      LIMIT 10
+    `);
+    
+    res.json({
+      success: true,
+      stats: stats[0],
+      recent_activity: recentActivity
+    });
+    
+  } catch (error) {
+    console.error('❌ Get stats error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
 
 
-//   export const approveContent = async (req, res) => {
-//     try {
-//       const contentId = req.params.id;
-//       await approveContentService(contentId);
-//       res.status(200).json({ message: 'Content approved successfully' });
-//     } catch (error) {
-//       console.error('Error in approveContent:', error.message);
-//       res.status(500).json({ error: 'An error occurred while approving the content.' });
-//     }
-//   };
-  
-//   export const rejectContent = async (req, res) => {
-//     try {
-//       const contentId = req.params.id;
-//       await rejectContentService(contentId);
-//       res.status(200).json({ message: 'Content rejected successfully' });
-//     } catch (error) {
-//       console.error('Error in rejectContent:', error.message);
-//       res.status(500).json({ error: 'An error occurred while rejecting the content.' });
-//     }
-//   };
-  
- 
 
-// // GET /admin/reports
-// export const getReports = async (req, res) => {
-//   try {
-//     const reports = await getReportsService();
-//     res.status(200).json(reports);
-//   } catch (error) {
-//     console.error('Error fetching reports:', error.message);
-//     res.status(500).json({ error: 'An error occurred while fetching reports.' });
-//   }
-// };
 
-// // GET /admin/audit-logs
-// export const getAuditLogs = async (req, res) => {
-//   try {
-//     const auditLogs = await getAuditLogsService();
-//     res.status(200).json(auditLogs);
-//   } catch (error) {
-//     console.error('Error fetching audit logs:', error.message);
-//     res.status(500).json({ error: 'An error occurred while fetching audit logs.' });
-//   }
-// };
