@@ -44,6 +44,8 @@ import {
   getAvailableMentors,
   getAvailableClasses
 } from '../controllers/membershipControllers.js';
+import { verifyApplicationStatusConsistency } from '../controllers/membershipControllers_2.js';
+
 
 
 
@@ -163,6 +165,10 @@ if (process.env.NODE_ENV === 'development') {
       res.status(500).json({ error: 'Failed to setup admin account' });
     }
   });
+
+  // Add this debug route
+  router.get('/debug/status-consistency', authenticate, verifyApplicationStatusConsistency);
+
 }
 
 // ==================================================

@@ -288,63 +288,123 @@ const ApplicationSurvey = () => {
     saveToStorage(formData, newStep);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
     
-    if (!validateStep(currentStep)) {
-      return;
-    }
+  //   if (!validateStep(currentStep)) {
+  //     return;
+  //   }
 
-    setLoading(true);
-    setError('');
+  //   setLoading(true);
+  //   setError('');
 
-    try {
-      // Prepare answers array for backend
-      const answers = Object.entries(formData)
-        .filter(([key]) => !key.startsWith('_')) // Exclude internal keys like _savedAt
-        .map(([key, value]) => ({
-          question: key,
-          answer: Array.isArray(value) ? value.join(', ') : value.toString()
-        }));
+  //   try {
+  //     // Prepare answers array for backend
+  //     const answers = Object.entries(formData)
+  //       .filter(([key]) => !key.startsWith('_')) // Exclude internal keys like _savedAt
+  //       .map(([key, value]) => ({
+  //         question: key,
+  //         answer: Array.isArray(value) ? value.join(', ') : value.toString()
+  //       }));
 
-      const response = await api.post('/membership/survey/submit-application', {
-        answers,
-        applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`
-      });
+  //     const response = await api.post('/membership/survey/submit-application', {
+  //       answers,
+  //       applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`
+  //     });
 
-      const data = response.data;
+  //     const data = response.data;
 
-      // Clear saved data after successful submission
-      clearSavedData();
+  //     // Clear saved data after successful submission
+  //     clearSavedData();
       
-      setSubmitSuccess(true);
+  //     setSubmitSuccess(true);
       
-      // Redirect to success page after delay
-      setTimeout(() => {
-        navigate('/pending-verification', {
-          state: {
-            applicationTicket: data.applicationTicket,
-            username: user.username
-          }
-        });
-      }, 3000);
+  //     // Redirect to success page after delay
+  //     setTimeout(() => {
+  //       navigate('/pending-verification', {
+  //         state: {
+  //           applicationTicket: data.applicationTicket,
+  //           username: user.username
+  //         }
+  //       });
+  //     }, 3000);
 
-    } catch (error) {
-      console.error('Error submitting application:', error);
+  //   } catch (error) {
+  //     console.error('Error submitting application:', error);
       
-      if (error.response) {
-        setError(error.response.data?.error || error.response.data?.message || 'Failed to submit application');
-      } else if (error.request) {
-        setError('Network error. Please check your connection and try again.');
-      } else {
-        setError('An unexpected error occurred. Please try again.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     if (error.response) {
+  //       setError(error.response.data?.error || error.response.data?.message || 'Failed to submit application');
+  //     } else if (error.request) {
+  //       setError('Network error. Please check your connection and try again.');
+  //     } else {
+  //       setError('An unexpected error occurred. Please try again.');
+  //     }
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   // Manual save function
+  
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateStep(currentStep)) {
+    return;
+  }
+
+  setLoading(true);
+  setError('');
+
+  try {
+    // Prepare answers array for backend
+    const answers = Object.entries(formData)
+      .filter(([key]) => !key.startsWith('_')) // Exclude internal keys like _savedAt
+      .map(([key, value]) => ({
+        question: key,
+        answer: Array.isArray(value) ? value.join(', ') : value.toString()
+      }));
+
+    const response = await api.post('/membership/survey/submit-application', {
+      answers,
+      applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`,
+      username: user.username, // ADD THIS LINE
+      userId: user.id || user.user_id // ADD THIS LINE TOO
+    });
+
+    const data = response.data;
+
+    // Clear saved data after successful submission
+    clearSavedData();
+    
+    setSubmitSuccess(true);
+    
+    // Redirect to success page after delay
+    setTimeout(() => {
+      navigate('/pending-verification', {
+        state: {
+          applicationTicket: data.applicationTicket,
+          username: user.username
+        }
+      });
+    }, 3000);
+
+  } catch (error) {
+    console.error('Error submitting application:', error);
+    
+    if (error.response) {
+      setError(error.response.data?.error || error.response.data?.message || 'Failed to submit application');
+    } else if (error.request) {
+      setError('Network error. Please check your connection and try again.');
+    } else {
+      setError('An unexpected error occurred. Please try again.');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+  
+  
   const handleManualSave = () => {
     setIsAutoSaving(true);
     saveToStorage(formData, currentStep);

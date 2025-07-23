@@ -25,6 +25,125 @@ import { generateUniqueConverseId } from '../utils/idGenerator.js';
 /**
  * Enhanced user dashboard with comprehensive data
  */
+// export const getUserDashboard = async (req, res) => {
+//   try {
+//     const userId = req.user.user_id || req.user.id;
+//     const userRole = req.user.role;
+    
+//     console.log('🎯 getUserDashboard called for userId:', userId, 'role:', userRole);
+    
+//     if (!userId) {
+//       throw new CustomError('User ID not found', 401);
+//     }
+    
+//     // Try direct database query first
+//     console.log('🔍 Attempting direct database query...');
+//     const result = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
+//     console.log('🔍 Direct query result check');
+    
+//     // Handle the result properly
+//     let user;
+//     if (Array.isArray(result) && result.length > 0) {
+//       if (Array.isArray(result[0]) && result[0].length > 0) {
+//         user = result[0][0]; // MySQL2 format: [rows, fields]
+//         console.log('✅ Using MySQL2 format: result[0][0]');
+//       } else if (result[0] && typeof result[0] === 'object') {
+//         user = result[0]; // Direct format
+//         console.log('✅ Using direct format: result[0]');
+//       }
+//     }
+    
+//     console.log('✅ User extracted:', user?.id, user?.username);
+    
+//     if (!user || !user.id) {
+//       console.error('❌ No valid user data found');
+//       return res.status(404).json({ error: 'User not found' });
+//     }
+    
+//     // Handle empty is_member for admin users
+//     let memberStatus = user.is_member;
+//     if (!memberStatus || memberStatus === '' || memberStatus === null) {
+//       if (userRole === 'admin' || userRole === 'super_admin') {
+//         memberStatus = 'active';
+//         // Update in database
+//         await db.query(
+//           'UPDATE users SET is_member = ? WHERE id = ?',
+//           ['active', userId]
+//         );
+//         console.log('🔧 Fixed empty is_member for admin user');
+//       } else {
+//         memberStatus = 'pending';
+//       }
+//     }
+    
+//     // Create status object
+//     const status = {
+//       id: user.id,
+//       username: user.username,
+//       email: user.email,
+//       role: user.role,
+//       membership_stage: user.membership_stage || 'none',
+//       is_member: memberStatus,
+//       initial_application_status: 'approved', // Simplified for testing
+//       full_membership_application_status: 'approved',
+//       has_accessed_full_membership: true,
+//       user_created: user.createdAt
+//     };
+    
+//     // Define quick actions based on user status
+//     const quickActions = [];
+    
+//     if (user.role === 'admin' || user.role === 'super_admin') {
+//       quickActions.push(
+//         { type: 'primary', text: 'Admin Panel', link: '/admin' },
+//         { type: 'info', text: 'User Management', link: '/admin/users' },
+//         { type: 'success', text: 'Applications', link: '/admin/applications' }
+//       );
+//     } else {
+//       quickActions.push({ type: 'primary', text: 'View Profile', link: '/profile' });
+      
+//       if (user.membership_stage === 'member') {
+//         quickActions.push({ type: 'success', text: 'Iko Chat', link: '/iko' });
+//       } else if (user.membership_stage === 'pre_member') {
+//         quickActions.push({ type: 'info', text: 'Towncrier', link: '/towncrier' });
+//         quickActions.push({ type: 'warning', text: 'Apply for Full Membership', link: '/full-membership' });
+//       } else {
+//         quickActions.push({ type: 'warning', text: 'Submit Application', link: '/application-survey' });
+//       }
+//     }
+    
+//     quickActions.push({ type: 'secondary', text: 'Settings', link: '/settings' });
+    
+//     console.log('✅ Sending dashboard response');
+    
+//     return res.status(200).json({
+//       success: true,
+//       message: 'Dashboard data retrieved successfully',
+//       membershipStatus: status,
+//       recentActivities: [],
+//       notifications: [{
+//         type: 'system',
+//         message: `Welcome back, ${user.username}!`,
+//         date: new Date().toISOString()
+//       }],
+//       quickActions
+//     });
+    
+//   } catch (error) {
+//     console.error('❌ getUserDashboard error:', error);
+//     return res.status(500).json({
+//       success: false,
+//       error: error.message || 'An error occurred',
+//       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+//     });
+//   }
+// };
+
+
+
+// ikootaapi/controllers/membershipControllers_2.js
+// FIXED getUserDashboard function - preserving all existing functionality
+
 export const getUserDashboard = async (req, res) => {
   try {
     const userId = req.user.user_id || req.user.id;
@@ -36,12 +155,45 @@ export const getUserDashboard = async (req, res) => {
       throw new CustomError('User ID not found', 401);
     }
     
-    // Try direct database query first
-    console.log('🔍 Attempting direct database query...');
-    const result = await db.query('SELECT * FROM users WHERE id = ?', [userId]);
-    console.log('🔍 Direct query result check');
+    // ✅ ENHANCED: Get comprehensive user data with application status
+    console.log('🔍 Attempting enhanced database query...');
+    const result = await db.query(`
+      SELECT 
+        u.id,
+        u.username,
+        u.email,
+        u.is_member,
+        u.membership_stage,
+        u.role,
+        u.application_status,
+        u.application_submitted_at,
+        u.application_ticket as user_ticket,
+        u.createdAt,
+        u.converse_id,
+        u.mentor_id,
+        u.primary_class_id,
+        s.approval_status as survey_approval_status,
+        s.application_ticket as survey_ticket,
+        s.createdAt as survey_submitted_at,
+        s.reviewed_at,
+        s.reviewed_by,
+        s.admin_notes,
+        reviewer.username as reviewed_by_name
+      FROM users u
+      LEFT JOIN surveylog s ON u.id = s.user_id 
+        AND s.application_type = 'initial_application'
+        AND s.id = (
+          SELECT MAX(id) FROM surveylog 
+          WHERE user_id = u.id 
+          AND application_type = 'initial_application'
+        )
+      LEFT JOIN users reviewer ON s.reviewed_by = reviewer.id
+      WHERE u.id = ?
+    `, [userId]);
     
-    // Handle the result properly
+    console.log('🔍 Enhanced query result check');
+    
+    // Handle the result properly (preserving your existing logic)
     let user;
     if (Array.isArray(result) && result.length > 0) {
       if (Array.isArray(result[0]) && result[0].length > 0) {
@@ -60,7 +212,7 @@ export const getUserDashboard = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Handle empty is_member for admin users
+    // ✅ ENHANCED: Handle empty is_member for admin users (preserving existing logic)
     let memberStatus = user.is_member;
     if (!memberStatus || memberStatus === '' || memberStatus === null) {
       if (userRole === 'admin' || userRole === 'super_admin') {
@@ -76,7 +228,44 @@ export const getUserDashboard = async (req, res) => {
       }
     }
     
-    // Create status object
+    // ✅ NEW: CORRECT APPLICATION STATUS LOGIC
+    let applicationStatus = 'not_submitted';
+    let statusDisplay = 'Not Submitted';
+    let applicationDescription = 'Application not yet submitted';
+    
+    // Check if there's a survey submission
+    if (user.survey_submitted_at || user.application_submitted_at) {
+      // Use survey approval status if available, otherwise use user application status
+      const actualStatus = user.survey_approval_status || user.application_status;
+      
+      switch (actualStatus) {
+        case 'approved':
+          applicationStatus = 'approved';
+          statusDisplay = 'Approved';
+          applicationDescription = 'Your application has been approved! Welcome to the community.';
+          break;
+        case 'rejected':
+        case 'declined':
+          applicationStatus = 'rejected';
+          statusDisplay = 'Rejected';
+          applicationDescription = 'Your application was not approved. You may reapply after addressing feedback.';
+          break;
+        case 'under_review':
+          applicationStatus = 'under_review';
+          statusDisplay = 'Under Review';
+          applicationDescription = 'Your application is currently being reviewed by our team.';
+          break;
+        case 'submitted':
+        case 'pending':
+        default:
+          applicationStatus = 'pending';
+          statusDisplay = 'Pending Review';  // ✅ FIXED: This will show for new submissions
+          applicationDescription = 'Your application is submitted and awaiting review.';
+          break;
+      }
+    }
+    
+    // ✅ ENHANCED: Create comprehensive status object (preserving existing structure)
     const status = {
       id: user.id,
       username: user.username,
@@ -84,13 +273,27 @@ export const getUserDashboard = async (req, res) => {
       role: user.role,
       membership_stage: user.membership_stage || 'none',
       is_member: memberStatus,
-      initial_application_status: 'approved', // Simplified for testing
-      full_membership_application_status: 'approved',
-      has_accessed_full_membership: true,
+      
+      // ✅ FIXED: Application status now reflects actual database state
+      application_status: applicationStatus,           // 'pending' for new submissions
+      application_status_display: statusDisplay,       // 'Pending Review' for new submissions
+      application_description: applicationDescription,
+      
+      // Additional application details
+      application_submitted_at: user.survey_submitted_at || user.application_submitted_at,
+      application_reviewed_at: user.reviewed_at,
+      application_reviewed_by: user.reviewed_by_name,
+      application_ticket: user.survey_ticket || user.user_ticket,
+      admin_notes: user.admin_notes,
+      
+      // Legacy fields for compatibility
+      initial_application_status: applicationStatus,
+      full_membership_application_status: 'not_applied', // You can enhance this later
+      has_accessed_full_membership: memberStatus === 'active' || user.membership_stage === 'member',
       user_created: user.createdAt
     };
     
-    // Define quick actions based on user status
+    // ✅ ENHANCED: Define quick actions based on user status (preserving existing logic)
     const quickActions = [];
     
     if (user.role === 'admin' || user.role === 'super_admin') {
@@ -108,24 +311,112 @@ export const getUserDashboard = async (req, res) => {
         quickActions.push({ type: 'info', text: 'Towncrier', link: '/towncrier' });
         quickActions.push({ type: 'warning', text: 'Apply for Full Membership', link: '/full-membership' });
       } else {
-        quickActions.push({ type: 'warning', text: 'Submit Application', link: '/application-survey' });
+        // Show different actions based on application status
+        if (applicationStatus === 'not_submitted') {
+          quickActions.push({ type: 'warning', text: 'Submit Application', link: '/application-survey' });
+        } else if (applicationStatus === 'pending') {
+          quickActions.push({ type: 'info', text: 'Application Status', link: '/pending-verification' });
+        } else if (applicationStatus === 'rejected') {
+          quickActions.push({ type: 'warning', text: 'Resubmit Application', link: '/application-survey' });
+        }
       }
     }
     
     quickActions.push({ type: 'secondary', text: 'Settings', link: '/settings' });
     
-    console.log('✅ Sending dashboard response');
+    // ✅ ENHANCED: Build activities list with correct status
+    const activities = [
+      {
+        type: 'account_created',
+        title: 'Account Created',
+        description: 'Welcome to the Ikoota platform!',
+        date: user.createdAt,
+        status: 'completed',
+        icon: '🎉'
+      }
+    ];
+    
+    // Add application activity with correct status
+    if (user.survey_submitted_at || user.application_submitted_at) {
+      activities.push({
+        type: 'application_submitted',
+        title: 'Application Submitted',
+        description: applicationDescription,
+        date: user.survey_submitted_at || user.application_submitted_at,
+        status: applicationStatus === 'approved' ? 'completed' : 
+                applicationStatus === 'rejected' ? 'failed' : 'pending',
+        icon: applicationStatus === 'approved' ? '✅' : 
+              applicationStatus === 'rejected' ? '❌' : '📝'
+      });
+    }
+    
+    // ✅ ENHANCED: Build notification with correct status
+    const notifications = [{
+      type: 'system',
+      message: `Welcome back, ${user.username}!`,
+      date: new Date().toISOString()
+    }];
+    
+    // Add status-specific notification
+    if (applicationStatus === 'pending') {
+      notifications.unshift({
+        type: 'info',
+        message: 'Your application is being reviewed. You will be notified once the review is complete.',
+        date: new Date().toISOString()
+      });
+    } else if (applicationStatus === 'approved') {
+      notifications.unshift({
+        type: 'success',
+        message: 'Congratulations! Your application has been approved.',
+        date: user.reviewed_at || new Date().toISOString()
+      });
+    } else if (applicationStatus === 'rejected') {
+      notifications.unshift({
+        type: 'warning',
+        message: 'Your application requires attention. Please check your application status.',
+        date: user.reviewed_at || new Date().toISOString()
+      });
+    }
+    
+    console.log('✅ Sending enhanced dashboard response with status:', statusDisplay);
     
     return res.status(200).json({
       success: true,
       message: 'Dashboard data retrieved successfully',
+      
+      // ✅ NEW: Enhanced data structure while maintaining compatibility
+      data: {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          memberSince: user.createdAt,
+          role: user.role
+        },
+        membership: {
+          status: memberStatus,
+          stage: user.membership_stage,
+          displayStatus: memberStatus.toUpperCase()
+        },
+        application: {
+          status: applicationStatus,           // ✅ FIXED: 'pending' for new submissions
+          statusDisplay: statusDisplay,       // ✅ FIXED: 'Pending Review' for new submissions
+          description: applicationDescription,
+          submittedAt: user.survey_submitted_at || user.application_submitted_at,
+          reviewedAt: user.reviewed_at,
+          reviewedBy: user.reviewed_by_name,
+          ticket: user.survey_ticket || user.user_ticket,
+          adminNotes: user.admin_notes
+        },
+        activities,
+        notifications,
+        quickActions
+      },
+      
+      // ✅ LEGACY: Keep old structure for compatibility
       membershipStatus: status,
-      recentActivities: [],
-      notifications: [{
-        type: 'system',
-        message: `Welcome back, ${user.username}!`,
-        date: new Date().toISOString()
-      }],
+      recentActivities: activities,
+      notifications,
       quickActions
     });
     
@@ -138,6 +429,49 @@ export const getUserDashboard = async (req, res) => {
     });
   }
 };
+
+// ✅ BONUS: Add a helper function to check database status consistency
+export const verifyApplicationStatusConsistency = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.user_id;
+    
+    const [results] = await db.query(`
+      SELECT 
+        u.id,
+        u.username,
+        u.application_status as user_app_status,
+        u.application_submitted_at,
+        s.approval_status as survey_status,
+        s.reviewed_by,
+        s.reviewed_at,
+        s.createdAt as survey_created
+      FROM users u
+      LEFT JOIN surveylog s ON u.id = s.user_id 
+        AND s.application_type = 'initial_application'
+      WHERE u.id = ?
+      ORDER BY s.id DESC
+    `, [userId]);
+    
+    res.json({
+      success: true,
+      debug: {
+        userId,
+        statusData: results,
+        recommendation: results.length > 0 ? 
+          'Data found - check for status consistency' : 
+          'No application data found'
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      error: error.message
+    });
+  }
+};
+
+
+
 
 /**
  * Check application status with detailed information
@@ -375,7 +709,7 @@ export const getCurrentMembershipStatus = async (req, res) => {
     
     console.log('🔍 Checking membership status for user:', userId);
     
-    const [userStatus] = await db.execute(`
+    const [userStatus] = await db.query(`
       SELECT 
         u.id,
         u.username,
@@ -534,167 +868,290 @@ export const getCurrentMembershipStatus = async (req, res) => {
 // import { generateApplicationTicket } from './membershipControllers_1.js';
 // import db from '../config/db.js';
 
+// export const submitInitialApplication = async (req, res) => {
+//   try {
+//     console.log('🎯 submitInitialApplication called!');
+//     console.log('📝 Request body:', req.body);
+    
+//     // ✅ ENHANCED: Support both old and new request formats
+//     const { answers, applicationTicket, surveyData } = req.body;
+//     const user = req.user;
+    
+//     console.log('👤 User:', user);
+    
+//     if (!user || !user.id) {
+//       return res.status(401).json({ error: 'User not authenticated' });
+//     }
+    
+//     const userId = user.id;
+//     console.log('🔍 Extracted userId:', userId);
+    
+//     // ✅ ENHANCED: Determine which data format we're using
+//     const applicationData = surveyData || answers;
+//     const ticket = applicationTicket || generateApplicationTicket(user.username, user.email, 'INITIAL');
+    
+//     if (!applicationData) {
+//       return res.status(400).json({ 
+//         error: 'Missing application data', 
+//         expected: 'Either "answers" or "surveyData" required' 
+//       });
+//     }
+    
+//     console.log('📋 Using application data format:', surveyData ? 'surveyData' : 'answers');
+    
+//     // ✅ ENHANCED: Validate user eligibility for submission
+//     const [userCheck] = await db.query(
+//       'SELECT id, username, email, is_member, application_status, membership_stage FROM users WHERE id = ?',
+//       [userId]
+//     );
+    
+//     if (userCheck.length === 0) {
+//       return res.status(404).json({ error: 'User not found' });
+//     }
+    
+//     const userData = userCheck[0];
+//     console.log('✅ User found:', userData.username);
+    
+//     // ✅ ENHANCED: Check if user is eligible to submit application
+//     if (userData.is_member !== 'applied') {
+//       return res.status(400).json({ 
+//         error: 'User not eligible for application submission',
+//         current_status: userData.is_member,
+//         note: 'Only users with status "applied" can submit initial applications'
+//       });
+//     }
+    
+//     // ✅ ENHANCED: Prevent duplicate submissions (optional check)
+//     if (userData.application_status === 'submitted') {
+//       return res.status(400).json({
+//         error: 'Application already submitted',
+//         current_status: userData.application_status,
+//         note: 'You can update your application instead of resubmitting'
+//       });
+//     }
+    
+//     // ✅ ENHANCED: Use proper database transaction
+//     const result = await db.transaction(async (connection) => {
+//       // ✅ NEW: Insert/Update survey response with enhanced data
+//       const surveyQuery = `
+//         INSERT INTO surveylog (
+//           user_id, 
+//           answers, 
+//           application_type, 
+//           approval_status, 
+//           application_ticket,
+//           createdAt,
+//           updatedAt
+//         ) VALUES (?, ?, 'initial_application', 'pending', ?, NOW(), NOW())
+//         ON DUPLICATE KEY UPDATE 
+//           answers = VALUES(answers),
+//           approval_status = 'pending',
+//           application_ticket = VALUES(application_ticket),
+//           updatedAt = NOW()
+//       `;
+      
+//       const [surveyResult] = await connection.execute(surveyQuery, [
+//         userId.toString(),
+//         JSON.stringify(applicationData),
+//         ticket
+//       ]);
+      
+//       // ✅ ENHANCED: Update user status with comprehensive data
+//       const updateQuery = `
+//         UPDATE users 
+//         SET 
+//           application_ticket = ?, 
+//           membership_stage = 'applicant',
+//           application_status = 'submitted',
+//           application_submitted_at = NOW(),
+//           updatedAt = NOW()
+//         WHERE id = ?
+//       `;
+      
+//       await connection.execute(updateQuery, [ticket, userId]);
+      
+//       return {
+//         applicationId: surveyResult.insertId,
+//         applicationTicket: ticket,
+//         userId,
+//         status: 'submitted',
+//         membershipStage: 'applicant'
+//       };
+//     });
+    
+//     console.log('✅ Application submitted successfully:', result);
+    
+//     // ✅ NEW: Notify admins of new application
+//     try {
+//       await notifyAdminsOfNewApplication(userId, userData.username, userData.email);
+//       console.log('✅ Admin notifications sent');
+//     } catch (emailError) {
+//       console.warn('⚠️ Admin notification failed (non-critical):', emailError.message);
+//       // Don't fail the application submission if email fails
+//     }
+    
+//     // ✅ ENHANCED: Comprehensive response
+//     res.json({
+//       success: true,
+//       message: 'Application submitted successfully',
+//       data: result,
+//       next_steps: {
+//         status: 'pending_review',
+//         description: 'Your application is now under admin review',
+//         estimated_review_time: '2-5 business days',
+//         notification_method: 'email'
+//       }
+//     });
+    
+//   } catch (error) {
+//     console.error('❌ submitInitialApplication error:', error);
+    
+//     // ✅ ENHANCED: Better error handling
+//     let errorMessage = 'Failed to submit application';
+//     let statusCode = 500;
+    
+//     if (error.message.includes('not eligible')) {
+//       errorMessage = error.message;
+//       statusCode = 400;
+//     } else if (error.message.includes('not found')) {
+//       errorMessage = 'User not found';
+//       statusCode = 404;
+//     } else if (error.message.includes('Duplicate entry')) {
+//       errorMessage = 'Application already exists for this user';
+//       statusCode = 409;
+//     }
+    
+//     res.status(statusCode).json({
+//       success: false,
+//       error: errorMessage,
+//       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+//       timestamp: new Date().toISOString()
+//     });
+//   }
+// };
+
+
 export const submitInitialApplication = async (req, res) => {
   try {
     console.log('🎯 submitInitialApplication called!');
     console.log('📝 Request body:', req.body);
-    
-    // ✅ ENHANCED: Support both old and new request formats
-    const { answers, applicationTicket, surveyData } = req.body;
-    const user = req.user;
-    
-    console.log('👤 User:', user);
-    
-    if (!user || !user.id) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-    
-    const userId = user.id;
-    console.log('🔍 Extracted userId:', userId);
-    
-    // ✅ ENHANCED: Determine which data format we're using
-    const applicationData = surveyData || answers;
-    const ticket = applicationTicket || generateApplicationTicket(user.username, user.email, 'INITIAL');
-    
-    if (!applicationData) {
-      return res.status(400).json({ 
-        error: 'Missing application data', 
-        expected: 'Either "answers" or "surveyData" required' 
-      });
-    }
-    
-    console.log('📋 Using application data format:', surveyData ? 'surveyData' : 'answers');
-    
-    // ✅ ENHANCED: Validate user eligibility for submission
-    const [userCheck] = await db.execute(
-      'SELECT id, username, email, is_member, application_status, membership_stage FROM users WHERE id = ?',
-      [userId]
-    );
-    
-    if (userCheck.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const userData = userCheck[0];
-    console.log('✅ User found:', userData.username);
-    
-    // ✅ ENHANCED: Check if user is eligible to submit application
-    if (userData.is_member !== 'applied') {
-      return res.status(400).json({ 
-        error: 'User not eligible for application submission',
-        current_status: userData.is_member,
-        note: 'Only users with status "applied" can submit initial applications'
-      });
-    }
-    
-    // ✅ ENHANCED: Prevent duplicate submissions (optional check)
-    if (userData.application_status === 'submitted') {
+    console.log('👤 User from auth:', req.user);
+
+    // STEP 1: Safe user ID extraction
+    const userId = req.user?.id || req.user?.user_id;
+    if (!userId) {
       return res.status(400).json({
-        error: 'Application already submitted',
-        current_status: userData.application_status,
-        note: 'You can update your application instead of resubmitting'
+        success: false,
+        error: 'User ID not found',
+        details: 'Authentication failed - no user ID'
       });
     }
     
-    // ✅ ENHANCED: Use proper database transaction
-    const result = await db.transaction(async (connection) => {
-      // ✅ NEW: Insert/Update survey response with enhanced data
-      const surveyQuery = `
-        INSERT INTO surveylog (
-          user_id, 
-          answers, 
-          application_type, 
-          approval_status, 
-          application_ticket,
-          createdAt,
-          updatedAt
-        ) VALUES (?, ?, 'initial_application', 'pending', ?, NOW(), NOW())
-        ON DUPLICATE KEY UPDATE 
-          answers = VALUES(answers),
-          approval_status = 'pending',
-          application_ticket = VALUES(application_ticket),
-          updatedAt = NOW()
-      `;
-      
-      const [surveyResult] = await connection.execute(surveyQuery, [
-        userId.toString(),
-        JSON.stringify(applicationData),
-        ticket
-      ]);
-      
-      // ✅ ENHANCED: Update user status with comprehensive data
-      const updateQuery = `
-        UPDATE users 
-        SET 
-          application_ticket = ?, 
-          membership_stage = 'applicant',
-          application_status = 'submitted',
-          application_submitted_at = NOW(),
-          updatedAt = NOW()
-        WHERE id = ?
-      `;
-      
-      await connection.execute(updateQuery, [ticket, userId]);
-      
-      return {
-        applicationId: surveyResult.insertId,
-        applicationTicket: ticket,
-        userId,
-        status: 'submitted',
-        membershipStage: 'applicant'
-      };
-    });
+    console.log('🔍 Extracted userId:', userId);
+
+    // STEP 2: Safe username extraction (multiple fallbacks)
+    let username = 'unknown';
     
-    console.log('✅ Application submitted successfully:', result);
-    
-    // ✅ NEW: Notify admins of new application
-    try {
-      await notifyAdminsOfNewApplication(userId, userData.username, userData.email);
-      console.log('✅ Admin notifications sent');
-    } catch (emailError) {
-      console.warn('⚠️ Admin notification failed (non-critical):', emailError.message);
-      // Don't fail the application submission if email fails
+    // Try to get username from auth token first
+    if (req.user?.username) {
+      username = req.user.username;
+      console.log('✅ Username from req.user:', username);
+    } 
+    // If not in token, try from request body
+    else if (req.body?.username) {
+      username = req.body.username;
+      console.log('✅ Username from req.body:', username);
+    } 
+    // If still not found, get from database
+    else {
+      try {
+        console.log('🔍 Getting username from database...');
+        
+        // Direct database query since getUserById might be the problem
+        const [userRows] = await db.query('SELECT username FROM users WHERE id = ?', [userId]);
+        
+        if (userRows && userRows.length > 0) {
+          username = userRows[0].username;
+          console.log('✅ Username from database:', username);
+        } else {
+          console.log('⚠️ User not found in database, using fallback');
+          username = `user${userId}`;
+        }
+      } catch (dbError) {
+        console.log('⚠️ Database error, using fallback username:', dbError.message);
+        username = `user${userId}`;
+      }
     }
+
+    // STEP 3: Safe application ticket generation
+    const applicationTicket = req.body?.applicationTicket || 
+      `APP-${username.substring(0, 3).toUpperCase()}-${Date.now().toString(36)}`;
     
-    // ✅ ENHANCED: Comprehensive response
+    console.log('✅ Final username:', username);
+    console.log('✅ Application ticket:', applicationTicket);
+
+    // STEP 4: Process the answers
+    const answers = req.body.answers;
+    if (!answers || !Array.isArray(answers)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid answers format',
+        details: 'Answers must be an array'
+      });
+    }
+
+    console.log('📋 Processing', answers.length, 'answers');
+
+    // STEP 5: Insert into database (using db.query, NOT db.execute)
+    const result = await db.query(`
+      INSERT INTO surveylog (
+        user_id, 
+        answers, 
+        application_type, 
+        approval_status, 
+        application_ticket,
+        createdAt
+      ) VALUES (?, ?, 'initial_application', 'pending', ?, NOW())
+    `, [userId, JSON.stringify(answers), applicationTicket]);
+
+    console.log('✅ Database insert successful:', result);
+
+    // STEP 6: Update user's application status
+    await db.query(`
+      UPDATE users 
+      SET 
+        application_status = 'submitted',
+        application_submitted_at = NOW(),
+        application_ticket = ?,
+        updatedAt = NOW()
+      WHERE id = ?
+    `, [applicationTicket, userId]);
+
+    console.log('✅ User status updated successfully');
+
+    // STEP 7: Success response
     res.json({
       success: true,
       message: 'Application submitted successfully',
-      data: result,
-      next_steps: {
-        status: 'pending_review',
-        description: 'Your application is now under admin review',
-        estimated_review_time: '2-5 business days',
-        notification_method: 'email'
-      }
+      applicationTicket: applicationTicket,
+      userId: userId,
+      username: username,
+      timestamp: new Date().toISOString()
     });
-    
+
+    console.log('✅ Application submission completed successfully');
+
   } catch (error) {
     console.error('❌ submitInitialApplication error:', error);
-    
-    // ✅ ENHANCED: Better error handling
-    let errorMessage = 'Failed to submit application';
-    let statusCode = 500;
-    
-    if (error.message.includes('not eligible')) {
-      errorMessage = error.message;
-      statusCode = 400;
-    } else if (error.message.includes('not found')) {
-      errorMessage = 'User not found';
-      statusCode = 404;
-    } else if (error.message.includes('Duplicate entry')) {
-      errorMessage = 'Application already exists for this user';
-      statusCode = 409;
-    }
-    
-    res.status(statusCode).json({
+    res.status(500).json({
       success: false,
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      error: 'Failed to submit application',
+      details: error.message,
       timestamp: new Date().toISOString()
     });
   }
 };
+  
 
 // =====================================================
 // ✅ ENHANCED: Admin Notification Function
@@ -705,7 +1162,7 @@ const notifyAdminsOfNewApplication = async (userId, username, email) => {
     console.log('📧 Sending admin notifications for new application...');
     
     // Get all admin users
-    const [admins] = await db.execute(
+    const [admins] = await db.query(
       'SELECT email, username FROM users WHERE role IN ("admin", "super_admin") AND email IS NOT NULL'
     );
     
@@ -762,7 +1219,7 @@ export const updateInitialApplication = async (req, res) => {
     }
     
     // Check if user has a submitted application that can be updated
-    const [userCheck] = await db.execute(
+    const [userCheck] = await db.query(
       'SELECT application_status FROM users WHERE id = ?',
       [userId]
     );
@@ -779,7 +1236,7 @@ export const updateInitialApplication = async (req, res) => {
     }
     
     // Update the application
-    await db.execute(`
+    await db.query(`
       UPDATE surveylog 
       SET 
         answers = ?,
