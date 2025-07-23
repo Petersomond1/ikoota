@@ -8,6 +8,16 @@
     overflow: hidden; /* Prevent content overflow affecting layout */
 }
 
+.mainContent {
+    margin: 5px;
+    padding: 5px;
+    flex: 1;
+    overflow-y: auto;
+    background-color: #fafafa62;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
 .adminSidebar {
     flex: 2;
     max-width: 250px; /* Set a fixed width or max-width for the sidebar */
@@ -33,7 +43,7 @@
 }
 
 .mainContent {
-    max-height: 85%;
+    max-height: 95%;
     margin: 5px;
     padding: 5px;
     flex: 1;
@@ -231,7 +241,7 @@
 }
 
 .mainContent {
-    max-height: 85%;
+    max-height: 95%;
     margin: 5px;
     padding: 5px;
     flex: 1;
@@ -433,7 +443,6 @@
     }
 
     .mainContent {
-        max-height: none;
         height: calc(100vh - 60px);
         margin: 0;
         padding: 15px;
@@ -575,11 +584,11 @@
 .mainContent,
 .mainCOntent {
     /* Ensure strict boundary enforcement */
-    max-height: 85%;
+    max-height: 95%;
     margin: 5px;
     padding: 5px;
     flex: 1;
-    overflow: hidden; /* Changed from overflow-y: auto to prevent any overflow */
+    /* overflow: hidden;  Changed from overflow-y: auto to prevent any overflow */
     background-color: #fafafa62;
     border: 1px solid #ddd;
     border-radius: 5px;
@@ -597,7 +606,6 @@
     max-width: 100%;
     max-height: 100%;
     box-sizing: border-box;
-    overflow: hidden;
 }
 
 /* Specific fix for components that render inside admin */
@@ -640,7 +648,7 @@
     border: 3px solid rgb(196, 11, 11);
     border-radius: 5px;
     margin-right: 2px;
-    overflow: hidden;
+   /* overflow: hidden; */
     max-width: 100vw; /* Add this to prevent horizontal overflow */
     box-sizing: border-box; /* Add this */
 }

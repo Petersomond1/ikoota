@@ -1,5 +1,5 @@
 // ikootaclient/src/components/auth/Login.jsx
-// ✅ ENHANCED VERSION - Only change the critical parts
+// ✅ ENHANCED VERSION - Using existing access matrix + fixing routing issues
 
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -28,7 +28,7 @@ const Login = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  // ✅ ENHANCED: Better survey status checking
+  // ✅ ENHANCED: Better survey status checking with timeout
   const checkUserStatus = async (token, userData) => {
     try {
       console.log('🔍 Checking user survey status...');
@@ -36,7 +36,8 @@ const Login = () => {
       const response = await axios.get('http://localhost:3000/api/membership/survey/check-status', {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        timeout: 10000 // 10 second timeout
       });
       
       const statusData = response.data;
@@ -44,7 +45,8 @@ const Login = () => {
       
       return {
         ...statusData,
-        originalUserData: userData
+        originalUserData: userData,
+        success: true
       };
     } catch (error) {
       console.error('❌ Error checking survey status:', error);
@@ -55,7 +57,8 @@ const Login = () => {
         needs_survey: false,
         survey_completed: true,
         originalUserData: userData,
-        fallback: true
+        fallback: true,
+        success: false
       };
     }
   };
@@ -76,7 +79,10 @@ const Login = () => {
       const response = await axios.post("http://localhost:3000/api/auth/login", {
         email: values.email,
         password: values.password
-      }, { withCredentials: true });
+      }, { 
+        withCredentials: true,
+        timeout: 15000 // 15 second timeout
+      });
 
       console.log('🔍 Login response:', response.data);
 
@@ -119,14 +125,18 @@ const Login = () => {
           console.warn('⚠️ No token received, but user data exists');
         }
         
-        // Update user context
+        // ✅ CRITICAL: Update user context first
         try {
+          console.log('🔄 Updating user context...');
           await updateUser();
+          
+          // Add a small delay to ensure context is updated
+          await new Promise(resolve => setTimeout(resolve, 500));
         } catch (updateError) {
           console.warn('⚠️ Failed to update user context:', updateError);
         }
         
-        // ✅ ENHANCED: Smart routing logic
+        // ✅ ENHANCED: Smart routing logic using existing access matrix
         await handleUserRouting(user, token);
       }
     } catch (err) {
@@ -146,6 +156,8 @@ const Login = () => {
         }
       } else if (err.response?.status === 404) {
         setError("No account found with this email. Please sign up first.");
+      } else if (err.code === 'ECONNABORTED') {
+        setError("Login request timed out. Please check your connection and try again.");
       } else {
         setError("Login failed. Please check your network and try again.");
       }
@@ -154,7 +166,7 @@ const Login = () => {
     }
   };
 
-  // ✅ ENHANCED: Smart user routing based on multiple factors
+  // ✅ ENHANCED: Smart user routing using your existing access matrix
   const handleUserRouting = async (userData, token) => {
     if (!userData) {
       console.error('❌ No user data provided to handleUserRouting');
@@ -165,30 +177,16 @@ const Login = () => {
     console.log('🔍 Routing user based on data:', userData);
     
     try {
+      // ✅ PRIORITY 1: Check survey status for non-admin users
+      let statusResult = null;
       const role = userData.role?.toLowerCase();
-      const memberStatus = userData.is_member?.toLowerCase();
-      const membershipStage = userData.membership_stage?.toLowerCase();
       
-      // ✅ PRIORITY 1: Admin users go directly to admin panel
-      if (role === 'admin' || role === 'super_admin') {
-        console.log('👑 Admin user detected, redirecting to admin panel');
-        navigate('/admin');
-        return;
-      }
-      
-      // ✅ PRIORITY 2: Check if user is already a full member
-      if (memberStatus === 'member' || memberStatus === 'granted' || membershipStage === 'member') {
-        console.log('💎 Full member detected, redirecting to Iko');
-        navigate('/iko');
-        return;
-      }
-      
-      // ✅ PRIORITY 3: Check survey status for regular users
-      if (token && (role === 'user' || !role)) {
-        const statusResult = await checkUserStatus(token, userData);
+      if (token && role !== 'admin' && role !== 'super_admin') {
+        statusResult = await checkUserStatus(token, userData);
         
-        if (statusResult && !statusResult.fallback) {
-          if (statusResult.needs_survey || !statusResult.survey_completed) {
+        // ✅ Handle survey requirements
+        if (statusResult && statusResult.success && !statusResult.fallback) {
+          if (statusResult.needs_survey === true || statusResult.survey_completed === false) {
             console.log('📝 User needs to complete survey, redirecting...');
             navigate('/applicationsurvey');
             return;
@@ -196,33 +194,60 @@ const Login = () => {
         }
       }
       
-      // ✅ PRIORITY 4: Use access matrix for other cases
+      // ✅ PRIORITY 2: Use your existing access matrix for routing
       try {
         const access = getUserAccess(userData);
-        console.log('📍 Using access matrix:', access.defaultRoute);
-        navigate(access.defaultRoute);
+        console.log('📍 User access determined using access matrix:', access);
+        console.log('🎯 Default route from access matrix:', access.defaultRoute);
+        
+        // ✅ Navigate using the access matrix default route
+        navigate(access.defaultRoute, { replace: true });
         return;
+        
       } catch (accessError) {
-        console.warn('⚠️ Access matrix failed, using fallback');
+        console.warn('⚠️ Access matrix failed, using fallback logic:', accessError);
       }
       
-      // ✅ PRIORITY 5: Fallback routing
-      if (memberStatus === 'applied' || memberStatus === 'pending' || membershipStage === 'applicant') {
-        console.log('⏳ Pending user, redirecting to Towncrier');
-        navigate('/towncrier');
-      } else if (memberStatus === 'declined') {
-        setError("Your membership application was declined. Please contact support for more information.");
+      // ✅ PRIORITY 3: Fallback routing logic (in case access matrix fails)
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      if (role === 'admin' || role === 'super_admin') {
+        console.log('👑 Admin user - fallback routing to admin panel');
+        navigate('/admin', { replace: true });
+      } else if (memberStatus === 'member' && membershipStage === 'member') {
+        console.log('💎 Full member - fallback routing to Iko');
+        navigate('/iko', { replace: true });
+      } else if (memberStatus === 'approved') {
+        if (membershipStage === 'full') {
+          console.log('💎 Full approved member - fallback routing to Iko');
+          navigate('/iko', { replace: true });
+        } else if (membershipStage === 'pre') {
+          console.log('👤 Pre-member - fallback routing to Towncrier');
+          navigate('/towncrier', { replace: true });
+        } else {
+          console.log('📚 Approved user - fallback routing to Towncrier');
+          navigate('/towncrier', { replace: true });
+        }
+      } else if (memberStatus === 'applied' || memberStatus === 'pending') {
+        console.log('⏳ Pending user - fallback routing to Towncrier');
+        navigate('/towncrier', { replace: true });
+      } else if (memberStatus === 'declined' || memberStatus === 'denied') {
+        console.log('❌ Declined user - fallback routing to Towncrier');
+        navigate('/towncrier', { replace: true });
       } else {
-        console.log('🏠 Default case, redirecting to Towncrier');
-        navigate('/towncrier');
+        console.log('🏠 Default fallback - routing to Towncrier');
+        navigate('/towncrier', { replace: true });
       }
       
     } catch (error) {
       console.error('❌ Error in user routing:', error);
-      setError('Login successful but routing failed. Please try refreshing the page.');
+      setError('Login successful but routing failed. Redirecting to default page...');
       
-      // Last resort fallback
-      navigate('/');
+      // ✅ Last resort fallback - just navigate to home
+      setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 2000);
     }
   };
 
@@ -378,8 +403,6 @@ const Login = () => {
 };
 
 export default Login;
-
-
 
 // // ikootaclient/src/components/auth/Login.jsx
 // import React, { useState, useEffect } from "react";

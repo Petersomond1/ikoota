@@ -1,7 +1,8 @@
-// ikootaclient/src/components/user/UserDashboard.jsx
+// ikootaclient/src/components/user/UserDashboard.jsx - ENHANCED WITH ADMIN BUTTONS
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '../auth/UserStatus';
+import { getUserAccess } from '../config/accessMatrix';
 import api from '../service/api'; 
 import './UserDashboard.css';
 
@@ -155,95 +156,166 @@ const MembershipStatus = ({ status, onApplyClick }) => {
   );
 };
 
+// ✅ ENHANCED: Quick Actions with admin buttons and smaller size
 const QuickActions = ({ actions, user }) => {
   const { getUserStatus } = useUser();
   const userStatus = getUserStatus();
+  const userAccess = user ? getUserAccess(user) : null;
 
-  // Dynamic actions based on user status
+  console.log('🔍 QuickActions - User Status:', userStatus);
+  console.log('🔍 QuickActions - User Access:', userAccess);
+
+  // ✅ ENHANCED: Dynamic actions based on user status with admin buttons
   const getActionsForUser = () => {
     const baseActions = [
       {
         text: 'View Profile',
         link: '/profile',
         type: 'primary',
-        icon: '👤'
+        icon: '👤',
+        size: 'small'
       }
     ];
 
-    switch (userStatus) {
-      case 'full_member':
-        return [
-          ...baseActions,
-          {
-            text: 'Iko Chat',
-            link: '/iko',
-            type: 'info',
-            icon: '💬'
-          },
-          {
-            text: 'Towncrier',
-            link: '/towncrier',
-            type: 'secondary',
-            icon: '📚'
-          }
-        ];
-      
-      case 'pre_member':
-        return [
-          ...baseActions,
-          {
-            text: 'Towncrier Content',
-            link: '/towncrier',
-            type: 'secondary',
-            icon: '📚'
-          },
-          {
-            text: 'Apply for Full Membership',
-            link: '/full-membership-application',
-            type: 'success',
-            icon: '📝'
-          }
-        ];
-      
-      case 'pending_verification':
-        return [
-          ...baseActions,
-          {
-            text: 'Application Status',
-            link: '/pending-verification',
-            type: 'warning',
-            icon: '⏳'
-          }
-        ];
-      
-      case 'needs_application':
-        return [
-          ...baseActions,
-          {
-            text: 'Complete Application',
-            link: '/applicationsurvey',
-            type: 'primary',
-            icon: '📝'
-          }
-        ];
-      
-      default:
-        return baseActions;
+    // ✅ ADMIN SPECIFIC ACTIONS
+    if (userStatus === 'admin') {
+      return [
+        ...baseActions,
+        // ✅ ADMIN PANEL BUTTONS - All the missing ones you mentioned
+        {
+          text: 'Admin Panel',
+          link: '/admin',
+          type: 'admin',
+          icon: '🔧',
+          size: 'small'
+        },
+        {
+          text: 'User Management',
+          link: '/admin/usermanagement',
+          type: 'admin',
+          icon: '👥',
+          size: 'small'
+        },
+        {
+          text: 'Applications',
+          link: '/admin/authcontrols',
+          type: 'admin',
+          icon: '📋',
+          size: 'small'
+        },
+        {
+          text: 'Reports',
+          link: '/admin/reports',
+          type: 'admin',
+          icon: '📊',
+          size: 'small'
+        },
+        // ✅ MEMBER ACCESS BUTTONS FOR ADMINS
+        {
+          text: 'Iko Chat',
+          link: '/iko',
+          type: 'info',
+          icon: '💬',
+          size: 'small'
+        },
+        {
+          text: 'Towncrier',
+          link: '/towncrier',
+          type: 'secondary',
+          icon: '📚',
+          size: 'small'
+        }
+      ];
     }
+
+    // ✅ FULL MEMBER ACTIONS
+    if (userStatus === 'full_member') {
+      return [
+        ...baseActions,
+        {
+          text: 'Iko Chat',
+          link: '/iko',
+          type: 'info',
+          icon: '💬',
+          size: 'small'
+        },
+        {
+          text: 'Towncrier',
+          link: '/towncrier',
+          type: 'secondary',
+          icon: '📚',
+          size: 'small'
+        }
+      ];
+    }
+    
+    // ✅ PRE-MEMBER ACTIONS
+    if (userStatus === 'pre_member') {
+      return [
+        ...baseActions,
+        {
+          text: 'Towncrier Content',
+          link: '/towncrier',
+          type: 'secondary',
+          icon: '📚',
+          size: 'small'
+        },
+        {
+          text: 'Apply for Full Membership',
+          link: '/full-membership-application',
+          type: 'success',
+          icon: '📝',
+          size: 'small'
+        }
+      ];
+    }
+    
+    // ✅ PENDING VERIFICATION ACTIONS
+    if (userStatus === 'pending_verification') {
+      return [
+        ...baseActions,
+        {
+          text: 'Application Status',
+          link: '/pending-verification',
+          type: 'warning',
+          icon: '⏳',
+          size: 'small'
+        }
+      ];
+    }
+    
+    // ✅ NEEDS APPLICATION ACTIONS
+    if (userStatus === 'needs_application') {
+      return [
+        ...baseActions,
+        {
+          text: 'Complete Application',
+          link: '/applicationsurvey',
+          type: 'primary',
+          icon: '📝',
+          size: 'small'
+        }
+      ];
+    }
+    
+    return baseActions;
   };
 
+  // ✅ DEFAULT ACTIONS - Made smaller
   const defaultActions = [
     {
       text: 'Help Center',
       link: '/help',
       type: 'info',
-      icon: '❓'
+      icon: '❓',
+      size: 'small'
     },
     {
       text: 'Settings',
       link: '/settings',
       type: 'default',
-      icon: '⚙️'
+      icon: '⚙️',
+      size: 'small'
     }
   ];
 
@@ -253,12 +325,12 @@ const QuickActions = ({ actions, user }) => {
   return (
     <div className="quick-actions">
       <h3>Quick Actions</h3>
-      <div className="actions-grid">
+      <div className="actions-grid compact">
         {allActions.map((action, index) => (
           <a 
             key={index} 
             href={action.link} 
-            className={`action-btn ${action.type}`}
+            className={`action-btn ${action.type} ${action.size || 'small'}`}
             title={action.description || action.text}
           >
             <div className="action-icon">{action.icon}</div>
@@ -269,6 +341,91 @@ const QuickActions = ({ actions, user }) => {
           </a>
         ))}
       </div>
+      
+      {/* ✅ ADD CUSTOM CSS FOR SMALLER BUTTONS */}
+      <style jsx>{`
+        .actions-grid.compact {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+          gap: 8px;
+          margin-top: 15px;
+        }
+        
+        .action-btn.small {
+          padding: 8px 12px;
+          font-size: 0.85rem;
+          min-height: 60px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-decoration: none;
+          border-radius: 8px;
+          transition: all 0.2s ease;
+          border: 1px solid #e1e5e9;
+          background: white;
+        }
+        
+        .action-btn.small:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .action-btn.small .action-icon {
+          font-size: 1.2rem;
+          margin-bottom: 4px;
+        }
+        
+        .action-btn.small .action-text {
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-align: center;
+          line-height: 1.2;
+        }
+        
+        /* ✅ COLOR VARIATIONS FOR DIFFERENT BUTTON TYPES */
+        .action-btn.primary {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+        }
+        
+        .action-btn.admin {
+          background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+          color: white;
+          border: none;
+        }
+        
+        .action-btn.info {
+          background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+          color: white;
+          border: none;
+        }
+        
+        .action-btn.secondary {
+          background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+          color: white;
+          border: none;
+        }
+        
+        .action-btn.success {
+          background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+          color: white;
+          border: none;
+        }
+        
+        .action-btn.warning {
+          background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%);
+          color: white;
+          border: none;
+        }
+        
+        .action-btn.default {
+          background: #f8f9fa;
+          color: #495057;
+          border: 1px solid #dee2e6;
+        }
+      `}</style>
     </div>
   );
 };
@@ -465,7 +622,7 @@ const WelcomeSection = ({ user, dashboardData }) => {
 // ==================================================
 
 const UserDashboard = () => {
-  const { user, isAuthenticated } = useUser();
+  const { user, isAuthenticated, getUserStatus } = useUser();
   const queryClient = useQueryClient();
 
   // Queries
@@ -566,4 +723,3 @@ const UserDashboard = () => {
 };
 
 export default UserDashboard;
-

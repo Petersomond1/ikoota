@@ -1,15 +1,24 @@
-// ikootaclient/src/components/auth/LandingPage.jsx - FIXED VERSION
+// ikootaclient/src/components/auth/LandingPage.jsx - FIXED WITH ADMIN ACCESS & IKO CHAT
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import { useUser } from './UserStatus';
+import { getUserAccess } from '../config/accessMatrix';
 import './LandingPage.css';
 
 const LandingPage = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeFeature, setActiveFeature] = useState(0);
   const navigate = useNavigate();
-  const { isAuthenticated, getDefaultRoute, loading, user } = useUser(); // ✅ FIXED: Added 'user' to destructuring
+  const { isAuthenticated, loading, user, logout, getUserStatus } = useUser();
+
+  // ✅ Get user status and access properly
+  const userStatus = getUserStatus();
+  const userAccess = user ? getUserAccess(user) : null;
+
+  console.log('🔍 LandingPage - User Status:', userStatus);
+  console.log('🔍 LandingPage - User Access:', userAccess);
+  console.log('🔍 LandingPage - User Data:', user);
 
   // ✅ FIXED: Safer redirect logic with proper error handling
   useEffect(() => {
@@ -20,16 +29,15 @@ const LandingPage = () => {
       // ✅ IMPORTANT: Allow pending users to freely access the landing page
       // Only redirect users who have full access to other areas
       if (isAuthenticated && !loading && user) {
-        const userStatus = user?.userType;
-        
         // ✅ Only redirect users who are NOT pending verification
         // Pending users should be able to browse the landing page freely
-        if (userStatus === 'admin' || userStatus === 'member') {
-          const defaultRoute = getDefaultRoute();
+        if (userStatus === 'admin' || userStatus === 'full_member') {
+          const defaultRoute = userAccess?.defaultRoute;
           if (defaultRoute && defaultRoute !== '/') {
             console.log('🔄 Active user on landing page, redirecting to:', defaultRoute);
-            navigate(defaultRoute);
-            return;
+            // Don't auto-redirect from landing page - let user choose
+            // navigate(defaultRoute);
+            // return;
           }
         }
         // ✅ Applicants and pending users can stay on landing page
@@ -39,7 +47,7 @@ const LandingPage = () => {
       console.error('Error in landing page redirect logic:', error);
       // Don't redirect on error - let user stay on landing page
     }
-  }, [isAuthenticated, loading, navigate, getDefaultRoute, user]);
+  }, [isAuthenticated, loading, navigate, userAccess, user, userStatus]);
 
   // Handle scroll effect for navbar
   useEffect(() => {
@@ -115,6 +123,33 @@ const LandingPage = () => {
     }
   };
 
+  // ✅ NEW: Handle logout functionality
+  const handleLogout = async () => {
+    try {
+      console.log('🔓 Logging out user...');
+      await logout(); // Call the logout function from UserStatus
+      alert('You have been logged out successfully. Others can now use this system to sign up or log in.');
+      // The page will automatically update to show login/signup buttons
+    } catch (error) {
+      console.error('Logout error:', error);
+      alert('Logout completed. You can now use the system for other accounts.');
+    }
+  };
+
+  // ✅ NEW: Navigate to user's appropriate dashboard/area
+  const navigateToUserArea = () => {
+    try {
+      if (userAccess?.defaultRoute) {
+        navigate(userAccess.defaultRoute);
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+      navigate('/dashboard');
+    }
+  };
+
   // ✅ Show loading state while determining user authentication status
   if (loading) {
     return (
@@ -162,22 +197,24 @@ const LandingPage = () => {
           </div>
           
           <div className="nav-actions">
-            {/* ✅ Show different buttons based on authentication status */}
+            {/* ✅ ENHANCED: Show different buttons based on authentication status */}
             {isAuthenticated && user ? (
-              <button 
-                onClick={() => {
-                  try {
-                    const route = getDefaultRoute();
-                    navigate(route || '/dashboard');
-                  } catch (error) {
-                    console.error('Navigation error:', error);
-                    navigate('/dashboard');
-                  }
-                }} 
-                className="btn-primary"
-              >
-                Go to Dashboard
-              </button>
+              <div className="authenticated-actions">
+                <button 
+                  onClick={navigateToUserArea} 
+                  className="btn-primary"
+                >
+                  Go to Dashboard
+                </button>
+                {/* ✅ NEW: Logout button for authenticated users */}
+                <button 
+                  onClick={handleLogout} 
+                  className="btn-logout"
+                  title="Logout to allow others to use this system"
+                >
+                  🔓 Logout
+                </button>
+              </div>
             ) : (
               <>
                 <button onClick={handleLogin} className="btn-secondary">
@@ -215,23 +252,22 @@ const LandingPage = () => {
             </p>
             
             <div className="hero-actions">
-              {/* ✅ Conditional rendering based on auth status */}
+              {/* ✅ ENHANCED: Conditional rendering with logout option */}
               {isAuthenticated && user ? (
-                <button 
-                  onClick={() => {
-                    try {
-                      const route = getDefaultRoute();
-                      navigate(route || '/dashboard');
-                    } catch (error) {
-                      console.error('Navigation error:', error);
-                      navigate('/dashboard');
-                    }
-                  }} 
-                  className="btn-hero-primary"
-                >
-                  Go to Your Dashboard
-                  <span className="btn-icon">→</span>
-                </button>
+                <div className="authenticated-hero-actions">
+                  <button 
+                    onClick={navigateToUserArea} 
+                    className="btn-hero-primary"
+                  >
+                    Go to Your Dashboard
+                    <span className="btn-icon">→</span>
+                  </button>
+                  {/* ✅ NEW: Logout option in hero section */}
+                  <button onClick={handleLogout} className="btn-hero-logout">
+                    <span className="logout-icon">🔓</span>
+                    Allow Others to Sign Up
+                  </button>
+                </div>
               ) : (
                 <>
                   <button onClick={handleJoinCommunity} className="btn-hero-primary">
@@ -312,6 +348,7 @@ const LandingPage = () => {
           </div>
           
           <div className="membership-tiers">
+            {/* ✅ PUBLIC ACCESS TIER */}
             <div className="tier-card">
               <h3>🌟 Public Access</h3>
               <p>View our public content and community announcements</p>
@@ -325,6 +362,7 @@ const LandingPage = () => {
               </button>
             </div>
             
+            {/* ✅ MEMBER ACCESS TIER - ENHANCED WITH CONDITIONAL BUTTONS */}
             <div className="tier-card featured">
               <h3>🎓 Member Access</h3>
               <p>Full access to our exclusive educational community</p>
@@ -335,30 +373,39 @@ const LandingPage = () => {
                 <li>Create and share content</li>
                 <li>Participate in member discussions</li>
               </ul>
-              <button 
-                onClick={() => {
-                  try {
-                    if (isAuthenticated && user) {
-                      const route = getDefaultRoute();
-                      navigate(route || '/dashboard');
-                    } else {
-                      handleJoinCommunity();
-                    }
-                  } catch (error) {
-                    console.error('Navigation error:', error);
-                    if (isAuthenticated) {
-                      navigate('/dashboard');
-                    } else {
-                      handleJoinCommunity();
-                    }
-                  }
-                }} 
-                className="btn-tier primary"
-              >
-                {isAuthenticated && user ? 'Access Your Account' : 'Apply for Membership'}
-              </button>
+              
+              {/* ✅ FIXED: Show appropriate buttons based on user status */}
+              <div className="tier-buttons">
+                {isAuthenticated && user ? (
+                  <>
+                    {/* ✅ Dashboard button for all authenticated users */}
+                    <button 
+                      onClick={() => navigate('/dashboard')} 
+                      className="btn-tier primary"
+                    >
+                      User Dashboard
+                    </button>
+                    
+                    {/* ✅ IKO CHAT BUTTON - Show for full members and admins */}
+                    {(userStatus === 'full_member' || userStatus === 'admin') && (
+                      <button 
+                        onClick={() => navigate('/iko')} 
+                        className="btn-tier iko-btn"
+                        style={{ marginTop: '10px', backgroundColor: '#e74c3c' }}
+                      >
+                        💬 Access Iko Chat
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button onClick={handleJoinCommunity} className="btn-tier primary">
+                    Apply for Membership
+                  </button>
+                )}
+              </div>
             </div>
             
+            {/* ✅ ADMIN ACCESS TIER - ENHANCED WITH WORKING BUTTON */}
             <div className="tier-card">
               <h3>⚡ Admin Access</h3>
               <p>Leadership and management privileges</p>
@@ -368,9 +415,21 @@ const LandingPage = () => {
                 <li>User approval system</li>
                 <li>Analytics and reporting</li>
               </ul>
-              <button disabled className="btn-tier">
-                By Invitation Only
-              </button>
+              
+              {/* ✅ FIXED: Show working admin button for admin users */}
+              {isAuthenticated && user && userStatus === 'admin' ? (
+                <button 
+                  onClick={() => navigate('/admin')} 
+                  className="btn-tier admin-btn"
+                  style={{ backgroundColor: '#f39c12', color: 'white' }}
+                >
+                  🔧 Access Admin Panel
+                </button>
+              ) : (
+                <button disabled className="btn-tier">
+                  By Invitation Only
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -472,20 +531,18 @@ const LandingPage = () => {
             
             <div className="cta-actions">
               {isAuthenticated && user ? (
-                <button 
-                  onClick={() => {
-                    try {
-                      const route = getDefaultRoute();
-                      navigate(route || '/dashboard');
-                    } catch (error) {
-                      console.error('Navigation error:', error);
-                      navigate('/dashboard');
-                    }
-                  }} 
-                  className="btn-cta-primary"
-                >
-                  Go to Dashboard
-                </button>
+                <div className="authenticated-cta-actions">
+                  <button 
+                    onClick={navigateToUserArea} 
+                    className="btn-cta-primary"
+                  >
+                    Go to Dashboard
+                  </button>
+                  {/* ✅ NEW: Logout option in CTA section */}
+                  <button onClick={handleLogout} className="btn-cta-logout">
+                    🔓 Logout & Allow Others to Join
+                  </button>
+                </div>
               ) : (
                 <>
                   <button onClick={handleJoinCommunity} className="btn-cta-primary">
@@ -522,7 +579,19 @@ const LandingPage = () => {
                 <li><a href="#features">Features</a></li>
                 <li><a href="#membership">Membership</a></li>
                 <li><a href="#about">About</a></li>
-                <li><Link to="/signup">Apply Now</Link></li>
+                <li>
+                  {/* ✅ ENHANCED: Footer Apply Now with logout option if authenticated */}
+                  {isAuthenticated && user ? (
+                    <div className="footer-auth-actions">
+                      <Link to="/signup">Apply Now (Others)</Link>
+                      <button onClick={handleLogout} className="footer-logout-btn">
+                        🔓 Logout First
+                      </button>
+                    </div>
+                  ) : (
+                    <Link to="/signup">Apply Now</Link>
+                  )}
+                </li>
               </ul>
             </div>
             
@@ -561,8 +630,6 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-
-
 
 // // ikootaclient/src/components/auth/LandingPage.jsx - FIXED VERSION
 // import React, { useState, useEffect } from 'react';
