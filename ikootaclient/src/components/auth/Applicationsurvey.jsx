@@ -4,9 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from './UserStatus';
 import './applicationSurvey.css';
 import api from '../service/api';
+import { useDynamicLabels } from '../../hooks/useDynamicLabels';
+
 
 const ApplicationSurvey = () => {
   const navigate = useNavigate();
+  const { labels: dynamicLabels, loading: labelsLoading } = useDynamicLabels();
   const { user, isAuthenticated } = useUser();
   const [loading, setLoading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -457,12 +460,311 @@ const ApplicationSurvey = () => {
   };
 
   // All your original render functions...
-  const renderStep1 = () => (
+  // const renderStep1 = () => (
+  //   <div className="survey-step">
+  //     <h3>📋 Personal Information</h3>
+      
+  //     <div className="form-group">
+  //       <label htmlFor="fullName">Full Name *</label>
+  //       <input
+  //         type="text"
+  //         id="fullName"
+  //         name="fullName"
+  //         value={formData.fullName}
+  //         onChange={handleInputChange}
+  //         placeholder="Enter your full legal name"
+  //         required
+  //       />
+  //     </div>
+
+  //     <div className="form-row">
+  //       <div className="form-group">
+  //         <label htmlFor="dateOfBirth">Date of Birth *</label>
+  //         <input
+  //           type="date"
+  //           id="dateOfBirth"
+  //           name="dateOfBirth"
+  //           value={formData.dateOfBirth}
+  //           onChange={handleInputChange}
+  //           required
+  //         />
+  //       </div>
+        
+  //       <div className="form-group">
+  //         <label htmlFor="nationality">Nationality *</label>
+  //         <input
+  //           type="text"
+  //           id="nationality"
+  //           name="nationality"
+  //           value={formData.nationality}
+  //           onChange={handleInputChange}
+  //           placeholder="Your nationality"
+  //           required
+  //         />
+  //       </div>
+  //     </div>
+
+  //     <div className="form-group">
+  //       <label htmlFor="currentLocation">Current Location *</label>
+  //       <input
+  //         type="text"
+  //         id="currentLocation"
+  //         name="currentLocation"
+  //         value={formData.currentLocation}
+  //         onChange={handleInputChange}
+  //         placeholder="City, Country"
+  //         required
+  //       />
+  //     </div>
+
+  //     <div className="form-group">
+  //       <label htmlFor="phoneNumber">Phone Number</label>
+  //       <input
+  //         type="tel"
+  //         id="phoneNumber"
+  //         name="phoneNumber"
+  //         value={formData.phoneNumber}
+  //         onChange={handleInputChange}
+  //         placeholder="+1 (555) 123-4567"
+  //       />
+  //     </div>
+  //   </div>
+  // );
+
+  // const renderStep2 = () => (
+  //   <div className="survey-step">
+  //     <h3>🎓 Educational Background</h3>
+      
+  //     <div className="form-group">
+  //       <label htmlFor="highestEducation">Highest Level of Education *</label>
+  //       <select
+  //         id="highestEducation"
+  //         name="highestEducation"
+  //         value={formData.highestEducation}
+  //         onChange={handleInputChange}
+  //         required
+  //       >
+  //         <option value="">Select your highest education</option>
+  //         <option value="high_school">High School</option>
+  //         <option value="associate">Associate Degree</option>
+  //         <option value="bachelor">Bachelor's Degree</option>
+  //         <option value="master">Master's Degree</option>
+  //         <option value="doctorate">Doctorate/PhD</option>
+  //         <option value="other">Other</option>
+  //       </select>
+  //     </div>
+
+  //     <div className="form-row">
+  //       <div className="form-group">
+  //         <label htmlFor="fieldOfStudy">Field of Study *</label>
+  //         <input
+  //           type="text"
+  //           id="fieldOfStudy"
+  //           name="fieldOfStudy"
+  //           value={formData.fieldOfStudy}
+  //           onChange={handleInputChange}
+  //           placeholder="e.g., Computer Science, Business, etc."
+  //           required
+  //         />
+  //       </div>
+        
+  //       <div className="form-group">
+  //         <label htmlFor="graduationYear">Graduation Year</label>
+  //         <input
+  //           type="number"
+  //           id="graduationYear"
+  //           name="graduationYear"
+  //           value={formData.graduationYear}
+  //           onChange={handleInputChange}
+  //           placeholder="YYYY"
+  //           min="1950"
+  //           max="2030"
+  //         />
+  //       </div>
+  //     </div>
+
+  //     <div className="form-group">
+  //       <label htmlFor="currentInstitution">Current/Most Recent Institution</label>
+  //       <input
+  //         type="text"
+  //         id="currentInstitution"
+  //         name="currentInstitution"
+  //         value={formData.currentInstitution}
+  //         onChange={handleInputChange}
+  //         placeholder="University or institution name"
+  //       />
+  //     </div>
+  //   </div>
+  // );
+
+  // const renderStep3 = () => (
+  //   <div className="survey-step">
+  //     <h3>💼 Professional Background & Interests</h3>
+      
+  //     <div className="form-group">
+  //       <label htmlFor="currentOccupation">Current Occupation *</label>
+  //       <input
+  //         type="text"
+  //         id="currentOccupation"
+  //         name="currentOccupation"
+  //         value={formData.currentOccupation}
+  //         onChange={handleInputChange}
+  //         placeholder="Your current job title or status"
+  //         required
+  //       />
+  //     </div>
+
+  //     <div className="form-group">
+  //       <label htmlFor="workExperience">Years of Work Experience</label>
+  //       <select
+  //         id="workExperience"
+  //         name="workExperience"
+  //         value={formData.workExperience}
+  //         onChange={handleInputChange}
+  //       >
+  //         <option value="">Select experience level</option>
+  //         <option value="0-1">0-1 years</option>
+  //         <option value="2-5">2-5 years</option>
+  //         <option value="6-10">6-10 years</option>
+  //         <option value="11-15">11-15 years</option>
+  //         <option value="16+">16+ years</option>
+  //       </select>
+  //     </div>
+
+  //     <div className="form-group">
+  //       <label htmlFor="reasonForJoining">Why do you want to join Ikoota? *</label>
+  //       <textarea
+  //         id="reasonForJoining"
+  //         name="reasonForJoining"
+  //         value={formData.reasonForJoining}
+  //         onChange={handleInputChange}
+  //         placeholder="Tell us what motivates you to join our educational community..."
+  //         rows="4"
+  //         required
+  //       />
+  //     </div>
+
+  //     <div className="form-group">
+  //       <label htmlFor="educationalGoals">What are your educational goals? *</label>
+  //       <textarea
+  //         id="educationalGoals"
+  //         name="educationalGoals"
+  //         value={formData.educationalGoals}
+  //         onChange={handleInputChange}
+  //         placeholder="Describe what you hope to learn or achieve through Ikoota..."
+  //         rows="4"
+  //         required
+  //       />
+  //     </div>
+
+  //     <div className="form-group">
+  //       <label htmlFor="expectedContributions">How do you plan to contribute to the community?</label>
+  //       <textarea
+  //         id="expectedContributions"
+  //         name="expectedContributions"
+  //         value={formData.expectedContributions}
+  //         onChange={handleInputChange}
+  //         placeholder="Share your skills, knowledge, or ways you'd like to help..."
+  //         rows="3"
+  //       />
+  //     </div>
+  //   </div>
+  // );
+
+  // const renderStep4 = () => (
+  //   <div className="survey-step">
+  //     <h3>📄 Additional Information & Agreements</h3>
+      
+  //     <div className="form-group">
+  //       <label htmlFor="howDidYouHear">How did you hear about Ikoota?</label>
+  //       <select
+  //         id="howDidYouHear"
+  //         name="howDidYouHear"
+  //         value={formData.howDidYouHear}
+  //         onChange={handleInputChange}
+  //       >
+  //         <option value="">Please select</option>
+  //         <option value="social_media">Social Media</option>
+  //         <option value="friend_referral">Friend/Colleague Referral</option>
+  //         <option value="web_search">Web Search</option>
+  //         <option value="online_community">Online Community</option>
+  //         <option value="educational_institution">Educational Institution</option>
+  //         <option value="other">Other</option>
+  //       </select>
+  //     </div>
+
+  //     <div className="form-group">
+  //       <label>Languages Spoken</label>
+  //       <div className="checkbox-group">
+  //         {['English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese', 'Arabic', 'Other'].map(lang => (
+  //           <label key={lang} className="checkbox-label">
+  //             <input
+  //               type="checkbox"
+  //               name="languagesSpoken"
+  //               value={lang}
+  //               checked={formData.languagesSpoken.includes(lang)}
+  //               onChange={handleInputChange}
+  //             />
+  //             {lang}
+  //           </label>
+  //         ))}
+  //       </div>
+  //     </div>
+
+  //     <div className="agreements-section">
+  //       <h4>📋 Required Agreements</h4>
+        
+  //       <div className="agreement-item">
+  //         <label className="agreement-label">
+  //           <input
+  //             type="checkbox"
+  //             name="agreeToTerms"
+  //             checked={formData.agreeToTerms}
+  //             onChange={handleInputChange}
+  //             required
+  //           />
+  //           <span className="checkmark"></span>
+  //           I agree to the <a href="/terms" target="_blank">Terms and Conditions</a> *
+  //         </label>
+  //       </div>
+
+  //       <div className="agreement-item">
+  //         <label className="agreement-label">
+  //           <input
+  //             type="checkbox"
+  //             name="agreeToCodeOfConduct"
+  //             checked={formData.agreeToCodeOfConduct}
+  //             onChange={handleInputChange}
+  //             required
+  //           />
+  //           <span className="checkmark"></span>
+  //           I agree to follow the <a href="/code-of-conduct" target="_blank">Community Code of Conduct</a> *
+  //         </label>
+  //       </div>
+
+  //       <div className="agreement-item">
+  //         <label className="agreement-label">
+  //           <input
+  //             type="checkbox"
+  //             name="agreeToDataProcessing"
+  //             checked={formData.agreeToDataProcessing}
+  //             onChange={handleInputChange}
+  //             required
+  //           />
+  //           <span className="checkmark"></span>
+  //           I consent to processing of my personal data as described in the <a href="/privacy" target="_blank">Privacy Policy</a> *
+  //         </label>
+  //       </div>
+  //     </div>
+  //   </div>
+  // );
+
+ const renderStep1 = () => (
     <div className="survey-step">
       <h3>📋 Personal Information</h3>
       
       <div className="form-group">
-        <label htmlFor="fullName">Full Name *</label>
+        <label htmlFor="fullName">{dynamicLabels.fullName} *</label>
         <input
           type="text"
           id="fullName"
@@ -476,7 +778,7 @@ const ApplicationSurvey = () => {
 
       <div className="form-row">
         <div className="form-group">
-          <label htmlFor="dateOfBirth">Date of Birth *</label>
+          <label htmlFor="dateOfBirth">{dynamicLabels.dateOfBirth} *</label>
           <input
             type="date"
             id="dateOfBirth"
@@ -488,7 +790,7 @@ const ApplicationSurvey = () => {
         </div>
         
         <div className="form-group">
-          <label htmlFor="nationality">Nationality *</label>
+          <label htmlFor="nationality">{dynamicLabels.nationality} *</label>
           <input
             type="text"
             id="nationality"
@@ -502,7 +804,7 @@ const ApplicationSurvey = () => {
       </div>
 
       <div className="form-group">
-        <label htmlFor="currentLocation">Current Location *</label>
+        <label htmlFor="currentLocation">{dynamicLabels.currentLocation} *</label>
         <input
           type="text"
           id="currentLocation"
@@ -515,7 +817,7 @@ const ApplicationSurvey = () => {
       </div>
 
       <div className="form-group">
-        <label htmlFor="phoneNumber">Phone Number</label>
+        <label htmlFor="phoneNumber">{dynamicLabels.phoneNumber}</label>
         <input
           type="tel"
           id="phoneNumber"
@@ -533,7 +835,7 @@ const ApplicationSurvey = () => {
       <h3>🎓 Educational Background</h3>
       
       <div className="form-group">
-        <label htmlFor="highestEducation">Highest Level of Education *</label>
+        <label htmlFor="highestEducation">{dynamicLabels.highestEducation} *</label>
         <select
           id="highestEducation"
           name="highestEducation"
@@ -553,7 +855,7 @@ const ApplicationSurvey = () => {
 
       <div className="form-row">
         <div className="form-group">
-          <label htmlFor="fieldOfStudy">Field of Study *</label>
+          <label htmlFor="fieldOfStudy">{dynamicLabels.fieldOfStudy} *</label>
           <input
             type="text"
             id="fieldOfStudy"
@@ -566,7 +868,7 @@ const ApplicationSurvey = () => {
         </div>
         
         <div className="form-group">
-          <label htmlFor="graduationYear">Graduation Year</label>
+          <label htmlFor="graduationYear">{dynamicLabels.graduationYear}</label>
           <input
             type="number"
             id="graduationYear"
@@ -581,7 +883,7 @@ const ApplicationSurvey = () => {
       </div>
 
       <div className="form-group">
-        <label htmlFor="currentInstitution">Current/Most Recent Institution</label>
+        <label htmlFor="currentInstitution">{dynamicLabels.currentInstitution}</label>
         <input
           type="text"
           id="currentInstitution"
@@ -599,7 +901,7 @@ const ApplicationSurvey = () => {
       <h3>💼 Professional Background & Interests</h3>
       
       <div className="form-group">
-        <label htmlFor="currentOccupation">Current Occupation *</label>
+        <label htmlFor="currentOccupation">{dynamicLabels.currentOccupation} *</label>
         <input
           type="text"
           id="currentOccupation"
@@ -612,7 +914,7 @@ const ApplicationSurvey = () => {
       </div>
 
       <div className="form-group">
-        <label htmlFor="workExperience">Years of Work Experience</label>
+        <label htmlFor="workExperience">{dynamicLabels.workExperience}</label>
         <select
           id="workExperience"
           name="workExperience"
@@ -629,7 +931,7 @@ const ApplicationSurvey = () => {
       </div>
 
       <div className="form-group">
-        <label htmlFor="reasonForJoining">Why do you want to join Ikoota? *</label>
+        <label htmlFor="reasonForJoining">{dynamicLabels.reasonForJoining} *</label>
         <textarea
           id="reasonForJoining"
           name="reasonForJoining"
@@ -642,7 +944,7 @@ const ApplicationSurvey = () => {
       </div>
 
       <div className="form-group">
-        <label htmlFor="educationalGoals">What are your educational goals? *</label>
+        <label htmlFor="educationalGoals">{dynamicLabels.educationalGoals} *</label>
         <textarea
           id="educationalGoals"
           name="educationalGoals"
@@ -655,7 +957,7 @@ const ApplicationSurvey = () => {
       </div>
 
       <div className="form-group">
-        <label htmlFor="expectedContributions">How do you plan to contribute to the community?</label>
+        <label htmlFor="expectedContributions">{dynamicLabels.expectedContributions}</label>
         <textarea
           id="expectedContributions"
           name="expectedContributions"
@@ -673,7 +975,7 @@ const ApplicationSurvey = () => {
       <h3>📄 Additional Information & Agreements</h3>
       
       <div className="form-group">
-        <label htmlFor="howDidYouHear">How did you hear about Ikoota?</label>
+        <label htmlFor="howDidYouHear">{dynamicLabels.howDidYouHear}</label>
         <select
           id="howDidYouHear"
           name="howDidYouHear"
@@ -691,7 +993,7 @@ const ApplicationSurvey = () => {
       </div>
 
       <div className="form-group">
-        <label>Languages Spoken</label>
+        <label>{dynamicLabels.languagesSpoken}</label>
         <div className="checkbox-group">
           {['English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese', 'Arabic', 'Other'].map(lang => (
             <label key={lang} className="checkbox-label">
@@ -721,7 +1023,7 @@ const ApplicationSurvey = () => {
               required
             />
             <span className="checkmark"></span>
-            I agree to the <a href="/terms" target="_blank">Terms and Conditions</a> *
+            {dynamicLabels.agreeToTerms} * <a href="/terms" target="_blank">(View Terms)</a>
           </label>
         </div>
 
@@ -735,7 +1037,7 @@ const ApplicationSurvey = () => {
               required
             />
             <span className="checkmark"></span>
-            I agree to follow the <a href="/code-of-conduct" target="_blank">Community Code of Conduct</a> *
+            {dynamicLabels.agreeToCodeOfConduct} * <a href="/code-of-conduct" target="_blank">(View Code)</a>
           </label>
         </div>
 
@@ -749,12 +1051,27 @@ const ApplicationSurvey = () => {
               required
             />
             <span className="checkmark"></span>
-            I consent to processing of my personal data as described in the <a href="/privacy" target="_blank">Privacy Policy</a> *
+            {dynamicLabels.agreeToDataProcessing} * <a href="/privacy" target="_blank">(View Policy)</a>
           </label>
         </div>
       </div>
     </div>
   );
+
+  // ✅ Show loading state while labels are being fetched
+  if (labelsLoading) {
+    return (
+      <div className="survey-container">
+        <div className="survey-card">
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <div className="loading-spinner"></div>
+            <p>Loading survey form...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
 
   if (submitSuccess) {
     return (

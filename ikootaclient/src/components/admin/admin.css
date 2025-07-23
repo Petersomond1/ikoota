@@ -8,15 +8,6 @@
     overflow: hidden; /* Prevent content overflow affecting layout */
 }
 
-.mainContent {
-    margin: 5px;
-    padding: 5px;
-    flex: 1;
-    overflow-y: auto;
-    background-color: #fafafa62;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-}
 
 .adminSidebar {
     flex: 2;
@@ -41,6 +32,8 @@
     background-color: #ffffff6c; /* Optional: Add background color for clarity */
     border-bottom: 2px solid #ccc; /* Optional: Add a bottom border for separation */
 }
+
+
 
 .mainContent {
     max-height: 95%;

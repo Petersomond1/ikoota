@@ -1,22 +1,22 @@
-/* ikootaclient/src/components/auth/authControls.css - ENHANCED WITH SCROLL SUPPORT */
+/* ikootaclient/src/components/auth/authControls.css - CONTEXT-AWARE VERSION */
 
+/* ✅ DEFAULT STYLES - FOR STANDALONE USE */
 .auth_controls_body {
   padding: 20px;
   background-color: #f5f5f5;
   border-radius: 8px;
-  /* ✅ Add scroll support for main container */
   max-height: 100vh;
   overflow-y: auto;
   position: relative;
 }
 
+/* ✅ DEFAULT HEADER - STICKY FOR STANDALONE */
 .admin_controls_header {
   font-size: 1.8rem;
   font-weight: bold;
   margin-bottom: 20px;
   color: #333;
-  /* ✅ Sticky header */
-  position:relative;
+  position: sticky; /* ✅ Sticky by default for standalone */
   top: 0;
   background-color: #f5f5f5;
   padding: 10px 0;
@@ -24,22 +24,11 @@
   border-bottom: 2px solid #ddd;
 }
 
-.section {
-  margin-bottom: 30px;
-  padding: 15px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  background-color: white;
-  /* ✅ Add scroll support for individual sections */
-  position: relative;
-  overflow: visible;
-}
-
+/* ✅ DEFAULT SECTION HEADERS - STICKY FOR STANDALONE */
 .section h3 {
-  margin-bottom: 10px;
+  margin-bottom: 10px; /* ✅ Normal margin for standalone */
   color: #555;
-  /* ✅ Sticky section headers */
-  position:relative;
+  position: sticky; /* ✅ Sticky by default for standalone */
   top: 60px; /* Account for main header height */
   background-color: white;
   padding: 5px 0;
@@ -47,39 +36,75 @@
   border-bottom: 1px solid #eee;
 }
 
-/* ✅ Enhanced survey log container with scroll support */
+/* ✅ WHEN USED INSIDE ADMIN VIEWPORT - OVERRIDE STYLES */
+.mainContent .auth_controls_body {
+  /* ✅ Adjust container for admin context */
+  max-height: 100% !important;
+  padding: 15px !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* ✅ ADMIN CONTEXT - MAKE HEADER RELATIVE */
+.mainContent .admin_controls_header {
+  position: relative !important; /* ✅ Relative when in admin */
+  top: 0 !important;
+  margin-bottom: 15px !important; /* ✅ Reduced margin in admin */
+  font-size: 1.6rem !important; /* ✅ Slightly smaller in admin */
+}
+
+/* ✅ ADMIN CONTEXT - MAKE SECTION HEADERS RELATIVE */
+.mainContent .section h3 {
+  position: relative !important; /* ✅ Relative when in admin */
+  top: 0 !important;
+  margin-bottom: 5px !important; /* ✅ Reduced margin in admin */
+}
+
+/* ✅ ADMIN CONTEXT - ADJUST SECTIONS */
+.mainContent .section {
+  margin-bottom: 20px !important; /* ✅ Reduced spacing in admin */
+}
+
+/* ✅ DEFAULT SECTION STYLES */
+.section {
+  margin-bottom: 30px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: white;
+  position: relative;
+  overflow: visible;
+}
+
+/* ✅ SURVEY LOG CONTAINERS */
 .survey-log {
   margin-bottom: 15px;
   padding: 10px;
   border: 1px solid #ddd;
   border-radius: 5px;
-  /* ✅ Allow expansion and scrolling */
   max-width: 100%;
   overflow: visible;
   word-wrap: break-word;
   position: relative;
 }
 
-/* ✅ Enhanced survey log with better scrolling */
 .survey-log.enhanced {
   border: 2px solid #ddd;
   padding: 20px;
   margin: 15px 0;
   border-radius: 8px;
   background-color: #f9f9f9;
-  /* ✅ Better overflow handling */
   overflow: visible;
   position: relative;
   min-height: auto;
 }
 
-/* ✅ Survey answers section with scroll support */
+/* ✅ SURVEY ANSWERS SECTION WITH SCROLL */
 .survey-answers-section {
   background-color: #f8f9fa !important;
   padding: 15px !important;
   border-radius: 5px !important;
   margin-bottom: 15px !important;
-  /* ✅ Add scroll for long content */
   max-height: 400px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -87,7 +112,12 @@
   position: relative;
 }
 
-/* ✅ Custom scrollbar styling */
+/* ✅ ADMIN CONTEXT - ADJUST SURVEY ANSWERS HEIGHT */
+.mainContent .survey-answers-section {
+  max-height: 300px !important; /* ✅ Smaller in admin to fit better */
+}
+
+/* ✅ CUSTOM SCROLLBAR STYLING */
 .survey-answers-section::-webkit-scrollbar {
   width: 8px;
 }
@@ -106,7 +136,7 @@
   background: #a8a8a8;
 }
 
-/* ✅ Enhanced answer items with better spacing */
+/* ✅ DETAILED ANSWER ITEMS */
 .survey-answers-detailed .answer-item {
   margin-bottom: 12px;
   padding: 12px;
@@ -114,7 +144,6 @@
   border-radius: 6px;
   border-left: 4px solid #3498db;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  /* ✅ Prevent overflow issues */
   word-wrap: break-word;
   overflow-wrap: break-word;
   hyphens: auto;
@@ -125,7 +154,6 @@
   font-size: 0.9em;
   margin-bottom: 6px;
   font-weight: 600;
-  /* ✅ Prevent text overflow */
   word-wrap: break-word;
 }
 
@@ -134,13 +162,12 @@
   padding-left: 12px;
   font-size: 0.95em;
   line-height: 1.4;
-  /* ✅ Handle long text properly */
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: pre-wrap;
 }
 
-/* ✅ Simple answers with scroll support */
+/* ✅ SIMPLE ANSWERS */
 .survey-answers-simple {
   max-height: 300px;
   overflow-y: auto;
@@ -153,12 +180,11 @@
   background: #f8f9fa;
   border-radius: 4px;
   border: 1px solid #e9ecef;
-  /* ✅ Text handling */
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
 
-/* ✅ Object format answers */
+/* ✅ OBJECT FORMAT ANSWERS */
 .survey-answers-object {
   max-height: 350px;
   overflow-y: auto;
@@ -172,12 +198,11 @@
   border-radius: 5px;
   border: 1px solid #e9ecef;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-  /* ✅ Text handling */
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
 
-/* ✅ Error and fallback containers */
+/* ✅ ERROR AND FALLBACK CONTAINERS */
 .no-answers, .invalid-answers, .error-answers, .fallback-answers {
   padding: 15px;
   text-align: center;
@@ -185,13 +210,12 @@
   border-radius: 5px;
   color: #6c757d;
   border: 1px solid #dee2e6;
-  /* ✅ Scroll support for error messages */
   max-height: 200px;
   overflow-y: auto;
   word-wrap: break-word;
 }
 
-/* ✅ Raw data display with scroll */
+/* ✅ RAW DATA DISPLAY */
 .fallback-answers pre, .invalid-answers pre, .error-answers pre {
   max-height: 150px;
   overflow: auto;
@@ -204,13 +228,12 @@
   word-wrap: break-word;
 }
 
-/* ✅ Survey info grid - responsive */
+/* ✅ SURVEY INFO GRID */
 .survey-info {
   display: grid !important;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
   gap: 12px !important;
   margin-bottom: 20px !important;
-  /* ✅ Handle overflow */
   overflow: visible;
 }
 
@@ -219,12 +242,18 @@
   background: #f8f9fa;
   border-radius: 4px;
   border: 1px solid #e9ecef;
-  /* ✅ Text handling */
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
 
-/* ✅ Survey header with better responsive design */
+/* ✅ ADMIN CONTEXT - COMPACT SURVEY INFO */
+.mainContent .survey-info {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important; /* ✅ Smaller in admin */
+  gap: 8px !important;
+  margin-bottom: 15px !important;
+}
+
+/* ✅ SURVEY HEADER */
 .survey-header {
   display: flex !important;
   justify-content: space-between !important;
@@ -232,7 +261,6 @@
   margin-bottom: 15px !important;
   padding-bottom: 10px !important;
   border-bottom: 2px solid #eee !important;
-  /* ✅ Responsive behavior */
   flex-wrap: wrap;
   gap: 10px;
 }
@@ -240,13 +268,17 @@
 .survey-header h4 {
   margin: 0 !important;
   color: #333 !important;
-  /* ✅ Prevent text overflow */
   word-wrap: break-word;
   overflow-wrap: break-word;
   max-width: 70%;
 }
 
-/* ✅ Action buttons with better layout */
+/* ✅ ADMIN CONTEXT - COMPACT SURVEY HEADER */
+.mainContent .survey-header h4 {
+  font-size: 1.1rem !important; /* ✅ Smaller in admin */
+}
+
+/* ✅ ACTION BUTTONS */
 .survey-actions {
   display: flex !important;
   gap: 10px !important;
@@ -254,7 +286,6 @@
   margin-top: 15px !important;
   padding-top: 15px !important;
   border-top: 2px solid #eee !important;
-  /* ✅ Prevent overflow */
   overflow: visible;
 }
 
@@ -265,7 +296,6 @@
   cursor: pointer;
   font-weight: 600;
   transition: all 0.3s ease;
-  /* ✅ Flexible button sizing */
   flex: 0 0 auto;
   min-width: 120px;
   white-space: nowrap;
@@ -281,7 +311,14 @@
   opacity: 0.7;
 }
 
-/* ✅ Standard button styling */
+/* ✅ ADMIN CONTEXT - COMPACT BUTTONS */
+.mainContent .survey-actions button {
+  padding: 8px 12px !important; /* ✅ Smaller buttons in admin */
+  min-width: 100px !important;
+  font-size: 0.9rem !important;
+}
+
+/* ✅ STANDARD BUTTON STYLING */
 .survey-log button {
   margin-right: 10px;
   padding: 8px 12px;
@@ -297,7 +334,7 @@
   background-color: #45a049;
 }
 
-/* ✅ General button styling */
+/* ✅ GENERAL BUTTON STYLING */
 button {
   padding: 8px 12px;
   background-color: #007bff;
@@ -318,7 +355,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* ✅ Form elements with better styling */
+/* ✅ FORM ELEMENTS */
 input[type="text"],
 select {
   padding: 10px;
@@ -327,7 +364,6 @@ select {
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.3s ease;
-  /* ✅ Prevent overflow */
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -339,7 +375,7 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
 }
 
-/* ✅ Question input styling */
+/* ✅ QUESTION INPUT STYLING */
 .section input[type="text"][style*="width: 100%"] {
   width: 100% !important;
   padding: 12px !important;
@@ -349,7 +385,7 @@ select:focus {
   font-size: 14px;
 }
 
-/* ✅ Role management section */
+/* ✅ ROLE MANAGEMENT SECTION */
 .section > div[style*="display: flex"] {
   display: flex !important;
   gap: 12px !important;
@@ -363,23 +399,22 @@ select:focus {
   margin-right: 0;
 }
 
-/* ✅ Loading and error states */
+/* ✅ LOADING AND ERROR STATES */
 .section p {
   margin: 10px 0;
   padding: 10px;
   border-radius: 4px;
 }
 
-.section p:contains("Loading") {
-  background-color: #e3f2fd;
-  color: #1976d2;
-  border: 1px solid #bbdefb;
-}
-
-/* ✅ Responsive design */
+/* ✅ RESPONSIVE DESIGN */
 @media (max-width: 768px) {
   .auth_controls_body {
     padding: 15px;
+  }
+  
+  /* ✅ Mobile adjustments for admin context */
+  .mainContent .auth_controls_body {
+    padding: 10px !important;
   }
   
   .survey-header {
@@ -423,9 +458,18 @@ select:focus {
     font-size: 1.5rem;
   }
   
+  /* ✅ Small mobile adjustments for admin context */
+  .mainContent .admin_controls_header {
+    font-size: 1.3rem !important;
+  }
+  
   .survey-answers-section {
     max-height: 250px;
     padding: 10px !important;
+  }
+  
+  .mainContent .survey-answers-section {
+    max-height: 200px !important;
   }
   
   .survey-answers-detailed .answer-item {
