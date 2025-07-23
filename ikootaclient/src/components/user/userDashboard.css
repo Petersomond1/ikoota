@@ -141,7 +141,7 @@
 }
 
 .status-details {
-  space-y: 15px;
+  margin-top: 15px;
   color: #1a1a1a;
 }
 
@@ -351,7 +351,7 @@
 }
 
 .activities-list {
-  space-y: 20px;
+  margin-top: 20px;
 }
 
 .activity-item {
@@ -442,7 +442,7 @@
 }
 
 .notifications-list {
-  space-y: 15px;
+   margin-top: 15px;
 }
 
 .notification {
