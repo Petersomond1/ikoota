@@ -173,41 +173,219 @@ export const fetchSurveyLogs = async () => {
 };
 
 // Update survey approval status in the database
+// export const approveUserSurvey = async (surveyId, userId, status) => {
+//   try {
+//     console.log('🔍 Approving survey:', { surveyId, userId, status });
+    
+//     const query = `
+//       UPDATE surveylog 
+//       SET approval_status = ?, verified_by = ?, updated_at = NOW() 
+//       WHERE id = ? AND user_id = ?
+//     `;
+    
+//     const result = await db.query(query, [status, 'admin', surveyId, userId]);
+    
+//     // ✅ Handle different result formats
+//     let affectedRows;
+//     if (Array.isArray(result) && result[0] && typeof result[0] === 'object') {
+//       affectedRows = result[0].affectedRows || result.affectedRows;
+//     } else if (result && typeof result === 'object') {
+//       affectedRows = result.affectedRows;
+//     } else {
+//       affectedRows = 0;
+//     }
+    
+//     if (affectedRows === 0) {
+//       throw new CustomError('Survey not found or already processed', 404);
+//     }
+    
+//     console.log('✅ Survey approval status updated successfully');
+//     return { success: true, affectedRows };
+    
+//   } catch (error) {
+//     console.error('❌ Error approving survey:', error);
+//     throw new CustomError(`Failed to approve survey: ${error.message}`, 500);
+//   }
+// };
+
+
 export const approveUserSurvey = async (surveyId, userId, status) => {
   try {
-    console.log('🔍 Approving survey:', { surveyId, userId, status });
+    console.log('🔍 Approving survey with full database sync:', { surveyId, userId, status });
     
-    const query = `
-      UPDATE surveylog 
-      SET approval_status = ?, verified_by = ?, updated_at = NOW() 
-      WHERE id = ? AND user_id = ?
-    `;
+    // Start database transaction for consistency
+    await db.query('START TRANSACTION');
     
-    const result = await db.query(query, [status, 'admin', surveyId, userId]);
-    
-    // ✅ Handle different result formats
-    let affectedRows;
-    if (Array.isArray(result) && result[0] && typeof result[0] === 'object') {
-      affectedRows = result[0].affectedRows || result.affectedRows;
-    } else if (result && typeof result === 'object') {
-      affectedRows = result.affectedRows;
-    } else {
-      affectedRows = 0;
+    try {
+      // ✅ STEP 1: Update surveylog table (existing functionality)
+      const updateSurveyQuery = `
+        UPDATE surveylog 
+        SET approval_status = ?, 
+            verified_by = 'admin',
+            processedAt = NOW(),
+            reviewed_at = NOW(),
+            admin_notes = CASE 
+              WHEN ? = 'approved' THEN 'Application approved - user granted pre-member access'
+              WHEN ? = 'granted' THEN 'Application granted - user granted pre-member access'  
+              WHEN ? = 'declined' THEN 'Application declined by admin'
+              ELSE 'Status updated by admin'
+            END
+        WHERE id = ? AND user_id = ?
+      `;
+      
+      const surveyResult = await db.query(updateSurveyQuery, [
+        status, status, status, status, surveyId, userId
+      ]);
+      
+      console.log('✅ Survey log updated:', surveyResult);
+      
+      // ✅ STEP 2: NEW - Update users table based on approval status
+      let userUpdateQuery;
+      let userUpdateParams;
+      
+      if (status === 'approved' || status === 'granted') {
+        // ✅ CRITICAL: Update user to pre-member status when approved
+        userUpdateQuery = `
+          UPDATE users 
+          SET is_member = 'approved',
+              membership_stage = 'pre',
+              application_status = 'approved',
+              application_reviewed_at = NOW(),
+              updatedAt = NOW()
+          WHERE id = ?
+        `;
+        userUpdateParams = [userId];
+        
+      } else if (status === 'declined' || status === 'denied') {
+        // Update user to denied status
+        userUpdateQuery = `
+          UPDATE users 
+          SET is_member = 'denied',
+              membership_stage = 'none',
+              application_status = 'declined',
+              application_reviewed_at = NOW(),
+              decline_reason = 'Application declined by admin',
+              updatedAt = NOW()
+          WHERE id = ?
+        `;
+        userUpdateParams = [userId];
+        
+      } else {
+        // For pending or other statuses, keep current state but update timestamp
+        userUpdateQuery = `
+          UPDATE users 
+          SET application_status = ?,
+              updatedAt = NOW()
+          WHERE id = ?
+        `;
+        userUpdateParams = [status, userId];
+      }
+      
+      const userUpdateResult = await db.query(userUpdateQuery, userUpdateParams);
+      console.log('✅ User table updated:', userUpdateResult);
+      
+      // ✅ STEP 3: NEW - Update all_applications_status table for tracking
+      const statusUpdateQuery = `
+        INSERT INTO all_applications_status 
+        (application_type, user_id, username, email, ticket, status, submitted_at, reviewed_at, admin_notes, reviewer_name)
+        SELECT 
+          'initial' as application_type,
+          u.id as user_id,
+          u.username,
+          u.email,
+          u.application_ticket as ticket,
+          ? as status,
+          u.application_submitted_at as submitted_at,
+          NOW() as reviewed_at,
+          CASE 
+            WHEN ? = 'approved' THEN 'Application approved - user granted pre-member access'
+            WHEN ? = 'granted' THEN 'Application granted - user granted pre-member access'  
+            WHEN ? = 'declined' THEN 'Application declined by admin'
+            ELSE 'Status updated by admin'
+          END as admin_notes,
+          'admin' as reviewer_name
+        FROM users u 
+        WHERE u.id = ?
+        ON DUPLICATE KEY UPDATE
+          status = VALUES(status),
+          reviewed_at = VALUES(reviewed_at),
+          admin_notes = VALUES(admin_notes)
+      `;
+      
+      await db.query(statusUpdateQuery, [
+        status, status, status, status, userId
+      ]);
+      
+      // ✅ STEP 4: Commit transaction
+      await db.query('COMMIT');
+      console.log('✅ Transaction committed successfully');
+      
+      // ✅ STEP 5: Send email notification (non-blocking)
+      if (status === 'approved' || status === 'granted') {
+        try {
+          await sendApprovalNotificationEmail(userId, status);
+        } catch (emailError) {
+          console.error('❌ Email notification failed (non-critical):', emailError);
+        }
+      }
+      
+    } catch (transactionError) {
+      // Rollback transaction on error
+      await db.query('ROLLBACK');
+      console.error('❌ Transaction rolled back due to error:', transactionError);
+      throw transactionError;
     }
     
-    if (affectedRows === 0) {
-      throw new CustomError('Survey not found or already processed', 404);
-    }
-    
-    console.log('✅ Survey approval status updated successfully');
-    return { success: true, affectedRows };
+    console.log('✅ Survey approval process completed successfully');
+    return { 
+      success: true, 
+      affectedRows: 1,
+      userStatusUpdated: true,
+      status: status
+    };
     
   } catch (error) {
-    console.error('❌ Error approving survey:', error);
+    console.error('❌ Error in enhanced approveUserSurvey:', error);
     throw new CustomError(`Failed to approve survey: ${error.message}`, 500);
   }
 };
 
+// ✅ NEW HELPER: Email notification function
+const sendApprovalNotificationEmail = async (userId, status) => {
+  try {
+    // Get user details
+    const userQuery = 'SELECT email, username FROM users WHERE id = ?';
+    const userResult = await db.query(userQuery, [userId]);
+    
+    if (!userResult || userResult.length === 0) {
+      console.log('⚠️ User not found for email notification');
+      return;
+    }
+    
+    const user = userResult[0];
+    
+    const emailContent = {
+      approved: {
+        subject: 'Welcome to Ikoota - Application Approved! 🎉',
+        text: `Hello ${user.username},\n\nCongratulations! Your application to join Ikoota has been approved.\n\nYou now have access to:\n- Towncrier community discussions\n- Pre-member features and content\n- Educational resources\n\nYou can log in to your account and start exploring: ${process.env.FRONTEND_URL}/towncrier\n\nWelcome to the Ikoota community!`
+      },
+      granted: {
+        subject: 'Ikoota Access Granted - Welcome! 🎉',
+        text: `Hello ${user.username},\n\nYour access to Ikoota has been granted!\n\nYou can now explore the community at: ${process.env.FRONTEND_URL}/towncrier\n\nWelcome aboard!`
+      }
+    };
+    
+    const template = emailContent[status];
+    if (template && user.email) {
+      await sendEmail(user.email, template.subject, template.text);
+      console.log('✅ Approval email sent to:', user.email);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error sending approval email:', error);
+    // Don't throw error - email failure shouldn't break approval process
+  }
+};
 
 // //ikootaapi\services\surveyServices.js
 // import db from '../config/db.js';

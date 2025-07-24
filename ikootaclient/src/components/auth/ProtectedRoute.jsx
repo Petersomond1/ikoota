@@ -1,7 +1,7 @@
 // ikootaclient/src/components/auth/ProtectedRoute.jsx
-// ✅ FIXED PROTECTED ROUTE - Resolves access issues
+// ✅ FIXED PROTECTED ROUTE - Preserves all functionality + fixes state sync
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useUser } from './UserStatus';
 import { getUserAccess, getUserStatusString } from '../config/accessMatrix';
@@ -15,20 +15,58 @@ const ProtectedRoute = ({
   allowedUserTypes = [],
   redirectTo = '/login'
 }) => {
-  const { user, isAuthenticated, loading } = useUser();
+  const { user, isAuthenticated, loading, membershipStatus } = useUser();
   const location = useLocation();
+  const [isReady, setIsReady] = useState(false);
 
-  // ✅ Show loading while user data is being fetched
-  if (loading) {
+  // ✅ CRITICAL FIX: Wait for membership data to be fully loaded
+  useEffect(() => {
+    // Only consider ready when:
+    // 1. Not loading AND 
+    // 2. Either membershipStatus is 'loaded' OR user is null (logged out)
+    if (!loading && (membershipStatus === 'loaded' || !user)) {
+      setIsReady(true);
+    } else {
+      setIsReady(false);
+    }
+  }, [loading, membershipStatus, user]);
+
+  // ✅ Show loading while user data is being fetched (preserving your styling approach)
+  if (!isReady) {
     return (
       <div className="route-loading">
         <div className="loading-spinner"></div>
-        <p>Loading...</p>
+        <p>Loading user status...</p>
+        <style>
+          {`
+            .route-loading {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+              flex-direction: column;
+            }
+            .loading-spinner {
+              border: 4px solid #f3f3f3;
+              border-top: 4px solid #3498db;
+              border-radius: 50%;
+              width: 40px;
+              height: 40px;
+              animation: spin 2s linear infinite;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}
+        </style>
       </div>
     );
   }
 
+  // ✅ PRESERVED: Your original getUserStatusString function
   const userStatus = getUserStatusString(user);
+  
   console.log('🔐 ProtectedRoute Check:', {
     path: location.pathname,
     userStatus,
@@ -37,30 +75,32 @@ const ProtectedRoute = ({
     requirePreMember,
     requireAdmin,
     allowedUserTypes,
-    isAuthenticated
+    isAuthenticated,
+    membershipStatus,
+    isReady
   });
 
-  // ✅ Public routes that don't require authentication
+  // ✅ PRESERVED: Public routes that don't require authentication
   const publicRoutes = ['/', '/login', '/signup', '/forgot-password', '/towncrier'];
   const isPublicRoute = publicRoutes.includes(location.pathname);
 
-  // ✅ If route doesn't require auth and is public, allow access
+  // ✅ PRESERVED: If route doesn't require auth and is public, allow access
   if (!requireAuth && !requireMember && !requirePreMember && !requireAdmin && allowedUserTypes.length === 0) {
     console.log('✅ Public route access granted');
     return children;
   }
 
-  // ✅ If authentication is required but user is not authenticated
+  // ✅ PRESERVED: If authentication is required but user is not authenticated
   if (requireAuth && !isAuthenticated) {
     console.log('🚨 SECURITY: Authentication required but user not authenticated');
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // ✅ If user is authenticated, check specific requirements
+  // ✅ PRESERVED: If user is authenticated, check specific requirements
   if (isAuthenticated && user) {
     const access = getUserAccess(user);
     
-    // ✅ Admin requirement check
+    // ✅ PRESERVED: Admin requirement check
     if (requireAdmin) {
       if (userStatus === 'admin') {
         console.log('✅ Admin access granted');
@@ -71,7 +111,7 @@ const ProtectedRoute = ({
       }
     }
 
-    // ✅ Member requirement check
+    // ✅ PRESERVED: Member requirement check
     if (requireMember) {
       if (userStatus === 'full_member' || userStatus === 'admin') {
         console.log('✅ Member access granted');
@@ -82,18 +122,27 @@ const ProtectedRoute = ({
       }
     }
 
-    // ✅ Pre-member requirement check
+    // ✅ PRESERVED + ENHANCED: Pre-member requirement check with better logging
     if (requirePreMember) {
       if (userStatus === 'pre_member' || userStatus === 'full_member' || userStatus === 'admin') {
-        console.log('✅ Pre-member access granted');
+        console.log('✅ Pre-member access granted for userStatus:', userStatus);
         return children;
       } else {
-        console.log('🚨 SECURITY: Pre-member access required but user status insufficient');
+        console.log('🚨 SECURITY: Pre-member access required but user status insufficient:', {
+          currentStatus: userStatus,
+          expectedStatuses: ['pre_member', 'full_member', 'admin'],
+          userObject: {
+            role: user.role,
+            is_member: user.is_member,
+            membership_stage: user.membership_stage,
+            approval_status: user.approval_status
+          }
+        });
         return <Navigate to="/towncrier" replace />;
       }
     }
 
-    // ✅ Specific user types check
+    // ✅ PRESERVED: Specific user types check
     if (allowedUserTypes.length > 0) {
       if (allowedUserTypes.includes(userStatus)) {
         console.log('✅ User type access granted');
@@ -104,18 +153,18 @@ const ProtectedRoute = ({
       }
     }
 
-    // ✅ If only auth is required and user is authenticated
+    // ✅ PRESERVED: If only auth is required and user is authenticated
     if (requireAuth && isAuthenticated) {
       console.log('✅ Authenticated access granted');
       return children;
     }
   }
 
-  // ✅ Default case - check if route should be accessible
+  // ✅ PRESERVED: Default case - check if route should be accessible
   if (isAuthenticated && user) {
     const access = getUserAccess(user);
     
-    // ✅ Special handling for dashboard route
+    // ✅ PRESERVED: Special handling for dashboard route
     if (location.pathname === '/dashboard') {
       if (userStatus === 'admin' || userStatus === 'full_member' || userStatus === 'pre_member') {
         console.log('✅ Dashboard access granted');
@@ -126,17 +175,160 @@ const ProtectedRoute = ({
       }
     }
 
-    // ✅ For other authenticated routes, allow access
+    // ✅ PRESERVED: For other authenticated routes, allow access
     console.log('✅ Default authenticated access granted');
     return children;
   }
 
-  // ✅ Final fallback - redirect to login
+  // ✅ PRESERVED: Final fallback - redirect to login
   console.log('🚨 SECURITY: Access denied, redirecting to login');
   return <Navigate to={redirectTo} state={{ from: location }} replace />;
 };
 
 export default ProtectedRoute;
+
+
+
+
+// // ikootaclient/src/components/auth/ProtectedRoute.jsx
+// // ✅ FIXED PROTECTED ROUTE - Resolves access issues
+
+// import React from 'react';
+// import { Navigate, useLocation } from 'react-router-dom';
+// import { useUser } from './UserStatus';
+// import { getUserAccess, getUserStatusString } from '../config/accessMatrix';
+
+// const ProtectedRoute = ({ 
+//   children, 
+//   requireAuth = false,
+//   requireMember = false,
+//   requirePreMember = false,
+//   requireAdmin = false,
+//   allowedUserTypes = [],
+//   redirectTo = '/login'
+// }) => {
+//   const { user, isAuthenticated, loading } = useUser();
+//   const location = useLocation();
+
+//   // ✅ Show loading while user data is being fetched
+//   if (loading) {
+//     return (
+//       <div className="route-loading">
+//         <div className="loading-spinner"></div>
+//         <p>Loading...</p>
+//       </div>
+//     );
+//   }
+
+//   const userStatus = getUserStatusString(user);
+//   console.log('🔐 ProtectedRoute Check:', {
+//     path: location.pathname,
+//     userStatus,
+//     requireAuth,
+//     requireMember,
+//     requirePreMember,
+//     requireAdmin,
+//     allowedUserTypes,
+//     isAuthenticated
+//   });
+
+//   // ✅ Public routes that don't require authentication
+//   const publicRoutes = ['/', '/login', '/signup', '/forgot-password', '/towncrier'];
+//   const isPublicRoute = publicRoutes.includes(location.pathname);
+
+//   // ✅ If route doesn't require auth and is public, allow access
+//   if (!requireAuth && !requireMember && !requirePreMember && !requireAdmin && allowedUserTypes.length === 0) {
+//     console.log('✅ Public route access granted');
+//     return children;
+//   }
+
+//   // ✅ If authentication is required but user is not authenticated
+//   if (requireAuth && !isAuthenticated) {
+//     console.log('🚨 SECURITY: Authentication required but user not authenticated');
+//     return <Navigate to={redirectTo} state={{ from: location }} replace />;
+//   }
+
+//   // ✅ If user is authenticated, check specific requirements
+//   if (isAuthenticated && user) {
+//     const access = getUserAccess(user);
+    
+//     // ✅ Admin requirement check
+//     if (requireAdmin) {
+//       if (userStatus === 'admin') {
+//         console.log('✅ Admin access granted');
+//         return children;
+//       } else {
+//         console.log('🚨 SECURITY: Admin access required but user is not admin');
+//         return <Navigate to="/towncrier" replace />;
+//       }
+//     }
+
+//     // ✅ Member requirement check
+//     if (requireMember) {
+//       if (userStatus === 'full_member' || userStatus === 'admin') {
+//         console.log('✅ Member access granted');
+//         return children;
+//       } else {
+//         console.log('🚨 SECURITY: Member access required but user is not member');
+//         return <Navigate to="/towncrier" replace />;
+//       }
+//     }
+
+//     // ✅ Pre-member requirement check
+//     if (requirePreMember) {
+//       if (userStatus === 'pre_member' || userStatus === 'full_member' || userStatus === 'admin') {
+//         console.log('✅ Pre-member access granted');
+//         return children;
+//       } else {
+//         console.log('🚨 SECURITY: Pre-member access required but user status insufficient');
+//         return <Navigate to="/towncrier" replace />;
+//       }
+//     }
+
+//     // ✅ Specific user types check
+//     if (allowedUserTypes.length > 0) {
+//       if (allowedUserTypes.includes(userStatus)) {
+//         console.log('✅ User type access granted');
+//         return children;
+//       } else {
+//         console.log('🚨 SECURITY: User type not in allowed list');
+//         return <Navigate to={access.defaultRoute} replace />;
+//       }
+//     }
+
+//     // ✅ If only auth is required and user is authenticated
+//     if (requireAuth && isAuthenticated) {
+//       console.log('✅ Authenticated access granted');
+//       return children;
+//     }
+//   }
+
+//   // ✅ Default case - check if route should be accessible
+//   if (isAuthenticated && user) {
+//     const access = getUserAccess(user);
+    
+//     // ✅ Special handling for dashboard route
+//     if (location.pathname === '/dashboard') {
+//       if (userStatus === 'admin' || userStatus === 'full_member' || userStatus === 'pre_member') {
+//         console.log('✅ Dashboard access granted');
+//         return children;
+//       } else {
+//         console.log('🚨 SECURITY: Dashboard access denied for user status:', userStatus);
+//         return <Navigate to={access.defaultRoute} replace />;
+//       }
+//     }
+
+//     // ✅ For other authenticated routes, allow access
+//     console.log('✅ Default authenticated access granted');
+//     return children;
+//   }
+
+//   // ✅ Final fallback - redirect to login
+//   console.log('🚨 SECURITY: Access denied, redirecting to login');
+//   return <Navigate to={redirectTo} state={{ from: location }} replace />;
+// };
+
+// export default ProtectedRoute;
 
 
 

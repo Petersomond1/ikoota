@@ -73,7 +73,7 @@ import {
   deleteUserAccount,
   searchUsers,
   getAllReports,
-    approvePreMemberApplication,
+  approvePreMemberApplication,
   declinePreMemberApplication,
   getAvailableMentors,
   getAvailableClasses
