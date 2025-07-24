@@ -237,7 +237,7 @@
 }
 
 .mainContent {
-    max-height: 95%;
+    max-height: 91%;
     margin: 5px;
     padding: 5px;
     flex: 1;
@@ -439,7 +439,7 @@
     }
 
     .mainContent {
-        height: calc(100vh - 60px);
+        height: calc(100vh - 30px);
         margin: 0;
         padding: 15px;
         border-radius: 0;
@@ -475,7 +475,7 @@
 
     .mainContent {
         padding: 10px;
-        height: calc(100vh - 50px);
+        height: calc(100vh - 30px);
     }
 
     .mobile-sidebar-header {
@@ -502,7 +502,7 @@
     }
 
     .mainContent {
-        height: calc(100vh - 50px);
+        height: calc(100vh - 20px);
         padding: 10px;
     }
 
@@ -535,7 +535,7 @@
     }
 
     .mainContent {
-        max-height: none;
+        max-height: 91%;
         height: auto;
         margin: 0;
         padding: 20px;
@@ -705,7 +705,7 @@
 
     .mainContent,
     .mainCOntent {
-        max-height: none;
+        max-height: 91%;
         height: calc(100vh - 60px);
         margin: 0;
         padding: 15px;

@@ -62,7 +62,7 @@
 
 /* ✅ ADMIN CONTEXT - ADJUST SECTIONS */
 .mainContent .section {
-  margin-bottom: 20px !important; /* ✅ Reduced spacing in admin */
+  margin-bottom: 10px !important; /* ✅ Reduced spacing in admin */
 }
 
 /* ✅ DEFAULT SECTION STYLES */
