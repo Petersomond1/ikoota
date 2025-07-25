@@ -1,16 +1,425 @@
-/* Styles for the application thank you message */
-.application-thank-you {
-  background-color: #f0fff0;
-  border: 1px solid #b0e0b0;
-  border-radius: 5px;
-  padding: 15px;
-  margin: 20px 0;
+/* applicationThankyou.css */
+/* Complete styling for ApplicationThankyou component */
+
+.application-thankyou-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-.application-thank-you h2 {
-  color: #468c4b;
+.thankyou-card {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  width: 100%;
+  overflow: hidden;
+  animation: slideUp 0.8s ease-out;
 }
 
-.application-thank-you p {
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.thankyou-header {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+  text-align: center;
+  padding: 40px 30px;
+}
+
+.thankyou-header h1 {
+  font-size: 2.5rem;
+  margin: 0 0 10px 0;
+  font-weight: 700;
+}
+
+.thankyou-header h2 {
+  font-size: 1.5rem;
+  margin: 0;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+.thankyou-content {
+  padding: 40px 30px;
+}
+
+.welcome-message {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.welcome-message p {
+  font-size: 1.1rem;
+  line-height: 1.6;
   color: #333;
+  margin-bottom: 15px;
+}
+
+.welcome-message strong {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+/* Ticket Information */
+.ticket-info {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 15px;
+  padding: 25px;
+  margin: 30px 0;
+  text-align: center;
+}
+
+.ticket-info h3 {
+  color: #495057;
+  margin: 0 0 20px 0;
+  font-size: 1.3rem;
+}
+
+.ticket-display {
+  background: white;
+  border: 2px dashed #4CAF50;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 15px 0;
+}
+
+.ticket-label {
+  display: block;
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.ticket-number {
+  display: block;
+  font-family: 'Courier New', monospace;
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #4CAF50;
+  letter-spacing: 1px;
+}
+
+.ticket-note {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 15px;
+  font-style: italic;
+}
+
+/* Next Steps */
+.next-steps {
+  margin: 40px 0;
+}
+
+.next-steps h3 {
+  color: #333;
+  font-size: 1.4rem;
+  margin-bottom: 25px;
+  text-align: center;
+}
+
+.steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  background: #f8f9fa;
+  border-radius: 15px;
+  padding: 20px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.step:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.step-number {
+  background: #4CAF50;
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  margin-right: 20px;
+  flex-shrink: 0;
+}
+
+.step-content h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.step-content p {
+  margin: 0;
+  color: #666;
+  line-height: 1.5;
+}
+
+/* Membership Information */
+.membership-info {
+  margin: 40px 0;
+}
+
+.membership-info h3 {
+  color: #333;
+  font-size: 1.4rem;
+  margin-bottom: 25px;
+  text-align: center;
+}
+
+.membership-levels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .membership-levels {
+    grid-template-columns: 1fr;
+  }
+}
+
+.level {
+  background: #f8f9fa;
+  border-radius: 15px;
+  padding: 25px;
+  border: 2px solid #e9ecef;
+  transition: transform 0.2s ease;
+}
+
+.level:hover {
+  transform: translateY(-3px);
+}
+
+.level.featured {
+  background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+  border-color: #ff9800;
+}
+
+.level h4 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 1.2rem;
+}
+
+.level p {
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.level ul {
+  list-style: none;
+  padding: 0;
+  margin: 15px 0;
+}
+
+.level li {
+  color: #666;
+  margin-bottom: 8px;
+  padding-left: 20px;
+  position: relative;
+}
+
+.level li::before {
+  content: "✓";
+  color: #4CAF50;
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+}
+
+.level .note {
+  font-size: 0.9rem;
+  color: #999;
+  font-style: italic;
+  margin-top: 15px;
+}
+
+/* Action Buttons */
+.action-buttons {
+  text-align: center;
+  margin: 40px 0;
+}
+
+.survey-btn {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+  margin-bottom: 20px;
+}
+
+.survey-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(76, 175, 80, 0.3);
+}
+
+.secondary-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: #666;
+  border: 2px solid #ddd;
+  padding: 12px 25px;
+  font-size: 1rem;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-secondary:hover {
+  background: #f8f9fa;
+  border-color: #4CAF50;
+  color: #4CAF50;
+}
+
+/* Important Notes */
+.important-notes {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 15px;
+  padding: 25px;
+  margin: 30px 0;
+}
+
+.important-notes h3 {
+  color: #856404;
+  margin: 0 0 20px 0;
+  font-size: 1.2rem;
+}
+
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.note {
+  color: #856404;
+  line-height: 1.5;
+}
+
+.note strong {
+  color: #533c02;
+}
+
+/* Footer */
+.thankyou-footer {
+  background: #f8f9fa;
+  padding: 30px;
+  text-align: center;
+  border-top: 1px solid #e9ecef;
+}
+
+.thankyou-footer p {
+  color: #666;
+  margin-bottom: 15px;
+  line-height: 1.6;
+}
+
+.contact-info {
+  margin-top: 20px;
+}
+
+.contact-info p {
+  color: #333;
+  font-size: 1rem;
+}
+
+.contact-info strong {
+  color: #4CAF50;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .application-thankyou-container {
+    padding: 10px;
+  }
+  
+  .thankyou-header {
+    padding: 30px 20px;
+  }
+  
+  .thankyou-header h1 {
+    font-size: 2rem;
+  }
+  
+  .thankyou-header h2 {
+    font-size: 1.2rem;
+  }
+  
+  .thankyou-content {
+    padding: 30px 20px;
+  }
+  
+  .ticket-info, .important-notes {
+    padding: 20px 15px;
+  }
+  
+  .step {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .step-number {
+    margin: 0 auto 15px auto;
+  }
+  
+  .secondary-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .thankyou-header h1 {
+    font-size: 1.8rem;
+  }
+  
+  .survey-btn {
+    width: 100%;
+    padding: 15px;
+  }
+  
+  .btn-secondary {
+    width: 100%;
+    margin-bottom: 10px;
+  }
 }

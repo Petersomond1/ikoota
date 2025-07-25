@@ -431,6 +431,300 @@ import { generateUniqueConverseId } from '../utils/idGenerator.js';
 // };
 
 
+// export const getUserDashboard = async (req, res) => {
+//   try {
+//     const userId = req.user.user_id || req.user.id;
+//     const userRole = req.user.role;
+    
+//     console.log('🎯 getUserDashboard called for userId:', userId, 'role:', userRole);
+    
+//     if (!userId) {
+//       throw new CustomError('User ID not found', 401);
+//     }
+    
+//     // Your existing enhanced database query stays the same
+//     console.log('🔍 Attempting enhanced database query...');
+//     const result = await db.query(`
+//       SELECT 
+//         u.id,
+//         u.username,
+//         u.email,
+//         u.is_member,
+//         u.membership_stage,
+//         u.role,
+//         u.application_status,
+//         u.application_submitted_at,
+//         u.application_ticket as user_ticket,
+//         u.createdAt,
+//         u.converse_id,
+//         u.mentor_id,
+//         u.primary_class_id,
+//         s.approval_status as survey_approval_status,
+//         s.application_ticket as survey_ticket,
+//         s.createdAt as survey_submitted_at,
+//         s.reviewed_at,
+//         s.reviewed_by,
+//         s.admin_notes,
+//         reviewer.username as reviewed_by_name
+//       FROM users u
+//       LEFT JOIN surveylog s ON u.id = s.user_id 
+//         AND s.application_type = 'initial_application'
+//         AND s.id = (
+//           SELECT MAX(id) FROM surveylog 
+//           WHERE user_id = u.id 
+//           AND application_type = 'initial_application'
+//         )
+//       LEFT JOIN users reviewer ON s.reviewed_by = reviewer.id
+//       WHERE u.id = ?
+//     `, [userId]);
+    
+//     // Your existing result handling stays the same
+//     console.log('🔍 Enhanced query result check');
+//     let user;
+//     if (Array.isArray(result) && result.length > 0) {
+//       if (Array.isArray(result[0]) && result[0].length > 0) {
+//         user = result[0][0];
+//         console.log('✅ Using MySQL2 format: result[0][0]');
+//       } else if (result[0] && typeof result[0] === 'object') {
+//         user = result[0];
+//         console.log('✅ Using direct format: result[0]');
+//       }
+//     }
+    
+//     console.log('✅ User extracted:', user?.id, user?.username);
+    
+//     if (!user || !user.id) {
+//       console.error('❌ No valid user data found');
+//       return res.status(404).json({ error: 'User not found' });
+//     }
+    
+//     // Your existing admin handling stays the same
+//     let memberStatus = user.is_member;
+//     if (!memberStatus || memberStatus === '' || memberStatus === null) {
+//       if (userRole === 'admin' || userRole === 'super_admin') {
+//         memberStatus = 'active';
+//         await db.query(
+//           'UPDATE users SET is_member = ? WHERE id = ?',
+//           ['active', userId]
+//         );
+//         console.log('🔧 Fixed empty is_member for admin user');
+//       } else {
+//         memberStatus = 'pending';
+//       }
+//     }
+    
+//     // ✅ FIXED: Enhanced application status logic with pre_member handling
+//     let applicationStatus = 'not_submitted';
+//     let statusDisplay = 'Not Submitted';
+//     let applicationDescription = 'Application not yet submitted';
+    
+//     // ✅ NEW: Check for pre_member status FIRST (highest priority)
+//     if (user.is_member === 'pre_member' || user.membership_stage === 'pre_member') {
+//       applicationStatus = 'approved_pre_member';
+//       statusDisplay = 'Pre-Member';  // ✅ This fixes the main issue!
+//       applicationDescription = 'Approved - Pre-Member Access';
+//     }
+//     // ✅ NEW: Check for full member status
+//     else if (user.is_member === 'member' && user.membership_stage === 'member') {
+//       applicationStatus = 'approved_member';
+//       statusDisplay = 'Full Member';
+//       applicationDescription = 'Approved - Full Member Access';
+//     }
+//     // Check if there's a survey submission for other statuses
+//     else if (user.survey_submitted_at || user.application_submitted_at) {
+//       const actualStatus = user.survey_approval_status || user.application_status;
+      
+//       switch (actualStatus) {
+//         case 'approved':
+//           applicationStatus = 'approved';
+//           statusDisplay = 'Approved';
+//           applicationDescription = 'Your application has been approved! Welcome to the community.';
+//           break;
+//         case 'rejected':
+//         case 'declined':
+//           applicationStatus = 'rejected';
+//           statusDisplay = 'Rejected';
+//           applicationDescription = 'Your application was not approved. You may reapply after addressing feedback.';
+//           break;
+//         case 'under_review':
+//           applicationStatus = 'under_review';
+//           statusDisplay = 'Under Review';
+//           applicationDescription = 'Your application is currently being reviewed by our team.';
+//           break;
+//         case 'submitted':
+//         case 'pending':
+//         default:
+//           applicationStatus = 'pending';
+//           statusDisplay = 'Pending Review';
+//           applicationDescription = 'Your application is submitted and awaiting review.';
+//           break;
+//       }
+//     }
+    
+//     // ✅ ENHANCED: Create comprehensive status object with fixed logic
+//     const status = {
+//       id: user.id,
+//       username: user.username,
+//       email: user.email,
+//       role: user.role,
+//       membership_stage: user.membership_stage || 'none',
+//       is_member: memberStatus,
+      
+//       // ✅ FIXED: Application status now correctly shows 'Pre-Member' for pre_member users
+//       application_status: applicationStatus,
+//       application_status_display: statusDisplay,  // 'Pre-Member' for Monika!
+//       application_description: applicationDescription,
+      
+//       // Additional application details
+//       application_submitted_at: user.survey_submitted_at || user.application_submitted_at,
+//       application_reviewed_at: user.reviewed_at,
+//       application_reviewed_by: user.reviewed_by_name,
+//       application_ticket: user.survey_ticket || user.user_ticket,
+//       admin_notes: user.admin_notes,
+      
+//       // Legacy fields for compatibility
+//       initial_application_status: applicationStatus,
+//       full_membership_application_status: 'not_applied',
+//       has_accessed_full_membership: memberStatus === 'active' || user.membership_stage === 'member',
+//       user_created: user.createdAt
+//     };
+    
+//     // Your existing quickActions logic stays the same but with enhancement
+//     const quickActions = [];
+    
+//     if (user.role === 'admin' || user.role === 'super_admin') {
+//       quickActions.push(
+//         { type: 'primary', text: 'Admin Panel', link: '/admin' },
+//         { type: 'info', text: 'User Management', link: '/admin/users' },
+//         { type: 'success', text: 'Applications', link: '/admin/applications' }
+//       );
+//     } else {
+//       quickActions.push({ type: 'primary', text: 'View Profile', link: '/profile' });
+      
+//       // ✅ ENHANCED: Better quick actions based on status
+//       if (user.membership_stage === 'member') {
+//         quickActions.push({ type: 'success', text: 'Iko Chat', link: '/iko' });
+//       } else if (user.membership_stage === 'pre_member' || user.is_member === 'pre_member') {
+//         quickActions.push({ type: 'info', text: 'Towncrier', link: '/towncrier' });
+//         quickActions.push({ type: 'warning', text: 'Apply for Full Membership', link: '/full-membership' });
+//       } else {
+//         if (applicationStatus === 'not_submitted') {
+//           quickActions.push({ type: 'warning', text: 'Submit Application', link: '/application-survey' });
+//         } else if (applicationStatus === 'pending') {
+//           quickActions.push({ type: 'info', text: 'Application Status', link: '/pending-verification' });
+//         } else if (applicationStatus === 'rejected') {
+//           quickActions.push({ type: 'warning', text: 'Resubmit Application', link: '/application-survey' });
+//         }
+//       }
+//     }
+    
+//     quickActions.push({ type: 'secondary', text: 'Settings', link: '/settings' });
+    
+//     // Your existing activities and notifications logic stays the same
+//     const activities = [
+//       {
+//         type: 'account_created',
+//         title: 'Account Created',
+//         description: 'Welcome to the Ikoota platform!',
+//         date: user.createdAt,
+//         status: 'completed',
+//         icon: '🎉'
+//       }
+//     ];
+    
+//     if (user.survey_submitted_at || user.application_submitted_at) {
+//       activities.push({
+//         type: 'application_submitted',
+//         title: 'Application Submitted',
+//         description: applicationDescription,
+//         date: user.survey_submitted_at || user.application_submitted_at,
+//         status: applicationStatus === 'approved' || applicationStatus === 'approved_pre_member' || applicationStatus === 'approved_member' ? 'completed' : 
+//                 applicationStatus === 'rejected' ? 'failed' : 'pending',
+//         icon: applicationStatus === 'approved' || applicationStatus === 'approved_pre_member' || applicationStatus === 'approved_member' ? '✅' : 
+//               applicationStatus === 'rejected' ? '❌' : '📝'
+//       });
+//     }
+    
+//     const notifications = [{
+//       type: 'system',
+//       message: `Welcome back, ${user.username}!`,
+//       date: new Date().toISOString()
+//     }];
+    
+//     // ✅ ENHANCED: Status-specific notifications
+//     if (applicationStatus === 'approved_pre_member') {
+//       notifications.unshift({
+//         type: 'success',
+//         message: 'You have Pre-Member access! You can now access Towncrier content.',
+//         date: user.reviewed_at || new Date().toISOString()
+//       });
+//     } else if (applicationStatus === 'pending') {
+//       notifications.unshift({
+//         type: 'info',
+//         message: 'Your application is being reviewed. You will be notified once the review is complete.',
+//         date: new Date().toISOString()
+//       });
+//     } else if (applicationStatus === 'rejected') {
+//       notifications.unshift({
+//         type: 'warning',
+//         message: 'Your application requires attention. Please check your application status.',
+//         date: user.reviewed_at || new Date().toISOString()
+//       });
+//     }
+    
+//     console.log('✅ Sending enhanced dashboard response with status:', statusDisplay);
+    
+//     // Your existing response structure stays the same
+//     return res.status(200).json({
+//       success: true,
+//       message: 'Dashboard data retrieved successfully',
+      
+//       data: {
+//         user: {
+//           id: user.id,
+//           username: user.username,
+//           email: user.email,
+//           memberSince: user.createdAt,
+//           role: user.role
+//         },
+//         membership: {
+//           status: memberStatus,
+//           stage: user.membership_stage,
+//           displayStatus: memberStatus.toUpperCase()
+//         },
+//         application: {
+//           status: applicationStatus,
+//           statusDisplay: statusDisplay,  // ✅ 'Pre-Member' for Monika!
+//           description: applicationDescription,
+//           submittedAt: user.survey_submitted_at || user.application_submitted_at,
+//           reviewedAt: user.reviewed_at,
+//           reviewedBy: user.reviewed_by_name,
+//           ticket: user.survey_ticket || user.user_ticket,
+//           adminNotes: user.admin_notes
+//         },
+//         activities,
+//         notifications,
+//         quickActions
+//       },
+      
+//       // Legacy compatibility
+//       membershipStatus: status,
+//       recentActivities: activities,
+//       notifications,
+//       quickActions
+//     });
+    
+//   } catch (error) {
+//     console.error('❌ getUserDashboard error:', error);
+//     return res.status(500).json({
+//       success: false,
+//       error: error.message || 'An error occurred',
+//       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+//     });
+//   }
+// };
+
+
 export const getUserDashboard = async (req, res) => {
   try {
     const userId = req.user.user_id || req.user.id;
@@ -442,7 +736,7 @@ export const getUserDashboard = async (req, res) => {
       throw new CustomError('User ID not found', 401);
     }
     
-    // Your existing enhanced database query stays the same
+    // Enhanced database query - same as before
     console.log('🔍 Attempting enhanced database query...');
     const result = await db.query(`
       SELECT 
@@ -492,13 +786,20 @@ export const getUserDashboard = async (req, res) => {
     }
     
     console.log('✅ User extracted:', user?.id, user?.username);
+    console.log('🔍 Raw user data:', {
+      is_member: user?.is_member,
+      membership_stage: user?.membership_stage,
+      application_status: user?.application_status,
+      survey_submitted_at: user?.survey_submitted_at,
+      application_submitted_at: user?.application_submitted_at
+    });
     
     if (!user || !user.id) {
       console.error('❌ No valid user data found');
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Your existing admin handling stays the same
+    // Handle empty is_member for admin users (preserved)
     let memberStatus = user.is_member;
     if (!memberStatus || memberStatus === '' || memberStatus === null) {
       if (userRole === 'admin' || userRole === 'super_admin') {
@@ -513,24 +814,24 @@ export const getUserDashboard = async (req, res) => {
       }
     }
     
-    // ✅ FIXED: Enhanced application status logic with pre_member handling
+    // ✅ CRITICAL FIX: Enhanced application status logic for new users
     let applicationStatus = 'not_submitted';
     let statusDisplay = 'Not Submitted';
     let applicationDescription = 'Application not yet submitted';
     
-    // ✅ NEW: Check for pre_member status FIRST (highest priority)
+    // ✅ FIRST: Check for pre_member status (highest priority)
     if (user.is_member === 'pre_member' || user.membership_stage === 'pre_member') {
       applicationStatus = 'approved_pre_member';
-      statusDisplay = 'Pre-Member';  // ✅ This fixes the main issue!
+      statusDisplay = 'Pre-Member';
       applicationDescription = 'Approved - Pre-Member Access';
     }
-    // ✅ NEW: Check for full member status
+    // ✅ SECOND: Check for full member status
     else if (user.is_member === 'member' && user.membership_stage === 'member') {
       applicationStatus = 'approved_member';
       statusDisplay = 'Full Member';
       applicationDescription = 'Approved - Full Member Access';
     }
-    // Check if there's a survey submission for other statuses
+    // ✅ THIRD: Check if user has actually submitted an application survey
     else if (user.survey_submitted_at || user.application_submitted_at) {
       const actualStatus = user.survey_approval_status || user.application_status;
       
@@ -560,8 +861,34 @@ export const getUserDashboard = async (req, res) => {
           break;
       }
     }
+    // ✅ FOURTH: Handle users who signed up but haven't submitted application
+    else if (user.is_member === 'applied' && user.membership_stage === 'none') {
+      // ✅ CRITICAL: Check if they actually have application data
+      if (!user.survey_submitted_at && !user.application_submitted_at && user.application_status === 'not_submitted') {
+        applicationStatus = 'ready_to_apply';
+        statusDisplay = 'Ready to Apply';
+        applicationDescription = 'Complete your membership application to join our community.';
+      } else {
+        applicationStatus = 'pending';
+        statusDisplay = 'Pending Review';
+        applicationDescription = 'Your application is submitted and awaiting review.';
+      }
+    }
+    // ✅ FIFTH: Default fallback for other authenticated users
+    else {
+      applicationStatus = 'not_submitted';
+      statusDisplay = 'Not Submitted';
+      applicationDescription = 'Application not yet submitted';
+    }
     
-    // ✅ ENHANCED: Create comprehensive status object with fixed logic
+    console.log('✅ Final status determination:', {
+      applicationStatus,
+      statusDisplay,
+      applicationDescription,
+      reasoning: 'Based on user database state'
+    });
+    
+    // Create comprehensive status object
     const status = {
       id: user.id,
       username: user.username,
@@ -570,9 +897,9 @@ export const getUserDashboard = async (req, res) => {
       membership_stage: user.membership_stage || 'none',
       is_member: memberStatus,
       
-      // ✅ FIXED: Application status now correctly shows 'Pre-Member' for pre_member users
+      // ✅ FIXED: Application status based on actual user state
       application_status: applicationStatus,
-      application_status_display: statusDisplay,  // 'Pre-Member' for Monika!
+      application_status_display: statusDisplay,
       application_description: applicationDescription,
       
       // Additional application details
@@ -589,7 +916,7 @@ export const getUserDashboard = async (req, res) => {
       user_created: user.createdAt
     };
     
-    // Your existing quickActions logic stays the same but with enhancement
+    // Enhanced quick actions based on status
     const quickActions = [];
     
     if (user.role === 'admin' || user.role === 'super_admin') {
@@ -601,26 +928,26 @@ export const getUserDashboard = async (req, res) => {
     } else {
       quickActions.push({ type: 'primary', text: 'View Profile', link: '/profile' });
       
-      // ✅ ENHANCED: Better quick actions based on status
       if (user.membership_stage === 'member') {
         quickActions.push({ type: 'success', text: 'Iko Chat', link: '/iko' });
       } else if (user.membership_stage === 'pre_member' || user.is_member === 'pre_member') {
         quickActions.push({ type: 'info', text: 'Towncrier', link: '/towncrier' });
         quickActions.push({ type: 'warning', text: 'Apply for Full Membership', link: '/full-membership' });
       } else {
-        if (applicationStatus === 'not_submitted') {
-          quickActions.push({ type: 'warning', text: 'Submit Application', link: '/application-survey' });
+        // ✅ ENHANCED: Different actions based on application status
+        if (applicationStatus === 'not_submitted' || applicationStatus === 'ready_to_apply') {
+          quickActions.push({ type: 'warning', text: 'Submit Application', link: '/applicationsurvey' });
         } else if (applicationStatus === 'pending') {
           quickActions.push({ type: 'info', text: 'Application Status', link: '/pending-verification' });
         } else if (applicationStatus === 'rejected') {
-          quickActions.push({ type: 'warning', text: 'Resubmit Application', link: '/application-survey' });
+          quickActions.push({ type: 'warning', text: 'Resubmit Application', link: '/applicationsurvey' });
         }
       }
     }
     
     quickActions.push({ type: 'secondary', text: 'Settings', link: '/settings' });
     
-    // Your existing activities and notifications logic stays the same
+    // Build activities list with correct status
     const activities = [
       {
         type: 'account_created',
@@ -632,6 +959,7 @@ export const getUserDashboard = async (req, res) => {
       }
     ];
     
+    // ✅ ENHANCED: Only add application activity if actually submitted
     if (user.survey_submitted_at || user.application_submitted_at) {
       activities.push({
         type: 'application_submitted',
@@ -643,8 +971,19 @@ export const getUserDashboard = async (req, res) => {
         icon: applicationStatus === 'approved' || applicationStatus === 'approved_pre_member' || applicationStatus === 'approved_member' ? '✅' : 
               applicationStatus === 'rejected' ? '❌' : '📝'
       });
+    } else if (applicationStatus === 'ready_to_apply') {
+      // ✅ NEW: Add "next step" activity for users who need to apply
+      activities.push({
+        type: 'next_step',
+        title: 'Next Step: Submit Application',
+        description: 'Complete your membership application to join our community.',
+        date: new Date().toISOString(),
+        status: 'pending',
+        icon: '📝'
+      });
     }
     
+    // Build notifications with correct status
     const notifications = [{
       type: 'system',
       message: `Welcome back, ${user.username}!`,
@@ -657,6 +996,12 @@ export const getUserDashboard = async (req, res) => {
         type: 'success',
         message: 'You have Pre-Member access! You can now access Towncrier content.',
         date: user.reviewed_at || new Date().toISOString()
+      });
+    } else if (applicationStatus === 'ready_to_apply') {
+      notifications.unshift({
+        type: 'info',
+        message: 'Welcome! Complete your membership application to access community features.',
+        date: new Date().toISOString()
       });
     } else if (applicationStatus === 'pending') {
       notifications.unshift({
@@ -674,7 +1019,6 @@ export const getUserDashboard = async (req, res) => {
     
     console.log('✅ Sending enhanced dashboard response with status:', statusDisplay);
     
-    // Your existing response structure stays the same
     return res.status(200).json({
       success: true,
       message: 'Dashboard data retrieved successfully',
@@ -694,7 +1038,7 @@ export const getUserDashboard = async (req, res) => {
         },
         application: {
           status: applicationStatus,
-          statusDisplay: statusDisplay,  // ✅ 'Pre-Member' for Monika!
+          statusDisplay: statusDisplay,  // ✅ Will show correct status for Monday
           description: applicationDescription,
           submittedAt: user.survey_submitted_at || user.application_submitted_at,
           reviewedAt: user.reviewed_at,
@@ -723,6 +1067,7 @@ export const getUserDashboard = async (req, res) => {
     });
   }
 };
+
 
 
 // ✅ BONUS: Add a helper function to check database status consistency

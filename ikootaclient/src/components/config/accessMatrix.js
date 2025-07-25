@@ -1,5 +1,5 @@
 // ikootaclient/src/components/config/accessMatrix.js
-// ✅ ENHANCED VERSION - Preserving all existing functionality + fixes
+// ✅ ENHANCED VERSION - Preserving all existing functionality + dashboard fix
 
 const ACCESS_MATRIX = {
   // Super Admin - Full access to everything
@@ -7,6 +7,7 @@ const ACCESS_MATRIX = {
     routes: ['/', '/admin/*', '/iko', '/towncrier', '/application-survey', '/dashboard'],
     api_endpoints: ['ALL'],
     default_redirect: '/admin',
+    dashboard_redirect: '/dashboard', // ✅ NEW: Separate dashboard redirect
     permissions: ['admin', 'iko', 'towncrier', 'dashboard', 'all'],
     userType: 'admin',
     canAccess: {
@@ -29,6 +30,7 @@ const ACCESS_MATRIX = {
       '/chats/*'
     ],
     default_redirect: '/admin',
+    dashboard_redirect: '/dashboard', // ✅ NEW: Separate dashboard redirect
     permissions: ['admin', 'iko', 'towncrier', 'dashboard'],
     userType: 'admin',
     canAccess: {
@@ -53,6 +55,7 @@ const ACCESS_MATRIX = {
       '/membership/dashboard'
     ],
     default_redirect: '/iko',
+    dashboard_redirect: '/dashboard', // ✅ NEW: Dashboard buttons always go to dashboard
     permissions: ['iko', 'towncrier', 'dashboard'],
     userType: 'full_member',
     canAccess: {
@@ -63,7 +66,7 @@ const ACCESS_MATRIX = {
     }
   },
 
-  // Pre-Member - Limited access, preparing for full membership
+  // ✅ CRITICAL FIX: Pre-Member - Separate default navigation from dashboard navigation
   pre_member: {
     conditions: {
       membership_stage: 'pre_member'
@@ -74,7 +77,8 @@ const ACCESS_MATRIX = {
       '/membership/dashboard',
       '/membership/full-membership-status'
     ],
-    default_redirect: '/towncrier',
+    default_redirect: '/towncrier', // ✅ PRESERVED: For general navigation/login redirects
+    dashboard_redirect: '/dashboard', // ✅ NEW: Dashboard buttons specifically go here
     permissions: ['towncrier', 'dashboard'],
     userType: 'pre_member',
     canAccess: {
@@ -90,19 +94,20 @@ const ACCESS_MATRIX = {
     conditions: {
       membership_stage: 'applicant'
     },
-    routes: ['/', '/towncrier', '/application-survey', '/application-status'],
+    routes: ['/', '/towncrier', '/application-survey', '/application-status', '/dashboard'],
     api_endpoints: [
       '/membership/survey/*',
       '/teachings/*' // Maybe limited access to some teachings
     ],
     default_redirect: '/application-survey',
-    permissions: ['towncrier'],
+    dashboard_redirect: '/dashboard', // ✅ NEW: Dashboard buttons go to dashboard
+    permissions: ['towncrier', 'dashboard'],
     userType: 'applicant',
     canAccess: {
       iko: false,
       towncrier: true,
       admin: false,
-      dashboard: false
+      dashboard: true // ✅ ENHANCED: Allow dashboard access for applicants
     }
   },
 
@@ -111,19 +116,20 @@ const ACCESS_MATRIX = {
     conditions: {
       is_member: ['applied', 'pending']
     },
-    routes: ['/', '/towncrier', '/application-status', '/pending-verification'],
+    routes: ['/', '/towncrier', '/application-status', '/pending-verification', '/dashboard'],
     api_endpoints: [
       '/membership/survey/*',
       '/teachings/*'
     ],
     default_redirect: '/towncrier',
-    permissions: ['towncrier'],
+    dashboard_redirect: '/dashboard', // ✅ NEW: Dashboard buttons go to dashboard
+    permissions: ['towncrier', 'dashboard'],
     userType: 'pending',
     canAccess: {
       iko: false,
       towncrier: true,
       admin: false,
-      dashboard: false
+      dashboard: true // ✅ ENHANCED: Allow dashboard access for pending users
     }
   },
 
@@ -135,6 +141,7 @@ const ACCESS_MATRIX = {
       '/teachings/public' // If you have public teachings
     ],
     default_redirect: '/login',
+    dashboard_redirect: '/login', // ✅ NEW: Guests go to login when trying to access dashboard
     permissions: [],
     userType: 'guest',
     canAccess: {
@@ -205,12 +212,12 @@ const getUserAccess = (userData) => {
     return {
       userType: 'guest',
       defaultRoute: '/',
+      dashboardRoute: '/login', // ✅ NEW: Separate dashboard route
       permissions: [],
       canAccess: ACCESS_MATRIX.guest.canAccess,
       canAccessIko: false,
       canAccessAdmin: false,
       canAccessTowncrier: true,
-      defaultRoute: ACCESS_MATRIX.guest.default_redirect,
       allowedRoutes: ACCESS_MATRIX.guest.routes,
       allowedEndpoints: ACCESS_MATRIX.guest.api_endpoints
     };
@@ -221,7 +228,8 @@ const getUserAccess = (userData) => {
   return {
     // ✅ NEW: Enhanced properties
     userType: access.userType,
-    defaultRoute: access.default_redirect,
+    defaultRoute: access.default_redirect, // ✅ PRESERVED: For general navigation
+    dashboardRoute: access.dashboard_redirect, // ✅ NEW: Specifically for dashboard buttons
     permissions: access.permissions || [],
     canAccess: access.canAccess,
     
@@ -234,13 +242,19 @@ const getUserAccess = (userData) => {
   };
 };
 
-// ✅ NEW: Get default route function (for compatibility)
+// ✅ NEW: Get dashboard route function (SOLUTION FOR THE REDIRECT ISSUE)
+export const getDashboardRoute = (userData) => {
+  const access = getUserAccess(userData);
+  return access.dashboardRoute || '/dashboard'; // Always return dashboard route
+};
+
+// ✅ NEW: Get default route function (for general navigation - preserved functionality)
 export const getDefaultRoute = (userData) => {
   const access = getUserAccess(userData);
   return access.defaultRoute;
 };
 
-// ✅ NEW: Check if user can access a specific route
+// ✅ NEW: Check if user can access a specific route (preserved functionality)
 export const canAccessRoute = (userData, route) => {
   const access = getUserAccess(userData);
   
@@ -277,7 +291,7 @@ export const canAccessRoute = (userData, route) => {
   }
 };
 
-// ✅ NEW: Get user status string (for compatibility with new components)
+// ✅ NEW: Get user status string (preserved functionality)
 export const getUserStatusString = (userData) => {
   if (!userData) return 'guest';
   
@@ -305,7 +319,7 @@ export const getUserStatusString = (userData) => {
   return 'authenticated';
 };
 
-// ✅ NEW: Check endpoint access (enhanced version of original)
+// ✅ NEW: Check endpoint access (preserved functionality)
 export const canAccessEndpoint = (userData, endpoint) => {
   const access = checkUserAccess(userData);
   
@@ -342,6 +356,7 @@ export default {
   checkUserAccess,
   getUserAccess,
   getDefaultRoute,
+  getDashboardRoute, // ✅ KEY ADDITION: Separate function for dashboard redirects
   canAccessRoute,
   getUserStatusString,
   canAccessEndpoint

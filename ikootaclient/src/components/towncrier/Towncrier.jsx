@@ -362,6 +362,12 @@ const Towncrier = () => {
                   </button>
                 )}
                 <button 
+                  onClick={() => navigate('/dashboard')} 
+                  className="footer-btn membership-btn"
+                >
+                  📊 check Dashboard
+                </button>
+                <button 
                   onClick={handleSignOut} 
                   className="footer-btn signout-btn"
                 >

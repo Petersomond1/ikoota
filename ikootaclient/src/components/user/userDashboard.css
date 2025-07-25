@@ -90,12 +90,15 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e9ecef;
 }
 
 .status-header h3 {
   margin: 0;
   color: #2c3e50;
   font-size: 1.4rem;
+  font-weight: 600;
 }
 
 .status-badge {
@@ -105,7 +108,7 @@
   padding: 8px 16px;
   border-radius: 20px;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -117,9 +120,15 @@
 }
 
 .status-badge.info {
-  background: #d1ecf1;
+  background: #cce7ff;
   color: #0c5460;
-  border: 1px solid #bee5eb;
+  border: 1px solid #b8daff;
+}
+
+.status-badge.primary {
+  background: #e2e3f1;
+  color: #383d41;
+  border: 1px solid #d6d8db;
 }
 
 .status-badge.warning {
@@ -141,92 +150,164 @@
 }
 
 .status-details {
-  margin-top: 15px;
-  color: #1a1a1a;
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .detail-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.detail-item:last-child {
-  border-bottom: none;
+  padding: 8px 0;
 }
 
 .detail-item strong {
-  color: #2c3e50;
+  color: #495057;
   font-weight: 600;
 }
 
 .status-indicator {
-  padding: 4px 12px;
-  border-radius: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
   font-size: 0.85rem;
-  font-weight: 500;
+}
+
+.status-indicator.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-indicator.info {
+  background: #cce7ff;
+  color: #0c5460;
+}
+
+.status-indicator.primary {
+  background: #e2e3f1;
+  color: #383d41;
+}
+
+.status-indicator.warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-indicator.danger {
+  background: #f8d7da;
+  color: #721c24;
 }
 
 .application-ticket {
   font-family: 'Courier New', monospace;
   background: #f8f9fa;
-  padding: 4px 8px;
+  padding: 2px 6px;
   border-radius: 4px;
+  font-size: 0.85rem;
   border: 1px solid #dee2e6;
 }
 
-.pending-message {
-  background: #fff9c4;
-  border: 1px solid #ffeaa7;
+/* ==================================================
+   STATUS ACTIONS
+   ================================================== */
+
+.status-actions > div {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
   border-radius: 12px;
   padding: 20px;
   text-align: center;
-  margin-top: 20px;
+  margin-top: 15px;
 }
 
-.pending-icon {
+.ready-to-apply-message,
+.not-submitted-message,
+.rejected-message {
+  border-color: #667eea;
+}
+
+.pending-message {
+  border-color: #f39c12;
+  background: #fff9c4;
+  border: 1px solid #ffeaa7;
+}
+
+.member-benefits,
+.approved-message {
+  border-color: #27ae60;
+}
+
+.premember-benefits {
+  border-color: #3498db;
+}
+
+.ready-icon,
+.not-submitted-icon,
+.pending-icon,
+.rejected-icon,
+.approved-icon,
+.benefits-icon {
   font-size: 2rem;
   margin-bottom: 10px;
 }
 
-.pending-message h4 {
-  color: #856404;
-  margin: 0 0 10px 0;
+.status-actions h4 {
+  margin: 10px 0;
+  color: #2c3e50;
+  font-size: 1.1rem;
 }
 
-.pending-message p {
-  color: #856404;
-  margin: 0;
-  opacity: 0.8;
+.status-actions p {
+  margin: 10px 0;
+  color: #6c757d;
+  line-height: 1.5;
 }
 
-.member-benefits,
-.premember-benefits {
-  background: #f8f9fa;
-  border-radius: 12px;
-  padding: 20px;
-  margin-top: 20px;
-}
-
-.member-benefits h4,
-.premember-benefits h4 {
-  color: #28a745;
-  margin: 0 0 15px 0;
-}
-
-.member-benefits ul,
-.premember-benefits ul {
+.status-actions ul {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 15px 0;
 }
 
-.member-benefits li,
-.premember-benefits li {
-  padding: 5px 0;
+.status-actions li {
+  padding: 4px 0;
   color: #495057;
+}
+
+.apply-btn,
+.reapply-btn,
+.upgrade-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 15px;
+  transition: transform 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.apply-btn:hover,
+.reapply-btn:hover,
+.upgrade-btn:hover {
+  transform: translateY(-2px);
+}
+
+.upgrade-btn {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+}
+
+.admin-feedback {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  padding: 10px;
+  margin: 10px 0;
+  font-size: 0.9rem;
+  text-align: left;
 }
 
 /* ==================================================
@@ -253,6 +334,12 @@
   gap: 15px;
 }
 
+.actions-grid.compact {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-top: 15px;
+}
+
 .action-btn {
   display: flex;
   flex-direction: column;
@@ -263,6 +350,13 @@
   transition: all 0.3s ease;
   border: 1px solid #e1e5e9;
   position: relative;
+}
+
+.action-btn.small {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  min-height: 60px;
+  border-radius: 8px;
 }
 
 .action-btn:hover {
@@ -276,33 +370,47 @@
   border: none;
 }
 
+.action-btn.admin {
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  color: white;
+  border: none;
+}
+
 .action-btn.secondary {
-  background: #6c757d;
+  background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
   color: white;
   border: none;
 }
 
 .action-btn.success {
-  background: #28a745;
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
   color: white;
   border: none;
 }
 
 .action-btn.info {
-  background: #17a2b8;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
   color: white;
   border: none;
 }
 
 .action-btn.warning {
-  background: #ffc107;
-  color: #212529;
+  background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%);
+  color: white;
   border: none;
 }
 
 .action-btn.default {
-  background: white;
+  background: #f8f9fa;
   color: #495057;
+  border: 1px solid #dee2e6;
+}
+
+.action-btn.danger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  border: none;
+  cursor: pointer;
 }
 
 .action-icon {
@@ -310,10 +418,20 @@
   margin-bottom: 8px;
 }
 
+.action-btn.small .action-icon {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
 .action-text {
   font-size: 0.9rem;
   font-weight: 600;
   text-align: center;
+}
+
+.action-btn.small .action-text {
+  font-size: 0.75rem;
+  line-height: 1.2;
 }
 
 .action-badge {
@@ -361,6 +479,7 @@
   border-radius: 12px;
   background: #f8f9fa;
   border: 1px solid #e9ecef;
+  margin-bottom: 10px;
 }
 
 .activity-icon {
@@ -410,6 +529,26 @@
   font-weight: 500;
 }
 
+.activity-status.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.activity-status.warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.activity-status.danger {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.activity-status.info {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
 /* ==================================================
    NOTIFICATIONS
    ================================================== */
@@ -442,7 +581,7 @@
 }
 
 .notifications-list {
-   margin-top: 15px;
+  margin-top: 15px;
 }
 
 .notification {
@@ -452,6 +591,7 @@
   border-radius: 12px;
   border: 1px solid #e9ecef;
   position: relative;
+  margin-bottom: 10px;
 }
 
 .notification.unread {
@@ -559,6 +699,22 @@
   border-width: 6px;
 }
 
+.membership-status.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #6c757d;
+}
+
+.membership-status.loading .loading-spinner {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+  margin-bottom: 15px;
+}
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
@@ -607,17 +763,11 @@
   background: #5a6fd8;
 }
 
-.membership-status.loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
+small {
   color: #6c757d;
-}
-
-.membership-status.loading .loading-spinner {
-  margin-bottom: 15px;
+  font-size: 0.8rem;
+  display: block;
+  margin-top: 8px;
 }
 
 /* ==================================================
@@ -677,7 +827,8 @@
     padding: 20px;
   }
   
-  .actions-grid {
+  .actions-grid,
+  .actions-grid.compact {
     grid-template-columns: 1fr;
   }
   
@@ -688,6 +839,18 @@
   
   .activity-meta {
     justify-content: center;
+  }
+  
+  .status-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .detail-item {
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
   }
 }
 
@@ -713,18 +876,6 @@
   .recent-activities,
   .notifications-section {
     padding: 15px;
-  }
-  
-  .status-header {
-    flex-direction: column;
-    gap: 10px;
-    text-align: center;
-  }
-  
-  .detail-item {
-    flex-direction: column;
-    gap: 5px;
-    text-align: center;
   }
   
   .notification {
