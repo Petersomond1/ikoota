@@ -1,0 +1,258 @@
+.full-membership-info-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+}
+
+.info-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.info-header {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  padding: 30px;
+  text-align: center;
+}
+
+.info-header h1 {
+  margin: 0 0 10px 0;
+  font-size: 2.2rem;
+  font-weight: 700;
+}
+
+.info-header p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 1.1rem;
+}
+
+.info-content {
+  padding: 30px;
+}
+
+.benefits-section {
+  margin-bottom: 30px;
+}
+
+.benefits-section h3 {
+  color: #1e293b;
+  margin-bottom: 20px;
+  font-size: 1.4rem;
+}
+
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.benefit-card {
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.2s ease;
+}
+
+.benefit-card:hover {
+  border-color: #10b981;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.1);
+}
+
+.benefit-card h4 {
+  color: #10b981;
+  margin: 0 0 10px 0;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.benefit-card p {
+  color: #475569;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.requirements-section {
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  padding: 25px;
+  margin-bottom: 30px;
+}
+
+.requirements-section h3 {
+  color: #92400e;
+  margin: 0 0 20px 0;
+  font-size: 1.4rem;
+}
+
+.requirements-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.requirements-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: #92400e;
+}
+
+.requirements-list li::before {
+  content: "✓";
+  color: #f59e0b;
+  font-weight: bold;
+  margin-top: 2px;
+}
+
+.process-section {
+  margin-bottom: 30px;
+}
+
+.process-section h3 {
+  color: #1e293b;
+  margin-bottom: 20px;
+  font-size: 1.4rem;
+}
+
+.process-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.process-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 15px;
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+.step-number {
+  background: #667eea;
+  color: white;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.step-content h4 {
+  margin: 0 0 5px 0;
+  color: #1e293b;
+}
+
+.step-content p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.action-section {
+  background: #eef2ff;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  padding: 25px;
+  text-align: center;
+}
+
+.action-section h3 {
+  color: #667eea;
+  margin: 0 0 15px 0;
+  font-size: 1.4rem;
+}
+
+.action-section p {
+  color: #475569;
+  margin: 0 0 25px 0;
+  line-height: 1.5;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.btn-apply {
+  background: #10b981;
+  color: white;
+  padding: 15px 30px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.2s ease;
+}
+
+.btn-apply:hover {
+  background: #059669;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 15px 30px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .full-membership-info-container {
+    padding: 10px;
+  }
+  
+  .info-content {
+    padding: 20px;
+  }
+  
+  .benefits-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .btn-apply,
+  .btn-secondary {
+    width: 100%;
+    max-width: 300px;
+  }
+}
