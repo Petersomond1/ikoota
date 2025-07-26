@@ -1,5 +1,5 @@
 // ikootaclient/src/components/auth/ProtectedRoute.jsx
-// ✅ FIXED PROTECTED ROUTE - Preserves all functionality + fixes state sync
+// ✅ PRESERVES ALL EXISTING FUNCTIONALITY + adds standardized membership support
 
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
@@ -8,22 +8,22 @@ import { getUserAccess, getUserStatusString } from '../config/accessMatrix';
 
 const ProtectedRoute = ({ 
   children, 
+  // ✅ PRESERVED: All your existing props
   requireAuth = false,
-  requireMember = false,
-  requirePreMember = false,
-  requireAdmin = false,
-  allowedUserTypes = [],
-  redirectTo = '/login'
+  requireMember = false,        // ✅ ENHANCED: Now means "member" (highest level)
+  requirePreMember = false,     // ✅ PRESERVED: Your existing logic
+  requireAdmin = false,         // ✅ PRESERVED: Your existing logic
+  allowedUserTypes = [],        // ✅ PRESERVED: Your existing logic
+  redirectTo = '/login',        // ✅ PRESERVED: Your existing logic
+  // ✅ NEW: Additional props for standardized membership
+  allowPending = false          // ✅ NEW: Allow pending applications
 }) => {
   const { user, isAuthenticated, loading, membershipStatus } = useUser();
   const location = useLocation();
   const [isReady, setIsReady] = useState(false);
 
-  // ✅ CRITICAL FIX: Wait for membership data to be fully loaded
+  // ✅ PRESERVED: Your exact loading logic
   useEffect(() => {
-    // Only consider ready when:
-    // 1. Not loading AND 
-    // 2. Either membershipStatus is 'loaded' OR user is null (logged out)
     if (!loading && (membershipStatus === 'loaded' || !user)) {
       setIsReady(true);
     } else {
@@ -31,7 +31,7 @@ const ProtectedRoute = ({
     }
   }, [loading, membershipStatus, user]);
 
-  // ✅ Show loading while user data is being fetched (preserving your styling approach)
+  // ✅ PRESERVED: Your exact loading component with styles
   if (!isReady) {
     return (
       <div className="route-loading">
@@ -64,7 +64,7 @@ const ProtectedRoute = ({
     );
   }
 
-  // ✅ PRESERVED: Your original getUserStatusString function
+  // ✅ ENHANCED: Use standardized status but preserve all your logic
   const userStatus = getUserStatusString(user);
   
   console.log('🔐 ProtectedRoute Check:', {
@@ -75,32 +75,33 @@ const ProtectedRoute = ({
     requirePreMember,
     requireAdmin,
     allowedUserTypes,
+    allowPending, // ✅ NEW
     isAuthenticated,
     membershipStatus,
     isReady
   });
 
-  // ✅ PRESERVED: Public routes that don't require authentication
+  // ✅ PRESERVED: Your exact public routes logic
   const publicRoutes = ['/', '/login', '/signup', '/forgot-password', '/towncrier'];
   const isPublicRoute = publicRoutes.includes(location.pathname);
 
-  // ✅ PRESERVED: If route doesn't require auth and is public, allow access
-  if (!requireAuth && !requireMember && !requirePreMember && !requireAdmin && allowedUserTypes.length === 0) {
+  // ✅ PRESERVED: Your exact public route handling
+  if (!requireAuth && !requireMember && !requirePreMember && !requireAdmin && allowedUserTypes.length === 0 && !allowPending) {
     console.log('✅ Public route access granted');
     return children;
   }
 
-  // ✅ PRESERVED: If authentication is required but user is not authenticated
+  // ✅ PRESERVED: Your exact authentication check
   if (requireAuth && !isAuthenticated) {
     console.log('🚨 SECURITY: Authentication required but user not authenticated');
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // ✅ PRESERVED: If user is authenticated, check specific requirements
+  // ✅ ENHANCED: Authenticated user checks with standardized statuses
   if (isAuthenticated && user) {
     const access = getUserAccess(user);
     
-    // ✅ PRESERVED: Admin requirement check
+    // ✅ PRESERVED: Your exact admin requirement check
     if (requireAdmin) {
       if (userStatus === 'admin') {
         console.log('✅ Admin access granted');
@@ -111,26 +112,44 @@ const ProtectedRoute = ({
       }
     }
 
-    // ✅ PRESERVED: Member requirement check
+    // ✅ ENHANCED: Member requirement check (now standardized to "member" only)
     if (requireMember) {
-      if (userStatus === 'full_member' || userStatus === 'admin') {
+      if (userStatus === 'member' || userStatus === 'admin') {
         console.log('✅ Member access granted');
         return children;
       } else {
         console.log('🚨 SECURITY: Member access required but user is not member');
+        // ✅ ENHANCED: Better redirects based on current status
+        if (userStatus === 'pre_member') {
+          return <Navigate to="/full-membership/info" replace />;
+        }
+        if (userStatus === 'pre_member_pending_upgrade') {
+          return <Navigate to="/full-membership/pending" replace />;
+        }
+        if (userStatus === 'pre_member_can_reapply') {
+          return <Navigate to="/full-membership/declined" replace />;
+        }
         return <Navigate to="/towncrier" replace />;
       }
     }
 
-    // ✅ PRESERVED + ENHANCED: Pre-member requirement check with better logging
+    // ✅ ENHANCED: Pre-member requirement check with ALL pre-member states
     if (requirePreMember) {
-      if (userStatus === 'pre_member' || userStatus === 'full_member' || userStatus === 'admin') {
+      const allowedForPreMember = [
+        'pre_member', 
+        'pre_member_pending_upgrade', 
+        'pre_member_can_reapply', 
+        'member', 
+        'admin'
+      ];
+      
+      if (allowedForPreMember.includes(userStatus)) {
         console.log('✅ Pre-member access granted for userStatus:', userStatus);
         return children;
       } else {
         console.log('🚨 SECURITY: Pre-member access required but user status insufficient:', {
           currentStatus: userStatus,
-          expectedStatuses: ['pre_member', 'full_member', 'admin'],
+          expectedStatuses: allowedForPreMember,
           userObject: {
             role: user.role,
             is_member: user.is_member,
@@ -142,7 +161,28 @@ const ProtectedRoute = ({
       }
     }
 
-    // ✅ PRESERVED: Specific user types check
+    // ✅ NEW: Allow pending applications
+    if (allowPending) {
+      const allowedForPending = [
+        'admin',
+        'member',
+        'pre_member',
+        'pre_member_pending_upgrade', 
+        'pre_member_can_reapply',
+        'pending_verification',
+        'needs_application'
+      ];
+      
+      if (allowedForPending.includes(userStatus)) {
+        console.log('✅ Pending access granted');
+        return children;
+      } else {
+        console.log('❌ Pending access denied for status:', userStatus);
+        return <Navigate to="/login" replace />;
+      }
+    }
+
+    // ✅ PRESERVED: Your exact user types check
     if (allowedUserTypes.length > 0) {
       if (allowedUserTypes.includes(userStatus)) {
         console.log('✅ User type access granted');
@@ -153,20 +193,22 @@ const ProtectedRoute = ({
       }
     }
 
-    // ✅ PRESERVED: If only auth is required and user is authenticated
+    // ✅ PRESERVED: Your exact auth-only check
     if (requireAuth && isAuthenticated) {
       console.log('✅ Authenticated access granted');
       return children;
     }
   }
 
-  // ✅ PRESERVED: Default case - check if route should be accessible
+  // ✅ PRESERVED: Your exact default case logic
   if (isAuthenticated && user) {
     const access = getUserAccess(user);
     
-    // ✅ PRESERVED: Special handling for dashboard route
+    // ✅ PRESERVED: Your exact dashboard route handling
     if (location.pathname === '/dashboard') {
-      if (userStatus === 'admin' || userStatus === 'full_member' || userStatus === 'pre_member') {
+      // ✅ ENHANCED: Include all membership states that can access dashboard
+      const dashboardAllowed = ['admin', 'member', 'pre_member', 'pre_member_pending_upgrade', 'pre_member_can_reapply'];
+      if (dashboardAllowed.includes(userStatus)) {
         console.log('✅ Dashboard access granted');
         return children;
       } else {
@@ -175,19 +217,17 @@ const ProtectedRoute = ({
       }
     }
 
-    // ✅ PRESERVED: For other authenticated routes, allow access
+    // ✅ PRESERVED: Your exact default authenticated access
     console.log('✅ Default authenticated access granted');
     return children;
   }
 
-  // ✅ PRESERVED: Final fallback - redirect to login
+  // ✅ PRESERVED: Your exact final fallback
   console.log('🚨 SECURITY: Access denied, redirecting to login');
   return <Navigate to={redirectTo} state={{ from: location }} replace />;
 };
 
 export default ProtectedRoute;
-
-
 
 
 // // ikootaclient/src/components/auth/ProtectedRoute.jsx

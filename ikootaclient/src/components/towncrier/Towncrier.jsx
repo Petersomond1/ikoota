@@ -1,5 +1,5 @@
 // ikootaclient/src/components/towncrier/Towncrier.jsx
-// Enhanced with Full Membership Application Button and Banner Detection
+// FIXED: Enhanced debug and correct status detection
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import "./towncrier.css";
@@ -11,8 +11,24 @@ import { useUser } from "../auth/UserStatus";
 const Towncrier = () => {
   const { data: rawTeachings = [], isLoading, error, refetch } = useFetchTeachings();
   const [selectedTeaching, setSelectedTeaching] = useState(null);
-  const { user, logout, isMember, isAuthenticated, isPending } = useUser();
+  const { user, logout, isMember, isAuthenticated, isPending, getUserStatus } = useUser();
   const navigate = useNavigate();
+
+  // ✅ ENHANCED DEBUG: Log all user status values
+  useEffect(() => {
+    console.log('🔍 Towncrier Debug - Full User State:', {
+      user: user,
+      isMember: isMember,
+      isPending: isPending,
+      isAuthenticated: isAuthenticated,
+      getUserStatus: getUserStatus(),
+      userMembershipStage: user?.membership_stage,
+      userIsMember: user?.is_member,
+      userRole: user?.role,
+      userStatus: user?.status,
+      userFinalStatus: user?.finalStatus
+    });
+  }, [user, isMember, isPending, isAuthenticated]);
 
   // Memoize enhanced teachings to prevent unnecessary recalculations
   const enhancedTeachings = useMemo(() => {
@@ -145,15 +161,73 @@ const Towncrier = () => {
     navigate('/full-membership-info');
   };
 
-  // Determine user status for display
+  // ✅ COMPLETELY REWRITTEN: User status determination based on backend values
   const getUserStatusInfo = () => {
-    if (!isAuthenticated) return { status: 'guest', label: 'Guest', color: 'gray' };
-    if (isMember) return { status: 'full_member', label: '💎 Full Member', color: 'gold' };
-    if (isPending) return { status: 'pre_member', label: '🌟 Pre-Member', color: 'blue' };
-    return { status: 'applicant', label: '⏳ Applicant', color: 'orange' };
+    if (!isAuthenticated) {
+      return { status: 'guest', label: 'Guest', color: 'gray' };
+    }
+
+    // ✅ ENHANCED DEBUG: Log exactly what we're working with
+    const debugInfo = {
+      userStatus: getUserStatus(),
+      isMember: isMember(),
+      isPending: isPending(),
+      userRole: user?.role,
+      userMembershipStage: user?.membership_stage,
+      userIsMemberField: user?.is_member,
+      userStatusField: user?.status,
+      userFinalStatus: user?.finalStatus
+    };
+    console.log('🔍 getUserStatusInfo Debug:', debugInfo);
+
+    // Get the canonical status from getUserStatus()
+    const status = getUserStatus();
+
+    // Admin users
+    if (user?.role === 'admin' || user?.role === 'super_admin') {
+      return { 
+        status: 'admin', 
+        label: `👑 ${user.role === 'super_admin' ? 'Super Admin' : 'Admin'}`, 
+        color: 'purple' 
+      };
+    }
+
+    // ✅ FIXED: Status determination based on the actual status string
+    switch (status) {
+      case 'member':
+        return { status: 'full_member', label: '💎 Full Member', color: 'gold' };
+      
+      case 'pre_member':
+      case 'pre_member_pending_upgrade':
+      case 'pre_member_can_reapply':
+        return { status: 'pre_member', label: '🌟 Pre-Member', color: 'blue' };
+      
+      case 'pending_verification':
+        return { status: 'applicant', label: '⏳ Applicant', color: 'orange' };
+      
+      case 'denied':
+        return { status: 'denied', label: '❌ Denied', color: 'red' };
+      
+      case 'needs_application':
+        return { status: 'needs_application', label: '📝 Needs Application', color: 'orange' };
+      
+      default:
+        return { status: 'authenticated', label: '👤 User', color: 'green' };
+    }
   };
 
   const userStatus = getUserStatusInfo();
+
+  // ✅ ENHANCED DEBUG: Log the final status decision
+  console.log('🎯 Final Status Decision:', {
+    userStatus,
+    shouldShowBanner: isAuthenticated && isPending() && !isMember(),
+    bannerConditions: {
+      isAuthenticated,
+      isPending: isPending(),
+      isMember: isMember()
+    }
+  });
 
   if (isLoading) {
     return (
@@ -216,9 +290,6 @@ const Towncrier = () => {
           )}
         </div>
         
-
-
-        
         <div className="nav-right">
           <span className="content-count">
             📚 {enhancedTeachings.length} Resources
@@ -229,8 +300,8 @@ const Towncrier = () => {
         </div>
       </div>
 
-      {/* Full Membership Application Banner for Pre-Members */}
-      {isAuthenticated && isPending && (
+      {/* ✅ FIXED: Show banner only for pre-members (isPending=true, isMember=false) */}
+      {isAuthenticated && isPending() && !isMember() && (
         <div className="membership-banner">
           <div className="banner-content">
             <div className="banner-text">
@@ -249,38 +320,6 @@ const Towncrier = () => {
           </div>
         </div>
       )}
-
-      {/* Access Level Information
-      {isAuthenticated && (
-        <div className="access-level-info">
-          <div className="access-content">
-            {isMember ? (
-              <div className="full-member-info">
-                <span className="access-icon">💎</span>
-                <span>Full Member - Complete access to all features including Iko chat system</span>
-                <button onClick={() => navigate('/iko')} className="access-btn">
-                  💬 Access Iko Chat
-                </button>
-              </div>
-            ) : isPending ? (
-              <div className="pre-member-info">
-                <span className="access-icon">🌟</span>
-                <span>Pre-Member - Read-only access to educational content</span>
-                <div className="access-restrictions">
-                  <span className="restriction">❌ No commenting</span>
-                  <span className="restriction">❌ No chat access</span>
-                  <span className="restriction">❌ No content creation</span>
-                </div>
-              </div>
-            ) : (
-              <div className="applicant-info">
-                <span className="access-icon">⏳</span>
-                <span>Application under review - Limited access during evaluation</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )} */}
       
       {/* ✅ UPDATED: Viewport with banner detection */}
       <div className={`towncrier_viewport ${hasBanners ? 'with-banners' : ''}`}>
@@ -317,8 +356,8 @@ const Towncrier = () => {
         
         <div className="footer-right">
           <div className="footer-controls">
-            {/* Full Membership Application Button - Only for Pre-Members */}
-            {isAuthenticated && isPending && (
+            {/* ✅ FIXED: Show full membership button only for pre-members */}
+            {isAuthenticated && isPending() && !isMember() && (
               <button 
                 onClick={handleApplyForFullMembership} 
                 className="footer-btn membership-btn"
@@ -331,9 +370,9 @@ const Towncrier = () => {
             <button 
               onClick={handleNavigateToIko} 
               className="footer-btn iko-btn"
-              title={isMember ? "Access Iko Chat" : "Apply for membership to access Iko Chat"}
+              title={isMember() ? "Access Iko Chat" : "Apply for membership to access Iko Chat"}
             >
-              💬 {isMember ? "Iko" : "Join"}
+              💬 {isMember() ? "Iko" : "Join"}
             </button>
             
             {!isAuthenticated ? (
@@ -353,7 +392,7 @@ const Towncrier = () => {
               </>
             ) : (
               <>
-                {!isPending && !isMember && (
+                {!isPending() && !isMember() && (
                   <button 
                     onClick={handleApplyForMembership} 
                     className="footer-btn apply-btn"
@@ -365,7 +404,7 @@ const Towncrier = () => {
                   onClick={() => navigate('/dashboard')} 
                   className="footer-btn membership-btn"
                 >
-                  📊 check Dashboard
+                  📊 Dashboard
                 </button>
                 <button 
                   onClick={handleSignOut} 
@@ -383,4 +422,3 @@ const Towncrier = () => {
 };
 
 export default Towncrier;
-

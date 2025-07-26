@@ -1,26 +1,27 @@
 // ikootaclient/src/components/config/accessMatrix.js
-// ✅ ENHANCED VERSION - Preserving all existing functionality + dashboard fix
+// ✅ STANDARDIZED VERSION - Two Clear Levels: pre_member and member
 
 const ACCESS_MATRIX = {
   // Super Admin - Full access to everything
   super_admin: {
-    routes: ['/', '/admin/*', '/iko', '/towncrier', '/application-survey', '/dashboard'],
+    routes: ['/', '/admin/*', '/iko', '/towncrier', '/application-survey', '/dashboard', '/full-membership/*'],
     api_endpoints: ['ALL'],
     default_redirect: '/admin',
-    dashboard_redirect: '/dashboard', // ✅ NEW: Separate dashboard redirect
-    permissions: ['admin', 'iko', 'towncrier', 'dashboard', 'all'],
+    dashboard_redirect: '/dashboard',
+    permissions: ['admin', 'iko', 'towncrier', 'dashboard', 'membership_management', 'all'],
     userType: 'admin',
     canAccess: {
       iko: true,
       towncrier: true,
       admin: true,
-      dashboard: true
+      dashboard: true,
+      membershipApplication: true
     }
   },
 
-  // Admin - Most access, but maybe not system-level settings
+  // Admin - Most access
   admin: {
-    routes: ['/', '/admin/*', '/iko', '/towncrier', '/dashboard'],
+    routes: ['/', '/admin/*', '/iko', '/towncrier', '/dashboard', '/full-membership/*'],
     api_endpoints: [
       '/admin/*',
       '/membership/*', 
@@ -30,22 +31,24 @@ const ACCESS_MATRIX = {
       '/chats/*'
     ],
     default_redirect: '/admin',
-    dashboard_redirect: '/dashboard', // ✅ NEW: Separate dashboard redirect
-    permissions: ['admin', 'iko', 'towncrier', 'dashboard'],
+    dashboard_redirect: '/dashboard',
+    permissions: ['admin', 'iko', 'towncrier', 'dashboard', 'membership_management'],
     userType: 'admin',
     canAccess: {
       iko: true,
       towncrier: true,
       admin: true,
-      dashboard: true
+      dashboard: true,
+      membershipApplication: true
     }
   },
 
-  // Full Member - Can access Iko chat and member features
+  // ✅ MEMBER - Full access (highest non-admin level)
   member: {
     conditions: {
       membership_stage: 'member',
-      is_member: 'member'
+      is_member: 'member',
+      status: 'member'
     },
     routes: ['/', '/iko', '/towncrier', '/dashboard', '/profile'],
     api_endpoints: [
@@ -55,38 +58,97 @@ const ACCESS_MATRIX = {
       '/membership/dashboard'
     ],
     default_redirect: '/iko',
-    dashboard_redirect: '/dashboard', // ✅ NEW: Dashboard buttons always go to dashboard
+    dashboard_redirect: '/dashboard',
     permissions: ['iko', 'towncrier', 'dashboard'],
-    userType: 'full_member',
+    userType: 'member',
     canAccess: {
       iko: true,
       towncrier: true,
       admin: false,
-      dashboard: true
+      dashboard: true,
+      membershipApplication: false // Already a member
     }
   },
 
-  // ✅ CRITICAL FIX: Pre-Member - Separate default navigation from dashboard navigation
-  pre_member: {
+  // ✅ PRE-MEMBER with Pending Membership Application
+  pre_member_pending_upgrade: {
     conditions: {
-      membership_stage: 'pre_member'
+      status: 'pre_member_pending_upgrade',
+      membershipApplicationStatus: 'pending'
     },
-    routes: ['/', '/towncrier', '/dashboard', '/full-membership-intro'],
+    routes: ['/', '/towncrier', '/dashboard', '/full-membership/status', '/full-membership/pending'],
     api_endpoints: [
       '/teachings/*',
       '/membership/dashboard',
-      '/membership/full-membership-status'
+      '/membership/full-membership-status/*'
     ],
-    default_redirect: '/towncrier', // ✅ PRESERVED: For general navigation/login redirects
-    dashboard_redirect: '/dashboard', // ✅ NEW: Dashboard buttons specifically go here
-    permissions: ['towncrier', 'dashboard'],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard', 'membership_status'],
     userType: 'pre_member',
     canAccess: {
       iko: false,
       towncrier: true,
       admin: false,
-      dashboard: true
-    }
+      dashboard: true,
+      membershipApplication: false // Cannot apply while pending
+    },
+    statusMessage: 'Your membership application is under review'
+  },
+
+  // ✅ PRE-MEMBER with Declined Application (can reapply)
+  pre_member_can_reapply: {
+    conditions: {
+      status: 'pre_member_can_reapply',
+      membershipApplicationStatus: 'declined'
+    },
+    routes: ['/', '/towncrier', '/dashboard', '/full-membership/info', '/full-membership/apply', '/full-membership/declined'],
+    api_endpoints: [
+      '/teachings/*',
+      '/membership/dashboard',
+      '/membership/full-membership-status/*',
+      '/membership/full-membership/apply'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard', 'membership_reapply'],
+    userType: 'pre_member',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: true // Can reapply
+    },
+    statusMessage: 'You can reapply for full membership'
+  },
+
+  // ✅ PRE-MEMBER - Eligible for membership application
+  pre_member: {
+    conditions: {
+      membership_stage: 'pre_member',
+      status: 'pre_member',
+      membershipApplicationStatus: ['not_applied', null, undefined]
+    },
+    routes: ['/', '/towncrier', '/dashboard', '/full-membership/info', '/full-membership/apply'],
+    api_endpoints: [
+      '/teachings/*',
+      '/membership/dashboard',
+      '/membership/full-membership-status/*',
+      '/membership/full-membership/apply'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard', 'membership_apply'],
+    userType: 'pre_member',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: true // Can apply
+    },
+    statusMessage: 'You are eligible to apply for full membership'
   },
 
   // Applicant - Very limited access
@@ -97,21 +159,22 @@ const ACCESS_MATRIX = {
     routes: ['/', '/towncrier', '/application-survey', '/application-status', '/dashboard'],
     api_endpoints: [
       '/membership/survey/*',
-      '/teachings/*' // Maybe limited access to some teachings
+      '/teachings/*'
     ],
     default_redirect: '/application-survey',
-    dashboard_redirect: '/dashboard', // ✅ NEW: Dashboard buttons go to dashboard
+    dashboard_redirect: '/dashboard',
     permissions: ['towncrier', 'dashboard'],
     userType: 'applicant',
     canAccess: {
       iko: false,
       towncrier: true,
       admin: false,
-      dashboard: true // ✅ ENHANCED: Allow dashboard access for applicants
+      dashboard: true,
+      membershipApplication: false
     }
   },
 
-  // Applied/Pending users
+  // Applied/Pending users (initial application)
   applied: {
     conditions: {
       is_member: ['applied', 'pending']
@@ -122,14 +185,15 @@ const ACCESS_MATRIX = {
       '/teachings/*'
     ],
     default_redirect: '/towncrier',
-    dashboard_redirect: '/dashboard', // ✅ NEW: Dashboard buttons go to dashboard
+    dashboard_redirect: '/dashboard',
     permissions: ['towncrier', 'dashboard'],
     userType: 'pending',
     canAccess: {
       iko: false,
       towncrier: true,
       admin: false,
-      dashboard: true // ✅ ENHANCED: Allow dashboard access for pending users
+      dashboard: true,
+      membershipApplication: false
     }
   },
 
@@ -138,35 +202,40 @@ const ACCESS_MATRIX = {
     routes: ['/', '/login', '/register', '/signup', '/forgot-password'],
     api_endpoints: [
       '/auth/*',
-      '/teachings/public' // If you have public teachings
+      '/teachings/public'
     ],
     default_redirect: '/login',
-    dashboard_redirect: '/login', // ✅ NEW: Guests go to login when trying to access dashboard
+    dashboard_redirect: '/login',
     permissions: [],
     userType: 'guest',
     canAccess: {
       iko: false,
       towncrier: true,
       admin: false,
-      dashboard: false
+      dashboard: false,
+      membershipApplication: false
     }
   }
 };
 
-// ✅ ENHANCED: Helper function to check access (preserving original logic)
+// ✅ STANDARDIZED: Helper function with clear member/pre_member logic
 const checkUserAccess = (user, requestedRoute = null, requestedEndpoint = null) => {
   if (!user) {
     return ACCESS_MATRIX.guest;
   }
 
-  console.log('🔍 Checking user access for:', {
+  console.log('🔍 Checking user access with standardized levels for:', {
     role: user.role,
     membership_stage: user.membership_stage,
-    is_member: user.is_member
+    is_member: user.is_member,
+    status: user.status,
+    membershipApplicationStatus: user.membershipApplicationStatus
   });
 
-  // ✅ FIXED: Check role-based access first (admin/super_admin)
   const role = user.role?.toLowerCase();
+  const status = user.status || user.finalStatus;
+
+  // ✅ Admin checks (preserved from original)
   if (role === 'super_admin' && ACCESS_MATRIX.super_admin) {
     console.log('👑 Super admin access granted');
     return ACCESS_MATRIX.super_admin;
@@ -177,47 +246,49 @@ const checkUserAccess = (user, requestedRoute = null, requestedEndpoint = null) 
     return ACCESS_MATRIX.admin;
   }
 
-  // ✅ ENHANCED: Check membership-based access with better logic
-  const membershipStage = user.membership_stage?.toLowerCase();
-  const isMember = user.is_member?.toLowerCase();
-
-  // Full member check
-  if ((membershipStage === 'member' && isMember === 'member') || 
-      (isMember === 'member' && membershipStage === 'member')) {
-    console.log('💎 Full member access granted');
-    return ACCESS_MATRIX.member;
+  // ✅ STANDARDIZED: Status-based access
+  switch (status) {
+    case 'member':
+      console.log('💎 Member access granted');
+      return ACCESS_MATRIX.member;
+      
+    case 'pre_member_pending_upgrade':
+      console.log('⏳ Pre-member with pending upgrade access');
+      return ACCESS_MATRIX.pre_member_pending_upgrade;
+      
+    case 'pre_member_can_reapply':
+      console.log('🔄 Pre-member can reapply access');
+      return ACCESS_MATRIX.pre_member_can_reapply;
+      
+    case 'pre_member':
+      console.log('👤 Pre-member access granted');
+      return ACCESS_MATRIX.pre_member;
+      
+    case 'pending_verification':
+    case 'applied':
+      console.log('⏳ Applied/Pending access granted');
+      return ACCESS_MATRIX.applied;
+      
+    default:
+      console.log('📝 Default applicant access granted');
+      return ACCESS_MATRIX.applicant;
   }
-
-  // Pre-member check
-  if (membershipStage === 'pre_member' || 
-      (isMember === 'approved' && membershipStage === 'pre')) {
-    console.log('👤 Pre-member access granted');
-    return ACCESS_MATRIX.pre_member;
-  }
-
-  // Applied/Pending check
-  if (isMember === 'applied' || isMember === 'pending') {
-    console.log('⏳ Applied/Pending access granted');
-    return ACCESS_MATRIX.applied;
-  }
-
-  // Default to applicant for authenticated users
-  console.log('📝 Applicant access granted (fallback)');
-  return ACCESS_MATRIX.applicant;
 };
 
-// ✅ ENHANCED: Usage function (preserving original + new features)
+// ✅ STANDARDIZED: Usage function (preserving original structure)
 const getUserAccess = (userData) => {
   if (!userData) {
     return {
       userType: 'guest',
       defaultRoute: '/',
-      dashboardRoute: '/login', // ✅ NEW: Separate dashboard route
+      dashboardRoute: '/login',
       permissions: [],
       canAccess: ACCESS_MATRIX.guest.canAccess,
       canAccessIko: false,
       canAccessAdmin: false,
       canAccessTowncrier: true,
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'not_eligible',
       allowedRoutes: ACCESS_MATRIX.guest.routes,
       allowedEndpoints: ACCESS_MATRIX.guest.api_endpoints
     };
@@ -226,35 +297,68 @@ const getUserAccess = (userData) => {
   const access = checkUserAccess(userData);
   
   return {
-    // ✅ NEW: Enhanced properties
     userType: access.userType,
-    defaultRoute: access.default_redirect, // ✅ PRESERVED: For general navigation
-    dashboardRoute: access.dashboard_redirect, // ✅ NEW: Specifically for dashboard buttons
+    defaultRoute: access.default_redirect,
+    dashboardRoute: access.dashboard_redirect,
     permissions: access.permissions || [],
     canAccess: access.canAccess,
+    statusMessage: access.statusMessage,
     
     // ✅ PRESERVED: Original properties
     canAccessIko: access.routes.includes('/iko'),
     canAccessAdmin: access.routes.some(route => route.startsWith('/admin')),
     canAccessTowncrier: access.routes.includes('/towncrier'),
+    
+    // ✅ STANDARDIZED: Membership properties
+    canApplyForMembership: access.canAccess?.membershipApplication === true && 
+                          userData.membershipApplicationStatus === 'not_applied',
+    canReapplyForMembership: access.canAccess?.membershipApplication === true && 
+                            userData.membershipApplicationStatus === 'declined',
+    membershipApplicationStatus: userData.membershipApplicationStatus || 'not_applied',
+    membershipTicket: userData.membershipTicket,
+    
     allowedRoutes: access.routes,
     allowedEndpoints: access.api_endpoints
   };
 };
 
-// ✅ NEW: Get dashboard route function (SOLUTION FOR THE REDIRECT ISSUE)
-export const getDashboardRoute = (userData) => {
+// ✅ STANDARDIZED: Membership application route function
+export const getMembershipApplicationRoute = (userData) => {
   const access = getUserAccess(userData);
-  return access.dashboardRoute || '/dashboard'; // Always return dashboard route
+  const status = userData?.membershipApplicationStatus;
+  
+  switch (status) {
+    case 'not_applied':
+      return access.canApplyForMembership ? '/full-membership/info' : '/towncrier';
+    case 'pending':
+      return '/full-membership/pending';
+    case 'approved':
+      return '/iko'; // Members go to Iko
+    case 'declined':
+      return '/full-membership/declined';
+    default:
+      return '/dashboard';
+  }
 };
 
-// ✅ NEW: Get default route function (for general navigation - preserved functionality)
-export const getDefaultRoute = (userData) => {
+export const canAccessMembershipFeature = (userData, feature) => {
   const access = getUserAccess(userData);
-  return access.defaultRoute;
+  
+  switch (feature) {
+    case 'apply':
+      return access.canApplyForMembership;
+    case 'reapply':
+      return access.canReapplyForMembership;
+    case 'status':
+      return access.userType !== 'guest';
+    case 'iko_chat':
+      return access.canAccessIko;
+    default:
+      return false;
+  }
 };
 
-// ✅ NEW: Check if user can access a specific route (preserved functionality)
+// ✅ PRESERVED: Route checking from original
 export const canAccessRoute = (userData, route) => {
   const access = getUserAccess(userData);
   
@@ -276,7 +380,28 @@ export const canAccessRoute = (userData, route) => {
     return true;
   }
   
-  // Check specific access properties
+  // ✅ STANDARDIZED: Membership route checks
+  if (route.startsWith('/full-membership/')) {
+    const subRoute = route.replace('/full-membership/', '');
+    
+    switch (subRoute) {
+      case 'info':
+      case 'apply':
+        return access.canApplyForMembership || access.canReapplyForMembership;
+      case 'pending':
+        return userData?.membershipApplicationStatus === 'pending';
+      case 'approved':
+        return userData?.membershipApplicationStatus === 'approved';
+      case 'declined':
+        return userData?.membershipApplicationStatus === 'declined';
+      case 'status':
+        return access.userType !== 'guest';
+      default:
+        return access.canAccess.membershipApplication;
+    }
+  }
+  
+  // ✅ PRESERVED: Original route checks
   switch (route) {
     case '/admin':
       return access.canAccess.admin;
@@ -291,24 +416,33 @@ export const canAccessRoute = (userData, route) => {
   }
 };
 
-// ✅ NEW: Get user status string (preserved functionality)
+// ✅ STANDARDIZED: User status with clear levels (updated for member vs full_member)
 export const getUserStatusString = (userData) => {
   if (!userData) return 'guest';
   
   const role = userData.role?.toLowerCase();
   const memberStatus = userData.is_member?.toLowerCase();
   const membershipStage = userData.membership_stage?.toLowerCase();
+  const status = userData.status || userData.finalStatus;
 
   // Admin users
   if (role === 'admin' || role === 'super_admin') return 'admin';
   
-  // Full members
-  if ((memberStatus === 'member' && membershipStage === 'member')) return 'full_member';
-  if (memberStatus === 'approved' && membershipStage === 'full') return 'full_member';
+  // ✅ STANDARDIZED: Member (no more "full_member")
+  if (status === 'member' || 
+      (memberStatus === 'member' && membershipStage === 'member')) {
+    return 'member';
+  }
   
-  // Pre-members
-  if (memberStatus === 'approved' && membershipStage === 'pre') return 'pre_member';
-  if (membershipStage === 'pre_member') return 'pre_member';
+  // ✅ STANDARDIZED: Pre-member states
+  if (status === 'pre_member_pending_upgrade') return 'pre_member_pending_upgrade';
+  if (status === 'pre_member_can_reapply') return 'pre_member_can_reapply';
+  
+  if (status === 'pre_member' || 
+      memberStatus === 'approved' && membershipStage === 'pre' ||
+      membershipStage === 'pre_member') {
+    return 'pre_member';
+  }
   
   // Pending/Applied
   if (memberStatus === 'applied' || memberStatus === 'pending') return 'pending_verification';
@@ -319,21 +453,30 @@ export const getUserStatusString = (userData) => {
   return 'authenticated';
 };
 
-// ✅ NEW: Check endpoint access (preserved functionality)
+// ✅ PRESERVED: Dashboard route function
+export const getDashboardRoute = (userData) => {
+  const access = getUserAccess(userData);
+  return access.dashboardRoute || '/dashboard';
+};
+
+// ✅ PRESERVED: Default route function
+export const getDefaultRoute = (userData) => {
+  const access = getUserAccess(userData);
+  return access.defaultRoute;
+};
+
+// ✅ PRESERVED: Endpoint access check
 export const canAccessEndpoint = (userData, endpoint) => {
   const access = checkUserAccess(userData);
   
-  // Check if user has access to ALL endpoints
   if (access.api_endpoints.includes('ALL')) {
     return true;
   }
   
-  // Check direct endpoint access
   if (access.api_endpoints.includes(endpoint)) {
     return true;
   }
   
-  // Check wildcard endpoint access
   return access.api_endpoints.some(allowedEndpoint => {
     if (allowedEndpoint.endsWith('/*')) {
       const basePath = allowedEndpoint.replace('/*', '');
@@ -350,14 +493,16 @@ export {
   getUserAccess 
 };
 
-// ✅ NEW: Default export for modern import styles
+// ✅ PRESERVED: Default export for modern import styles
 export default {
   ACCESS_MATRIX,
   checkUserAccess,
   getUserAccess,
   getDefaultRoute,
-  getDashboardRoute, // ✅ KEY ADDITION: Separate function for dashboard redirects
+  getDashboardRoute,
   canAccessRoute,
   getUserStatusString,
-  canAccessEndpoint
+  canAccessEndpoint,
+  getMembershipApplicationRoute,
+  canAccessMembershipFeature
 };
