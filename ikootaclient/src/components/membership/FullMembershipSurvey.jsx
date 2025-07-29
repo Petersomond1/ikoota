@@ -1,5 +1,5 @@
-// ikootaclient/src/components/membership/FullMembershipSurvey.jsx
-import React, { useState, useEffect } from "react";
+// ikootaclient/src/components/membership/FullMembershipSurvey.jsx - WITH AUTOSAVE
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from '../auth/UserStatus';
 import api from "../service/api";
@@ -12,6 +12,12 @@ const FullMembershipSurvey = () => {
   const [loading, setLoading] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState('saved'); // 'saving', 'saved', 'error'
+
+  // ✅ AUTOSAVE: Storage keys
+  const STORAGE_KEY = `full_membership_survey_${user?.id || 'guest'}`;
+  const PROGRESS_KEY = `${STORAGE_KEY}_progress`;
 
   // Full Membership Survey Questions
   const questions = [
@@ -65,6 +71,89 @@ const FullMembershipSurvey = () => {
     }
   ];
 
+  // ✅ AUTOSAVE: Load saved data on component mount
+  useEffect(() => {
+    if (user?.id) {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      const savedProgress = localStorage.getItem(PROGRESS_KEY);
+      
+      if (savedData) {
+        try {
+          const parsedData = JSON.parse(savedData);
+          if (parsedData.answers && Array.isArray(parsedData.answers)) {
+            setAnswers(parsedData.answers);
+            setLastSaved(new Date(parsedData.timestamp));
+            console.log('✅ Loaded saved application data:', parsedData);
+          }
+        } catch (error) {
+          console.error('❌ Error loading saved data:', error);
+        }
+      }
+      
+      if (savedProgress) {
+        try {
+          const step = parseInt(savedProgress);
+          if (step >= 0 && step < questions.length) {
+            setCurrentStep(step);
+          }
+        } catch (error) {
+          console.error('❌ Error loading saved progress:', error);
+        }
+      }
+    }
+  }, [user?.id]);
+
+  // ✅ AUTOSAVE: Save data to localStorage
+  const saveToLocalStorage = useCallback((answersToSave, stepToSave) => {
+    if (!user?.id) return;
+    
+    try {
+      const dataToSave = {
+        answers: answersToSave,
+        timestamp: new Date().toISOString(),
+        currentStep: stepToSave,
+        userId: user.id,
+        username: user.username
+      };
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      localStorage.setItem(PROGRESS_KEY, stepToSave.toString());
+      setLastSaved(new Date());
+      setAutoSaveStatus('saved');
+      
+      console.log('💾 Auto-saved application data');
+    } catch (error) {
+      console.error('❌ Error saving to localStorage:', error);
+      setAutoSaveStatus('error');
+    }
+  }, [user?.id, STORAGE_KEY, PROGRESS_KEY]);
+
+  // ✅ AUTOSAVE: Auto-save when answers change
+  useEffect(() => {
+    if (answers.some(answer => answer.trim().length > 0)) {
+      setAutoSaveStatus('saving');
+      const timeoutId = setTimeout(() => {
+        saveToLocalStorage(answers, currentStep);
+      }, 2000); // Save 2 seconds after user stops typing
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [answers, currentStep, saveToLocalStorage]);
+
+  // ✅ MANUAL SAVE: Function for manual save button
+  const handleManualSave = () => {
+    setAutoSaveStatus('saving');
+    saveToLocalStorage(answers, currentStep);
+  };
+
+  // ✅ CLEAR SAVED DATA: Function to clear localStorage
+  const clearSavedData = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(PROGRESS_KEY);
+    setLastSaved(null);
+    console.log('🗑️ Cleared saved application data');
+  };
+
   useEffect(() => {
     if (!isAuthenticated) {
       alert('Please sign in first to access the full membership survey.');
@@ -76,18 +165,62 @@ const FullMembershipSurvey = () => {
     checkSubmissionStatus();
   }, [isAuthenticated, navigate]);
 
-  const checkSubmissionStatus = async () => {
-    try {
-      const response = await api.get('/membership/full-membership-status');
-      if (response.data.hasSubmitted) {
-        setHasSubmitted(true);
-        alert('You have already submitted a full membership application.');
-        navigate('/full-membership-info');
-      }
-    } catch (error) {
-      console.error('Error checking submission status:', error);
+  // const checkSubmissionStatus = async () => {
+  //   try {
+  //     // ✅ FIXED: Use the correct endpoint with userId
+  //     const response = await api.get(`/membership/full-membership-status/${user.id}`);
+  //     if (response.data.hasSubmitted || response.data.status === 'pending' || response.data.status === 'approved') {
+  //       setHasSubmitted(true);
+  //       // Clear saved data if already submitted
+  //       clearSavedData();
+  //       alert('You have already submitted a full membership application.');
+  //       navigate('/full-membership-info');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error checking submission status:', error);
+  //     // Continue to show the form if there's an error checking status
+  //   }
+  // };
+
+
+const checkSubmissionStatus = async () => {
+  try {
+    // ✅ FIXED: Properly extract userId and handle undefined case
+    const userId = user?.user_id || user?.id;
+    
+    if (!userId) {
+      console.log('No user ID available');
+      return;
     }
-  };
+
+    console.log('🔍 Checking submission status for user:', userId);
+    
+    const response = await api.get(`/membership/full-membership-status/${userId}`);
+    
+    console.log('✅ Submission status response:', response.data);
+    
+    if (response.data.hasApplication || 
+        response.data.status === 'pending' || 
+        response.data.status === 'approved') {
+      setHasSubmitted(true);
+      // Clear saved data if already submitted
+      clearSavedData();
+      alert('You have already submitted a full membership application.');
+      navigate('/full-membership-info');
+    }
+  } catch (error) {
+    console.log('Error checking submission status:', error);
+    
+    // If it's a 404 or 403, that means no application exists, so continue
+    if (error.response?.status === 404 || error.response?.status === 403) {
+      console.log('No existing application found, proceeding with form');
+      return;
+    }
+    
+    // For other errors, continue to show the form
+    console.log('API error, but continuing to show form');
+  }
+};
 
   const generateMembershipTicket = () => {
     const username = user?.username || 'USER';
@@ -126,6 +259,9 @@ const FullMembershipSurvey = () => {
       });
 
       if (response.status === 200 || response.status === 201) {
+        // ✅ SUCCESS: Clear saved data after successful submission
+        clearSavedData();
+        
         alert(`Full Membership application submitted successfully!\n\nYour Membership Ticket: ${membershipTicket}\n\nPlease save this number for your records.`);
         
         navigate('/full-membership-submitted', { 
@@ -137,7 +273,7 @@ const FullMembershipSurvey = () => {
       }
     } catch (error) {
       console.error('Error submitting full membership survey:', error);
-      alert(`Failed to submit application: ${error.response?.data?.message || 'Please try again.'}`);
+      alert(`Failed to submit application: ${error.response?.data?.message || 'Please try again. Your progress has been saved.'}`);
     } finally {
       setLoading(false);
     }
@@ -151,23 +287,44 @@ const FullMembershipSurvey = () => {
 
   const nextStep = () => {
     if (currentStep < questions.length - 1) {
-      setCurrentStep(currentStep + 1);
+      const newStep = currentStep + 1;
+      setCurrentStep(newStep);
+      saveToLocalStorage(answers, newStep);
     }
   };
 
   const prevStep = () => {
     if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+      const newStep = currentStep - 1;
+      setCurrentStep(newStep);
+      saveToLocalStorage(answers, newStep);
     }
   };
 
   const goToStep = (step) => {
     setCurrentStep(step);
+    saveToLocalStorage(answers, step);
   };
 
   const getCompletionPercentage = () => {
     const answeredCount = answers.filter(answer => answer.trim()).length;
     return Math.round((answeredCount / questions.length) * 100);
+  };
+
+  const getAutoSaveStatusDisplay = () => {
+    switch (autoSaveStatus) {
+      case 'saving':
+        return { text: '💾 Saving...', color: '#f59e0b' };
+      case 'saved':
+        return lastSaved ? { 
+          text: `✅ Saved ${lastSaved.toLocaleTimeString()}`, 
+          color: '#10b981' 
+        } : { text: '✅ Saved', color: '#10b981' };
+      case 'error':
+        return { text: '⚠️ Save failed', color: '#ef4444' };
+      default:
+        return { text: '', color: '#6b7280' };
+    }
   };
 
   if (hasSubmitted) {
@@ -183,6 +340,8 @@ const FullMembershipSurvey = () => {
       </div>
     );
   }
+
+  const autoSaveDisplay = getAutoSaveStatusDisplay();
 
   return (
     <div className="full-membership-survey-container">
@@ -203,6 +362,15 @@ const FullMembershipSurvey = () => {
               <span>{answers.filter(a => a.trim()).length} of {questions.length} answered</span>
             </div>
           </div>
+
+          {/* ✅ AUTOSAVE STATUS DISPLAY */}
+          <div className="autosave-status" style={{ 
+            marginTop: '10px', 
+            fontSize: '0.9rem',
+            color: autoSaveDisplay.color 
+          }}>
+            {autoSaveDisplay.text}
+          </div>
         </div>
 
         <div className="applicant-info">
@@ -212,6 +380,38 @@ const FullMembershipSurvey = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="survey-form">
+          {/* ✅ SAVE CONTROLS */}
+          <div className="save-controls" style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '15px',
+            backgroundColor: '#f8fafc',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{ fontSize: '0.9rem', color: '#64748b' }}>
+              Your progress is automatically saved as you type
+            </div>
+            <button 
+              type="button"
+              onClick={handleManualSave}
+              className="btn-save"
+              style={{
+                padding: '8px 16px',
+                fontSize: '0.9rem',
+                backgroundColor: '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              💾 Save Now
+            </button>
+          </div>
+
           <div className="question-navigation">
             <div className="question-tabs">
               {questions.map((_, index) => (

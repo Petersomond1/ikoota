@@ -129,7 +129,7 @@ export const fetchSurveyLogs = async () => {
         sl.updatedAt,
         sl.admin_notes,
         sl.application_type,
-        sl.reviewed_at,
+        sl.reviewedAt,
         sl.reviewed_by,
         sl.application_ticket,
         u.username,
@@ -179,7 +179,7 @@ export const fetchSurveyLogs = async () => {
     
 //     const query = `
 //       UPDATE surveylog 
-//       SET approval_status = ?, verified_by = ?, updated_at = NOW() 
+//       SET approval_status = ?, verified_by = ?, updatedAt = NOW() 
 //       WHERE id = ? AND user_id = ?
 //     `;
     
@@ -223,7 +223,7 @@ export const approveUserSurvey = async (surveyId, userId, status) => {
         SET approval_status = ?, 
             verified_by = 'admin',
             processedAt = NOW(),
-            reviewed_at = NOW(),
+            reviewedAt = NOW(),
             admin_notes = CASE 
               WHEN ? = 'approved' THEN 'Application approved - user granted pre-member access'
               WHEN ? = 'granted' THEN 'Application granted - user granted pre-member access'  
@@ -250,7 +250,7 @@ export const approveUserSurvey = async (surveyId, userId, status) => {
           SET is_member = 'approved',
               membership_stage = 'pre',
               application_status = 'approved',
-              application_reviewed_at = NOW(),
+              application_reviewedAt = NOW(),
               updatedAt = NOW()
           WHERE id = ?
         `;
@@ -263,7 +263,7 @@ export const approveUserSurvey = async (surveyId, userId, status) => {
           SET is_member = 'denied',
               membership_stage = 'none',
               application_status = 'declined',
-              application_reviewed_at = NOW(),
+              application_reviewedAt = NOW(),
               decline_reason = 'Application declined by admin',
               updatedAt = NOW()
           WHERE id = ?
@@ -287,7 +287,7 @@ export const approveUserSurvey = async (surveyId, userId, status) => {
       // ✅ STEP 3: NEW - Update all_applications_status table for tracking
       const statusUpdateQuery = `
         INSERT INTO all_applications_status 
-        (application_type, user_id, username, email, ticket, status, submitted_at, reviewed_at, admin_notes, reviewer_name)
+        (application_type, user_id, username, email, ticket, status, submittedAt, reviewedAt, admin_notes, reviewer_name)
         SELECT 
           'initial' as application_type,
           u.id as user_id,
@@ -295,8 +295,8 @@ export const approveUserSurvey = async (surveyId, userId, status) => {
           u.email,
           u.application_ticket as ticket,
           ? as status,
-          u.application_submitted_at as submitted_at,
-          NOW() as reviewed_at,
+          u.application_submittedAt as submittedAt,
+          NOW() as reviewedAt,
           CASE 
             WHEN ? = 'approved' THEN 'Application approved - user granted pre-member access'
             WHEN ? = 'granted' THEN 'Application granted - user granted pre-member access'  
@@ -308,7 +308,7 @@ export const approveUserSurvey = async (surveyId, userId, status) => {
         WHERE u.id = ?
         ON DUPLICATE KEY UPDATE
           status = VALUES(status),
-          reviewed_at = VALUES(reviewed_at),
+          reviewedAt = VALUES(reviewedAt),
           admin_notes = VALUES(admin_notes)
       `;
       
@@ -386,138 +386,3 @@ const sendApprovalNotificationEmail = async (userId, status) => {
     // Don't throw error - email failure shouldn't break approval process
   }
 };
-
-// //ikootaapi\services\surveyServices.js
-// import db from '../config/db.js';
-// import CustomError from '../utils/CustomError.js';
-// import { sendEmail } from '../utils/email.js';
-// import dotenv from 'dotenv';
-// dotenv.config();
-
-// export const submitSurveyService = async (answers, email) => {
-//   try {
-//     const sql = 'SELECT * FROM users WHERE email = ?';
-//     const user = await db.query(sql, [email]);
-
-//     if (user.length === 0) {
-//       throw new CustomError('no user found issue!', 400);
-//     }
-
-//     const userId = user[0].id;
-
-//     const insertSql = 'INSERT INTO surveylog (user_id, answers) VALUES (?, ?)';
-//     const savedForm = await db.query(insertSql, [userId, JSON.stringify(answers)]);
-
-//     if (savedForm.affectedRows === 0) {
-//       throw new CustomError('data failed to be saved in db', 500);
-//     }
-
-//     await db.query('UPDATE users SET is_member = ? WHERE id = ?', ['pending', userId]);
-
-//     const subject = 'Survey Submission Confirmation';
-//     const text = `Hello ${user[0].username},\n\nThank you for submitting the survey. Your responses have been recorded. Just give us a little time for your account application to be activated.`;
-//     await sendEmail(email, subject, text);
-
-//     const adminEmail = process.env.ADMIN_EMAIL;
-//     const adminSubject = 'New Survey Submission Pending Approval';
-//     const adminText = `A new survey submission has been received from ${user[0].username}. Please review and approve the submission.`;
-//     await sendEmail(adminEmail, adminSubject, adminText);
-
-//     return { success: true };
-//   } catch (error) {
-//     console.log("the issue", error);
-//     throw new CustomError('Form submission failed', 500, error.message);
-//   }
-// };
-
-
-// // Fetch questions from the database
-// export const fetchSurveyQuestions = async () => {
-//   const query = 'SELECT id, question FROM survey_questions';
-//   const rows = await db.query(query);
-//   return rows;
-// };
-
-// // Update questions in the database
-// export const modifySurveyQuestions = async (questions) => {
-//   const deleteQuery = 'DELETE FROM survey_questions';
-//   const insertQuery = 'INSERT INTO survey_questions (question) VALUES ?';
-  
-//   await db.query(deleteQuery); // Clear old questions
-//   const values = questions.map((question) => [question]);
-//   await db.query(insertQuery, [values]); // Insert new questions
-// };
-
-// // Fetch survey logs from the database
-// // export const fetchSurveyLogs = async () => {
-// //   const query = 'SELECT * FROM surveylog';
-// //   const rows = await db.query(query);
-// //   return rows;
-// // };
-
-// export const fetchSurveyLogs = async () => {
-//   try {
-//     console.log('🔍 Fetching survey logs with user information...');
-    
-//     const query = `
-//       SELECT 
-//         sl.id,
-//         sl.user_id,
-//         sl.answers,
-//         sl.approval_status,
-//         sl.createdAt,
-//         sl.updatedAt,
-//         sl.admin_notes,
-//         sl.application_type,
-//         sl.reviewed_at,
-//         sl.reviewed_by,
-//         sl.application_ticket,
-//         u.username,
-//         u.email as user_email,
-//         u.membership_stage,
-//         u.is_member
-//       FROM surveylog sl
-//       INNER JOIN users u ON sl.user_id = u.id
-//       ORDER BY sl.createdAt DESC
-//     `;
-    
-//     const result = await db.query(query);
-//     console.log('🔍 Raw survey logs result:', result);
-    
-//     // ✅ Handle different database result formats
-//     let rows;
-//     if (Array.isArray(result) && result.length > 0) {
-//       // Check if it's MySQL2 format [rows, fields] or direct array
-//       if (Array.isArray(result[0]) && typeof result[0][0] === 'object') {
-//         rows = result[0]; // MySQL2 format
-//         console.log('✅ Using MySQL2 format for survey logs');
-//       } else if (typeof result[0] === 'object' && result[0].id) {
-//         rows = result; // Direct array format
-//         console.log('✅ Using direct array format for survey logs');
-//       } else {
-//         rows = [];
-//         console.log('✅ Empty survey logs result');
-//       }
-//     } else {
-//       rows = [];
-//       console.log('✅ No survey logs found');
-//     }
-    
-//     console.log(`✅ Successfully fetched ${rows.length} survey logs`);
-//     return rows;
-    
-//   } catch (error) {
-//     console.error('❌ Error fetching survey logs:', error);
-//     throw new CustomError(`Failed to fetch survey logs: ${error.message}`, 500);
-//   }
-// };
-
-
-// // Update survey approval status in the database
-// export const approveUserSurvey = async (surveyId, userId, status) => {
-//   const query = `
-//     UPDATE surveylog 
-//     SET approval_status = ?, verified_by = ? 
-//     WHERE id = ? AND user_id = ?`;
-//   await db.query(query, [status, 'admin', surveyId, userId]);
-// };

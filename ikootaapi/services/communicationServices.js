@@ -348,7 +348,7 @@ const logEmailActivity = async (activityData) => {
 const logSMSActivity = async (activityData) => {
   try {
     const sql = `
-      INSERT INTO sms_logs (recipient, message, template, status, sid, error_message, created_at)
+      INSERT INTO sms_logs (recipient, message, template, status, sid, error_message, createdAt)
       VALUES (?, ?, ?, ?, ?, ?, NOW())
     `;
     
@@ -369,7 +369,7 @@ const logSMSActivity = async (activityData) => {
 const logBulkEmailActivity = async (activityData) => {
   try {
     const sql = `
-      INSERT INTO bulk_email_logs (recipients_count, subject, template, successful_count, failed_count, created_at)
+      INSERT INTO bulk_email_logs (recipients_count, subject, template, successful_count, failed_count, createdAt)
       VALUES (?, ?, ?, ?, ?, NOW())
     `;
     
@@ -388,7 +388,7 @@ const logBulkEmailActivity = async (activityData) => {
 const logBulkSMSActivity = async (activityData) => {
   try {
     const sql = `
-      INSERT INTO bulk_sms_logs (recipients_count, message, template, successful_count, failed_count, created_at)
+      INSERT INTO bulk_sms_logs (recipients_count, message, template, successful_count, failed_count, createdAt)
       VALUES (?, ?, ?, ?, ?, NOW())
     `;
     
@@ -421,7 +421,7 @@ export const getCommunicationStats = async (filters = {}) => {
             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_emails,
             COUNT(DISTINCT template) as unique_templates
           FROM email_logs
-          ${startDate && endDate ? 'WHERE created_at BETWEEN ? AND ?' : ''}
+          ${startDate && endDate ? 'WHERE createdAt BETWEEN ? AND ?' : ''}
         `;
         
         const params = startDate && endDate ? [startDate, endDate] : [];
@@ -442,7 +442,7 @@ export const getCommunicationStats = async (filters = {}) => {
             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_sms,
             COUNT(DISTINCT template) as unique_templates
           FROM sms_logs
-          ${startDate && endDate ? 'WHERE created_at BETWEEN ? AND ?' : ''}
+          ${startDate && endDate ? 'WHERE createdAt BETWEEN ? AND ?' : ''}
         `;
         
         const params = startDate && endDate ? [startDate, endDate] : [];

@@ -247,7 +247,7 @@ const Login = () => {
       
       const isNewUser = memberStatus === 'applied' && 
                        membershipStage === 'none' &&
-                       !userData.application_submitted_at;
+                       !userData.application_submittedAt;
       
       console.log('🔄 Fallback survey check:', {
         isNewUser,

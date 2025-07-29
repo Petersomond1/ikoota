@@ -1,22 +1,4 @@
 //ikootaclient\src\components\service\surveypageservice.js
-// import api from "./api";
-// import { useMutation } from "@tanstack/react-query";
-// import axios from 'axios';
-
-
-// export const useSendApplicationsurvey = () => {
-
-// const submitForm = async ( answers) => {
-//     const res = await api.post(
-//        '/survey/submit_applicationsurvey',
-//         answers , 
-//         { withCredentials: true }
-//     );
-//     return res.data;
-// };
-// return useMutation(submitForm);
-// };
-
 import { useMutation } from '@tanstack/react-query';
 import api from './api';
 

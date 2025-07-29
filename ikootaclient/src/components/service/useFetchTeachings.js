@@ -1,7 +1,7 @@
 // ikootaclient/src/components/service/useFetchTeachings.js
 import { useQuery } from '@tanstack/react-query';
 import api from './api';
-import { normalizeTeachingsResponse, enhanceTeaching, debugApiResponse } from '../../components/utils/apiDebugHelper';
+//import { normalizeTeachingsResponse, enhanceTeaching, debugApiResponse } from '../../components/utils/apiDebugHelper';
 
 export const useFetchTeachings = () => {
   return useQuery({

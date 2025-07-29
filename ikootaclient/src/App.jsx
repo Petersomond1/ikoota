@@ -38,6 +38,7 @@ import Admin from './components/admin/Admin';
 import Dashboard from './components/admin/Dashboard';
 import Reports from './components/admin/Reports';
 import AudienceClassMgr from './components/admin/AudienceClassMgr';
+import FullMembershipReviewControls from './components/admin/FullMembershipReviewControls';
 
 // Towncrier components
 import Towncrier from './components/towncrier/Towncrier';
@@ -50,7 +51,7 @@ import IkoControl from './components/iko/IkoControls';
 import SearchControls from './components/search/SearchControls';
 
 // Test component
-import Test from './Test';
+// import Test from './Test';
 
 // Import user dashboard component
 import UserDashboard from './components/user/UserDashboard';
@@ -227,18 +228,21 @@ function App() {
                   <Route path="reports" element={<Reports />} />
                   <Route path="usermanagement" element={<UserManagement />} />
                   <Route path="audienceclassmgr" element={<AudienceClassMgr />} />
-
+                  
+                  {/* ✅ NEW: Full Membership Review Route */}
+                  <Route path="full-membership-review" element={<FullMembershipReviewControls />} />
+                  
                   {/* ✅ ADMIN MEMBERSHIP MANAGEMENT ROUTES */}
                   <Route path="membership/info" element={<FullMembershipInfo />} />
                   <Route path="membership/applications" element={<FullMembershipSurvey />} />
                 </Route>
                 
                 {/* Development/Test route */}
-                <Route path="/test" element={
+                {/* <Route path="/test" element={
                   <ProtectedRoute>
                     <Test />
                   </ProtectedRoute>
-                } />
+                } /> */}
 
                 {/* ✅ CATCHALL: 404 fallback route */}
                 <Route path="*" element={
@@ -284,7 +288,11 @@ export default App;
 
 
 
-// // ikootaclient/src/App.jsx - CORRECTED VERSION WITH PROPER ERROR BOUNDARY
+
+
+
+
+// // ikootaclient/src/App.jsx - FIXED VERSION WITH MEMBERSHIP ROUTES
 // import './App.css';
 // import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
@@ -312,6 +320,12 @@ export default App;
 // import Suspendedverifyinfo from './components/info/Suspendedverifyinfo';
 // import Approveverifyinfo from './components/info/Approveverifyinfo';
 // import Thankyou from './components/info/Thankyou';
+
+// // ✅ MEMBERSHIP COMPONENTS - Import the membership-related components
+// import FullMembershipSurvey from './components/membership/FullMembershipSurvey';
+// import FullMembershipInfo from './components/membership/FullMembershipInfo';
+// import FullMembershipSubmitted from './components/membership/FullMembershipSubmitted';
+// import FullMembershipDeclined from './components/membership/FullMembershipDeclined';
 
 // // Admin components
 // import Admin from './components/admin/Admin';
@@ -419,6 +433,39 @@ export default App;
 //                 } />
 
 //                 {/* 
+//                   ✅ FIXED: MEMBERSHIP ROUTES - For pre-members to apply for full membership
+//                 */}
+//                 <Route path="/full-membership-info" element={
+//                   <ProtectedRoute requirePreMember={true}>
+//                     <FullMembershipInfo />
+//                   </ProtectedRoute>
+//                 } />
+
+//                 <Route path="/full-membership-application" element={
+//                   <ProtectedRoute requirePreMember={true}>
+//                     <FullMembershipSurvey />
+//                   </ProtectedRoute>
+//                 } />
+
+//                 <Route path="/full-membership-survey" element={
+//                   <ProtectedRoute requirePreMember={true}>
+//                     <FullMembershipSurvey />
+//                   </ProtectedRoute>
+//                 } />
+
+//                 <Route path="/full-membership-submitted" element={
+//                   <ProtectedRoute requirePreMember={true}>
+//                     <FullMembershipSubmitted />
+//                   </ProtectedRoute>
+//                 } />
+
+//                 <Route path="/full-membership-declined" element={
+//                   <ProtectedRoute requirePreMember={true}>
+//                     <FullMembershipDeclined />
+//                   </ProtectedRoute>
+//                 } />
+
+//                 {/* 
 //                   ✅ LAYER 2: TOWNCRIER ROUTES - STRICT SECURITY
 //                   ONLY for approved pre-members - NOT for applicants
 //                 */}
@@ -474,6 +521,10 @@ export default App;
 //                   <Route path="reports" element={<Reports />} />
 //                   <Route path="usermanagement" element={<UserManagement />} />
 //                   <Route path="audienceclassmgr" element={<AudienceClassMgr />} />
+
+//                   {/* ✅ ADMIN MEMBERSHIP MANAGEMENT ROUTES */}
+//                   <Route path="membership/info" element={<FullMembershipInfo />} />
+//                   <Route path="membership/applications" element={<FullMembershipSurvey />} />
 //                 </Route>
                 
 //                 {/* Development/Test route */}
@@ -524,6 +575,4 @@ export default App;
 // }
 
 // export default App;
-
-
 

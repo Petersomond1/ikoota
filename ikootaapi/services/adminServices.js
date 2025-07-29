@@ -146,7 +146,7 @@ export const banUserService = async (userId, banReason = 'Admin action') => {
         isbanned = true,
         postingRight = "banned",
         ban_reason = ?,
-        banned_at = NOW()
+        bannedAt = NOW()
       WHERE id = ?
     `;
     
@@ -171,7 +171,7 @@ export const unbanUserService = async (userId) => {
         isbanned = false,
         postingRight = "active",
         ban_reason = NULL,
-        banned_at = NULL
+        bannedAt = NULL
       WHERE id = ?
     `;
     
@@ -191,7 +191,7 @@ export const grantPostingRightsService = async (userId) => {
     
     const sql = `
       UPDATE users 
-      SET postingRight = "active", posting_rights_granted_at = NOW()
+      SET postingRight = "active", posting_rights_grantedAt = NOW()
       WHERE id = ?
     `;
     
@@ -271,7 +271,7 @@ export const approveContentService = async (contentId, contentType = null, admin
       UPDATE content 
       SET 
         approval_status = "approved",
-        approved_at = NOW(),
+        approvedAt = NOW(),
         admin_notes = ?
       WHERE id = ?
     `;
@@ -294,7 +294,7 @@ export const rejectContentService = async (contentId, contentType = null, adminN
       UPDATE content 
       SET 
         approval_status = "rejected",
-        rejected_at = NOW(),
+        rejectedAt = NOW(),
         admin_notes = ?
       WHERE id = ?
     `;

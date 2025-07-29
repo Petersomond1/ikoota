@@ -899,7 +899,7 @@ export const enhancedLogin = async (req, res) => {
       SELECT u.*, 
              COALESCE(sl.approval_status, 'not_submitted') as initial_application_status,
              sl.createdAt as initial_application_date,
-             fma.first_accessed_at as full_membership_accessed,
+             fma.first_accessedAt as full_membership_accessed,
              CASE WHEN fma.user_id IS NOT NULL THEN 1 ELSE 0 END as has_accessed_full_membership
       FROM users u
       LEFT JOIN surveylog sl ON u.id = CAST(sl.user_id AS UNSIGNED) 

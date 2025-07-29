@@ -260,7 +260,7 @@ CREATE TABLE `user_chats` (
   `role` enum('admin','member','owner') NOT NULL,
   `is_muted` tinyint(1) DEFAULT '0',
   `last_read_message_id` varchar(36) DEFAULT NULL,
-  `joined_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `joinedAt` datetime DEFAULT CURRENT_TIMESTAMP,
   `updatedAt` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

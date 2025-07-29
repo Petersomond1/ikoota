@@ -256,7 +256,7 @@ const UserManagement = () => {
     page: 1,
     limit: 20,
     search: '',
-    sortBy: 'submitted_at',
+    sortBy: 'submittedAt',
     sortOrder: 'ASC'
   });
 
@@ -751,7 +751,7 @@ const UserManagement = () => {
                           {application.days_pending} day{application.days_pending !== 1 ? 's' : ''} pending
                         </span>
                         <span className="submitted-date">
-                          Submitted: {new Date(application.submitted_at).toLocaleDateString()}
+                          Submitted: {new Date(application.submittedAt).toLocaleDateString()}
                         </span>
                       </div>
                       <span className={`status-badge ${getStatusBadgeClass(application.status)}`}>

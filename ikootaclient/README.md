@@ -14577,3 +14577,26 @@ MySQL [ikoota_db]> select * from verification_codes;
 1 row in set (0.109 sec)
 
 MySQL [ikoota_db]>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

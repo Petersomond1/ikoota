@@ -9,8 +9,8 @@ export const getAllTeachings = async () => {
       SELECT *, prefixed_id, 
              'teaching' as content_type,
              topic as content_title,
-             createdAt as content_created_at,
-             updatedAt as content_updated_at
+             createdAt as content_createdAt,
+             updatedAt as content_updatedAt
       FROM teachings 
       ORDER BY updatedAt DESC, createdAt DESC
     `);
@@ -32,8 +32,8 @@ export const getTeachingsByUserId = async (user_id) => {
       SELECT *, prefixed_id,
              'teaching' as content_type,
              topic as content_title,
-             createdAt as content_created_at,
-             updatedAt as content_updated_at
+             createdAt as content_createdAt,
+             updatedAt as content_updatedAt
       FROM teachings 
       WHERE user_id = ? 
       ORDER BY updatedAt DESC, createdAt DESC
@@ -62,8 +62,8 @@ export const getTeachingByPrefixedId = async (identifier) => {
         SELECT *, prefixed_id,
                'teaching' as content_type,
                topic as content_title,
-               createdAt as content_created_at,
-               updatedAt as content_updated_at
+               createdAt as content_createdAt,
+               updatedAt as content_updatedAt
         FROM teachings 
         WHERE prefixed_id = ?
       `;
@@ -74,8 +74,8 @@ export const getTeachingByPrefixedId = async (identifier) => {
         SELECT *, prefixed_id,
                'teaching' as content_type,
                topic as content_title,
-               createdAt as content_created_at,
-               updatedAt as content_updated_at
+               createdAt as content_createdAt,
+               updatedAt as content_updatedAt
         FROM teachings 
         WHERE id = ?
       `;
@@ -150,8 +150,8 @@ export const createTeachingService = async (data) => {
       SELECT *, prefixed_id,
              'teaching' as content_type,
              topic as content_title,
-             createdAt as content_created_at,
-             updatedAt as content_updated_at
+             createdAt as content_createdAt,
+             updatedAt as content_updatedAt
       FROM teachings 
       WHERE id = ?
     `, [result.insertId]);
@@ -226,8 +226,8 @@ export const updateTeachingById = async (id, data) => {
       SELECT *, prefixed_id,
              'teaching' as content_type,
              topic as content_title,
-             createdAt as content_created_at,
-             updatedAt as content_updated_at
+             createdAt as content_createdAt,
+             updatedAt as content_updatedAt
       FROM teachings 
       WHERE id = ?
     `, [id]);
@@ -289,8 +289,8 @@ export const getTeachingsByIds = async (ids) => {
       SELECT *, prefixed_id,
              'teaching' as content_type,
              topic as content_title,
-             createdAt as content_created_at,
-             updatedAt as content_updated_at
+             createdAt as content_createdAt,
+             updatedAt as content_updatedAt
       FROM teachings 
       WHERE ${column} IN (${placeholders}) 
       ORDER BY updatedAt DESC, createdAt DESC
@@ -347,8 +347,8 @@ export const searchTeachings = async (filters = {}) => {
       SELECT *, prefixed_id,
              'teaching' as content_type,
              topic as content_title,
-             createdAt as content_created_at,
-             updatedAt as content_updated_at
+             createdAt as content_createdAt,
+             updatedAt as content_updatedAt
       FROM teachings 
       ${whereClause}
       ORDER BY updatedAt DESC, createdAt DESC

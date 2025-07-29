@@ -761,19 +761,19 @@ export const getApplicationStats = async (req, res) => {
         COUNT(CASE WHEN is_member = 'pre_member' THEN 1 END) as active_pre_members,
         COUNT(CASE WHEN is_member = 'member' THEN 1 END) as full_members
       FROM users 
-      WHERE DATE(application_reviewed_at) = CURDATE() OR application_status = 'submitted'
+      WHERE DATE(application_reviewedAt) = CURDATE() OR application_status = 'submitted'
     `);
     
     const [recentActivity] = await db.execute(`
       SELECT 
         u.username,
         u.application_status,
-        u.application_reviewed_at,
+        u.application_reviewedAt,
         reviewer.username as reviewer_name
       FROM users u
       LEFT JOIN users reviewer ON u.reviewed_by = reviewer.id
-      WHERE u.application_reviewed_at >= DATE_SUB(NOW(), INTERVAL 7 DAYS)
-      ORDER BY u.application_reviewed_at DESC
+      WHERE u.application_reviewedAt >= DATE_SUB(NOW(), INTERVAL 7 DAYS)
+      ORDER BY u.application_reviewedAt DESC
       LIMIT 10
     `);
     

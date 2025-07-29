@@ -168,17 +168,17 @@ const MembershipStatus = ({ status, onApplyClick }) => {
           </div>
         )}
 
-        {status.application_submitted_at && (
+        {status.application_submittedAt && (
           <div className="detail-item">
             <strong>Submitted:</strong> 
-            <span>{new Date(status.application_submitted_at).toLocaleDateString()}</span>
+            <span>{new Date(status.application_submittedAt).toLocaleDateString()}</span>
           </div>
         )}
 
-        {status.application_reviewed_at && (
+        {status.application_reviewedAt && (
           <div className="detail-item">
             <strong>Reviewed:</strong> 
-            <span>{new Date(status.application_reviewed_at).toLocaleDateString()}</span>
+            <span>{new Date(status.application_reviewedAt).toLocaleDateString()}</span>
           </div>
         )}
       </div>
@@ -218,9 +218,9 @@ const MembershipStatus = ({ status, onApplyClick }) => {
             <div className="pending-icon">⏳</div>
             <h4>Application Under Review</h4>
             <p>{applicationDescription}</p>
-            {status.application_submitted_at && (
+            {status.application_submittedAt && (
               <small>
-                Submitted on {new Date(status.application_submitted_at).toLocaleDateString()}
+                Submitted on {new Date(status.application_submittedAt).toLocaleDateString()}
               </small>
             )}
           </div>
@@ -965,17 +965,17 @@ export default UserDashboard;
 //           </div>
 //         )}
 
-//         {status.application_submitted_at && (
+//         {status.application_submittedAt && (
 //           <div className="detail-item">
 //             <strong>Submitted:</strong> 
-//             <span>{new Date(status.application_submitted_at).toLocaleDateString()}</span>
+//             <span>{new Date(status.application_submittedAt).toLocaleDateString()}</span>
 //           </div>
 //         )}
 
-//         {status.application_reviewed_at && (
+//         {status.application_reviewedAt && (
 //           <div className="detail-item">
 //             <strong>Reviewed:</strong> 
-//             <span>{new Date(status.application_reviewed_at).toLocaleDateString()}</span>
+//             <span>{new Date(status.application_reviewedAt).toLocaleDateString()}</span>
 //           </div>
 //         )}
 //       </div>
@@ -1015,9 +1015,9 @@ export default UserDashboard;
 //             <div className="pending-icon">⏳</div>
 //             <h4>Application Under Review</h4>
 //             <p>{applicationDescription}</p>
-//             {status.application_submitted_at && (
+//             {status.application_submittedAt && (
 //               <small>
-//                 Submitted on {new Date(status.application_submitted_at).toLocaleDateString()}
+//                 Submitted on {new Date(status.application_submittedAt).toLocaleDateString()}
 //               </small>
 //             )}
 //           </div>

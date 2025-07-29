@@ -1,6 +1,4 @@
-// 2. BACKEND MIDDLEWARE (ikootaapi/middleware/tracingMiddleware.js)
-// ============================================================================
-
+// ikootaapi/middleware/tracingMiddleware.js
 export const tracingMiddleware = (req, res, next) => {
   const traceId = req.headers['x-trace-id'] || `server_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   

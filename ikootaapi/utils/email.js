@@ -161,7 +161,7 @@ export const sendEmailWithTemplate = async (to, templateName, variables = {}) =>
     // Log email in database
     try {
       await db.execute(`
-        INSERT INTO email_logs (recipient, template_name, subject, status, sent_at)
+        INSERT INTO email_logs (recipient, template_name, subject, status, sentAt)
         VALUES (?, ?, ?, 'sent', NOW())
       `, [to, templateName, subject]);
     } catch (logError) {
@@ -177,7 +177,7 @@ export const sendEmailWithTemplate = async (to, templateName, variables = {}) =>
     // Log failed email
     try {
       await db.execute(`
-        INSERT INTO email_logs (recipient, template_name, subject, status, error_message, sent_at)
+        INSERT INTO email_logs (recipient, template_name, subject, status, error_message, sentAt)
         VALUES (?, ?, ?, 'failed', ?, NOW())
       `, [to, templateName, subject || 'Unknown', error.message]);
     } catch (logError) {
