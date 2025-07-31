@@ -1,3 +1,4 @@
+//ikootaclient\src\components\info\Thankyou.jsx
 import React from 'react'
 
 const Thankyou = () => {

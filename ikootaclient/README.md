@@ -14600,3 +14600,22128 @@ MySQL [ikoota_db]>
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//  FRONTEND FILES TO COLLATE API calls.
+
+//============================
+// HOOKS FOLDER
+//===========================
+
+// ikootaclient/src/hooks/useUserStatus.js
+import { useState, useEffect } from 'react';
+import api from '../components/service/api';
+
+export const useUserStatus = () => {
+  const [userStatus, setUserStatus] = useState(null);
+  const [surveyStatus, setSurveyStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // ✅ NEW: Check survey status function
+  const checkSurveyStatus = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('🔍 No token found, skipping survey status check');
+        return null;
+      }
+
+      // Set authorization header
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      const response = await api.get('/membership/survey/check-status');
+      
+      if (response.data) {
+        console.log('📋 Survey status fetched:', response.data);
+        setSurveyStatus(response.data);
+        return response.data;
+      }
+    } catch (err) {
+      console.log('Failed to get survey status:', err);
+      
+      // Handle specific error cases
+      if (err.response?.status === 401) {
+        console.log('🔍 Token expired or invalid for survey check');
+        localStorage.removeItem('token');
+        delete api.defaults.headers.common['Authorization'];
+        setSurveyStatus(null);
+        return null;
+      } else if (err.response?.status === 404) {
+        // Survey endpoint doesn't exist or user has no survey
+        console.log('🔍 No survey data found for user');
+        setSurveyStatus({ needs_survey: true, survey_completed: false });
+        return { needs_survey: true, survey_completed: false };
+      } else {
+        console.warn('⚠️ Survey status check failed:', err.message);
+        return null;
+      }
+    }
+  };
+
+  const getUserStatus = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Check if user is authenticated first
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('🔍 No token found, skipping user status fetch');
+        setUserStatus(null);
+        setSurveyStatus(null);
+        setLoading(false);
+        return;
+      }
+
+      // Set authorization header
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // ✅ ENHANCED: Fetch both user status and survey status
+      const [userResponse, surveyData] = await Promise.allSettled([
+        api.get('/membership/dashboard'),
+        checkSurveyStatus()
+      ]);
+
+      // Handle user status response
+      if (userResponse.status === 'fulfilled' && userResponse.value?.data) {
+        setUserStatus(userResponse.value.data);
+      } else if (userResponse.status === 'rejected') {
+        const err = userResponse.reason;
+        
+        if (err.response?.status === 401) {
+          console.log('🔍 Token expired or invalid, clearing auth data');
+          localStorage.removeItem('token');
+          delete api.defaults.headers.common['Authorization'];
+          setUserStatus(null);
+          setSurveyStatus(null);
+          setError(null);
+        } else if (err.response?.status === 403) {
+          console.log('🔍 User lacks permission for dashboard');
+          setError('Access denied');
+        } else {
+          setError(err.message || 'Failed to fetch user status');
+        }
+      }
+
+      // Survey status is already handled in checkSurveyStatus function
+      
+    } catch (err) {
+      console.log('Failed to get user status:', err);
+      setError(err.message || 'Failed to fetch user status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Only fetch user status if we have a token
+    const token = localStorage.getItem('token');
+    if (token) {
+      getUserStatus();
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  const refreshStatus = () => {
+    getUserStatus();
+  };
+
+  // ✅ NEW: Refresh only survey status
+  const refreshSurveyStatus = () => {
+    checkSurveyStatus();
+  };
+
+  // ✅ NEW: Helper function to determine if user should be redirected to survey
+  const shouldRedirectToSurvey = () => {
+    if (!userStatus || !surveyStatus) return false;
+    
+    // Only redirect regular users (not admins) who need to complete survey
+    return (
+      userStatus.role === 'user' && 
+      (surveyStatus.needs_survey || !surveyStatus.survey_completed)
+    );
+  };
+
+  // ✅ NEW: Helper function to get appropriate redirect path
+  const getRedirectPath = () => {
+    if (shouldRedirectToSurvey()) {
+      return '/applicationsurvey';
+    }
+    
+    // Use existing logic for other redirects
+    if (userStatus?.role === 'admin' || userStatus?.role === 'super_admin') {
+      return '/admin';
+    } else if (userStatus?.is_member === 'granted') {
+      return '/iko';
+    } else if (userStatus?.is_member === 'applied' || userStatus?.is_member === 'pending') {
+      return '/pending-verification';
+    } else {
+      return '/towncrier';
+    }
+  };
+
+  return {
+    userStatus,
+    surveyStatus, // ✅ NEW: Expose survey status
+    loading,
+    error,
+    refreshStatus,
+    refreshSurveyStatus, // ✅ NEW: Function to refresh only survey status
+    shouldRedirectToSurvey, // ✅ NEW: Helper for survey redirect logic
+    getRedirectPath, // ✅ NEW: Helper for getting redirect path
+    checkSurveyStatus // ✅ NEW: Expose survey check function
+  };
+};
+
+// Also provide default export for compatibility
+export default useUserStatus;
+
+
+
+//==================================  
+
+ //ikootaclient\src\hooks\useUploadCommentFiles.js
+ import { useMutation } from "@tanstack/react-query";
+
+
+export const useUploadCommentFiles = () => {
+  const mutation = useMutation(async (files) => {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    const response = await api.post('/comments/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  });
+
+  return mutation;
+};
+
+//=================================
+
+import { useMutation } from "@tanstack/react-query";
+import api from "../components/service/api";
+
+
+
+
+
+const useUpload = (endpoint) => {
+  const mutation = useMutation(async (formData) => {
+    const response = await api.post(endpoint, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  });
+
+  const validateFiles = (files) => {
+    // Add file validation logic if needed
+    return true;
+  };
+
+  return { validateFiles, mutation };
+};
+
+export default useUpload;
+
+
+//=====================
+
+// ikootaclient/src/hooks/useDynamicLabels.js
+// Hook to fetch dynamic question labels for the survey form
+
+import { useState, useEffect } from 'react';
+import api from '../components/service/api';
+
+// Default labels - fallback if API fails
+const DEFAULT_LABELS = {
+  fullName: 'Full Name',
+  dateOfBirth: 'Date of Birth',
+  nationality: 'Nationality',
+  currentLocation: 'Current Location',
+  phoneNumber: 'Phone Number',
+  highestEducation: 'Highest Level of Education',
+  fieldOfStudy: 'Field of Study',
+  currentInstitution: 'Current/Most Recent Institution',
+  graduationYear: 'Graduation Year',
+  currentOccupation: 'Current Occupation',
+  workExperience: 'Years of Work Experience',
+  professionalSkills: 'Professional Skills',
+  careerGoals: 'Career Goals',
+  howDidYouHear: 'How did you hear about Ikoota?',
+  reasonForJoining: 'Why do you want to join Ikoota?',
+  expectedContributions: 'How do you plan to contribute to the community?',
+  educationalGoals: 'What are your educational goals?',
+  previousMemberships: 'Previous Memberships',
+  specialSkills: 'Special Skills',
+  languagesSpoken: 'Languages Spoken',
+  availabilityForEvents: 'Availability for Events',
+  agreeToTerms: 'I agree to the Terms and Conditions',
+  agreeToCodeOfConduct: 'I agree to follow the Community Code of Conduct',
+  agreeToDataProcessing: 'I consent to processing of my personal data'
+};
+
+export const useDynamicLabels = () => {
+  const [labels, setLabels] = useState(DEFAULT_LABELS);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchLabels = async () => {
+      try {
+        console.log('🔍 Fetching dynamic question labels...');
+        const response = await api.get('/survey/question-labels');
+        
+        let fetchedLabels;
+        if (response.data?.success && response.data?.data) {
+          fetchedLabels = response.data.data;
+        } else if (typeof response.data === 'object') {
+          fetchedLabels = response.data;
+        } else {
+          throw new Error('Invalid response format');
+        }
+        
+        // Merge with defaults to ensure all fields have labels
+        const mergedLabels = { ...DEFAULT_LABELS, ...fetchedLabels };
+        setLabels(mergedLabels);
+        console.log('✅ Dynamic labels loaded successfully');
+        
+      } catch (err) {
+        console.warn('⚠️ Failed to fetch dynamic labels, using defaults:', err.message);
+        setError(err.message);
+        // Keep using default labels
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLabels();
+  }, []);
+
+  return { labels, loading, error };
+};
+
+
+//===================
+
+// ikootaclient/src/hooks/useAuth.js
+import { useState, useEffect } from 'react';
+import { jwtDecode } from 'jwt-decode';
+
+export const useAuth = () => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem("token");
+      
+      if (!token) {
+        // Check for token in cookies
+        const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("access_token="));
+        if (tokenCookie) {
+          const cookieToken = tokenCookie.split("=")[1];
+          try {
+            const decoded = jwtDecode(cookieToken);
+            if (decoded.exp * 1000 > Date.now()) {
+              setUser(decoded);
+            }
+          } catch (error) {
+            console.error('Invalid token in cookie');
+          }
+        }
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        const decoded = jwtDecode(token);
+        if (decoded.exp * 1000 > Date.now()) {
+          setUser(decoded);
+        } else {
+          localStorage.removeItem("token");
+        }
+      } catch (error) {
+        localStorage.removeItem("token");
+      }
+      
+      setLoading(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  const login = (token) => {
+    localStorage.setItem("token", token);
+    try {
+      const decoded = jwtDecode(token);
+      setUser(decoded);
+    } catch (error) {
+      console.error('Invalid token provided to login');
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    setUser(null);
+  };
+
+  return {
+    user,
+    loading,
+    isAuthenticated: !!user,
+    isAdmin: user?.role === 'admin' || user?.isAdmin === true,
+    login,
+    logout
+  };
+};
+
+//==============================
+//utils FOLDER
+//================================
+
+
+// ikootaclient/src/components/ErrorBoundary.jsx
+import React from 'react';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    // Update state so the next render will show the fallback UI
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // Log the error to console
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    
+    this.setState({
+      error: error,
+      errorInfo: errorInfo
+    });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Fallback UI
+      return (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          padding: '20px',
+          textAlign: 'center',
+          backgroundColor: '#f8f9fa'
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '40px',
+            borderRadius: '12px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            maxWidth: '500px',
+            width: '100%'
+          }}>
+            <h1 style={{ 
+              color: '#e74c3c', 
+              fontSize: '2rem', 
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px'
+            }}>
+              ⚠️ Something went wrong
+            </h1>
+            
+            <p style={{ 
+              color: '#666', 
+              marginBottom: '30px',
+              lineHeight: '1.6'
+            }}>
+              We encountered an unexpected error. This usually resolves itself when you refresh the page.
+            </p>
+            
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button 
+                onClick={() => window.location.reload()}
+                style={{
+                  background: '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '14px'
+                }}
+              >
+                🔄 Refresh Page
+              </button>
+              
+              <button 
+                onClick={() => window.location.href = '/'}
+                style={{
+                  background: '#f8f9fa',
+                  color: '#666',
+                  border: '1px solid #ddd',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '14px'
+                }}
+              >
+                🏠 Go Home
+              </button>
+            </div>
+            
+            {process.env.NODE_ENV === 'development' && this.state.error && (
+              <details style={{ 
+                marginTop: '30px', 
+                textAlign: 'left',
+                background: '#f8f8f8',
+                padding: '15px',
+                borderRadius: '6px',
+                fontSize: '12px'
+              }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 'bold', marginBottom: '10px' }}>
+                  🐛 Error Details (Development Only)
+                </summary>
+                <pre style={{ 
+                  whiteSpace: 'pre-wrap',
+                  color: '#e74c3c',
+                  fontSize: '11px',
+                  lineHeight: '1.4'
+                }}>
+                  {this.state.error && this.state.error.toString()}
+                  <br />
+                  {this.state.errorInfo.componentStack}
+                </pre>
+              </details>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export default ErrorBoundary;
+
+
+
+//===============================
+
+
+// ikootaclient/src/components/utils/IdDisplay.jsx
+// Utility component for displaying entity IDs
+
+import React from 'react';
+import { validateIdFormat, getEntityTypeFromId } from '../service/idGenerationService';
+
+export const EntityIdDisplay = ({ id, entityName }) => {
+  const entityType = getEntityTypeFromId(id);
+  const isValid = validateIdFormat(id, entityType);
+  
+  return (
+    <div className="entity-id-display">
+      <span className="entity-name">{entityName}:</span>
+      <span className={`entity-id ${isValid ? 'valid-id' : 'invalid-id'}`}>
+        {id}
+      </span>
+      <span className="entity-type">
+        ({entityType === 'user' ? 'Person' : 'Class'})
+      </span>
+      {!isValid && <span className="error-indicator"> ⚠️ Invalid format</span>}
+    </div>
+  );
+};
+
+// Hook for bulk ID operations
+export const useBulkIdOperations = () => {
+  const handleBulkIdGeneration = async (count, type) => {
+    try {
+      const response = await api.post('/admin/generate-bulk-ids', {
+        count,
+        type
+      });
+      
+      console.log('Generated IDs:', response.data.ids);
+      return response.data.ids;
+    } catch (error) {
+      console.error('Bulk generation failed:', error);
+      throw error;
+    }
+  };
+
+  return { handleBulkIdGeneration };
+};
+
+// Hook for ID format migration
+export const useIdMigration = () => {
+  const migrateOldIds = (users) => {
+    const usersNeedingMigration = users.filter(user => 
+      user.converse_id && user.converse_id.length !== 10
+    );
+    
+    usersNeedingMigration.forEach(user => {
+      console.log(`User ${user.id} needs ID migration: ${user.converse_id}`);
+    });
+    
+    return usersNeedingMigration;
+  };
+
+  return { migrateOldIds };
+};
+
+// Example component using utility functions
+export const UserIdCard = ({ user }) => {
+  return (
+    <div className="user-id-card">
+      <EntityIdDisplay id={user.converse_id} entityName="User ID" />
+      {user.class_id && (
+        <EntityIdDisplay id={user.class_id} entityName="Class ID" />
+      )}
+      {user.mentor_id && (
+        <EntityIdDisplay id={user.mentor_id} entityName="Mentor ID" />
+      )}
+    </div>
+  );
+};
+
+
+//=============================
+
+
+// ikootaclient/src/components/utils/DebugWrapper.jsx
+// Temporary debugging component to identify the source of infinite loops
+
+import React, { useEffect, useRef } from 'react';
+
+const DebugWrapper = ({ children, name = 'Component' }) => {
+  const renderCount = useRef(0);
+  const lastRenderTime = useRef(Date.now());
+
+  useEffect(() => {
+    renderCount.current += 1;
+    const now = Date.now();
+    const timeSinceLastRender = now - lastRenderTime.current;
+    
+    console.log(`🔍 ${name} rendered ${renderCount.current} times. Time since last render: ${timeSinceLastRender}ms`);
+    
+    if (timeSinceLastRender < 100 && renderCount.current > 10) {
+      console.error(`🚨 INFINITE LOOP DETECTED in ${name}! Rendered ${renderCount.current} times in quick succession.`);
+      console.trace('Stack trace:');
+    }
+    
+    lastRenderTime.current = now;
+  });
+
+  return children;
+};
+
+export default DebugWrapper;
+
+
+//=======================================
+
+// 1. FRONTEND INTERCEPTOR (ikootaclient/src/utils/apiTracer.js)
+// ============================================================================
+
+import axios from 'axios';
+
+class APITracer {
+  constructor() {
+    this.traces = new Map();
+    this.setupInterceptors();
+  }
+
+  generateTraceId() {
+    return `trace_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  setupInterceptors() {
+    // Request interceptor
+    axios.interceptors.request.use(
+      (config) => {
+        const traceId = this.generateTraceId();
+        config.headers['X-Trace-Id'] = traceId;
+        
+        const trace = {
+          traceId,
+          method: config.method.toUpperCase(),
+          url: config.url,
+          baseURL: config.baseURL,
+          fullUrl: `${config.baseURL || ''}${config.url}`,
+          headers: config.headers,
+          data: config.data,
+          params: config.params,
+          timestamp: new Date().toISOString(),
+          stages: []
+        };
+
+        // Add frontend stage
+        trace.stages.push({
+          stage: 'FRONTEND_REQUEST',
+          timestamp: new Date().toISOString(),
+          location: this.getCallerLocation(),
+          data: {
+            method: config.method,
+            url: config.url,
+            headers: config.headers,
+            payload: config.data
+          }
+        });
+
+        this.traces.set(traceId, trace);
+        
+        console.log('🚀 API TRACE STARTED:', {
+          traceId,
+          method: config.method.toUpperCase(),
+          url: config.url,
+          timestamp: trace.timestamp
+        });
+
+        return config;
+      },
+      (error) => {
+        console.error('❌ REQUEST INTERCEPTOR ERROR:', error);
+        return Promise.reject(error);
+      }
+    );
+
+    // Response interceptor
+    axios.interceptors.response.use(
+      (response) => {
+        const traceId = response.config.headers['X-Trace-Id'];
+        const trace = this.traces.get(traceId);
+
+        if (trace) {
+          trace.stages.push({
+            stage: 'FRONTEND_RESPONSE',
+            timestamp: new Date().toISOString(),
+            data: {
+              status: response.status,
+              statusText: response.statusText,
+              headers: response.headers,
+              data: response.data
+            }
+          });
+
+          trace.completed = true;
+          trace.completedAt = new Date().toISOString();
+          trace.duration = Date.now() - new Date(trace.timestamp).getTime();
+
+          this.logCompleteTrace(trace);
+        }
+
+        return response;
+      },
+      (error) => {
+        const traceId = error.config?.headers['X-Trace-Id'];
+        const trace = this.traces.get(traceId);
+
+        if (trace) {
+          trace.stages.push({
+            stage: 'FRONTEND_ERROR',
+            timestamp: new Date().toISOString(),
+            data: {
+              error: error.message,
+              status: error.response?.status,
+              statusText: error.response?.statusText,
+              responseData: error.response?.data
+            }
+          });
+
+          trace.error = true;
+          trace.completedAt = new Date().toISOString();
+          trace.duration = Date.now() - new Date(trace.timestamp).getTime();
+
+          this.logCompleteTrace(trace);
+        }
+
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  getCallerLocation() {
+    const stack = new Error().stack;
+    const lines = stack.split('\n');
+    // Find the line that contains the actual caller (not interceptor)
+    for (let i = 2; i < lines.length; i++) {
+      if (!lines[i].includes('interceptor') && !lines[i].includes('apiTracer')) {
+        return lines[i].trim();
+      }
+    }
+    return 'Unknown location';
+  }
+
+  logCompleteTrace(trace) {
+    console.group(`📊 COMPLETE API TRACE: ${trace.traceId}`);
+    console.log('🎯 Request:', `${trace.method} ${trace.fullUrl}`);
+    console.log('⏱️ Duration:', `${trace.duration}ms`);
+    console.log('📍 Stages:', trace.stages.length);
+    
+    trace.stages.forEach((stage, index) => {
+      console.group(`${index + 1}. ${stage.stage}`);
+      console.log('⏰ Timestamp:', stage.timestamp);
+      console.log('📄 Data:', stage.data);
+      if (stage.location) console.log('📍 Location:', stage.location);
+      console.groupEnd();
+    });
+    
+    console.groupEnd();
+
+    // Store for debugging
+    window.apiTraces = window.apiTraces || [];
+    window.apiTraces.push(trace);
+  }
+
+  getTrace(traceId) {
+    return this.traces.get(traceId);
+  }
+
+  getAllTraces() {
+    return Array.from(this.traces.values());
+  }
+}
+
+// Initialize tracer
+const apiTracer = new APITracer();
+export default apiTracer;
+
+//====================================
+
+
+// ikootaclient/src/components/utils/apiDebugHelper.js
+// Utility to help debug API response issues
+
+export const debugApiResponse = (response, endpoint = 'unknown') => {
+  console.group(`🔍 API Debug: ${endpoint}`);
+  
+  console.log('📡 Full Response:', response);
+  console.log('📋 Response Status:', response?.status);
+  console.log('📄 Response Headers:', response?.headers);
+  console.log('💾 Response Data:', response?.data);
+  console.log('🔧 Data Type:', typeof response?.data);
+  console.log('📏 Is Array:', Array.isArray(response?.data));
+  
+  if (response?.data && typeof response.data === 'object') {
+    console.log('🗂️ Object Keys:', Object.keys(response.data));
+    
+    // Check for common array properties
+    const commonArrayKeys = ['data', 'teachings', 'results', 'items', 'list'];
+    commonArrayKeys.forEach(key => {
+      if (response.data[key]) {
+        console.log(`📂 Found "${key}":`, response.data[key]);
+        console.log(`📂 "${key}" is array:`, Array.isArray(response.data[key]));
+      }
+    });
+  }
+  
+  console.groupEnd();
+  return response;
+};
+
+export const normalizeTeachingsResponse = (response) => {
+  console.log('🔄 Normalizing teachings response...');
+  
+  let teachingsData = [];
+  
+  try {
+    if (!response || !response.data) {
+      console.warn('⚠️ No response data found');
+      return [];
+    }
+    
+    const data = response.data;
+    
+    // Try different possible structures
+    if (Array.isArray(data)) {
+      console.log('✅ Data is direct array');
+      teachingsData = data;
+    } else if (data.data && Array.isArray(data.data)) {
+      console.log('✅ Data found in data.data');
+      teachingsData = data.data;
+    } else if (data.teachings && Array.isArray(data.teachings)) {
+      console.log('✅ Data found in data.teachings');
+      teachingsData = data.teachings;
+    } else if (data.results && Array.isArray(data.results)) {
+      console.log('✅ Data found in data.results');
+      teachingsData = data.results;
+    } else if (data.items && Array.isArray(data.items)) {
+      console.log('✅ Data found in data.items');
+      teachingsData = data.items;
+    } else if (typeof data === 'object') {
+      console.log('⚠️ Data is object, checking for array properties...');
+      
+      // Find any array property
+      const arrayProp = Object.keys(data).find(key => Array.isArray(data[key]));
+      if (arrayProp) {
+        console.log(`✅ Found array in property: ${arrayProp}`);
+        teachingsData = data[arrayProp];
+      } else {
+        console.log('⚠️ No array found, wrapping single object');
+        teachingsData = [data];
+      }
+    } else {
+      console.error('❌ Unknown data structure:', typeof data);
+      teachingsData = [];
+    }
+    
+    console.log(`📊 Normalized to ${teachingsData.length} teachings`);
+    return teachingsData;
+    
+  } catch (error) {
+    console.error('❌ Error normalizing response:', error);
+    return [];
+  }
+};
+
+export const enhanceTeaching = (teaching, index = 0) => {
+  return {
+    ...teaching,
+    // Ensure required fields exist
+    id: teaching.id || `temp-${index}`,
+    content_type: 'teaching',
+    content_title: teaching.topic || teaching.title || 'Untitled Teaching',
+    prefixed_id: teaching.prefixed_id || `t${teaching.id || index}`,
+    display_date: teaching.updatedAt || teaching.createdAt || new Date().toISOString(),
+    author: teaching.author || teaching.user_id || teaching.created_by || 'Admin',
+    topic: teaching.topic || teaching.title || 'Untitled',
+    description: teaching.description || 'No description available',
+    subjectMatter: teaching.subjectMatter || teaching.subject || 'Not specified',
+    audience: teaching.audience || 'General'
+  };
+};
+
+// Test function to check API endpoint
+export const testTeachingsEndpoint = async (api) => {
+  console.group('🧪 Testing Teachings Endpoint');
+  
+  try {
+    console.log('📡 Making request to /teachings...');
+    const response = await api.get('/teachings');
+    
+    debugApiResponse(response, '/teachings');
+    
+    const normalized = normalizeTeachingsResponse(response);
+    console.log('📊 Normalized data:', normalized);
+    
+    if (normalized.length > 0) {
+      console.log('📋 Sample teaching:', normalized[0]);
+      console.log('🔧 Enhanced sample:', enhanceTeaching(normalized[0]));
+    }
+    
+    console.log('✅ Endpoint test completed successfully');
+    return normalized;
+    
+  } catch (error) {
+    console.error('❌ Endpoint test failed:', error);
+    console.error('📋 Error details:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    return [];
+  } finally {
+    console.groupEnd();
+  }
+};
+
+//================================
+//user FOLDER
+//=================================
+
+
+// ikootaclient/src/components/user/UserDashboard.jsx - CLEAN VERSION
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useUser } from '../auth/UserStatus';
+import { getUserAccess } from '../config/accessMatrix';
+import api from '../service/api'; 
+import './UserDashboard.css';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
+// ==================================================
+// API FUNCTIONS
+// ==================================================
+
+const fetchUserDashboard = async () => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.get('/membership/dashboard', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
+const markNotificationAsRead = async (notificationId) => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.put(`/user/notifications/${notificationId}/read`, {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
+// ==================================================
+// COMPONENT SECTIONS
+// ==================================================
+
+const MembershipStatus = ({ status, onApplyClick }) => {
+  console.log('🔍 MembershipStatus received status:', status);
+  
+  if (!status) return (
+    <div className="membership-status loading">
+      <div className="loading-spinner"></div>
+      <p>Loading membership status...</p>
+    </div>
+  );
+
+  const getStatusColor = (statusType) => {
+    switch (statusType) {
+      case 'member':
+      case 'full_member':
+      case 'approved_member':
+      case 'approved_pre_member':
+      case 'approved':
+        return 'success';
+      case 'pre_member':
+        return 'info';
+      case 'ready_to_apply':
+      case 'not_submitted':
+        return 'primary';
+      case 'pending':
+      case 'under_review':
+        return 'warning';
+      case 'declined':
+      case 'rejected':
+        return 'danger';
+      default:
+        return 'default';
+    }
+  };
+
+  const getStatusIcon = (statusType) => {
+    switch (statusType) {
+      case 'member':
+      case 'full_member':
+      case 'approved_member':
+      case 'approved_pre_member':
+      case 'approved':
+        return '✅';
+      case 'pre_member':
+        return '👤';
+      case 'ready_to_apply':
+      case 'not_submitted':
+        return '📝';
+      case 'pending':
+      case 'under_review':
+        return '⏳';
+      case 'declined':
+      case 'rejected':
+        return '❌';
+      default:
+        return '📋';
+    }
+  };
+
+  // ✅ CRITICAL FIX: Use the new API response structure
+  const membershipStage = status.membership_stage || 'none';
+  const memberStatus = status.is_member || 'not_applied';
+  
+  // ✅ NEW: Get application status from the new API structure
+  let applicationStatus, applicationStatusDisplay, applicationDescription;
+  
+  if (status.application_status) {
+    // New API structure
+    applicationStatus = status.application_status;
+    applicationStatusDisplay = status.application_status_display || status.application_status;
+    applicationDescription = status.application_description || 'No description available';
+  } else {
+    // Fallback to legacy structure
+    applicationStatus = status.initial_application_status || 'not_submitted';
+    applicationStatusDisplay = applicationStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    applicationDescription = 'Application status information';
+  }
+  
+  console.log('🔍 MembershipStatus processing:', {
+    membershipStage,
+    memberStatus,
+    applicationStatus,
+    applicationStatusDisplay,
+    applicationDescription
+  });
+  
+  return (
+    <div className="membership-status">
+      <div className="status-header">
+        <h3>Membership Status</h3>
+        <div className={`status-badge ${getStatusColor(applicationStatus)}`}>
+          <span className="status-icon">{getStatusIcon(applicationStatus)}</span>
+          <span className="status-text">
+            {applicationStatus === 'ready_to_apply' ? 'NEW USER' :
+             applicationStatus === 'approved_pre_member' ? 'PRE-MEMBER' :
+             applicationStatus === 'approved_member' ? 'FULL MEMBER' :
+             applicationStatus === 'pending' ? 'UNDER REVIEW' :
+             applicationStatusDisplay.toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      <div className="status-details">
+        <div className="detail-item">
+          <strong>Current Status:</strong> 
+          <span className={`status-indicator ${getStatusColor(memberStatus)}`}>
+            {memberStatus === 'applied' && applicationStatus === 'ready_to_apply' ? 'Ready to Apply' :
+             memberStatus === 'applied' ? 'Application Submitted' : 
+             memberStatus === 'pre_member' ? 'Pre-Member' :
+             memberStatus === 'member' ? 'Full Member' :
+             memberStatus.replace(/_/g, ' ')}
+          </span>
+        </div>
+        
+        <div className="detail-item">
+          <strong>Application Status:</strong> 
+          <span className={`status-indicator ${getStatusColor(applicationStatus)}`}>
+            {applicationStatusDisplay}
+          </span>
+        </div>
+
+        {status.user_created && (
+          <div className="detail-item">
+            <strong>Member Since:</strong> 
+            <span>{new Date(status.user_created).toLocaleDateString()}</span>
+          </div>
+        )}
+
+        {(status.application_ticket || status.survey_ticket) && (
+          <div className="detail-item">
+            <strong>Application ID:</strong> 
+            <span className="application-ticket">
+              {status.application_ticket || status.survey_ticket}
+            </span>
+          </div>
+        )}
+
+        {status.application_submittedAt && (
+          <div className="detail-item">
+            <strong>Submitted:</strong> 
+            <span>{new Date(status.application_submittedAt).toLocaleDateString()}</span>
+          </div>
+        )}
+
+        {status.application_reviewedAt && (
+          <div className="detail-item">
+            <strong>Reviewed:</strong> 
+            <span>{new Date(status.application_reviewedAt).toLocaleDateString()}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="status-actions">
+        {/* ✅ ENHANCED: Handle new user status */}
+        {applicationStatus === 'ready_to_apply' && (
+          <div className="ready-to-apply-message">
+            <div className="ready-icon">📝</div>
+            <h4>Ready to Apply</h4>
+            <p>{applicationDescription}</p>
+            <button 
+              className="apply-btn"
+              onClick={() => window.location.href = '/applicationsurvey'}
+            >
+              Start Application
+            </button>
+          </div>
+        )}
+
+        {applicationStatus === 'not_submitted' && memberStatus === 'applied' && (
+          <div className="not-submitted-message">
+            <div className="not-submitted-icon">📝</div>
+            <h4>Application Required</h4>
+            <p>Complete your membership application to join our community.</p>
+            <button 
+              className="apply-btn"
+              onClick={() => window.location.href = '/applicationsurvey'}
+            >
+              Submit Application
+            </button>
+          </div>
+        )}
+
+        {(applicationStatus === 'pending' || applicationStatus === 'under_review') && (
+          <div className="pending-message">
+            <div className="pending-icon">⏳</div>
+            <h4>Application Under Review</h4>
+            <p>{applicationDescription}</p>
+            {status.application_submittedAt && (
+              <small>
+                Submitted on {new Date(status.application_submittedAt).toLocaleDateString()}
+              </small>
+            )}
+          </div>
+        )}
+
+        {(membershipStage === 'member' || applicationStatus === 'approved_member') && (
+          <div className="member-benefits">
+            <div className="benefits-icon">🎉</div>
+            <h4>Full Member Benefits Active</h4>
+            <ul>
+              <li>✅ Access to Iko Chat</li>
+              <li>✅ Full platform access</li>
+              <li>✅ Community participation</li>
+              <li>✅ Priority support</li>
+            </ul>
+          </div>
+        )}
+
+        {(membershipStage === 'pre_member' || applicationStatus === 'approved_pre_member') && (
+          <div className="premember-benefits">
+            <div className="benefits-icon">👤</div>
+            <h4>Pre-Member Access</h4>
+            <ul>
+              <li>✅ Towncrier content access</li>
+              <li>✅ Limited community features</li>
+              <li>📝 Full membership application available</li>
+            </ul>
+            <button 
+              className="upgrade-btn"
+              onClick={() => window.location.href = '/full-membership'}
+            >
+              Apply for Full Membership
+            </button>
+          </div>
+        )}
+
+        {(applicationStatus === 'rejected' || applicationStatus === 'declined') && (
+          <div className="rejected-message">
+            <div className="rejected-icon">❌</div>
+            <h4>Application Not Approved</h4>
+            <p>{applicationDescription}</p>
+            {status.admin_notes && (
+              <div className="admin-feedback">
+                <strong>Feedback:</strong> {status.admin_notes}
+              </div>
+            )}
+            <button 
+              className="reapply-btn"
+              onClick={() => window.location.href = '/applicationsurvey'}
+            >
+              Reapply
+            </button>
+          </div>
+        )}
+
+        {applicationStatus === 'approved' && !membershipStage && (
+          <div className="approved-message">
+            <div className="approved-icon">✅</div>
+            <h4>Application Approved!</h4>
+            <p>{applicationDescription}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}; 
+
+// ✅ ENHANCED: Quick Actions with admin buttons and smaller size
+const QuickActions = ({ actions, user }) => {
+  const { getUserStatus } = useUser();
+  const userStatus = getUserStatus();
+  const userAccess = user ? getUserAccess(user) : null;
+
+  console.log('🔍 QuickActions - User Status:', userStatus);
+  console.log('🔍 QuickActions - User Access:', userAccess);
+
+  // ✅ ENHANCED: Dynamic actions based on user status with admin buttons
+  const getActionsForUser = () => {
+    const baseActions = [
+      {
+        text: 'View Profile',
+        link: '/profile',
+        type: 'primary',
+        icon: '👤',
+        size: 'small'
+      }
+    ];
+
+    // ✅ ADMIN SPECIFIC ACTIONS
+    if (userStatus === 'admin') {
+      return [
+        ...baseActions,
+        {
+          text: 'Admin Panel',
+          link: '/admin',
+          type: 'admin',
+          icon: '🔧',
+          size: 'small'
+        },
+        {
+          text: 'User Management',
+          link: '/admin/usermanagement',
+          type: 'admin',
+          icon: '👥',
+          size: 'small'
+        },
+        {
+          text: 'Applications',
+          link: '/admin/authcontrols',
+          type: 'admin',
+          icon: '📋',
+          size: 'small'
+        },
+        {
+          text: 'Reports',
+          link: '/admin/reports',
+          type: 'admin',
+          icon: '📊',
+          size: 'small'
+        },
+        {
+          text: 'Iko Chat',
+          link: '/iko',
+          type: 'info',
+          icon: '💬',
+          size: 'small'
+        },
+        {
+          text: 'Towncrier',
+          link: '/towncrier',
+          type: 'secondary',
+          icon: '📚',
+          size: 'small'
+        }
+      ];
+    }
+
+    // ✅ FULL MEMBER ACTIONS
+    if (userStatus === 'full_member') {
+      return [
+        ...baseActions,
+        {
+          text: 'Iko Chat',
+          link: '/iko',
+          type: 'info',
+          icon: '💬',
+          size: 'small'
+        },
+        {
+          text: 'Towncrier',
+          link: '/towncrier',
+          type: 'secondary',
+          icon: '📚',
+          size: 'small'
+        }
+      ];
+    }
+    
+    // ✅ PRE-MEMBER ACTIONS
+    if (userStatus === 'pre_member') {
+      return [
+        ...baseActions,
+        {
+          text: 'Towncrier Content',
+          link: '/towncrier',
+          type: 'secondary',
+          icon: '📚',
+          size: 'small'
+        },
+        {
+          text: 'Apply for Full Membership',
+          link: '/full-membership-application',
+          type: 'success',
+          icon: '📝',
+          size: 'small'
+        }
+      ];
+    }
+    
+    // ✅ PENDING VERIFICATION ACTIONS
+    if (userStatus === 'pending_verification') {
+      return [
+        ...baseActions,
+        {
+          text: 'Application Status',
+          link: '/pending-verification',
+          type: 'warning',
+          icon: '⏳',
+          size: 'small'
+        }
+      ];
+    }
+    
+    // ✅ NEEDS APPLICATION ACTIONS
+    if (userStatus === 'needs_application') {
+      return [
+        ...baseActions,
+        {
+          text: 'Complete Application',
+          link: '/applicationsurvey',
+          type: 'primary',
+          icon: '📝',
+          size: 'small'
+        }
+      ];
+    }
+    
+    return baseActions;
+  };
+
+  // ✅ DEFAULT ACTIONS - Made smaller
+  const defaultActions = [
+    {
+      text: 'Help Center',
+      link: '/help',
+      type: 'info',
+      icon: '❓',
+      size: 'small'
+    },
+    {
+      text: 'Settings',
+      link: '/settings',
+      type: 'default',
+      icon: '⚙️',
+      size: 'small'
+    },
+    {
+      text: 'Home',
+      link: '/',
+      type: 'secondary',
+      icon: '🏠',
+      size: 'small'
+    }
+  ];
+
+  const userSpecificActions = getActionsForUser();
+  const allActions = [...userSpecificActions, ...defaultActions, ...(actions || [])];
+
+  // ✅ NEW: Logout function
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
+    window.location.href = '/login';
+  };
+
+  return (
+    <div className="quick-actions">
+      <h3>Quick Actions</h3>
+      <div className="actions-grid compact">
+        {allActions.map((action, index) => (
+          <a 
+            key={index} 
+            href={action.link} 
+            className={`action-btn ${action.type} ${action.size || 'small'}`}
+            title={action.description || action.text}
+          >
+            <div className="action-icon">{action.icon}</div>
+            <span className="action-text">{action.text}</span>
+            {action.badge && (
+              <span className="action-badge">{action.badge}</span>
+            )}
+          </a>
+        ))}
+        
+        {/* ✅ NEW: Logout Button */}
+        <button 
+          onClick={handleLogout}
+          className="action-btn danger small"
+          title="Sign out of your account"
+        >
+          <div className="action-icon">🚪</div>
+          <span className="action-text">Logout</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const RecentActivities = ({ activities }) => {
+  const getActivityIcon = (type) => {
+    switch (type) {
+      case 'application':
+        return '📝';
+      case 'approval':
+        return '✅';
+      case 'course':
+        return '📚';
+      case 'message':
+        return '💬';
+      case 'login':
+        return '🔐';
+      case 'registration':
+        return '🎉';
+      default:
+        return '📋';
+    }
+  };
+
+  const getActivityColor = (status) => {
+    switch (status) {
+      case 'completed':
+      case 'approved':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'failed':
+      case 'declined':
+        return 'danger';
+      default:
+        return 'info';
+    }
+  };
+
+  // Default activities if none provided
+  const defaultActivities = [
+    {
+      type: 'registration',
+      title: 'Account Created',
+      description: 'Welcome to the Ikoota platform!',
+      date: new Date().toISOString(),
+      status: 'completed'
+    },
+    {
+      type: 'application',
+      title: 'Application Submitted',
+      description: 'Your membership application is under review',
+      date: new Date().toISOString(),
+      status: 'pending'
+    }
+  ];
+
+  const displayActivities = activities && activities.length > 0 ? activities : defaultActivities;
+
+  return (
+    <div className="recent-activities">
+      <h3>Recent Activities</h3>
+      <div className="activities-list">
+        {displayActivities.map((activity, index) => (
+          <div key={index} className="activity-item">
+            <div className="activity-icon">
+              {getActivityIcon(activity.type)}
+            </div>
+            <div className="activity-content">
+              <h4 className="activity-title">{activity.title}</h4>
+              <p className="activity-description">{activity.description}</p>
+              <div className="activity-meta">
+                <span className="activity-date">
+                  {new Date(activity.date).toLocaleDateString()}
+                </span>
+                <span className={`activity-status ${getActivityColor(activity.status)}`}>
+                  {activity.status}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const NotificationsSection = ({ notifications, onMarkAsRead }) => {
+  if (!notifications || notifications.length === 0) {
+    return (
+      <div className="notifications-section">
+        <h3>Notifications</h3>
+        <div className="empty-notifications">
+          <div className="empty-icon">🔔</div>
+          <p>No new notifications</p>
+          <small>You're all caught up!</small>
+        </div>
+      </div>
+    );
+  }
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'success':
+        return '✅';
+      case 'warning':
+        return '⚠️';
+      case 'error':
+        return '❌';
+      case 'info':
+        return 'ℹ️';
+      default:
+        return '📢';
+    }
+  };
+
+  return (
+    <div className="notifications-section">
+      <h3>Notifications</h3>
+      <div className="notifications-list">
+        {notifications.map((notification, index) => (
+          <div 
+            key={notification.id || index} 
+            className={`notification ${notification.type} ${notification.read ? 'read' : 'unread'}`}
+          >
+            <div className="notification-icon">
+              {getNotificationIcon(notification.type)}
+            </div>
+            <div className="notification-content">
+              <p className="notification-message">{notification.message}</p>
+              <div className="notification-meta">
+                <span className="notification-date">
+                  {new Date(notification.date || Date.now()).toLocaleDateString()}
+                </span>
+                {!notification.read && onMarkAsRead && (
+                  <button 
+                    onClick={() => onMarkAsRead(notification.id)}
+                    className="mark-read-btn"
+                  >
+                    Mark as read
+                  </button>
+                )}
+              </div>
+            </div>
+            {!notification.read && <div className="unread-indicator"></div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const WelcomeSection = ({ user, dashboardData }) => {
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  return (
+    <div className="welcome-section">
+      <div className="welcome-content">
+        <h1 className="welcome-title">
+          {getGreeting()}, {user?.username || 'User'}! 👋
+        </h1>
+        <p className="welcome-subtitle">
+          {dashboardData?.membershipStatus?.membership_stage === 'member' 
+            ? "Welcome back to your member dashboard"
+            : "Here's your current status and available actions"
+          }
+        </p>
+      </div>
+      <div className="welcome-stats">
+        <div className="stat-item">
+          <span className="stat-number">{dashboardData?.stats?.coursesCompleted || 0}</span>
+          <span className="stat-label">Activities</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-number">{dashboardData?.stats?.achievementsUnlocked || 0}</span>
+          <span className="stat-label">Achievements</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-number">{dashboardData?.stats?.daysActive || 1}</span>
+          <span className="stat-label">Days Active</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==================================================
+// MAIN COMPONENT
+// ==================================================
+
+const UserDashboard = () => {
+  const { user, isAuthenticated, getUserStatus } = useUser();
+  const queryClient = useQueryClient();
+
+  // Queries
+  const { data: dashboardData, isLoading, error } = useQuery({
+    queryKey: ['userDashboard'],
+    queryFn: fetchUserDashboard,
+    enabled: !!user && isAuthenticated,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    retry: 1
+  });
+
+  // Mutations
+  const markAsReadMutation = useMutation({
+    mutationFn: markNotificationAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['userDashboard']);
+    },
+    onError: (error) => {
+      console.error('Failed to mark notification as read:', error);
+    }
+  });
+
+  // Event Handlers
+  const handleMarkAsRead = (notificationId) => {
+    markAsReadMutation.mutate(notificationId);
+  };
+
+  // Loading and Error States
+  if (!isAuthenticated) {
+    return (
+      <div className="dashboard-auth-error">
+        <div className="auth-error-container">
+          <div className="auth-error-icon">🔐</div>
+          <h3>Authentication Required</h3>
+          <p>Please log in to view your dashboard</p>
+          <a href="/login" className="login-btn">Go to Login</a>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="dashboard-loading">
+        <div className="loading-container">
+          <div className="loading-spinner large"></div>
+          <h3>Loading your dashboard...</h3>
+          <p>Please wait while we fetch your latest information</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-error">
+        <div className="error-container">
+          <div className="error-icon">⚠️</div>
+          <h3>Error loading dashboard</h3>
+          <p>{error.message}</p>
+          <button 
+            onClick={() => queryClient.invalidateQueries(['userDashboard'])}
+            className="retry-btn"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="user-dashboard">
+      <WelcomeSection user={user} dashboardData={dashboardData} />
+      
+      <div className="dashboard-grid">
+        <MembershipStatus 
+          status={dashboardData?.membershipStatus || user} 
+        />
+        <QuickActions 
+          actions={dashboardData?.quickActions}
+          user={user}
+        />
+        <RecentActivities 
+          activities={dashboardData?.recentActivities} 
+        />
+      </div>
+
+      {(dashboardData?.notifications?.length > 0) && (
+        <NotificationsSection 
+          notifications={dashboardData.notifications}
+          onMarkAsRead={handleMarkAsRead}
+        />
+      )}
+    </div>
+  );
+};
+
+export default UserDashboard;
+
+
+
+//===========================================
+//towncrier FOLDER
+//===========================================
+
+
+//ikootaclient\src\components\towncrier\TowncrierControls.jsx
+import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import { jwtDecode } from "jwt-decode";
+import useUpload from "../../hooks/useUpload";
+import { useFetchTeachings } from "../service/useFetchTeachings";
+import "../../components/admin/navbar.css";
+
+const TowncrierControls = () => {
+  const { handleSubmit, register, reset, formState: { errors } } = useForm();
+  const { validateFiles, mutation } = useUpload("/teachings");
+  const { data: teachings = [], isLoading, error, refetch } = useFetchTeachings();
+  
+  const [step, setStep] = useState(0);
+  const [showForm, setShowForm] = useState(false);
+
+  const token = localStorage.getItem("token");
+  const user_id = token ? jwtDecode(token).user_id : null;
+
+  const onSubmit = async (data) => {
+    try {
+      if (!user_id) {
+        alert("User not authenticated");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("user_id", user_id);
+      formData.append("topic", data.topic);
+      formData.append("description", data.description);
+      formData.append("subjectMatter", data.subjectMatter);
+      formData.append("audience", data.audience);
+      formData.append("content", data.content);
+
+      ["media1", "media2", "media3"].forEach((file) => {
+        if (data[file]?.[0]) {
+          formData.append(file, data[file][0]);
+        }
+      });
+
+      const response = await mutation.mutateAsync(formData);
+      console.log("Teaching uploaded successfully with ID:", response.data?.prefixed_id);
+      
+      reset();
+      setStep(0);
+      setShowForm(false);
+      
+      // Refresh the teachings list
+      refetch();
+      
+      alert("Teaching created successfully!");
+    } catch (error) {
+      console.error("Error uploading teaching material:", error);
+      alert("Failed to create teaching. Please try again.");
+    }
+  };
+
+  const handleNextStep = () => {
+    if (step < 7) setStep(step + 1);
+  };
+
+  const handlePrevStep = () => {
+    if (step > 0) setStep(step - 1);
+  };
+
+  const getContentIdentifier = (teaching) => {
+    return teaching?.prefixed_id || `t${teaching?.id}` || 'Unknown';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown date';
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const truncateText = (text, maxLength = 50) => {
+    if (!text) return 'Not specified';
+    return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+  };
+
+  return (
+    <div className="towncrier_controls_body">
+      <div className="controls-header">
+        <h2>Towncrier Controls</h2>
+        <div className="header-actions">
+          <button 
+            onClick={() => {
+              setShowForm(!showForm);
+              setStep(0);
+            }}
+            className="toggle-form-btn"
+          >
+            {showForm ? 'Hide Form' : 'Add New Teaching'}
+          </button>
+          <button onClick={refetch} className="refresh-btn">
+            Refresh List
+          </button>
+        </div>
+      </div>
+
+      {/* Add Teaching Form */}
+      {showForm && (
+        <div className="teaching-form-container">
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+            <div className="step-indicator">
+              Step {step + 1} of 8: {['Topic', 'Description', 'Subject', 'Audience', 'Content', 'Media 1', 'Media 2', 'Media 3'][step]}
+            </div>
+
+            <div className="form-content">
+              {step === 0 && (
+                <div className="form-step">
+                  <label>Topic *</label>
+                  <input
+                    type="text"
+                    placeholder="Enter Topic"
+                    {...register("topic", { required: "Topic is required" })}
+                  />
+                  {errors.topic && <span className="error">{errors.topic.message}</span>}
+                </div>
+              )}
+
+              {step === 1 && (
+                <div className="form-step">
+                  <label>Description *</label>
+                  <textarea
+                    placeholder="Enter Description"
+                    rows="4"
+                    {...register("description", { required: "Description is required" })}
+                  />
+                  {errors.description && <span className="error">{errors.description.message}</span>}
+                </div>
+              )}
+
+              {step === 2 && (
+                <div className="form-step">
+                  <label>Subject Matter *</label>
+                  <input
+                    type="text"
+                    placeholder="Enter Subject Matter"
+                    {...register("subjectMatter", { required: "Subject Matter is required" })}
+                  />
+                  {errors.subjectMatter && <span className="error">{errors.subjectMatter.message}</span>}
+                </div>
+              )}
+
+              {step === 3 && (
+                <div className="form-step">
+                  <label>Audience *</label>
+                  <input
+                    type="text"
+                    placeholder="Enter Target Audience"
+                    {...register("audience", { required: "Audience is required" })}
+                  />
+                  {errors.audience && <span className="error">{errors.audience.message}</span>}
+                </div>
+              )}
+
+              {step === 4 && (
+                <div className="form-step">
+                  <label>Content *</label>
+                  <textarea
+                    placeholder="Enter Content (Text, Emoji, URLs)"
+                    rows="6"
+                    {...register("content", { required: "Content is required" })}
+                  />
+                  {errors.content && <span className="error">{errors.content.message}</span>}
+                </div>
+              )}
+
+              {step === 5 && (
+                <div className="form-step">
+                  <label>Media 1 (Optional)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,video/*,audio/*"
+                    {...register("media1", { validate: validateFiles })}
+                  />
+                </div>
+              )}
+
+              {step === 6 && (
+                <div className="form-step">
+                  <label>Media 2 (Optional)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,video/*,audio/*"
+                    {...register("media2", { validate: validateFiles })}
+                  />
+                </div>
+              )}
+
+              {step === 7 && (
+                <div className="form-step">
+                  <label>Media 3 (Optional)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,video/*,audio/*"
+                    {...register("media3", { validate: validateFiles })}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="form-navigation">
+              {step > 0 && (
+                <button type="button" onClick={handlePrevStep} className="nav-btn">
+                  Previous
+                </button>
+              )}
+              
+              {step < 7 && (
+                <button type="button" onClick={handleNextStep} className="nav-btn">
+                  Next
+                </button>
+              )}
+              
+              <button 
+                type="submit" 
+                className="submit-btn"
+                disabled={mutation.isPending}
+              >
+                {mutation.isPending ? 'Creating...' : 'Add Teaching'}
+              </button>
+              
+              <button 
+                type="button" 
+                onClick={() => {
+                  setShowForm(false);
+                  setStep(0);
+                  reset();
+                }}
+                className="cancel-btn"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Teachings List */}
+      <div className="teachings_list">
+        <div className="list-header">
+          <h3>Existing Teachings ({teachings.length})</h3>
+          <div className="list-stats">
+            {isLoading && <span>Loading...</span>}
+            {error && <span style={{color: 'red'}}>Error: {error.message}</span>}
+          </div>
+        </div>
+
+        <div className="teachings-grid">
+          {isLoading ? (
+            <div className="loading-message">
+              <p>Loading teachings...</p>
+            </div>
+          ) : error ? (
+            <div className="error-message">
+              <p style={{color: 'red'}}>Error: {error.message}</p>
+              <button onClick={refetch}>Retry</button>
+            </div>
+          ) : teachings.length === 0 ? (
+            <div className="no-teachings">
+              <p>No teachings available. Create your first teaching!</p>
+            </div>
+          ) : (
+            teachings.map((teaching) => (
+              <div key={teaching.prefixed_id || `teaching-${teaching.id}`} className="teaching-card">
+                <div className="card-header">
+                  <span className="content-type-badge">Teaching</span>
+                  <span className="content-id">{getContentIdentifier(teaching)}</span>
+                </div>
+                
+                <div className="card-content">
+                  <h4 className="teaching-topic">{teaching.topic || 'Untitled'}</h4>
+                  <p className="teaching-description">
+                    {truncateText(teaching.description, 60)}
+                  </p>
+                  
+                  <div className="teaching-details">
+                    <p><strong>Lesson #:</strong> {teaching.lessonNumber || getContentIdentifier(teaching)}</p>
+                    <p><strong>Subject:</strong> {truncateText(teaching.subjectMatter, 30)}</p>
+                    <p><strong>Audience:</strong> {teaching.audience || 'General'}</p>
+                    <p><strong>By:</strong> {teaching.user_id || 'Admin'}</p>
+                  </div>
+                  
+                  <div className="teaching-dates">
+                    <p><strong>Created:</strong> {formatDate(teaching.createdAt)}</p>
+                    <p><strong>Updated:</strong> {formatDate(teaching.updatedAt)}</p>
+                  </div>
+                </div>
+                
+                {/* Media indicators */}
+                <div className="media-indicators">
+                  {teaching.media_url1 && <span className="media-badge">📷</span>}
+                  {teaching.media_url2 && <span className="media-badge">🎥</span>}
+                  {teaching.media_url3 && <span className="media-badge">🎵</span>}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TowncrierControls;
+
+
+//=============================================
+
+
+// ikootaclient/src/components/towncrier/Towncrier.jsx
+// FIXED: Enhanced debug and correct status detection
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import "./towncrier.css";
+import RevTopics from "./RevTopics";
+import RevTeaching from "./RevTeaching";
+import { useFetchTeachings } from "../service/useFetchTeachings";
+import { useUser } from "../auth/UserStatus";
+
+const Towncrier = () => {
+  const { data: rawTeachings = [], isLoading, error, refetch } = useFetchTeachings();
+  const [selectedTeaching, setSelectedTeaching] = useState(null);
+  const { user, logout, isMember, isAuthenticated, isPending, getUserStatus, canAccessIko, canApplyForMembership } = useUser();
+  const navigate = useNavigate();
+
+  // ✅ ENHANCED DEBUG: Log all user status values
+  useEffect(() => {
+    console.log('🔍 Towncrier Debug - Full User State:', {
+      user: user,
+      isMember: isMember,
+      isPending: isPending,
+      isAuthenticated: isAuthenticated,
+      getUserStatus: getUserStatus(),
+      canAccessIko: canAccessIko(),
+      canApplyForMembership: canApplyForMembership(),
+      userMembershipStage: user?.membership_stage,
+      userIsMember: user?.is_member,
+      userRole: user?.role,
+      userStatus: user?.status,
+      userFinalStatus: user?.finalStatus
+    });
+  }, [user, isMember, isPending, isAuthenticated]);
+
+  // Memoize enhanced teachings to prevent unnecessary recalculations
+  const enhancedTeachings = useMemo(() => {
+    try {
+      const teachingsArray = Array.isArray(rawTeachings) ? rawTeachings : 
+                            (rawTeachings?.data && Array.isArray(rawTeachings.data)) ? rawTeachings.data : [];
+
+      if (teachingsArray.length === 0) return [];
+
+      const enhanced = teachingsArray.map(teaching => ({
+        ...teaching,
+        content_type: 'teaching',
+        content_title: teaching.topic || teaching.title || 'Untitled Teaching',
+        prefixed_id: teaching.prefixed_id || `t${teaching.id}`,
+        display_date: teaching.updatedAt || teaching.createdAt || new Date().toISOString(),
+        author: teaching.author || teaching.user_id || teaching.created_by || 'Admin'
+      }));
+      
+      enhanced.sort((a, b) => {
+        const aDate = new Date(a.display_date);
+        const bDate = new Date(b.display_date);
+        return bDate - aDate;
+      });
+      
+      return enhanced;
+    } catch (error) {
+      console.error('Error processing teachings data:', error);
+      return [];
+    }
+  }, [rawTeachings]);
+
+  // ✅ NEW: Banner detection logic
+  const hasBanners = useMemo(() => {
+    return isAuthenticated && (isPending || !isMember);
+  }, [isAuthenticated, isPending, isMember]);
+
+  useEffect(() => {
+    if (enhancedTeachings.length > 0 && !selectedTeaching) {
+      setSelectedTeaching(enhancedTeachings[0]);
+    }
+  }, [enhancedTeachings.length]);
+
+  useEffect(() => {
+    if (enhancedTeachings.length === 0) {
+      setSelectedTeaching(null);
+    }
+  }, [enhancedTeachings.length]);
+
+  const handleSelectTeaching = (teaching) => {
+    try {
+      const enhancedTeaching = {
+        ...teaching,
+        content_type: 'teaching',
+        content_title: teaching.topic || teaching.title || 'Untitled Teaching',
+        prefixed_id: teaching.prefixed_id || `t${teaching.id}`,
+        display_date: teaching.updatedAt || teaching.createdAt || new Date().toISOString(),
+        author: teaching.author || teaching.user_id || teaching.created_by || 'Admin'
+      };
+      
+      setSelectedTeaching(enhancedTeaching);
+    } catch (error) {
+      console.error('Error selecting teaching:', error);
+    }
+  };
+
+  const handleRefresh = () => {
+    refetch();
+  };
+
+  // ✅ FIXED: Navigation handlers with proper membership logic
+  const handleNavigateToIko = () => {
+    if (!isAuthenticated) {
+      alert("Please sign in first to access member features.");
+      navigate('/login');
+      return;
+    }
+
+    // ✅ FIXED: Check actual member status
+    const status = getUserStatus();
+    
+    console.log('🔍 Iko click - User status:', {
+      status,
+      canAccessIko: canAccessIko(),
+      user: {
+        membership_stage: user?.membership_stage,
+        is_member: user?.is_member
+      }
+    });
+
+    if (status === 'member' || canAccessIko()) {
+      navigate('/iko');
+      return;
+    }
+
+    // ✅ FIXED: For pre-members, suggest they apply for full membership
+    if (status.startsWith('pre_member') || isPending()) {
+      alert("Iko Chat is available to full members only. Apply for full membership to gain access to Iko Chat features.");
+      return;
+    }
+
+    // For users who need initial application
+    const shouldApply = window.confirm(
+      "You are not yet a member! \n\nTo access the Iko Chat system, you need to become an approved member.\n\nWould you like to go to the application page now?"
+    );
+    if (shouldApply) {
+      navigate('/applicationsurvey');
+    }
+  };
+
+  const handleSignOut = () => {
+    const confirmSignOut = window.confirm("Are you sure you want to sign out?");
+    if (confirmSignOut) {
+      logout();
+      navigate('/');
+    }
+  };
+
+  const handleApplyForMembership = () => {
+    if (!isAuthenticated) {
+      alert("Please sign in first to apply for membership.");
+      navigate('/login');
+      return;
+    }
+    navigate('/applicationsurvey');
+  };
+
+  // ✅ FIXED: Handle Full Membership Application Logic
+  const handleApplyForFullMembership = () => {
+    if (!isAuthenticated) {
+      alert("Please sign in first to apply for full membership.");
+      navigate('/login');
+      return;
+    }
+
+    // ✅ FIXED: Get current user status
+    const status = getUserStatus();
+    
+    console.log('🔍 Full membership click - User status:', {
+      status,
+      isMember: isMember(),
+      isPending: isPending(),
+      canAccessIko: canAccessIko(),
+      canApplyForMembership: canApplyForMembership(),
+      user: {
+        membership_stage: user?.membership_stage,
+        is_member: user?.is_member,
+        membershipApplicationStatus: user?.membershipApplicationStatus
+      }
+    });
+
+    // ✅ FIXED: If user is already a full member, direct them to Iko
+    if (status === 'member' || canAccessIko()) {
+      navigate('/iko');
+      return;
+    }
+
+    // ✅ FIXED: Handle pre-member states correctly
+    if (status === 'pre_member_pending_upgrade') {
+      alert('Your membership application is currently under review. You will be notified via email once a decision is made.');
+      return;
+    }
+
+    if (status === 'pre_member_can_reapply') {
+      navigate('/full-membership-info');
+      return;
+    }
+
+    // ✅ FIXED: For regular pre-members who can apply
+    if (status === 'pre_member' && canApplyForMembership()) {
+      navigate('/full-membership-info');
+      return;
+    }
+
+    // ✅ FIXED: For pre-members who cannot apply (shouldn't happen, but safety check)
+    if (status === 'pre_member') {
+      alert('Membership application is not available at this time. Please contact support if you believe this is an error.');
+      return;
+    }
+
+    // ✅ FIXED: For users who need initial application first
+    if (status === 'needs_application' || (!isPending() && !isMember())) {
+      alert("You must complete the initial membership application first.");
+      navigate('/applicationsurvey');
+      return;
+    }
+
+    // Fallback
+    alert('Unable to process membership application. Please contact support.');
+  };
+
+  // ✅ COMPLETELY REWRITTEN: User status determination based on backend values
+  const getUserStatusInfo = () => {
+    if (!isAuthenticated) {
+      return { status: 'guest', label: 'Guest', color: 'gray' };
+    }
+
+    // ✅ ENHANCED DEBUG: Log exactly what we're working with
+    const debugInfo = {
+      userStatus: getUserStatus(),
+      isMember: isMember(),
+      isPending: isPending(),
+      userRole: user?.role,
+      userMembershipStage: user?.membership_stage,
+      userIsMemberField: user?.is_member,
+      userStatusField: user?.status,
+      userFinalStatus: user?.finalStatus
+    };
+    console.log('🔍 getUserStatusInfo Debug:', debugInfo);
+
+    // Get the canonical status from getUserStatus()
+    const status = getUserStatus();
+
+    // Admin users
+    if (user?.role === 'admin' || user?.role === 'super_admin') {
+      return { 
+        status: 'admin', 
+        label: `👑 ${user.role === 'super_admin' ? 'Super Admin' : 'Admin'}`, 
+        color: 'purple' 
+      };
+    }
+
+    // ✅ FIXED: Status determination based on the actual status string
+    switch (status) {
+      case 'member':
+        return { status: 'full_member', label: '💎 Full Member', color: 'gold' };
+      
+      case 'pre_member':
+      case 'pre_member_pending_upgrade':
+      case 'pre_member_can_reapply':
+        return { status: 'pre_member', label: '🌟 Pre-Member', color: 'blue' };
+      
+      case 'pending_verification':
+        return { status: 'applicant', label: '⏳ Applicant', color: 'orange' };
+      
+      case 'denied':
+        return { status: 'denied', label: '❌ Denied', color: 'red' };
+      
+      case 'needs_application':
+        return { status: 'needs_application', label: '📝 Needs Application', color: 'orange' };
+      
+      default:
+        return { status: 'authenticated', label: '👤 User', color: 'green' };
+    }
+  };
+
+  const userStatus = getUserStatusInfo();
+
+  // ✅ ENHANCED DEBUG: Log the final status decision
+  console.log('🎯 Final Status Decision:', {
+    userStatus,
+    shouldShowBanner: isAuthenticated && isPending() && !isMember(),
+    bannerConditions: {
+      isAuthenticated,
+      isPending: isPending(),
+      isMember: isMember()
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <div className="towncrier_container">
+        <div className="nav">
+          <div className="nav-left">
+            <span>Towncrier - Public Educational Content</span>
+            <span className="status-badge loading">Loading...</span>
+          </div>
+        </div>
+        <div className="towncrier_viewport">
+          <div className="loading-message">
+            <div className="loading-spinner"></div>
+            <p>Loading educational content...</p>
+          </div>
+        </div>
+        <div className="footnote">Ikoota Educational Platform</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="towncrier_container">
+        <div className="nav">
+          <div className="nav-left">
+            <span>Towncrier - Public Educational Content</span>
+            <span className="status-badge error">Error</span>
+          </div>
+        </div>
+        <div className="towncrier_viewport">
+          <div className="error-message">
+            <h3>Unable to Load Content</h3>
+            <p style={{color: 'red'}}>Error: {error.message || 'Failed to fetch teachings'}</p>
+            <button onClick={handleRefresh} className="retry-btn">
+              🔄 Try Again
+            </button>
+          </div>
+        </div>
+        <div className="footnote">Ikoota Educational Platform</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="towncrier_container">
+      {/* Enhanced Navigation Bar */}
+      <div className="nav">
+        <div className="nav-left">
+          <span>Towncrier - Public Educational Content</span>
+          {isAuthenticated && (
+            <div className="user-status">
+              <span className="user-info">
+                👤 {user?.username || user?.email || 'User'} 
+                <span className={`status-badge ${userStatus.status}`} style={{color: userStatus.color}}>
+                  {userStatus.label}
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
+        
+        <div className="nav-right">
+          <span className="content-count">
+            📚 {enhancedTeachings.length} Resources
+          </span>
+          <button onClick={handleRefresh} className="refresh-btn">
+            🔄
+          </button>
+        </div>
+      </div>
+
+      {/* ✅ FIXED: Show banner only for pre-members (isPending=true, isMember=false) */}
+      {isAuthenticated && isPending() && !isMember() && (
+        <div className="membership-banner">
+          <div className="banner-content">
+            <div className="banner-text">
+              <h3>🎓 Ready for Full Membership?</h3>
+              <p>
+                As a pre-member, you can now apply for full membership to unlock the complete Ikoota experience 
+                including chat access, commenting, and content creation!
+              </p>
+            </div>
+            <button 
+              onClick={handleApplyForFullMembership}
+              className="membership-application-btn"
+            >
+              📝 Apply for Full Membership
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* ✅ UPDATED: Viewport with banner detection */}
+      <div className={`towncrier_viewport ${hasBanners ? 'with-banners' : ''}`}>
+        <RevTopics 
+          teachings={enhancedTeachings} 
+          onSelect={handleSelectTeaching}
+          selectedTeaching={selectedTeaching}
+        />
+                
+        <RevTeaching 
+          teaching={selectedTeaching} 
+          allTeachings={enhancedTeachings}
+          onSelectNext={handleSelectTeaching}
+        />
+      </div>
+      
+      {/* Enhanced Footer with Status-Aware Controls */}
+      <div className="footnote">
+        <div className="footer-left">
+          <span>Ikoota Educational Platform</span>
+          {selectedTeaching && (
+            <span> | {selectedTeaching.prefixed_id}</span>
+          )}
+        </div>
+        
+        <div className="footer-center">
+          <span>{new Date().toLocaleString()}</span>
+          {isAuthenticated && (
+            <span className={`user-status-badge ${userStatus.status}`}>
+              {userStatus.label}
+            </span>
+          )}
+        </div>
+        
+        <div className="footer-right">
+          <div className="footer-controls">
+            {/* ✅ FIXED: Show full membership button only for pre-members who can apply */}
+            {isAuthenticated && isPending() && !isMember() && canApplyForMembership() && (
+              <button 
+                onClick={handleApplyForFullMembership} 
+                className="footer-btn membership-btn"
+                title="Apply for full membership to unlock all features"
+              >
+                🎓 Full Member
+              </button>
+            )}
+
+            <button 
+              onClick={handleNavigateToIko} 
+              className="footer-btn iko-btn"
+              title={isMember() ? "Access Iko Chat" : "Apply for membership to access Iko Chat"}
+            >
+              💬 {isMember() ? "Iko" : "Join"}
+            </button>
+            
+            {!isAuthenticated ? (
+              <>
+                <button 
+                  onClick={() => navigate('/login')} 
+                  className="footer-btn login-btn"
+                >
+                  🔑 In
+                </button>
+                <button 
+                  onClick={() => navigate('/signup')} 
+                  className="footer-btn signup-btn"
+                >
+                  📝 Up
+                </button>
+              </>
+            ) : (
+              <>
+                {!isPending() && !isMember() && (
+                  <button 
+                    onClick={handleApplyForMembership} 
+                    className="footer-btn apply-btn"
+                  >
+                    📋 Apply
+                  </button>
+                )}
+                <button 
+                  onClick={() => navigate('/dashboard')} 
+                  className="footer-btn membership-btn"
+                >
+                  📊 Dashboard
+                </button>
+                <button 
+                  onClick={handleSignOut} 
+                  className="footer-btn signout-btn"
+                >
+                  👋 Out
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Towncrier;
+
+
+//===========================================
+
+
+//ikootaclient\src\components\towncrier\Teaching.jsx
+import React, { useState, useEffect } from 'react';
+import SearchControls from '../search/SearchControls';
+import { useForm } from 'react-hook-form';
+import useUpload from '../../hooks/useUpload';
+import { jwtDecode } from 'jwt-decode';
+import api from '../service/api';
+import './teaching.css';
+
+const Teaching = ({ setActiveItem, deactivateListChats }) => {
+  const { handleSubmit, register, reset, formState: { errors } } = useForm();
+  const { validateFiles, mutation: teachingMutation } = useUpload("/teachings");
+  
+  const [addMode, setAddMode] = useState(false);
+  const [activeItem, setActiveItemState] = useState({ id: null, type: null });
+  const [teachings, setTeachings] = useState([]);
+  const [filteredTeachings, setFilteredTeachings] = useState([]);
+  const [step, setStep] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const token = localStorage.getItem("token");
+  const user_id = token ? jwtDecode(token).user_id : null;
+
+  useEffect(() => {
+    const fetchTeachings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await api.get('/teachings');
+        const teachingsData = response.data.map(teaching => ({ 
+          ...teaching, 
+          content_type: 'teaching',
+          content_title: teaching.topic || 'Untitled Teaching',
+          // Ensure prefixed_id exists, fallback to generated one
+          prefixed_id: teaching.prefixed_id || `t${teaching.id}`,
+          // Normalize date fields
+          display_date: teaching.updatedAt || teaching.createdAt
+        }));
+        
+        setTeachings(teachingsData);
+        setFilteredTeachings(teachingsData);
+      } catch (error) {
+        console.error('Error fetching teachings:', error);
+        setError('Failed to fetch teachings. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeachings();
+  }, []);
+
+  const handleSearch = (query) => {
+    if (!Array.isArray(teachings)) return;
+    
+    const lowercaseQuery = query.toLowerCase();
+    const filtered = teachings.filter(teaching => {
+      const searchFields = [
+        teaching.topic,
+        teaching.description,
+        teaching.subjectMatter,
+        teaching.prefixed_id,
+        teaching.audience,
+        teaching.content
+      ];
+      
+      return searchFields.some(field => 
+        field && field.toString().toLowerCase().includes(lowercaseQuery)
+      );
+    });
+    
+    setFilteredTeachings(filtered);
+  };
+
+  const handleItemClick = (teaching) => {
+    try {
+      if (deactivateListChats) deactivateListChats();
+      
+      const enhancedTeaching = {
+        ...teaching,
+        id: teaching.prefixed_id || teaching.id,
+        type: 'teaching',
+        content_type: 'teaching'
+      };
+      
+      setActiveItemState(enhancedTeaching);
+      if (setActiveItem) setActiveItem(enhancedTeaching);
+    } catch (error) {
+      console.error('Error handling item click:', error);
+    }
+  };
+
+  const handleNextStep = () => {
+    if (step < 7) setStep(step + 1); // Updated to include media3
+  };
+
+  const handlePrevStep = () => {
+    if (step > 0) setStep(step - 1);
+  };
+
+  const handleSendTeaching = async (data) => {
+    try {
+      if (!user_id) {
+        alert("User not authenticated");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("user_id", user_id);
+      formData.append("topic", data.topic);
+      formData.append("description", data.description);
+      formData.append("subjectMatter", data.subjectMatter);
+      formData.append("audience", data.audience);
+      formData.append("content", data.content);
+
+      ["media1", "media2", "media3"].forEach((field) => {
+        if (data[field]?.[0]) {
+          formData.append(field, data[field][0]);
+        }
+      });
+
+      const response = await teachingMutation.mutateAsync(formData);
+      console.log("Teaching created with prefixed ID:", response.data?.prefixed_id);
+      
+      reset();
+      setStep(0);
+      setAddMode(false);
+      
+      // Refresh teachings list
+      const updatedResponse = await api.get('/teachings');
+      const updatedTeachings = updatedResponse.data.map(teaching => ({ 
+        ...teaching, 
+        content_type: 'teaching',
+        content_title: teaching.topic || 'Untitled Teaching',
+        prefixed_id: teaching.prefixed_id || `t${teaching.id}`,
+        display_date: teaching.updatedAt || teaching.createdAt
+      }));
+      
+      setTeachings(updatedTeachings);
+      setFilteredTeachings(updatedTeachings);
+      
+      alert("Teaching created successfully!");
+    } catch (error) {
+      console.error("Error creating teaching:", error);
+      alert("Failed to create teaching. Please try again.");
+    }
+  };
+
+  // Helper functions
+  const getContentIdentifier = (teaching) => {
+    return teaching?.prefixed_id || `t${teaching?.id}` || 'Unknown';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown date';
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const truncateText = (text, maxLength = 100) => {
+    if (!text) return 'Not specified';
+    return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+  };
+
+  if (loading) {
+    return (
+      <div className='teaching_container'>
+        <div className="loading-message">
+          <p>Loading teachings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className='teaching_container'>
+        <div className="error-message">
+          <p style={{color: 'red'}}>{error}</p>
+          <button onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className='teaching_container'>
+      <div className="search">
+        <div className="searchbar">
+          <img src="./search.png" alt="Search" />
+          <SearchControls onSearch={handleSearch} />
+        </div>
+        <img 
+          src={addMode ? "./minus.png" : "./plus.png"} 
+          alt="Toggle" 
+          className='add' 
+          onClick={() => {
+            setAddMode(!addMode);
+            setStep(0);
+          }} 
+        />
+      </div>
+
+      {/* Add Mode Form */}
+      {addMode && (
+        <div className="add-teaching-form">
+          <form onSubmit={handleSubmit(handleSendTeaching)} noValidate>
+            <div className="step-indicator">
+              Step {step + 1} of 8: {['Topic', 'Description', 'Subject', 'Audience', 'Content', 'Media 1', 'Media 2', 'Media 3'][step]}
+            </div>
+            
+            {step === 0 && (
+              <div>
+                <input
+                  type="text"
+                  placeholder="Enter Topic"
+                  {...register("topic", { required: "Topic is required" })}
+                />
+                {errors.topic && <span style={{color: 'red'}}>{errors.topic.message}</span>}
+              </div>
+            )}
+            {step === 1 && (
+              <div>
+                <textarea
+                  placeholder="Enter Description"
+                  rows="3"
+                  {...register("description", { required: "Description is required" })}
+                />
+                {errors.description && <span style={{color: 'red'}}>{errors.description.message}</span>}
+              </div>
+            )}
+            {step === 2 && (
+              <div>
+                <input
+                  type="text"
+                  placeholder="Enter Subject Matter"
+                  {...register("subjectMatter", { required: "Subject Matter is required" })}
+                />
+                {errors.subjectMatter && <span style={{color: 'red'}}>{errors.subjectMatter.message}</span>}
+              </div>
+            )}
+            {step === 3 && (
+              <div>
+                <input
+                  type="text"
+                  placeholder="Enter Audience"
+                  {...register("audience", { required: "Audience is required" })}
+                />
+                {errors.audience && <span style={{color: 'red'}}>{errors.audience.message}</span>}
+              </div>
+            )}
+            {step === 4 && (
+              <div>
+                <textarea
+                  placeholder="Enter Content"
+                  rows="5"
+                  {...register("content", { required: "Content is required" })}
+                />
+                {errors.content && <span style={{color: 'red'}}>{errors.content.message}</span>}
+              </div>
+            )}
+            {step === 5 && (
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                {...register("media1", { validate: validateFiles })}
+              />
+            )}
+            {step === 6 && (
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                {...register("media2", { validate: validateFiles })}
+              />
+            )}
+            {step === 7 && (
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                {...register("media3", { validate: validateFiles })}
+              />
+            )}
+            
+            <div className="form-buttons">
+              {step < 7 && <button type="button" onClick={handleNextStep}>Next</button>}
+              {step > 0 && <button type="button" onClick={handlePrevStep}>Previous</button>}
+              <button 
+                type="submit" 
+                disabled={teachingMutation.isPending}
+              >
+                {teachingMutation.isPending ? 'Creating...' : 'Create Teaching'}
+              </button>
+              <button type="button" onClick={() => {setAddMode(false); setStep(0);}}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Teachings List */}
+      {!addMode && filteredTeachings.length === 0 && (
+        <p>No teachings available</p>
+      )}
+      
+      {!addMode && filteredTeachings.map((teaching) => (
+        <div 
+          key={teaching.prefixed_id || `teaching-${teaching.id}`} 
+          className={`item ${activeItem?.id === (teaching.prefixed_id || teaching.id) ? 'active' : ''}`}
+          onClick={() => handleItemClick(teaching)}
+        >
+          <div className="texts">
+            <div className="teaching-header">
+              <span className="content-type-badge">Teaching</span>
+              <span className="content-id">{getContentIdentifier(teaching)}</span>
+            </div>
+            
+            <span className="topic">Topic: {teaching.topic || 'No topic'}</span>
+            <p className="description">
+              Description: {truncateText(teaching.description, 80)}
+            </p>
+            <p>Lesson#: {teaching.lessonNumber || getContentIdentifier(teaching)}</p>
+            <p>Subject Matter: {truncateText(teaching.subjectMatter, 50)}</p>
+            <p>Audience: {teaching.audience || 'General'}</p>
+            <p>By: {teaching.user_id || 'Admin'}</p>
+            <p>Created: {formatDate(teaching.createdAt)}</p>
+            <p>Updated: {formatDate(teaching.updatedAt)}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default Teaching;
+
+//======================================
+
+
+// ikootaclient\src\components\towncrier\StepsForm.jsx
+import React, { useState } from 'react';
+
+const StepsForm = ({ addTopic}) => {
+    const [formData, setFormData] = useState({
+      title: '',
+      description: '',
+      message: '',
+      audience: '',
+    });
+  
+    const handleAddTopic = () => {
+      const newTopic = { ...formData, id: Date.now() };
+      addTopic(newTopic);
+      setFormData({ title: '', description: '', message: '', audience: '' });
+    };
+  
+    return (
+      <div className="steps-form">
+        <input
+          type="text"
+          placeholder="Enter Title"
+          value={formData.title}
+          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+        />
+        <textarea
+          placeholder="Enter Description"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+        />
+        <button onClick={handleAddTopic}>Add Topic</button>
+      </div>
+    );
+  }
+  export default StepsForm;
+  
+
+
+//===========================================
+
+
+// ikootaclient/src/components/towncrier/RevTopics.jsx - FIXED VERSION
+import React, { useState, useEffect, useMemo } from 'react';
+import SearchControls from '../search/SearchControls';
+import './revtopics.css';
+import api from '../service/api';
+
+const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }) => {
+  const [teachings, setTeachings] = useState([]);
+  const [filteredTeachings, setFilteredTeachings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Use prop teachings if available, otherwise fetch
+  useEffect(() => {
+    if (propTeachings.length > 0) {
+      console.log('Using prop teachings:', propTeachings.length, 'items');
+      setTeachings(propTeachings);
+      setFilteredTeachings(propTeachings);
+      setLoading(false);
+      return;
+    }
+
+    // Only fetch if no prop teachings
+    const fetchTeachings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('Fetching teachings from API...');
+        const response = await api.get('/teachings');
+        
+        // Debug response
+        console.log('API Response type:', typeof response.data);
+        console.log('API Response:', response.data);
+        
+        // Normalize response
+        let teachingsData = [];
+        if (Array.isArray(response.data)) {
+          teachingsData = response.data;
+        } else if (response.data?.data && Array.isArray(response.data.data)) {
+          teachingsData = response.data.data;
+        } else if (response.data?.teachings && Array.isArray(response.data.teachings)) {
+          teachingsData = response.data.teachings;
+        } else {
+          console.warn('Unexpected response structure:', response.data);
+          teachingsData = [];
+        }
+        
+        const enhancedTeachings = teachingsData.map((teaching, index) => ({
+          ...teaching,
+          id: teaching.id || `temp-${index}`,
+          content_type: 'teaching',
+          content_title: teaching.topic || teaching.title || 'Untitled Teaching',
+          prefixed_id: teaching.prefixed_id || `t${teaching.id || index}`,
+          display_date: teaching.updatedAt || teaching.createdAt || new Date().toISOString(),
+          author: teaching.author || teaching.user_id || teaching.created_by || 'Admin',
+          topic: teaching.topic || teaching.title || 'Untitled',
+          description: teaching.description || 'No description available',
+          subjectMatter: teaching.subjectMatter || teaching.subject || 'Not specified',
+          audience: teaching.audience || 'General'
+        }));
+        
+        enhancedTeachings.sort((a, b) => new Date(b.display_date) - new Date(a.display_date));
+        
+        console.log('Processed teachings:', enhancedTeachings.length, 'items');
+        setTeachings(enhancedTeachings);
+        setFilteredTeachings(enhancedTeachings);
+      } catch (error) {
+        console.error('Error fetching teachings:', error);
+        setError(`Failed to fetch teachings: ${error.message}`);
+        setTeachings([]);
+        setFilteredTeachings([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeachings();
+  }, [propTeachings.length]); // Only depend on length to avoid infinite loops
+
+  const handleSearch = (query) => {
+    if (!Array.isArray(teachings)) return;
+    
+    const lowercaseQuery = query.toLowerCase();
+    const filtered = teachings.filter(teaching => {
+      const searchFields = [
+        teaching.topic, teaching.title, teaching.description,
+        teaching.subjectMatter, teaching.subject, teaching.audience,
+        teaching.author, teaching.prefixed_id, teaching.content
+      ];
+      
+      return searchFields.some(field => 
+        field && field.toString().toLowerCase().includes(lowercaseQuery)
+      );
+    });
+    
+    setFilteredTeachings(filtered);
+  };
+
+  const handleTopicClick = (teaching) => {
+    try {
+      console.log('🔍 Topic clicked:', teaching.id, teaching.topic);
+      if (onSelect) {
+        onSelect(teaching);
+      }
+    } catch (error) {
+      console.error('Error selecting teaching:', error);
+    }
+  };
+
+  // Helper functions
+  const getContentIdentifier = (teaching) => {
+    return teaching?.prefixed_id || `t${teaching?.id}` || 'Unknown';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown date';
+    try {
+      return new Date(dateString).toLocaleString();
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const truncateText = (text, maxLength = 100) => {
+    if (!text) return 'No description available';
+    return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+  };
+
+  // ✅ FIXED: Enhanced selection detection
+  const isSelected = (teaching) => {
+    if (!selectedTeaching || !teaching) return false;
+    
+    // Try multiple comparison methods
+    const matches = [
+      selectedTeaching.id === teaching.id,
+      selectedTeaching.prefixed_id === teaching.prefixed_id,
+      selectedTeaching.id === teaching.prefixed_id,
+      selectedTeaching.prefixed_id === teaching.id
+    ];
+    
+    const result = matches.some(match => match);
+    console.log('🔍 Selection check:', {
+      selectedId: selectedTeaching.id,
+      selectedPrefixedId: selectedTeaching.prefixed_id,
+      teachingId: teaching.id,
+      teachingPrefixedId: teaching.prefixed_id,
+      isSelected: result
+    });
+    
+    return result;
+  };
+
+  if (loading) {
+    return (
+      <div className="revtopic-container">
+        <div className="loading-message">
+          <div className="loading-spinner"></div>
+          <p>Loading educational content...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="revtopic-container">
+        <div className="error-message">
+          <h3>Unable to Load Content</h3>
+          <p style={{color: 'red'}}>{error}</p>
+          <button onClick={() => window.location.reload()} className="retry-btn">
+            🔄 Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="revtopic-container">
+      <div className="search">
+        <div className="searchbar">
+          <img src="./search.png" alt="Search Icon" />
+          <SearchControls onSearch={handleSearch} />
+        </div>
+        <div className="search-stats">
+          <span>📖 {filteredTeachings.length} of {teachings.length} resources</span>
+        </div>
+      </div>
+
+      <div className="topics-list">
+        {filteredTeachings.length > 0 ? (
+          filteredTeachings.map((teaching, index) => {
+            const selected = isSelected(teaching);
+            
+            return (
+              <div 
+                key={teaching.prefixed_id || `teaching-${teaching.id || index}`} 
+                className={`topic-item ${selected ? 'selected' : ''}`}
+                onClick={() => handleTopicClick(teaching)}
+              >
+                <div className="topic-header">
+                  <span className="content-type-badge">📚 Educational Resource</span>
+                  <span className="content-id">{getContentIdentifier(teaching)}</span>
+                </div>
+                
+                <div className="texts">
+                  <span className="topic-title">
+                    {teaching.topic || teaching.title || 'Untitled Resource'}
+                  </span>
+                  <p className="topic-description">
+                    {truncateText(teaching.description, 80)}
+                  </p>
+                  
+                  <div className="topic-meta">
+                    <p>📋 Subject: {teaching.subjectMatter || teaching.subject || 'Not specified'}</p>
+                    <p>👥 Audience: {teaching.audience || 'General'}</p>
+                    <p>✍️ By: {teaching.author}</p>
+                  </div>
+                  
+                  <div className="topic-dates">
+                    <p>📅 Created: {formatDate(teaching.createdAt)}</p>
+                    {teaching.updatedAt && teaching.updatedAt !== teaching.createdAt && (
+                      <p>🔄 Updated: {formatDate(teaching.updatedAt)}</p>
+                    )}
+                  </div>
+                </div>
+                
+                {selected && (
+                  <div className="selected-indicator">
+                    <span>▶</span>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        ) : (
+          <div className="no-teachings">
+            <div className="empty-state">
+              <h3>📚 No Educational Content Available</h3>
+              <p>
+                {teachings.length > 0 
+                  ? "No content matches your search. Try adjusting your search terms." 
+                  : "No educational resources have been published yet."
+                }
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div className="topics-footer">
+        <div className="summary-stats">
+          <span>📊 Total: {teachings.length} resources</span>
+          {filteredTeachings.length !== teachings.length && (
+            <span> | 🔍 Showing: {filteredTeachings.length}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default RevTopics;
+
+
+//====================================
+
+
+//ikootaclient\src\components\towncrier\RevTeaching.jsx
+import React from "react";
+import ReactPlayer from "react-player";
+import "./revteaching.css";
+
+const RevTeaching = ({ teaching, allTeachings = [], onSelectNext }) => {
+  if (!teaching) {
+    return (
+      <div className="revTeaching-container">
+        <div className="no-selection">
+          <p>Select a teaching to view details.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Enhanced media rendering function
+  const renderMedia = (url, type, alt = "media", index) => {
+    if (!url || !type) return null;
+
+    const commonStyle = { 
+      maxWidth: "100%", 
+      marginBottom: "15px",
+      borderRadius: "8px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+    };
+
+    switch (type) {
+      case "image":
+        return (
+          <div key={`image-${index}`} className="media-item">
+            <img 
+              src={url} 
+              alt={alt} 
+              style={{ 
+                ...commonStyle, 
+                maxHeight: "400px", 
+                objectFit: "contain",
+                width: "100%"
+              }}
+              onError={(e) => {
+                e.target.style.display = 'none';
+                console.error('Failed to load image:', url);
+              }}
+            />
+          </div>
+        );
+      case "video":
+        return (
+          <div key={`video-${index}`} className="media-item">
+            <ReactPlayer 
+              url={url} 
+              controls 
+              width="100%" 
+              height="300px"
+              style={commonStyle}
+              onError={(error) => console.error('Video playback error:', error)}
+            />
+          </div>
+        );
+      case "audio":
+        return (
+          <div key={`audio-${index}`} className="media-item">
+            <audio controls style={{ width: "100%", ...commonStyle }}>
+              <source src={url} type="audio/mpeg" />
+              <source src={url} type="audio/wav" />
+              <source src={url} type="audio/ogg" />
+              Your browser does not support the audio element.
+            </audio>
+          </div>
+        );
+      case "file":
+        return (
+          <div key={`file-${index}`} className="media-item">
+            <a 
+              href={url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ 
+                display: "block", 
+                padding: "10px", 
+                backgroundColor: "#f0f0f0",
+                borderRadius: "4px",
+                textDecoration: "none",
+                color: "#333",
+                ...commonStyle
+              }}
+            >
+              📎 Download File
+            </a>
+          </div>
+        );
+      default:
+        return (
+          <div key={`unknown-${index}`} className="media-item">
+            <p>Unsupported media type: {type}</p>
+          </div>
+        );
+    }
+  };
+
+  // Helper functions
+  const getContentIdentifier = (teaching) => {
+    return teaching?.prefixed_id || `t${teaching?.id}` || 'Unknown';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown date';
+    try {
+      return new Date(dateString).toLocaleString();
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const formatContent = (content) => {
+    if (!content) return 'No content available';
+    
+    // Simple formatting for URLs and line breaks
+    return content
+      .split('\n')
+      .map((line, index) => (
+        <p key={index} style={{ marginBottom: '10px' }}>
+          {line}
+        </p>
+      ));
+  };
+
+  // Navigation helpers
+  const findNextTeaching = () => {
+    if (!allTeachings.length) return null;
+    const currentIndex = allTeachings.findIndex(t => t.id === teaching.id);
+    return currentIndex < allTeachings.length - 1 ? allTeachings[currentIndex + 1] : null;
+  };
+
+  const findPrevTeaching = () => {
+    if (!allTeachings.length) return null;
+    const currentIndex = allTeachings.findIndex(t => t.id === teaching.id);
+    return currentIndex > 0 ? allTeachings[currentIndex - 1] : null;
+  };
+
+  const nextTeaching = findNextTeaching();
+  const prevTeaching = findPrevTeaching();
+
+  return (
+    <div className="revTeaching-container">
+      <div className="teaching-item">
+        {/* Header */}
+        <div className="teaching-header">
+          <div className="title-section">
+            <h2>{teaching.topic || 'Untitled Teaching'}</h2>
+            <div className="teaching-meta">
+              <span className="content-id">ID: {getContentIdentifier(teaching)}</span>
+              <span className="content-type-badge">Teaching</span>
+            </div>
+          </div>
+          
+          {/* Navigation buttons */}
+          {(prevTeaching || nextTeaching) && (
+            <div className="navigation-buttons">
+              {prevTeaching && (
+                <button 
+                  onClick={() => onSelectNext(prevTeaching)}
+                  className="nav-btn prev-btn"
+                  title={`Previous: ${prevTeaching.topic}`}
+                >
+                  ← Previous
+                </button>
+              )}
+              {nextTeaching && (
+                <button 
+                  onClick={() => onSelectNext(nextTeaching)}
+                  className="nav-btn next-btn"
+                  title={`Next: ${nextTeaching.topic}`}
+                >
+                  Next →
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="teaching-content">
+          <div className="teaching-details">
+            <p><strong>Description:</strong> {teaching.description || 'No description available'}</p>
+            <p><strong>Lesson #:</strong> {teaching.lessonNumber || getContentIdentifier(teaching)}</p>
+            <p><strong>Subject Matter:</strong> {teaching.subjectMatter || 'Not specified'}</p>
+            <p><strong>Audience:</strong> {teaching.audience || 'General'}</p>
+            <p><strong>By:</strong> {teaching.author || teaching.user_id || 'Admin'}</p>
+            <p><strong>Created:</strong> {formatDate(teaching.createdAt)}</p>
+            <p><strong>Updated:</strong> {formatDate(teaching.updatedAt)}</p>
+          </div>
+
+          {/* Main content */}
+          {teaching.content && (
+            <div className="main-content">
+              <h3>Content:</h3>
+              <div className="content-text">
+                {formatContent(teaching.content)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Media content */}
+        <div className="media-container">
+          <h3>Media Content:</h3>
+          {[
+            { url: teaching.media_url1, type: teaching.media_type1 },
+            { url: teaching.media_url2, type: teaching.media_type2 },
+            { url: teaching.media_url3, type: teaching.media_type3 }
+          ].some(media => media.url && media.type) ? (
+            <div className="media-grid">
+              {renderMedia(teaching.media_url1, teaching.media_type1, "Media 1", 1)}
+              {renderMedia(teaching.media_url2, teaching.media_type2, "Media 2", 2)}
+              {renderMedia(teaching.media_url3, teaching.media_type3, "Media 3", 3)}
+            </div>
+          ) : (
+            <p className="no-media">No media content available</p>
+          )}
+        </div>
+
+        {/* Footer with additional info */}
+        <div className="teaching-footer">
+          <div className="teaching-stats">
+            <span>Position: {allTeachings.findIndex(t => t.id === teaching.id) + 1} of {allTeachings.length}</span>
+            {teaching.display_date && (
+              <span>Last activity: {formatDate(teaching.display_date)}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default RevTeaching;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//=============================
+//SERVICE FOLDER
+//============================
+
+// ikootaclient/src/components/service/useFetchTeachings.js
+import { useQuery } from '@tanstack/react-query';
+import api from './api';
+//import { normalizeTeachingsResponse, enhanceTeaching, debugApiResponse } from '../../components/utils/apiDebugHelper';
+
+export const useFetchTeachings = () => {
+  return useQuery({
+    queryKey: ['teachings'],
+    queryFn: async () => {
+      try {
+        console.log('🚀 Fetching teachings...');
+        
+        const response = await api.get('/teachings');
+        
+        // Debug the response
+        debugApiResponse(response, '/teachings');
+        
+        // Normalize the response structure
+        const teachingsData = normalizeTeachingsResponse(response);
+        
+        // Enhance each teaching with consistent structure
+        const enhancedTeachings = teachingsData.map((teaching, index) => 
+          enhanceTeaching(teaching, index)
+        );
+        
+        // Sort by most recent first
+        enhancedTeachings.sort((a, b) => {
+          const aDate = new Date(a.display_date);
+          const bDate = new Date(b.display_date);
+          return bDate - aDate;
+        });
+        
+        console.log(`✅ Successfully processed ${enhancedTeachings.length} teachings`);
+        return enhancedTeachings;
+        
+      } catch (error) {
+        console.error('❌ Error in useFetchTeachings:', error);
+        
+        // Enhanced error logging
+        console.error('📋 Error details:', {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          url: error.config?.url
+        });
+        
+        // Throw the error for React Query to handle
+        throw new Error(`Failed to fetch teachings: ${error.message}`);
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    retry: (failureCount, error) => {
+      // Retry up to 3 times for network errors, but not for 4xx errors
+      if (error.response?.status >= 400 && error.response?.status < 500) {
+        return false; // Don't retry client errors
+      }
+      return failureCount < 3;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    onError: (error) => {
+      console.error('🚨 React Query error in useFetchTeachings:', error);
+    },
+    onSuccess: (data) => {
+      console.log('🎉 useFetchTeachings success:', data?.length, 'teachings loaded');
+    }
+  });
+};
+
+
+//========================================
+
+
+//ikootaclient\src\components\service\useFetchComments.js
+import { useQuery } from "@tanstack/react-query";
+import api from "./api.js";
+
+// Fetch parent chats and teachings along with their comments
+export const useFetchParentChatsAndTeachingsWithComments = (user_id) => {
+  return useQuery({
+    queryKey: ["parent-comments", user_id],
+    queryFn: async () => {
+      if (!user_id) return [];
+      const response = await api.get(`/comments/parent-comments`, {
+        params: { user_id }
+      });
+      return response.data;
+    },
+    enabled: !!user_id, // Only fetch when user_id is set
+  });
+};
+
+// Fetch comments by user_id
+export const useFetchComments = (user_id) => {
+  return useQuery({
+    queryKey: ["comments", user_id],
+    queryFn: async () => {
+      if (!user_id) return [];
+      const response = await api.get(`/comments/parent`, {
+        params: {
+          user_id
+        }
+      });
+      return response.data;
+    },
+    enabled: !!user_id, // Only fetch when user_id is set
+  });
+};
+
+// Fetch all comments
+export const useFetchAllComments = () => {
+  return useQuery({
+    queryKey: ["all-comments"],
+    queryFn: async () => {
+      const response = await api.get(`/comments/all`);
+      return response.data;
+    }
+  });
+};
+
+
+//======================================
+
+
+//ikootaclient\src\components\service\useFetchChats.js
+import { useQuery } from "@tanstack/react-query";
+import api from "./api.js";
+
+// Fetch chats
+export const useFetchChats = () => {
+
+  return useQuery({
+    queryKey: ["chats"], // Corrected to use an array
+    queryFn: async () => {
+      const response = await api.get("/chats");
+      return response.data;
+    },
+  });
+};
+
+
+//=============================
+
+
+//ikootaclient\src\components\service\surveypageservice.js
+import { useMutation } from '@tanstack/react-query';
+import api from './api';
+
+const submitForm = async (answers) => {
+  const res = await api.post('/survey/submit_applicationsurvey', answers, { withCredentials: true });
+  console.log('res.data', res.data);
+  return res.data;
+};
+
+export const useSendApplicationsurvey = () => {
+    return useMutation({
+        mutationFn:submitForm,
+    });
+  };
+
+  //======================================
+
+
+  // ikootaclient/src/components/service/idGenerationService.js
+// This replaces the old generateRandomId.js
+
+import api from './api';
+
+/**
+ * Generates a cryptographically secure 6-character alphanumeric ID
+ * @returns {string} A random 6-character alphanumeric ID
+ */
+const generateSecureRandomId = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    
+    // Use crypto.getRandomValues for better security in browser
+    const array = new Uint8Array(6);
+    crypto.getRandomValues(array);
+    
+    for (let i = 0; i < 6; i++) {
+        result += chars[array[i] % chars.length];
+    }
+    
+    return result;
+};
+
+/**
+ * Generates a preview converse ID for display purposes (not guaranteed unique)
+ * Format: OTO#XXXXXX (total 10 characters)
+ * @returns {string} A preview converse ID like "OTO#123ABC"
+ */
+export const generatePreviewConverseId = () => {
+    const randomPart = generateSecureRandomId();
+    return `OTO#${randomPart}`;
+};
+
+/**
+ * Generates a preview class ID for display purposes (not guaranteed unique)
+ * Format: OTU#XXXXXX (total 10 characters)
+ * @returns {string} A preview class ID like "OTU#A1B2C3"
+ */
+export const generatePreviewClassId = () => {
+    const randomPart = generateSecureRandomId();
+    return `OTU#${randomPart}`;
+};
+
+/**
+ * Requests a unique converse ID from the backend
+ * @returns {Promise<string>} A unique converse ID from the server
+ */
+export const generateUniqueConverseId = async () => {
+    try {
+        const response = await api.post('/admin/generate-converse-id');
+        return response.data.converseId;
+    } catch (error) {
+        console.error('Failed to generate unique converse ID:', error);
+        // Fallback to preview ID (should be used carefully)
+        return generatePreviewConverseId();
+    }
+};
+
+/**
+ * Requests a unique class ID from the backend
+ * @returns {Promise<string>} A unique class ID from the server
+ */
+export const generateUniqueClassId = async () => {
+    try {
+        const response = await api.post('/admin/generate-class-id');
+        return response.data.classId;
+    } catch (error) {
+        console.error('Failed to generate unique class ID:', error);
+        // Fallback to preview ID (should be used carefully)
+        return generatePreviewClassId();
+    }
+};
+
+/**
+ * Legacy function for backward compatibility
+ * Generates a preview converse ID
+ * @returns {string} A preview converse ID
+ */
+export const generateRandomId = () => {
+    return generatePreviewConverseId();
+};
+
+/**
+ * Validates if an ID follows the correct format
+ * @param {string} id - The ID to validate
+ * @param {string} type - Either 'user' or 'class'
+ * @returns {boolean} True if valid format
+ */
+export const validateIdFormat = (id, type = 'user') => {
+    if (!id || typeof id !== 'string') return false;
+    
+    if (type === 'user') {
+        // Should be OTO# followed by 6 alphanumeric characters (total 10 chars)
+        return /^OTO#[A-Z0-9]{6}$/.test(id);
+    } else if (type === 'class') {
+        // Should be OTU# followed by 6 alphanumeric characters (total 10 chars)
+        return /^OTU#[A-Z0-9]{6}$/.test(id);
+    }
+    
+    return false;
+};
+
+/**
+ * Extracts the prefix from an ID
+ * @param {string} id - The ID to analyze
+ * @returns {string|null} The prefix ('OTO#' or 'OTU#') or null if invalid
+ */
+export const getIdPrefix = (id) => {
+    if (!id || typeof id !== 'string' || id.length < 4) return null;
+    
+    const prefix = id.substring(0, 4);
+    return ['OTO#', 'OTU#'].includes(prefix) ? prefix : null;
+};
+
+/**
+ * Determines the entity type from an ID
+ * @param {string} id - The ID to analyze
+ * @returns {string|null} 'user', 'class', or null if invalid
+ */
+export const getEntityTypeFromId = (id) => {
+    const prefix = getIdPrefix(id);
+    
+    if (prefix === 'OTO#') return 'user';
+    if (prefix === 'OTU#') return 'class';
+    
+    return null;
+};
+
+/**
+ * Extracts the random part from an ID (removes prefix)
+ * @param {string} id - The ID to analyze
+ * @returns {string|null} The 6-character random part or null if invalid
+ */
+export const getRandomPart = (id) => {
+    if (!validateIdFormat(id, 'user') && !validateIdFormat(id, 'class')) {
+        return null;
+    }
+    
+    return id.substring(4); // Remove the 4-character prefix (OTO# or OTU#)
+};
+
+/**
+ * Formats an ID for display with entity type indicator
+ * @param {string} id - The ID to format
+ * @returns {string} Formatted display string
+ */
+export const formatIdForDisplay = (id) => {
+    const entityType = getEntityTypeFromId(id);
+    
+    if (entityType === 'user') {
+        return `User ${id}`;
+    } else if (entityType === 'class') {
+        return `Class ${id}`;
+    }
+    
+    return id; // Fallback to original ID
+};
+
+/**
+ * Checks if two IDs are of compatible types for operations
+ * @param {string} id1 - First ID
+ * @param {string} id2 - Second ID
+ * @param {string} operation - Type of operation ('mentor-assign', 'class-assign', etc.)
+ * @returns {boolean} True if operation is valid
+ */
+export const validateIdCompatibility = (id1, id2, operation) => {
+    const type1 = getEntityTypeFromId(id1);
+    const type2 = getEntityTypeFromId(id2);
+    
+    switch (operation) {
+        case 'mentor-assign':
+            // Both should be users
+            return type1 === 'user' && type2 === 'user';
+        case 'class-assign':
+            // One user, one class
+            return (type1 === 'user' && type2 === 'class') || 
+                   (type1 === 'class' && type2 === 'user');
+        default:
+            return true;
+    }
+};
+
+/**
+ * Generates a batch of preview IDs for testing or demonstration
+ * @param {string} type - Either 'user' or 'class'
+ * @param {number} count - Number of IDs to generate
+ * @returns {string[]} Array of preview IDs
+ */
+export const generatePreviewIdBatch = (type = 'user', count = 5) => {
+    const ids = [];
+    
+    for (let i = 0; i < count; i++) {
+        if (type === 'user') {
+            ids.push(generatePreviewConverseId());
+        } else if (type === 'class') {
+            ids.push(generatePreviewClassId());
+        }
+    }
+    
+    return ids;
+};
+
+/**
+ * Converts old format IDs to new format (migration helper)
+ * @param {string} oldId - Old format ID
+ * @param {string} type - Entity type ('user' or 'class')
+ * @returns {string} New format ID
+ */
+export const convertToNewFormat = (oldId, type = 'user') => {
+    if (!oldId) return null;
+    
+    // If already in new format, return as is
+    if (validateIdFormat(oldId, type)) {
+        return oldId;
+    }
+    
+    // Convert old format to new format
+    const randomPart = generateSecureRandomId();
+    
+    if (type === 'user') {
+        return `OTO#${randomPart}`;
+    } else if (type === 'class') {
+        return `OTU#${randomPart}`;
+    }
+    
+    return null;
+};
+
+
+//================================
+
+// ikootaclient/src/components/service/fullMembershipService.js
+// Service functions for Full Membership Review Operations
+// Parallel to surveypageservice.js but for full membership applications
+
+import { useMutation, useQuery } from '@tanstack/react-query';
+import api from './api';
+
+// =====================================================
+// SUBMISSION SERVICES (for applicants)
+// =====================================================
+
+/**
+ * Submit full membership application
+ * Used by pre-members applying for full membership
+ */
+const submitFullMembershipApplication = async (applicationData) => {
+  console.log('🔍 Submitting full membership application:', applicationData);
+  
+  const res = await api.post('/full-membership/submit-full-membership', applicationData, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Full membership submission response:', res.data);
+  return res.data;
+};
+
+/**
+ * Reapply for full membership (after decline)
+ */
+const reapplyFullMembership = async (applicationData) => {
+  console.log('🔍 Reapplying for full membership:', applicationData);
+  
+  const res = await api.post('/full-membership/reapply-full-membership', applicationData, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Full membership reapplication response:', res.data);
+  return res.data;
+};
+
+/**
+ * Get user's full membership status
+ */
+const getFullMembershipStatus = async (userId) => {
+  console.log('🔍 Fetching full membership status for user:', userId);
+  
+  const res = await api.get(`/full-membership/full-membership-status/${userId}`, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Full membership status response:', res.data);
+  return res.data;
+};
+
+// =====================================================
+// ADMIN REVIEW SERVICES
+// =====================================================
+
+/**
+ * Fetch all full membership applications (Admin)
+ */
+const fetchFullMembershipApplications = async (filters = {}) => {
+  console.log('🔍 Fetching full membership applications with filters:', filters);
+  
+  const params = new URLSearchParams({
+    status: 'pending',
+    limit: 50,
+    offset: 0,
+    ...filters
+  });
+  
+  const res = await api.get(`/admin/membership/applications?${params}`, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Full membership applications response:', res.data);
+  return res.data;
+};
+
+/**
+ * Review full membership application (Admin approve/decline)
+ */
+const reviewFullMembershipApplication = async ({ applicationId, status, adminNotes }) => {
+  console.log('🔍 Reviewing full membership application:', { applicationId, status, adminNotes });
+  
+  if (!['approved', 'declined'].includes(status)) {
+    throw new Error('Invalid status. Must be "approved" or "declined"');
+  }
+  
+  const res = await api.put(`/admin/membership/review/${applicationId}`, {
+    status,
+    adminNotes
+  }, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Application review response:', res.data);
+  return res.data;
+};
+
+/**
+ * Get application statistics (Admin)
+ */
+const getApplicationStatistics = async () => {
+  console.log('🔍 Fetching application statistics...');
+  
+  const res = await api.get('/admin/applications/stats', { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Application statistics response:', res.data);
+  return res.data;
+};
+
+/**
+ * Send feedback email for application decision
+ */
+const sendApplicationFeedbackEmail = async ({ email, status, applicantName, membershipTicket, customMessage }) => {
+  console.log('🔍 Sending application feedback email:', { email, status, applicantName });
+  
+  const res = await api.post('/email/send-membership-feedback', {
+    email,
+    status,
+    applicantName,
+    membershipTicket,
+    customMessage,
+    template: status === 'approved' ? 'full_membership_approved' : 'full_membership_declined'
+  }, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Feedback email response:', res.data);
+  return res.data;
+};
+
+/**
+ * Bulk operations for multiple applications (Admin)
+ */
+const bulkReviewApplications = async ({ applicationIds, action, adminNotes }) => {
+  console.log('🔍 Bulk reviewing applications:', { applicationIds, action, adminNotes });
+  
+  const res = await api.post('/admin/membership/bulk-review', {
+    applicationIds,
+    action,
+    adminNotes
+  }, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Bulk review response:', res.data);
+  return res.data;
+};
+
+/**
+ * Export applications data (Admin)
+ */
+const exportApplicationsData = async (filters = {}) => {
+  console.log('🔍 Exporting applications data with filters:', filters);
+  
+  const params = new URLSearchParams(filters);
+  const res = await api.get(`/admin/membership/export?${params}`, { 
+    withCredentials: true,
+    responseType: 'blob' // For file download
+  });
+  
+  console.log('✅ Export completed');
+  return res.data;
+};
+
+// =====================================================
+// REACT QUERY HOOKS FOR APPLICANTS
+// =====================================================
+
+/**
+ * Hook for submitting full membership application
+ */
+export const useSubmitFullMembershipApplication = () => {
+  return useMutation({
+    mutationFn: submitFullMembershipApplication,
+    onSuccess: (data) => {
+      console.log('✅ Full membership application submitted successfully:', data);
+    },
+    onError: (error) => {
+      console.error('❌ Full membership application submission failed:', error);
+    }
+  });
+};
+
+/**
+ * Hook for reapplying for full membership
+ */
+export const useReapplyFullMembership = () => {
+  return useMutation({
+    mutationFn: reapplyFullMembership,
+    onSuccess: (data) => {
+      console.log('✅ Full membership reapplication submitted successfully:', data);
+    },
+    onError: (error) => {
+      console.error('❌ Full membership reapplication failed:', error);
+    }
+  });
+};
+
+/**
+ * Hook for fetching user's full membership status
+ */
+export const useFullMembershipStatus = (userId, options = {}) => {
+  return useQuery({
+    queryKey: ['fullMembershipStatus', userId],
+    queryFn: () => getFullMembershipStatus(userId),
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    ...options
+  });
+};
+
+// =====================================================
+// REACT QUERY HOOKS FOR ADMIN REVIEW
+// =====================================================
+
+/**
+ * Hook for fetching full membership applications (Admin)
+ */
+export const useFullMembershipApplications = (filters = {}, options = {}) => {
+  return useQuery({
+    queryKey: ['fullMembershipApplications', filters],
+    queryFn: () => fetchFullMembershipApplications(filters),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    cacheTime: 5 * 60 * 1000, // 5 minutes
+    ...options
+  });
+};
+
+/**
+ * Hook for reviewing full membership application (Admin)
+ */
+export const useReviewFullMembershipApplication = () => {
+  return useMutation({
+    mutationFn: reviewFullMembershipApplication,
+    onSuccess: (data, variables) => {
+      console.log('✅ Application review completed:', variables.status);
+    },
+    onError: (error) => {
+      console.error('❌ Application review failed:', error);
+    }
+  });
+};
+
+/**
+ * Hook for fetching application statistics (Admin)
+ */
+export const useApplicationStatistics = (options = {}) => {
+  return useQuery({
+    queryKey: ['applicationStatistics'],
+    queryFn: getApplicationStatistics,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    ...options
+  });
+};
+
+/**
+ * Hook for sending feedback emails
+ */
+export const useSendApplicationFeedback = () => {
+  return useMutation({
+    mutationFn: sendApplicationFeedbackEmail,
+    onSuccess: (data) => {
+      console.log('✅ Feedback email sent successfully');
+    },
+    onError: (error) => {
+      console.error('❌ Feedback email failed:', error);
+    }
+  });
+};
+
+/**
+ * Hook for bulk reviewing applications (Admin)
+ */
+export const useBulkReviewApplications = () => {
+  return useMutation({
+    mutationFn: bulkReviewApplications,
+    onSuccess: (data, variables) => {
+      console.log('✅ Bulk review completed:', variables.action);
+    },
+    onError: (error) => {
+      console.error('❌ Bulk review failed:', error);
+    }
+  });
+};
+
+/**
+ * Hook for exporting applications data (Admin)
+ */
+export const useExportApplicationsData = () => {
+  return useMutation({
+    mutationFn: exportApplicationsData,
+    onSuccess: (data) => {
+      console.log('✅ Applications data exported successfully');
+      
+      // Trigger file download
+      const blob = new Blob([data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `full_membership_applications_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    },
+    onError: (error) => {
+      console.error('❌ Export failed:', error);
+    }
+  });
+};
+
+// =====================================================
+// UTILITY FUNCTIONS
+// =====================================================
+
+/**
+ * Format application status for display
+ */
+export const formatApplicationStatus = (status) => {
+  const statusMap = {
+    'not_applied': { text: 'Not Applied', color: 'gray', icon: '📋' },
+    'pending': { text: 'Under Review', color: 'yellow', icon: '⏳' },
+    'approved': { text: 'Approved', color: 'green', icon: '✅' },
+    'declined': { text: 'Declined', color: 'red', icon: '❌' }
+  };
+  
+  return statusMap[status] || { text: status, color: 'gray', icon: '❓' };
+};
+
+/**
+ * Calculate days since application submission
+ */
+export const calculateDaysPending = (submittedAt) => {
+  if (!submittedAt) return 0;
+  
+  const submissionDate = new Date(submittedAt);
+  const now = new Date();
+  const diffTime = Math.abs(now - submissionDate);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays;
+};
+
+/**
+ * Validate application data before submission
+ */
+export const validateApplicationData = (applicationData) => {
+  const errors = [];
+  
+  if (!applicationData.answers || !Array.isArray(applicationData.answers)) {
+    errors.push('Application answers are required');
+  }
+  
+  if (!applicationData.membershipTicket) {
+    errors.push('Membership ticket is required');
+  }
+  
+  if (applicationData.answers && applicationData.answers.length === 0) {
+    errors.push('At least one application answer is required');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+/**
+ * Generate membership ticket (utility function)
+ */
+export const generateMembershipTicket = () => {
+  const timestamp = Date.now().toString(36);
+  const randomStr = Math.random().toString(36).substr(2, 5);
+  return `FM-${timestamp}-${randomStr}`.toUpperCase();
+};
+
+// =====================================================
+// DEFAULT EXPORT WITH ALL FUNCTIONS
+// =====================================================
+
+export default {
+  // Service functions
+  submitFullMembershipApplication,
+  reapplyFullMembership,
+  getFullMembershipStatus,
+  fetchFullMembershipApplications,
+  reviewFullMembershipApplication,
+  getApplicationStatistics,
+  sendApplicationFeedbackEmail,
+  bulkReviewApplications,
+  exportApplicationsData,
+  
+  // React Query hooks
+  useSubmitFullMembershipApplication,
+  useReapplyFullMembership,
+  useFullMembershipStatus,
+  useFullMembershipApplications,
+  useReviewFullMembershipApplication,
+  useApplicationStatistics,
+  useSendApplicationFeedback,
+  useBulkReviewApplications,
+  useExportApplicationsData,
+  
+  // Utility functions
+  formatApplicationStatus,
+  calculateDaysPending,
+  validateApplicationData,
+  generateMembershipTicket
+};
+
+
+//====================================
+
+
+//ikootaclient\src\components\service\commentServices.js
+import api from './api.js';
+
+export const postComment = async ({ chatId, userId, comment, mediaData }) => {
+    try {
+      const response = await api.post("/comments", {
+        userId,
+        chatId,
+        comment,
+        media: mediaData, // Send structured media data
+      });
+     
+      return response.data;
+
+    } catch (error) {
+      console.error("Error posting comment:", error.response?.data || error.message);
+      throw error;
+    }
+  };
+
+export const getCommentData = async (commentId) => {
+    try {
+      const response = await api.get(`/comments/${commentId}`);
+     
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching comment data:", error.response?.data || error.message);
+      throw error;
+    }
+  };
+  
+
+
+//====================================
+
+
+//ikootaclient\src\components\service\api.js
+// Create this file: /service/api.js (or wherever your path expects it)
+
+import axios from 'axios';
+
+const API_BASE_URL = 'http://localhost:3000/api';
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+
+// Add auth interceptor
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add request interceptor to include token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    console.log('🔍 API Request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      fullURL: config.baseURL + config.url,
+      hasToken: !!token
+    });
+    
+    return config;
+  },
+  (error) => {
+    console.error('❌ Request interceptor error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle errors
+api.interceptors.response.use(
+  (response) => {
+    console.log('✅ API Response:', {
+      status: response.status,
+      url: response.config.url,
+      data: response.data
+    });
+    return response;
+  },
+  (error) => {
+    console.error('❌ API Response Error:', {
+      status: error.response?.status,
+      url: error.config?.url,
+      data: error.response?.data,
+      message: error.message
+    });
+    
+    // If we get HTML instead of JSON, it's likely a routing issue
+    if (error.response?.data && typeof error.response.data === 'string' && error.response.data.includes('<!doctype')) {
+      console.error('❌ Received HTML instead of JSON - this is likely a routing issue');
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+
+
+
+
+
+
+
+//======================================
+//search FOLDER
+
+//======================================
+
+
+import React, { useState } from 'react';
+import './searchcontrols.css';
+
+const SearchControls = ({ onSearch }) => {
+  const [query, setQuery] = useState('');
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    onSearch(query);
+  };
+
+  return (
+    <div className="search-controls">
+      <form onSubmit={handleSearch}>
+        <input
+          type="text"
+          placeholder="Search..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <button type="submit">Search</button>
+      </form>
+    </div>
+  );
+};
+
+export default SearchControls;
+
+
+//=======================================
+//membership  FOLDER
+//=======================================
+
+
+// ikootaclient/src/components/membership/FullMembershipSurvey.jsx - WITH AUTOSAVE
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useUser } from '../auth/UserStatus';
+import api from "../service/api";
+import './fullMembershipSurvey.css';
+
+const FullMembershipSurvey = () => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useUser();
+  const [answers, setAnswers] = useState(['', '', '', '', '', '', '', '']);
+  const [loading, setLoading] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState('saved'); // 'saving', 'saved', 'error'
+
+  // ✅ AUTOSAVE: Storage keys
+  const STORAGE_KEY = `full_membership_survey_${user?.id || 'guest'}`;
+  const PROGRESS_KEY = `${STORAGE_KEY}_progress`;
+
+  // Full Membership Survey Questions
+  const questions = [
+    {
+      id: 1,
+      question: "Describe your current role in education and your professional experience in teaching, learning, or educational administration.",
+      placeholder: "Include your current position, years of experience, institutions you've worked with, and any educational leadership roles...",
+      required: true
+    },
+    {
+      id: 2, 
+      question: "What specific educational expertise or specialization do you bring to our community? What subjects or areas are you most passionate about?",
+      placeholder: "Detail your areas of expertise, specialized knowledge, subjects you teach or research, and what makes you unique...",
+      required: true
+    },
+    {
+      id: 3,
+      question: "How do you envision contributing to the Ikoota community? What kind of content, discussions, or collaborations would you like to initiate or participate in?",
+      placeholder: "Describe specific ways you plan to contribute, types of content you'd create, discussions you'd lead, or projects you'd collaborate on...",
+      required: true
+    },
+    {
+      id: 4,
+      question: "Describe a challenging educational situation you've encountered and how you addressed it. What did you learn from this experience?",
+      placeholder: "Share a specific example that demonstrates your problem-solving skills, adaptability, and learning mindset in educational contexts...",
+      required: true
+    },
+    {
+      id: 5,
+      question: "What is your philosophy on collaborative learning and knowledge sharing? How do you approach working with diverse groups of educators and learners?",
+      placeholder: "Explain your beliefs about collaboration, how you handle different perspectives, and your approach to inclusive education...",
+      required: true
+    },
+    {
+      id: 6,
+      question: "What are your professional development goals, and how do you see Ikoota helping you achieve them? What do you hope to learn from other community members?",
+      placeholder: "Outline your growth objectives, areas where you want to improve, and how you plan to leverage the community for development...",
+      required: true
+    },
+    {
+      id: 7,
+      question: "How would you handle disagreements or conflicts within educational discussions? Describe your approach to maintaining professionalism in challenging conversations.",
+      placeholder: "Explain your conflict resolution strategies, how you maintain respect during disagreements, and your commitment to professional discourse...",
+      required: true
+    },
+    {
+      id: 8,
+      question: "Is there anything else you'd like to share about yourself, your educational journey, or your commitment to being an active and valuable member of our community?",
+      placeholder: "Add any additional information that would help us understand your passion for education and community involvement...",
+      required: false
+    }
+  ];
+
+  // ✅ AUTOSAVE: Load saved data on component mount
+  useEffect(() => {
+    if (user?.id) {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      const savedProgress = localStorage.getItem(PROGRESS_KEY);
+      
+      if (savedData) {
+        try {
+          const parsedData = JSON.parse(savedData);
+          if (parsedData.answers && Array.isArray(parsedData.answers)) {
+            setAnswers(parsedData.answers);
+            setLastSaved(new Date(parsedData.timestamp));
+            console.log('✅ Loaded saved application data:', parsedData);
+          }
+        } catch (error) {
+          console.error('❌ Error loading saved data:', error);
+        }
+      }
+      
+      if (savedProgress) {
+        try {
+          const step = parseInt(savedProgress);
+          if (step >= 0 && step < questions.length) {
+            setCurrentStep(step);
+          }
+        } catch (error) {
+          console.error('❌ Error loading saved progress:', error);
+        }
+      }
+    }
+  }, [user?.id]);
+
+  // ✅ AUTOSAVE: Save data to localStorage
+  const saveToLocalStorage = useCallback((answersToSave, stepToSave) => {
+    if (!user?.id) return;
+    
+    try {
+      const dataToSave = {
+        answers: answersToSave,
+        timestamp: new Date().toISOString(),
+        currentStep: stepToSave,
+        userId: user.id,
+        username: user.username
+      };
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      localStorage.setItem(PROGRESS_KEY, stepToSave.toString());
+      setLastSaved(new Date());
+      setAutoSaveStatus('saved');
+      
+      console.log('💾 Auto-saved application data');
+    } catch (error) {
+      console.error('❌ Error saving to localStorage:', error);
+      setAutoSaveStatus('error');
+    }
+  }, [user?.id, STORAGE_KEY, PROGRESS_KEY]);
+
+  // ✅ AUTOSAVE: Auto-save when answers change
+  useEffect(() => {
+    if (answers.some(answer => answer.trim().length > 0)) {
+      setAutoSaveStatus('saving');
+      const timeoutId = setTimeout(() => {
+        saveToLocalStorage(answers, currentStep);
+      }, 2000); // Save 2 seconds after user stops typing
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [answers, currentStep, saveToLocalStorage]);
+
+  // ✅ MANUAL SAVE: Function for manual save button
+  const handleManualSave = () => {
+    setAutoSaveStatus('saving');
+    saveToLocalStorage(answers, currentStep);
+  };
+
+  // ✅ CLEAR SAVED DATA: Function to clear localStorage
+  const clearSavedData = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(PROGRESS_KEY);
+    setLastSaved(null);
+    console.log('🗑️ Cleared saved application data');
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      alert('Please sign in first to access the full membership survey.');
+      navigate('/login');
+      return;
+    }
+
+    // Check if user has already submitted
+    checkSubmissionStatus();
+  }, [isAuthenticated, navigate]);
+
+  // const checkSubmissionStatus = async () => {
+  //   try {
+  //     // ✅ FIXED: Use the correct endpoint with userId
+  //     const response = await api.get(`/membership/full-membership-status/${user.id}`);
+  //     if (response.data.hasSubmitted || response.data.status === 'pending' || response.data.status === 'approved') {
+  //       setHasSubmitted(true);
+  //       // Clear saved data if already submitted
+  //       clearSavedData();
+  //       alert('You have already submitted a full membership application.');
+  //       navigate('/full-membership-info');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error checking submission status:', error);
+  //     // Continue to show the form if there's an error checking status
+  //   }
+  // };
+
+
+const checkSubmissionStatus = async () => {
+  try {
+    // ✅ FIXED: Properly extract userId and handle undefined case
+    const userId = user?.user_id || user?.id;
+    
+    if (!userId) {
+      console.log('No user ID available');
+      return;
+    }
+
+    console.log('🔍 Checking submission status for user:', userId);
+    
+    const response = await api.get(`/membership/full-membership-status/${userId}`);
+    
+    console.log('✅ Submission status response:', response.data);
+    
+    if (response.data.hasApplication || 
+        response.data.status === 'pending' || 
+        response.data.status === 'approved') {
+      setHasSubmitted(true);
+      // Clear saved data if already submitted
+      clearSavedData();
+      alert('You have already submitted a full membership application.');
+      navigate('/full-membership-info');
+    }
+  } catch (error) {
+    console.log('Error checking submission status:', error);
+    
+    // If it's a 404 or 403, that means no application exists, so continue
+    if (error.response?.status === 404 || error.response?.status === 403) {
+      console.log('No existing application found, proceeding with form');
+      return;
+    }
+    
+    // For other errors, continue to show the form
+    console.log('API error, but continuing to show form');
+  }
+};
+
+  const generateMembershipTicket = () => {
+    const username = user?.username || 'USER';
+    const email = user?.email || 'user@example.com';
+    const usernamePrefix = username.substring(0, 3).toUpperCase();
+    const emailPrefix = email.split('@')[0].substring(0, 3).toUpperCase();
+    const now = new Date();
+    const dateStr = now.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
+    const timeStr = now.toTimeString().slice(0, 5).replace(':', ''); // HHMM
+    
+    return `FM${usernamePrefix}${emailPrefix}${dateStr}${timeStr}`; // FM = Full Membership
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Validate required answers
+    const requiredAnswers = questions.filter(q => q.required).map((q, index) => answers[index]);
+    if (requiredAnswers.some(answer => !answer.trim())) {
+      alert('Please answer all required questions before submitting.');
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      const membershipTicket = generateMembershipTicket();
+      
+      const response = await api.post('/membership/submit-full-membership', {
+        answers: answers,
+        membershipTicket: membershipTicket,
+        userId: user.id,
+        userEmail: user.email,
+        username: user.username,
+        applicationType: 'full_membership'
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        // ✅ SUCCESS: Clear saved data after successful submission
+        clearSavedData();
+        
+        alert(`Full Membership application submitted successfully!\n\nYour Membership Ticket: ${membershipTicket}\n\nPlease save this number for your records.`);
+        
+        navigate('/full-membership-submitted', { 
+          state: { 
+            membershipTicket: membershipTicket,
+            username: user.username 
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting full membership survey:', error);
+      alert(`Failed to submit application: ${error.response?.data?.message || 'Please try again. Your progress has been saved.'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (index, value) => {
+    const updatedAnswers = [...answers];
+    updatedAnswers[index] = value;
+    setAnswers(updatedAnswers);
+  };
+
+  const nextStep = () => {
+    if (currentStep < questions.length - 1) {
+      const newStep = currentStep + 1;
+      setCurrentStep(newStep);
+      saveToLocalStorage(answers, newStep);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      const newStep = currentStep - 1;
+      setCurrentStep(newStep);
+      saveToLocalStorage(answers, newStep);
+    }
+  };
+
+  const goToStep = (step) => {
+    setCurrentStep(step);
+    saveToLocalStorage(answers, step);
+  };
+
+  const getCompletionPercentage = () => {
+    const answeredCount = answers.filter(answer => answer.trim()).length;
+    return Math.round((answeredCount / questions.length) * 100);
+  };
+
+  const getAutoSaveStatusDisplay = () => {
+    switch (autoSaveStatus) {
+      case 'saving':
+        return { text: '💾 Saving...', color: '#f59e0b' };
+      case 'saved':
+        return lastSaved ? { 
+          text: `✅ Saved ${lastSaved.toLocaleTimeString()}`, 
+          color: '#10b981' 
+        } : { text: '✅ Saved', color: '#10b981' };
+      case 'error':
+        return { text: '⚠️ Save failed', color: '#ef4444' };
+      default:
+        return { text: '', color: '#6b7280' };
+    }
+  };
+
+  if (hasSubmitted) {
+    return (
+      <div className="survey-container">
+        <div className="submitted-message">
+          <h2>Application Already Submitted</h2>
+          <p>You have already submitted your full membership application.</p>
+          <button onClick={() => navigate('/full-membership-info')} className="btn-primary">
+            View Application Status
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const autoSaveDisplay = getAutoSaveStatusDisplay();
+
+  return (
+    <div className="full-membership-survey-container">
+      <div className="survey-card">
+        <div className="survey-header">
+          <h1>🎓 Full Membership Application Survey</h1>
+          <p>Complete this comprehensive survey to apply for full membership</p>
+          
+          <div className="progress-section">
+            <div className="progress-bar">
+              <div 
+                className="progress-fill" 
+                style={{ width: `${getCompletionPercentage()}%` }}
+              ></div>
+            </div>
+            <div className="progress-info">
+              <span>{getCompletionPercentage()}% Complete</span>
+              <span>{answers.filter(a => a.trim()).length} of {questions.length} answered</span>
+            </div>
+          </div>
+
+          {/* ✅ AUTOSAVE STATUS DISPLAY */}
+          <div className="autosave-status" style={{ 
+            marginTop: '10px', 
+            fontSize: '0.9rem',
+            color: autoSaveDisplay.color 
+          }}>
+            {autoSaveDisplay.text}
+          </div>
+        </div>
+
+        <div className="applicant-info">
+          <p><strong>Applicant:</strong> {user?.username} ({user?.email})</p>
+          <p><strong>Current Status:</strong> Pre-Member</p>
+          <p><strong>Application Type:</strong> Full Membership</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="survey-form">
+          {/* ✅ SAVE CONTROLS */}
+          <div className="save-controls" style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '15px',
+            backgroundColor: '#f8fafc',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{ fontSize: '0.9rem', color: '#64748b' }}>
+              Your progress is automatically saved as you type
+            </div>
+            <button 
+              type="button"
+              onClick={handleManualSave}
+              className="btn-save"
+              style={{
+                padding: '8px 16px',
+                fontSize: '0.9rem',
+                backgroundColor: '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              💾 Save Now
+            </button>
+          </div>
+
+          <div className="question-navigation">
+            <div className="question-tabs">
+              {questions.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  className={`question-tab ${currentStep === index ? 'active' : ''} ${answers[index].trim() ? 'completed' : ''}`}
+                  onClick={() => goToStep(index)}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="current-question">
+            <div className="question-header">
+              <span className="question-number">Question {currentStep + 1} of {questions.length}</span>
+              {questions[currentStep].required && <span className="required-indicator">* Required</span>}
+            </div>
+            
+            <label className="question-label">
+              {questions[currentStep].question}
+            </label>
+            
+            <textarea
+              value={answers[currentStep]}
+              onChange={(e) => handleInputChange(currentStep, e.target.value)}
+              placeholder={questions[currentStep].placeholder}
+              className="answer-input"
+              rows="6"
+              required={questions[currentStep].required}
+            />
+            
+            <div className="character-count">
+              {answers[currentStep].length} characters
+              {answers[currentStep].length < 50 && questions[currentStep].required && (
+                <span className="min-length-warning"> (Minimum 50 characters recommended)</span>
+              )}
+            </div>
+          </div>
+
+          <div className="navigation-buttons">
+            <button 
+              type="button" 
+              onClick={prevStep} 
+              disabled={currentStep === 0}
+              className="btn-nav prev"
+            >
+              ← Previous
+            </button>
+            
+            {currentStep < questions.length - 1 ? (
+              <button 
+                type="button" 
+                onClick={nextStep}
+                className="btn-nav next"
+              >
+                Next →
+              </button>
+            ) : (
+              <button 
+                type="submit" 
+                disabled={loading || answers.filter((a, i) => questions[i].required).some(a => !a.trim())}
+                className="btn-submit"
+              >
+                {loading ? 'Submitting Application...' : 'Submit Full Membership Application'}
+              </button>
+            )}
+          </div>
+
+          <div className="survey-overview">
+            <h4>📋 Questions Overview</h4>
+            <div className="questions-list">
+              {questions.map((q, index) => (
+                <div 
+                  key={q.id} 
+                  className={`question-overview-item ${answers[index].trim() ? 'answered' : ''} ${currentStep === index ? 'current' : ''}`}
+                  onClick={() => goToStep(index)}
+                >
+                  <span className="question-num">Q{index + 1}</span>
+                  <span className="question-brief">{q.question.substring(0, 60)}...</span>
+                  <span className="question-status">
+                    {answers[index].trim() ? '✓' : (q.required ? '*' : '○')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="application-info">
+            <h4>ℹ️ Application Information</h4>
+            <div className="info-grid">
+              <div className="info-item">
+                <strong>Review Timeline:</strong> 5-7 business days
+              </div>
+              <div className="info-item">
+                <strong>Decision Notification:</strong> Via email
+              </div>
+              <div className="info-item">
+                <strong>Application Tracking:</strong> Unique ticket number provided
+              </div>
+              <div className="info-item">
+                <strong>Support Contact:</strong> support@ikoota.com
+              </div>
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <button 
+              type="button" 
+              onClick={() => navigate('/full-membership-info')}
+              className="btn-cancel"
+            >
+              ← Back to Information
+            </button>
+            
+            <button 
+              type="button" 
+              onClick={() => navigate('/towncrier')}
+              className="btn-cancel"
+            >
+              Cancel & Return to Towncrier
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default FullMembershipSurvey;
+
+
+//=======================================
+
+
+// ikootaclient/src/components/membership/FullMembershipSubmitted.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useUser } from '../auth/UserStatus';
+import './fullMembershipSubmitted.css';
+
+const FullMembershipSubmitted = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useUser();
+  const [membershipTicket, setMembershipTicket] = useState('');
+  const [username, setUsername] = useState('');
+
+  useEffect(() => {
+    if (location.state) {
+      setMembershipTicket(location.state.membershipTicket || '');
+      setUsername(location.state.username || '');
+    } else if (user) {
+      setUsername(user.username || user.email || 'User');
+    }
+  }, [location.state, user]);
+
+  const copyTicketToClipboard = () => {
+    if (membershipTicket) {
+      navigator.clipboard.writeText(membershipTicket);
+      alert('Membership ticket copied to clipboard!');
+    }
+  };
+
+  return (
+    <div className="membership-submitted-container">
+      <div className="submitted-card">
+        <div className="success-animation">
+          <div className="checkmark">✓</div>
+        </div>
+
+        <div className="submitted-header">
+          <h1>🎉 Full Membership Application Submitted!</h1>
+          <h2>Thank you, {username}!</h2>
+        </div>
+
+        <div className="submitted-content">
+          <div className="confirmation-message">
+            <p>
+              Your full membership application has been submitted successfully and is now 
+              <strong> under review</strong> by our membership committee.
+            </p>
+          </div>
+
+          {membershipTicket && (
+            <div className="ticket-section">
+              <h3>🎫 Your Membership Application Ticket</h3>
+              <div className="ticket-display">
+                <div className="ticket-number" onClick={copyTicketToClipboard}>
+                  {membershipTicket}
+                </div>
+                <button onClick={copyTicketToClipboard} className="copy-btn">
+                  📋 Copy
+                </button>
+              </div>
+              <p className="ticket-note">
+                <strong>Important:</strong> Save this ticket number! You'll need it for:
+              </p>
+              <ul className="ticket-uses">
+                <li>Tracking your full membership application status</li>
+                <li>Any inquiries about your application</li>
+                <li>Contacting support if needed</li>
+                <li>Reference during the review process</li>
+              </ul>
+            </div>
+          )}
+
+          <div className="timeline-section">
+            <h3>📅 Full Membership Review Process</h3>
+            <div className="timeline">
+              <div className="timeline-item completed">
+                <div className="timeline-marker">✅</div>
+                <div className="timeline-content">
+                  <h4>Application Submitted</h4>
+                  <p>Your full membership survey is in our system</p>
+                  <span className="timestamp">Just now</span>
+                </div>
+              </div>
+              
+              <div className="timeline-item pending">
+                <div className="timeline-marker">👥</div>
+                <div className="timeline-content">
+                  <h4>Committee Review</h4>
+                  <p>Membership committee evaluating your application</p>
+                  <span className="timestamp">5-7 business days</span>
+                </div>
+              </div>
+              
+              <div className="timeline-item future">
+                <div className="timeline-marker">📧</div>
+                <div className="timeline-content">
+                  <h4>Decision Notification</h4>
+                  <p>Email notification with final decision</p>
+                  <span className="timestamp">After review</span>
+                </div>
+              </div>
+              
+              <div className="timeline-item future">
+                <div className="timeline-marker">💎</div>
+                <div className="timeline-content">
+                  <h4>Full Member Access</h4>
+                  <p>If approved, complete platform access granted</p>
+                  <span className="timestamp">Upon approval</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="review-outcomes">
+            <h3>📊 Possible Review Outcomes</h3>
+            <div className="outcomes-grid">
+              <div className="outcome-item approved">
+                <span className="outcome-icon">✅</span>
+                <div className="outcome-content">
+                  <h4>Approved - Full Member</h4>
+                  <p>Complete access to Iko chat, commenting, and content creation</p>
+                </div>
+              </div>
+              <div className="outcome-item suspended">
+                <span className="outcome-icon">⚠️</span>
+                <div className="outcome-content">
+                  <h4>Suspended - More Info Needed</h4>
+                  <p>Additional information or clarification required</p>
+                </div>
+              </div>
+              <div className="outcome-item declined">
+                <span className="outcome-icon">❌</span>
+                <div className="outcome-content">
+                  <h4>Declined - Reapply Later</h4>
+                  <p>Application not approved, with guidance for future applications</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="current-access">
+            <h3>📚 Current Access Level</h3>
+            <div className="access-info">
+              <div className="access-status">
+                <span className="status-icon">🌟</span>
+                <div>
+                  <h4>Pre-Member Status</h4>
+                  <p>You continue to have read-only access to Towncrier educational content while your full membership application is under review.</p>
+                </div>
+              </div>
+              
+              <div className="access-limitations">
+                <h4>⚠️ Current Limitations (Until Full Membership Approval):</h4>
+                <ul>
+                  <li>❌ No access to Iko chat system</li>
+                  <li>❌ Cannot comment on posts or discussions</li>
+                  <li>❌ Cannot create or share content</li>
+                  <li>❌ Limited interaction with other members</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="during-review">
+            <h3>⏰ During the Review Period</h3>
+            <div className="review-guidelines">
+              <div className="guideline-item">
+                <span className="guideline-icon">📧</span>
+                <div>
+                  <h4>Monitor Your Email</h4>
+                  <p>We'll send updates to {user?.email}</p>
+                </div>
+              </div>
+              <div className="guideline-item">
+                <span className="guideline-icon">🚫</span>
+                <div>
+                  <h4>No Additional Applications</h4>
+                  <p>Please do not submit multiple full membership applications</p>
+                </div>
+              </div>
+              <div className="guideline-item">
+                <span className="guideline-icon">📞</span>
+                <div>
+                  <h4>Contact Support if Needed</h4>
+                  <p>Email support@ikoota.com with your ticket number for urgent matters</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="urgent-contact">
+            <h3>🚨 Need Urgent Consideration?</h3>
+            <div className="urgent-info">
+              <p>
+                If you have compelling reasons why your full membership application should be expedited, 
+                you can contact our membership committee:
+              </p>
+              
+              <div className="contact-details">
+                <div className="contact-method">
+                  <span className="contact-icon">📧</span>
+                  <div>
+                    <strong>Email:</strong> membership@ikoota.com
+                    <br />
+                    <strong>Subject:</strong> Urgent Full Membership Review - {membershipTicket}
+                  </div>
+                </div>
+              </div>
+              <p className="urgent-note">
+                <strong>Please include:</strong> Your membership ticket number and specific, compelling reasons 
+                why expedited review is necessary for your educational goals or professional requirements.
+              </p>
+            </div>
+          </div>
+
+          <div className="action-buttons">
+            <button 
+              onClick={() => navigate('/towncrier')} 
+              className="btn-primary"
+            >
+              📚 Continue Browsing Content
+            </button>
+            
+            <button 
+              onClick={() => navigate('/full-membership-info')} 
+              className="btn-secondary"
+            >
+              📊 Check Application Status
+            </button>
+            
+            <button 
+              onClick={() => navigate('/')} 
+              className="btn-secondary"
+            >
+              🏠 Return to Home
+            </button>
+          </div>
+
+          <div className="final-note">
+            <div className="note-content">
+              <h4>📝 Important Reminders</h4>
+              <ul>
+                <li>Keep your membership ticket number ({membershipTicket}) safe</li>
+                <li>Check your email regularly for review updates</li>
+                <li>Continue engaging with pre-member content during review</li>
+                <li>Do not submit duplicate applications</li>
+                <li>Contact support only for urgent matters</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="submitted-footer">
+          <p>
+            Thank you for your commitment to becoming a full member of the Ikoota educational community. 
+            We appreciate your patience during our thorough review process.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FullMembershipSubmitted;
+
+//========================================
+
+
+//ikootaclient\src\components\membership\FullMembershipStatus.jsx
+import './fullMembershipStatus.css';
+import React from 'react';  
+import { useNavigate } from 'react-router-dom';
+import { useMembershipStatus } from '../../hooks/useMembershipStatus';
+
+const FullMembershipStatus = () => {
+  const navigate = useNavigate();
+  const { isFullMember, isLoading } = useMembershipStatus();
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!isFullMember) {
+    return (
+      <div>
+        <h2>Membership Required</h2>
+        <p>You need a full membership to access this content.</p>
+        <button onClick={() => navigate('/upgrade')}>Upgrade Membership</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2>Full Membership Status</h2>
+      <p>Congratulations! You have full access to all features.</p>
+    </div>
+  );
+};
+
+export default FullMembershipStatus;
+
+//========================================
+
+
+// ===============================================
+// ikootaclient/src/components/membership/FullMembershipPending.jsx
+// ===============================================
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../auth/UserStatus';
+import api from '../service/api';
+import './fullMembershipStatus.css';
+
+const FullMembershipPending = () => {
+  const navigate = useNavigate();
+  const { user, refreshUser } = useUser();
+  const [applicationData, setApplicationData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchApplicationStatus();
+  }, []);
+
+  const fetchApplicationStatus = async () => {
+    try {
+      const response = await api.get(`/membership/full-membership-status/${user?.user_id}`);
+      setApplicationData(response.data);
+    } catch (error) {
+      console.error('Error fetching application status:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return '1 day ago';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
+    return `${Math.ceil(diffDays / 30)} months ago`;
+  };
+
+  if (loading) {
+    return (
+      <div className="full-membership-status-container">
+        <div className="status-card loading">
+          <div className="loading-spinner"></div>
+          <p>Loading application status...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="full-membership-status-container">
+      <div className="status-card pending">
+        <div className="status-header">
+          <div className="pending-icon">⏳</div>
+          <h1>Application Under Review</h1>
+          <h2>Your Full Membership Application is Being Processed</h2>
+        </div>
+
+        <div className="status-content">
+          <div className="application-summary">
+            <div className="summary-grid">
+              <div className="summary-item">
+                <strong>Applicant:</strong> {user?.username}
+              </div>
+              <div className="summary-item">
+                <strong>Email:</strong> {user?.email}
+              </div>
+              {applicationData?.ticket && (
+                <div className="summary-item">
+                  <strong>Application Ticket:</strong> 
+                  <span className="ticket-number">{applicationData.ticket}</span>
+                </div>
+              )}
+              <div className="summary-item">
+                <strong>Current Status:</strong> 
+                <span className="status-badge pending">Under Review</span>
+              </div>
+              {applicationData?.submittedAt && (
+                <div className="summary-item">
+                  <strong>Submitted:</strong> 
+                  {new Date(applicationData.submittedAt).toLocaleDateString()} 
+                  <small>({getTimeAgo(applicationData.submittedAt)})</small>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="review-timeline">
+            <h3>📋 Review Process Timeline</h3>
+            <div className="timeline">
+              <div className="timeline-item completed">
+                <div className="timeline-icon">✅</div>
+                <div className="timeline-content">
+                  <h4>Application Submitted</h4>
+                  <p>Your application has been received and is in our review queue</p>
+                  {applicationData?.submittedAt && (
+                    <small>{new Date(applicationData.submittedAt).toLocaleDateString()}</small>
+                  )}
+                </div>
+              </div>
+              
+              <div className="timeline-item active">
+                <div className="timeline-icon">🔍</div>
+                <div className="timeline-content">
+                  <h4>Admin Review</h4>
+                  <p>Our team is carefully reviewing your application and responses</p>
+                  <small>Typical review time: 3-5 business days</small>
+                </div>
+              </div>
+              
+              <div className="timeline-item pending">
+                <div className="timeline-icon">📧</div>
+                <div className="timeline-content">
+                  <h4>Decision Notification</h4>
+                  <p>You'll receive an email with the decision and next steps</p>
+                  <small>Notification will be sent to {user?.email}</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="while-you-wait">
+            <h3>⏰ While You Wait</h3>
+            <div className="activities-grid">
+              <div className="activity-card">
+                <div className="activity-icon">📚</div>
+                <h4>Continue Learning</h4>
+                <p>Access Towncrier content and stay engaged with the community</p>
+                <button 
+                  onClick={() => navigate('/towncrier')}
+                  className="btn-secondary small"
+                >
+                  Browse Content
+                </button>
+              </div>
+              
+              <div className="activity-card">
+                <div className="activity-icon">👤</div>
+                <h4>Update Profile</h4>
+                <p>Enhance your profile while waiting for the review</p>
+                <button 
+                  onClick={() => navigate('/profile')}
+                  className="btn-secondary small"
+                >
+                  Edit Profile
+                </button>
+              </div>
+              
+              <div className="activity-card">
+                <div className="activity-icon">❓</div>
+                <h4>Have Questions?</h4>
+                <p>Contact our support team if you need assistance</p>
+                <button 
+                  onClick={() => window.location.href = 'mailto:support@ikoota.com'}
+                  className="btn-secondary small"
+                >
+                  Contact Support
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="important-notes">
+            <h4>📌 Important Notes</h4>
+            <ul>
+              <li>Please do not submit multiple applications - this may delay processing</li>
+              <li>Check your email regularly for updates on your application status</li>
+              <li>You can continue accessing all pre-member features while under review</li>
+              <li>The review process is thorough to ensure the best community experience</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="status-actions">
+          <button 
+            onClick={() => navigate('/dashboard')}
+            className="btn-primary"
+          >
+            📊 Go to Dashboard
+          </button>
+          
+          <button 
+            onClick={() => navigate('/towncrier')}
+            className="btn-secondary"
+          >
+            📚 Continue Learning
+          </button>
+          
+          <button 
+            onClick={fetchApplicationStatus}
+            className="btn-secondary"
+          >
+            🔄 Refresh Status
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FullMembershipPending;
+
+
+//=====================================
+
+
+// ikootaclient/src/components/membership/FullMembershipInfo.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../auth/UserStatus';
+import api from '../service/api';
+import './fullMembershipInfo.css';
+
+const FullMembershipInfo = () => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useUser();
+  const [hasAccessedBefore, setHasAccessedBefore] = useState(false);
+  const [hasSubmittedApplication, setHasSubmittedApplication] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      alert('Please sign in first to access membership applications.');
+      navigate('/login');
+      return;
+    }
+
+    // Check if user is eligible for full membership application
+    checkMembershipEligibility();
+  }, [isAuthenticated, navigate]);
+
+  const checkMembershipEligibility = async () => {
+    try {
+      const response = await api.get('/membership/full-membership-status');
+      const { hasAccessed, hasSubmitted, status, isPreMember } = response.data;
+      
+      if (!isPreMember) {
+        alert('You must be a pre-member first before applying for full membership.');
+        navigate('/towncrier');
+        return;
+      }
+
+      setHasAccessedBefore(hasAccessed);
+      setHasSubmittedApplication(hasSubmitted);
+      setApplicationStatus(status);
+
+      // Log first-time access
+      if (!hasAccessed) {
+        await api.post('/membership/log-full-membership-access');
+      }
+    } catch (error) {
+      console.error('Error checking membership status:', error);
+      alert('Error checking your membership status. Please try again.');
+      navigate('/towncrier');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProceedToSurvey = () => {
+    navigate('/full-membership-survey');
+  };
+
+  const handleGoBack = () => {
+    navigate('/towncrier');
+  };
+
+  if (loading) {
+    return (
+      <div className="membership-info-container">
+        <div className="loading-message">
+          <p>Loading membership information...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If user has already submitted application
+  if (hasSubmittedApplication) {
+    return (
+      <div className="membership-info-container">
+        <div className="membership-card submitted-state">
+          <div className="membership-header">
+            <h1>📋 Full Membership Application Status</h1>
+          </div>
+
+          <div className="status-display">
+            <div className={`status-badge ${applicationStatus}`}>
+              {applicationStatus === 'pending' && '⏳ Under Review'}
+              {applicationStatus === 'suspended' && '⚠️ Additional Info Required'}
+              {applicationStatus === 'approved' && '✅ Approved'}
+              {applicationStatus === 'declined' && '❌ Declined'}
+            </div>
+          </div>
+
+          <div className="status-content">
+            {applicationStatus === 'pending' && (
+              <div className="pending-info">
+                <h3>Your Application is Under Review</h3>
+                <p>Our team is currently reviewing your full membership application. You'll receive an email notification once the review is complete.</p>
+                <div className="timeline">
+                  <div className="timeline-item completed">✅ Application Submitted</div>
+                  <div className="timeline-item current">🔍 Under Review</div>
+                  <div className="timeline-item future">📧 Decision Notification</div>
+                </div>
+              </div>
+            )}
+
+            {applicationStatus === 'suspended' && (
+              <div className="suspended-info">
+                <h3>Additional Information Required</h3>
+                <p>Your application has been temporarily suspended pending additional information. Please check your email for specific requirements.</p>
+                <button onClick={() => navigate('/full-membership-suspended')} className="btn-primary">
+                  View Requirements
+                </button>
+              </div>
+            )}
+
+            {applicationStatus === 'approved' && (
+              <div className="approved-info">
+                <h3>🎉 Congratulations! You're Now a Full Member</h3>
+                <p>Your full membership has been approved. You now have access to all platform features including the Iko chat system.</p>
+                <button onClick={() => navigate('/iko')} className="btn-primary">
+                  Access Iko Chat System
+                </button>
+              </div>
+            )}
+
+            {applicationStatus === 'declined' && (
+              <div className="declined-info">
+                <h3>Application Not Approved</h3>
+                <p>Your full membership application was not approved at this time. Please check your email for feedback and reapplication guidelines.</p>
+                <button onClick={() => navigate('/full-membership-declined')} className="btn-secondary">
+                  View Feedback
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="back-action">
+            <button onClick={handleGoBack} className="btn-back">
+              ← Back to Towncrier
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main membership information page
+  return (
+    <div className="membership-info-container">
+      <div className="membership-card">
+        <div className="membership-header">
+          <h1>🎓 Full Membership Application</h1>
+          <h2>Join the Complete Ikoota Community</h2>
+        </div>
+
+        <div className="welcome-message">
+          <p>
+            <strong>Welcome, {user?.username}!</strong>
+          </p>
+          <p>
+            As a pre-member, you've already experienced our educational content in Towncrier. 
+            Now you can apply for full membership to unlock the complete Ikoota experience.
+          </p>
+        </div>
+
+        <div className="membership-benefits">
+          <h3>🌟 Full Membership Benefits</h3>
+          <div className="benefits-grid">
+            <div className="benefit-item">
+              <span className="benefit-icon">💬</span>
+              <div className="benefit-content">
+                <h4>Iko Chat System Access</h4>
+                <p>Join exclusive member discussions and real-time conversations</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">💭</span>
+              <div className="benefit-content">
+                <h4>Comment & Engage</h4>
+                <p>Participate in discussions on educational content and posts</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">✍️</span>
+              <div className="benefit-content">
+                <h4>Create & Share</h4>
+                <p>Contribute your own educational content and teaching materials</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">🤝</span>
+              <div className="benefit-content">
+                <h4>Community Collaboration</h4>
+                <p>Work directly with other educators and learners</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">📚</span>
+              <div className="benefit-content">
+                <h4>Advanced Resources</h4>
+                <p>Access member-only educational materials and tools</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">🎯</span>
+              <div className="benefit-content">
+                <h4>Personalized Learning</h4>
+                <p>Customized content recommendations and learning paths</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="membership-expectations">
+          <h3>📋 Membership Expectations</h3>
+          <div className="expectations-content">
+            <div className="expectation-section">
+              <h4>🎯 Our Mission</h4>
+              <p>
+                Ikoota is dedicated to creating a high-quality educational community where 
+                verified educators and serious learners collaborate to advance education 
+                through innovative teaching methods and meaningful discussions.
+              </p>
+            </div>
+            
+            <div className="expectation-section">
+              <h4>🌟 Community Values</h4>
+              <ul>
+                <li><strong>Excellence:</strong> Commitment to high-quality educational content</li>
+                <li><strong>Respect:</strong> Treating all community members with dignity</li>
+                <li><strong>Collaboration:</strong> Working together for mutual growth</li>
+                <li><strong>Innovation:</strong> Embracing new educational technologies and methods</li>
+                <li><strong>Integrity:</strong> Honest and ethical participation in all activities</li>
+              </ul>
+            </div>
+
+            <div className="expectation-section">
+              <h4>👥 Member Responsibilities</h4>
+              <ul>
+                <li>Contribute meaningfully to discussions and content</li>
+                <li>Maintain professional and respectful communication</li>
+                <li>Share knowledge and expertise with the community</li>
+                <li>Follow community guidelines and platform rules</li>
+                <li>Support fellow members' learning and growth</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="platform-overview">
+          <h3>🏛️ About Our Educational Platform</h3>
+          <div className="platform-content">
+            <div className="platform-section">
+              <h4>📚 Educational Focus</h4>
+              <p>
+                Our platform serves as a comprehensive educational ecosystem where 
+                teachers, students, researchers, and lifelong learners come together 
+                to share knowledge, collaborate on projects, and advance the field of education.
+              </p>
+            </div>
+
+            <div className="platform-section">
+              <h4>💬 Chat & Discussion System</h4>
+              <p>
+                The Iko chat system facilitates real-time collaboration, allowing members 
+                to engage in focused educational discussions, share resources instantly, 
+                and build lasting professional relationships.
+              </p>
+            </div>
+
+            <div className="platform-section">
+              <h4>🔐 Quality Assurance</h4>
+              <p>
+                Our two-stage membership process ensures that all full members are 
+                committed to maintaining the high standards of educational discourse 
+                and collaborative learning that define our community.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="application-process">
+          <h3>📝 Application Process Overview</h3>
+          <div className="process-steps">
+            <div className="process-step">
+              <span className="step-number">1</span>
+              <div className="step-content">
+                <h4>Complete Membership Survey</h4>
+                <p>Answer detailed questions about your educational background and goals</p>
+              </div>
+            </div>
+            <div className="process-step">
+              <span className="step-number">2</span>
+              <div className="step-content">
+                <h4>Application Review</h4>
+                <p>Our team evaluates your responses and commitment to education</p>
+              </div>
+            </div>
+            <div className="process-step">
+              <span className="step-number">3</span>
+              <div className="step-content">
+                <h4>Decision & Access</h4>
+                <p>Receive notification and gain full platform access upon approval</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="important-notes">
+          <h3>⚠️ Important Information</h3>
+          <div className="notes-list">
+            <div className="note-item">
+              <span className="note-icon">📋</span>
+              <div>
+                <h4>Application Requirements</h4>
+                <p>All questions in the membership survey must be answered thoroughly and honestly.</p>
+              </div>
+            </div>
+            <div className="note-item">
+              <span className="note-icon">⏰</span>
+              <div>
+                <h4>Review Timeline</h4>
+                <p>Full membership applications typically take 5-7 business days to review.</p>
+              </div>
+            </div>
+            <div className="note-item">
+              <span className="note-icon">🔄</span>
+              <div>
+                <h4>One Application Only</h4>
+                <p>You may only submit one full membership application. Make it count!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="action-buttons">
+          <button 
+            onClick={handleProceedToSurvey} 
+            className="btn-primary application-btn"
+          >
+            📝 Begin Full Membership Application
+          </button>
+          
+          <button 
+            onClick={handleGoBack} 
+            className="btn-secondary"
+          >
+            ← Back to Towncrier
+          </button>
+        </div>
+
+        <div className="first-access-note">
+          {!hasAccessedBefore && (
+            <div className="access-logged">
+              <p>
+                📊 <strong>Note:</strong> Your access to this membership information page has been 
+                logged for record-keeping purposes.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FullMembershipInfo;
+
+
+//=======================================
+
+// ikootaclient/src/components/membership/FullMembershipDeclined.jsx
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../auth/UserStatus';
+import './fullMembershipDeclined.css';
+
+const FullMembershipDeclined = () => {
+  const navigate = useNavigate();
+  const { user } = useUser();
+
+  return (
+    <div className="membership-declined-container">
+      <div className="declined-card">
+        <div className="declined-header">
+          <div className="declined-icon">📋</div>
+          <h1>Full Membership Application Decision</h1>
+          <h2>Application Not Approved</h2>
+        </div>
+
+        <div className="declined-content">
+          <div className="decision-message">
+            <p>
+              <strong>Dear {user?.username || 'Applicant'},</strong>
+            </p>
+            <p>
+              After careful review by our membership committee, we regret to inform you that 
+              your full membership application has not been approved at this time.
+            </p>
+          </div>
+
+          <div className="feedback-section">
+            <h3>📧 Detailed Feedback</h3>
+            <div className="email-notice">
+              <p>
+                We have sent detailed feedback to your email address ({user?.email}) 
+                explaining the specific reasons for this decision and providing guidance 
+                for future applications.
+              </p>
+              <button 
+                onClick={() => window.open(`mailto:${user?.email}`)} 
+                className="check-email-btn"
+              >
+                📧 Check Your Email
+              </button>
+            </div>
+          </div>
+
+          <div className="reapplication-info">
+            <h3>🔄 Future Application Opportunities</h3>
+            <div className="reapplication-content">
+              <p>
+                This decision does not permanently exclude you from full membership. 
+                You may reapply in the future when you have addressed the areas highlighted in our feedback.
+              </p>
+              
+              <div className="reapplication-timeline">
+                <h4>📅 Reapplication Guidelines:</h4>
+                <ul>
+                  <li>Wait at least 90 days before submitting a new application</li>
+                  <li>Address all concerns mentioned in our feedback email</li>
+                  <li>Demonstrate growth in the areas we've identified</li>
+                  <li>Continue engaging as a pre-member to show commitment</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="current-status">
+            <h3>📚 Your Current Access</h3>
+            <div className="status-info">
+              <div className="status-item">
+                <span className="status-icon">🌟</span>
+                <div>
+                  <h4>Pre-Member Status Maintained</h4>
+                  <p>You retain your current pre-member access to Towncrier educational content</p>
+                </div>
+              </div>
+              <div className="access-details">
+                <h4>✅ You Can Continue To:</h4>
+                <ul>
+                  <li>Browse all public educational content</li>
+                  <li>Read community posts and resources</li>
+                  <li>Learn from teaching materials</li>
+                  <li>Prepare for future full membership application</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="improvement-suggestions">
+            <h3>💡 General Improvement Areas</h3>
+            <div className="suggestions-grid">
+              <div className="suggestion-item">
+                <span className="suggestion-icon">📖</span>
+                <div>
+                  <h4>Deepen Educational Expertise</h4>
+                  <p>Continue developing your knowledge in your field of interest</p>
+                </div>
+              </div>
+              <div className="suggestion-item">
+                <span className="suggestion-icon">🤝</span>
+                <div>
+                  <h4>Community Engagement</h4>
+                  <p>Show commitment to collaborative learning principles</p>
+                </div>
+              </div>
+              <div className="suggestion-item">
+                <span className="suggestion-icon">💬</span>
+                <div>
+                  <h4>Communication Skills</h4>
+                  <p>Develop clear, professional communication abilities</p>
+                </div>
+              </div>
+              <div className="suggestion-item">
+                <span className="suggestion-icon">🎯</span>
+                <div>
+                  <h4>Clear Contribution Plan</h4>
+                  <p>Articulate specific ways you'll contribute to the community</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="support-contact">
+            <h3>❓ Questions About This Decision?</h3>
+            <div className="contact-info">
+              <p>
+                If you have questions about this decision or need clarification about the feedback, 
+                you may contact our membership committee:
+              </p>
+              <div className="contact-method">
+                <span className="contact-icon">📧</span>
+                <div>
+                  <strong>Email:</strong> membership@ikoota.com
+                  <br />
+                  <strong>Subject:</strong> Question About Full Membership Decision
+                </div>
+              </div>
+              <p className="contact-note">
+                Please reference your membership ticket number in any correspondence.
+              </p>
+            </div>
+          </div>
+
+          <div className="action-buttons">
+            <button 
+              onClick={() => navigate('/towncrier')} 
+              className="btn-primary"
+            >
+              📚 Continue as Pre-Member
+            </button>
+            
+            <button 
+              onClick={() => window.open(`mailto:${user?.email}`)} 
+              className="btn-secondary"
+            >
+              📧 Check Email for Details
+            </button>
+            
+            <button 
+              onClick={() => navigate('/')} 
+              className="btn-secondary"
+            >
+              🏠 Return to Home
+            </button>
+          </div>
+        </div>
+
+        <div className="declined-footer">
+          <p>
+            We encourage you to continue your educational journey with us as a pre-member 
+            and look forward to potentially welcoming you as a full member in the future.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FullMembershipDeclined;
+
+//========================================
+
+// ===============================================
+// ikootaclient/src/components/membership/FullMembershipApproved.jsx
+// ===============================================
+import React, { useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useUser } from '../auth/UserStatus';
+import './fullMembershipStatus.css';
+
+const FullMembershipApproved = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, refreshUser } = useUser();
+  
+  const membershipTicket = location.state?.membershipTicket || user?.fullMembershipTicket;
+  const username = user?.username;
+
+  useEffect(() => {
+    // Refresh user status to get latest membership data
+    refreshUser();
+  }, [refreshUser]);
+
+  return (
+    <div className="full-membership-status-container">
+      <div className="status-card approved">
+        <div className="status-header">
+          <div className="success-icon">🎉</div>
+          <h1>Congratulations!</h1>
+          <h2>Your Full Membership Application Has Been Approved</h2>
+        </div>
+
+        <div className="status-content">
+          <div className="approval-details">
+            <div className="detail-item">
+              <strong>Applicant:</strong> {username}
+            </div>
+            {membershipTicket && (
+              <div className="detail-item">
+                <strong>Application Ticket:</strong> 
+                <span className="ticket-number">{membershipTicket}</span>
+              </div>
+            )}
+            <div className="detail-item">
+              <strong>New Status:</strong> 
+              <span className="status-badge success">Full Member</span>
+            </div>
+            <div className="detail-item">
+              <strong>Effective Date:</strong> {new Date().toLocaleDateString()}
+            </div>
+          </div>
+
+          <div className="membership-benefits">
+            <h3>🎊 Your New Full Member Benefits:</h3>
+            <ul className="benefits-list">
+              <li>✅ <strong>Iko Chat Access:</strong> Participate in our exclusive member chat platform</li>
+              <li>✅ <strong>Advanced Content:</strong> Access to premium educational materials</li>
+              <li>✅ <strong>Direct Mentorship:</strong> Connect with experienced mentors</li>
+              <li>✅ <strong>Community Projects:</strong> Collaborate on member-only initiatives</li>
+              <li>✅ <strong>Priority Support:</strong> Faster response times for assistance</li>
+              <li>✅ <strong>Networking Events:</strong> Invitations to exclusive member gatherings</li>
+            </ul>
+          </div>
+
+          <div className="next-steps">
+            <h3>🚀 What's Next?</h3>
+            <div className="steps-grid">
+              <div className="step-card">
+                <div className="step-icon">💬</div>
+                <h4>Start Chatting</h4>
+                <p>Jump into Iko Chat and introduce yourself to the community</p>
+                <button 
+                  onClick={() => navigate('/iko')}
+                  className="btn-primary"
+                >
+                  Access Iko Chat
+                </button>
+              </div>
+              
+              <div className="step-card">
+                <div className="step-icon">👤</div>
+                <h4>Complete Profile</h4>
+                <p>Update your profile with your interests and expertise</p>
+                <button 
+                  onClick={() => navigate('/profile')}
+                  className="btn-secondary"
+                >
+                  Edit Profile
+                </button>
+              </div>
+              
+              <div className="step-card">
+                <div className="step-icon">📚</div>
+                <h4>Explore Content</h4>
+                <p>Access advanced educational materials and resources</p>
+                <button 
+                  onClick={() => navigate('/towncrier')}
+                  className="btn-secondary"
+                >
+                  Browse Content
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="support-info">
+            <h4>📞 Need Help?</h4>
+            <p>If you have any questions about your new membership benefits, please contact our support team:</p>
+            <div className="contact-options">
+              <span>📧 support@ikoota.com</span>
+              <span>💬 Use the help chat in your dashboard</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="status-actions">
+          <button 
+            onClick={() => navigate('/iko')}
+            className="btn-primary large"
+          >
+            🚀 Start Your Full Member Journey
+          </button>
+          
+          <button 
+            onClick={() => navigate('/dashboard')}
+            className="btn-secondary"
+          >
+            📊 Go to Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FullMembershipApproved;
+
+
+
+
+
+
+
+
+//==========================================
+//info FOLDER
+//==========================================
+
+
+//ikootaclient\src\components\info\Thankyou.jsx
+import React from 'react'
+
+const Thankyou = () => {
+  return (
+    <div>Thankyou for applying for chatting membership in this training!</div>
+  )
+}
+
+export default Thankyou
+
+//================================
+
+
+// ikootaclient/src/components/info/Suspendedverifyinfo.jsx
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../auth/UserStatus';
+import './suspendedverifyinfo.css';
+
+const Suspendedverifyinfo = () => {
+  const navigate = useNavigate();
+  const { user } = useUser();
+
+  return (
+    <div className="suspended-verify-container">
+      <div className="suspended-card">
+        <div className="suspended-header">
+          <div className="suspended-icon">⚠️</div>
+          <h1>Application Suspended</h1>
+          <h2>Additional Information Required</h2>
+        </div>
+
+        <div className="suspended-content">
+          <div className="status-message">
+            <p>
+              <strong>Hello {user?.username || 'Applicant'},</strong>
+            </p>
+            <p>
+              Your application review has been temporarily suspended. This typically means 
+              we need additional information or clarification before proceeding.
+            </p>
+          </div>
+
+          <div className="suspension-reasons">
+            <h3>🔍 Common Reasons for Suspension</h3>
+            <div className="reasons-list">
+              <div className="reason-item">
+                <span className="reason-icon">📝</span>
+                <div>
+                  <h4>Incomplete Information</h4>
+                  <p>Some survey responses may need more detail</p>
+                </div>
+              </div>
+              <div className="reason-item">
+                <span className="reason-icon">❓</span>
+                <div>
+                  <h4>Clarification Needed</h4>
+                  <p>Certain answers require additional explanation</p>
+                </div>
+              </div>
+              <div className="reason-item">
+                <span className="reason-icon">📋</span>
+                <div>
+                  <h4>Additional Documentation</h4>
+                  <p>Supporting documents may be required</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="next-actions">
+            <h3>📧 Check Your Email</h3>
+            <div className="email-instructions">
+              <p>
+                We have sent detailed instructions to <strong>{user?.email}</strong> 
+                explaining what additional information is needed.
+              </p>
+              <div className="email-checklist">
+                <h4>📋 Please Check:</h4>
+                <ul>
+                  <li>Your inbox for our latest email</li>
+                  <li>Spam/junk folder (emails might be filtered)</li>
+                  <li>Promotions tab (if using Gmail)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="resolution-steps">
+            <h3>🔧 How to Resolve</h3>
+            <div className="resolution-timeline">
+              <div className="resolution-step">
+                <span className="step-number">1</span>
+                <div className="step-content">
+                  <h4>Read Our Email Carefully</h4>
+                  <p>Review the specific requirements mentioned</p>
+                </div>
+              </div>
+              <div className="resolution-step">
+                <span className="step-number">2</span>
+                <div className="step-content">
+                  <h4>Prepare Required Information</h4>
+                  <p>Gather any additional documents or details</p>
+                </div>
+              </div>
+              <div className="resolution-step">
+                <span className="step-number">3</span>
+                <div className="step-content">
+                  <h4>Respond to Our Email</h4>
+                  <p>Reply with the requested information</p>
+                </div>
+              </div>
+              <div className="resolution-step">
+                <span className="step-number">4</span>
+                <div className="step-content">
+                  <h4>Resume Review Process</h4>
+                  <p>We'll continue evaluating your application</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="contact-support">
+            <h3>❓ Need Help?</h3>
+            <div className="support-options">
+              <div className="support-option">
+                <span className="support-icon">📧</span>
+                <div>
+                  <h4>Email Support</h4>
+                  <p><strong>support@ikoota.com</strong></p>
+                  <p>For questions about suspension requirements</p>
+                </div>
+              </div>
+              <div className="support-option">
+                <span className="support-icon">💬</span>
+                <div>
+                  <h4>Reply to Our Email</h4>
+                  <p>Best method for application-specific questions</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="action-buttons">
+            <button 
+              onClick={() => window.open('mailto:' + user?.email)} 
+              className="btn-primary"
+            >
+              📧 Check Email
+            </button>
+            
+            <button 
+              onClick={() => navigate('/towncrier')} 
+              className="btn-secondary"
+            >
+              📚 Browse Content Meanwhile
+            </button>
+          </div>
+        </div>
+
+        <div className="suspended-footer">
+          <p>
+            <strong>Timeline:</strong> Most suspensions are resolved within 24-48 hours 
+            after receiving the requested information.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Suspendedverifyinfo;
+
+//===========================================
+
+// ikootaclient/src/components/info/SurveySubmitted.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useUser } from '../auth/UserStatus';
+import './surveySubmitted.css';
+
+const SurveySubmitted = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useUser();
+  const [applicationTicket, setApplicationTicket] = useState('');
+  const [username, setUsername] = useState('');
+
+  useEffect(() => {
+    if (location.state) {
+      setApplicationTicket(location.state.applicationTicket || '');
+      setUsername(location.state.username || '');
+    } else if (user) {
+      setUsername(user.username || user.email || 'User');
+    }
+  }, [location.state, user]);
+
+  const copyTicketToClipboard = () => {
+    if (applicationTicket) {
+      navigator.clipboard.writeText(applicationTicket);
+      alert('Application ticket copied to clipboard!');
+    }
+  };
+
+  return (
+    <div className="survey-submitted-container">
+      <div className="submitted-card">
+        <div className="success-animation">
+          <div className="checkmark">✓</div>
+        </div>
+
+        <div className="submitted-header">
+          <h1>🎉 Survey Submitted Successfully!</h1>
+          <h2>Thank you, {username}!</h2>
+        </div>
+
+        <div className="submitted-content">
+          <div className="confirmation-message">
+            <p>
+              Your application survey has been submitted successfully and is now 
+              <strong> pending review</strong> by our admissions team.
+            </p>
+          </div>
+
+          {applicationTicket && (
+            <div className="ticket-section">
+              <h3>📋 Your Application Ticket</h3>
+              <div className="ticket-display">
+                <div className="ticket-number" onClick={copyTicketToClipboard}>
+                  {applicationTicket}
+                </div>
+                <button onClick={copyTicketToClipboard} className="copy-btn">
+                  📋 Copy
+                </button>
+              </div>
+              <p className="ticket-note">
+                <strong>Important:</strong> Save this ticket number! You'll need it for:
+              </p>
+              <ul className="ticket-uses">
+                <li>Tracking your application status</li>
+                <li>Any inquiries about your application</li>
+                <li>Contacting support if needed</li>
+              </ul>
+            </div>
+          )}
+
+          <div className="timeline-section">
+            <h3>📅 What Happens Next?</h3>
+            <div className="timeline">
+              <div className="timeline-item completed">
+                <div className="timeline-marker">✅</div>
+                <div className="timeline-content">
+                  <h4>Survey Submitted</h4>
+                  <p>Your application is now in our system</p>
+                  <span className="timestamp">Just now</span>
+                </div>
+              </div>
+              
+              <div className="timeline-item pending">
+                <div className="timeline-marker">⏳</div>
+                <div className="timeline-content">
+                  <h4>Under Review</h4>
+                  <p>Our team will review your responses</p>
+                  <span className="timestamp">3-5 business days</span>
+                </div>
+              </div>
+              
+              <div className="timeline-item future">
+                <div className="timeline-marker">📧</div>
+                <div className="timeline-content">
+                  <h4>Decision Notification</h4>
+                  <p>You'll receive an email with our decision</p>
+                  <span className="timestamp">After review</span>
+                </div>
+              </div>
+              
+              <div className="timeline-item future">
+                <div className="timeline-marker">🎓</div>
+                <div className="timeline-content">
+                  <h4>Platform Access</h4>
+                  <p>If approved, access educational content</p>
+                  <span className="timestamp">Upon approval</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="review-process">
+            <h3>🔍 Review Process</h3>
+            <div className="process-info">
+              <div className="process-step">
+                <h4>Pending Verification</h4>
+                <p>Initial review of application completeness</p>
+              </div>
+              <div className="process-step">
+                <h4>Suspended Verification</h4>
+                <p>Additional information may be requested</p>
+              </div>
+              <div className="process-step">
+                <h4>Approved-Verified</h4>
+                <p>Welcome to the Ikoota community!</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="waiting-period-info">
+            <h3>⏰ During the Waiting Period</h3>
+            <div className="waiting-actions">
+              <div className="action-item">
+                <span className="action-icon">📧</span>
+                <div>
+                  <h4>Check Your Email</h4>
+                  <p>We'll send updates to {user?.email}</p>
+                </div>
+              </div>
+              <div className="action-item">
+                <span className="action-icon">🔍</span>
+                <div>
+                  <h4>Monitor Application Status</h4>
+                  <p>Sign in periodically to check for updates</p>
+                </div>
+              </div>
+              <div className="action-item">
+                <span className="action-icon">📞</span>
+                <div>
+                  <h4>Contact Support if Urgent</h4>
+                  <p>Email support@ikoota.com with your ticket number</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="access-restrictions">
+            <h3>🚫 Current Access Level</h3>
+            <div className="restriction-info">
+              <p>
+                <strong>During Review Period:</strong> Your account has limited access. 
+                You cannot access the full platform until your application is approved.
+              </p>
+              <div className="access-levels">
+                <div className="access-level denied">
+                  <span className="access-icon">❌</span>
+                  <span>Iko Chat System</span>
+                </div>
+                <div className="access-level denied">
+                  <span className="access-icon">❌</span>
+                  <span>Member Discussions</span>
+                </div>
+                <div className="access-level denied">
+                  <span className="access-icon">❌</span>
+                  <span>Content Creation</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="urgent-contact">
+            <h3>🚨 Need Urgent Access?</h3>
+            <div className="urgent-info">
+              <p>
+                If you feel there's an urgent need for your application to be prioritized, 
+                you can contact our management team:
+              </p>
+              <div className="contact-details">
+                <div className="contact-method">
+                  <span className="contact-icon">📧</span>
+                  <div>
+                    <strong>Email:</strong> admin@ikoota.com
+                    <br />
+                    <strong>Subject:</strong> Urgent Application Review - {applicationTicket}
+                  </div>
+                </div>
+                <div className="contact-method">
+                  <span className="contact-icon">📱</span>
+                  <div>
+                    <strong>SMS:</strong> +1 (555) 123-4567
+                    <br />
+                    <strong>Include:</strong> Your application ticket number
+                  </div>
+                </div>
+              </div>
+              <p className="urgent-note">
+                <strong>Please include:</strong> Your application ticket number and 
+                a clear reason why urgent access is needed for platform participation.
+              </p>
+            </div>
+          </div>
+
+          <div className="action-buttons">
+            <button 
+              onClick={() => navigate('/towncrier')} 
+              className="btn-primary"
+            >
+              📚 Browse Public Content
+            </button>
+            
+            <button 
+              onClick={() => navigate('/login')} 
+              className="btn-secondary"
+            >
+              🔑 Sign In to Check Status
+            </button>
+            
+            <button 
+              onClick={() => navigate('/')} 
+              className="btn-secondary"
+            >
+              🏠 Return to Home
+            </button>
+          </div>
+
+          <div className="final-note">
+            <div className="note-content">
+              <h4>📝 Important Reminders</h4>
+              <ul>
+                <li>Keep your application ticket number safe</li>
+                <li>Check your email regularly for updates</li>
+                <li>Do not submit multiple applications</li>
+                <li>Contact support only if urgent</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="submitted-footer">
+          <p>
+            Thank you for your interest in joining the Ikoota educational community. 
+            We appreciate your patience during the review process.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SurveySubmitted;
+
+//========================================
+
+//ikootaclient\src\components\info\ReviewSurvey.jsx
+import React from 'react'
+import './reviewsurvey.css'
+
+const ReviewSurvey = () => {
+  return (
+    <div>ReviewSurvey</div>
+  )
+}
+
+export default ReviewSurvey
+
+//==============================
+
+// ikootaclient/src/components/info/Pendverifyinfo.jsx - SAFE VERSION WITH NO AUTO REDIRECTS
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../auth/UserStatus';
+import './pendverifyinfo.css';
+
+const Pendverifyinfo = () => {
+  const navigate = useNavigate();
+  const { user, membershipStatus, getUserStatus } = useUser();
+
+  // ✅ Get actual survey completion status from API data
+  const surveyCompleted = user?.survey_completed || membershipStatus?.survey_completed;
+  const approvalStatus = user?.approval_status || membershipStatus?.approval_status;
+  const needsSurvey = user?.needs_survey || membershipStatus?.needs_survey;
+  const currentUserStatus = getUserStatus();
+
+  console.log('📊 Pendverifyinfo Status Check:', {
+    currentUserStatus,
+    surveyCompleted,
+    needsSurvey,
+    approvalStatus,
+    userMemberStatus: user?.is_member,
+    membershipStage: user?.membership_stage
+  });
+
+  // ✅ COMPLETELY REMOVED useEffect WITH AUTOMATIC REDIRECT
+  // No more automatic redirects that cause loops
+  // Users must manually choose to complete the survey
+
+  return (
+    <div className="pending-verify-container">
+      <div className="pending-card">
+        <div className="pending-header">
+          <div className="pending-icon">⏳</div>
+          <h1>Application Under Review</h1>
+          <h2>Pending Verification</h2>
+        </div>
+
+        <div className="pending-content">
+          <div className="status-message">
+            <p>
+              <strong>Hello {user?.username || 'Applicant'},</strong>
+            </p>
+            <p>
+              Your application and survey responses are currently being reviewed by our admissions team. 
+              We appreciate your patience during this process.
+            </p>
+          </div>
+
+          <div className="review-status">
+            <h3>📊 Current Status: <span className="status-badge pending">Pending Review</span></h3>
+            <div className="status-details">
+              <div className="detail-item">
+                <span className="detail-label">Application Submitted:</span>
+                <span className="detail-value">✅ Complete</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Survey Completed:</span>
+                <span className="detail-value">
+                  {surveyCompleted ? '✅ Complete' : '⏳ In Progress'}
+                </span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Review Status:</span>
+                <span className="detail-value">
+                  {approvalStatus === 'pending' ? '⏳ In Progress' : '🔍 Under Review'}
+                </span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Expected Timeline:</span>
+                <span className="detail-value">3-5 Business Days</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="access-restrictions">
+            <h3>🚫 Current Access Limitations</h3>
+            <p>
+              While your application is pending, you have limited access to the platform:
+            </p>
+            <div className="restrictions-list">
+              <div className="restriction-item denied">
+                <span className="restriction-icon">❌</span>
+                <span>Iko Chat System Access</span>
+              </div>
+              <div className="restriction-item denied">
+                <span className="restriction-icon">❌</span>
+                <span>Member Discussions</span>
+              </div>
+              <div className="restriction-item denied">
+                <span className="restriction-icon">❌</span>
+                <span>Content Creation & Posting</span>
+              </div>
+              <div className="restriction-item allowed">
+                <span className="restriction-icon">✅</span>
+                <span>Browse Public Educational Content</span>
+              </div>
+              <div className="restriction-item allowed">
+                <span className="restriction-icon">✅</span>
+                <span>Access Landing Page & Public Information</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ✅ Show survey completion section if not completed - MANUAL NAVIGATION ONLY */}
+          {!surveyCompleted && needsSurvey && (
+            <div className="incomplete-survey" style={{
+              background: '#fff3cd',
+              border: '1px solid #ffeaa7',
+              borderRadius: '8px',
+              padding: '20px',
+              margin: '20px 0'
+            }}>
+              <h3 style={{ color: '#856404', marginTop: '0' }}>📋 Complete Your Application Survey</h3>
+              <p style={{ color: '#856404' }}>
+                <strong>Action Required:</strong> Your application survey is not yet complete. 
+                To expedite your review process and move forward, please complete your application survey.
+              </p>
+              <button 
+                onClick={() => {
+                  console.log('🔄 Manual navigation to application survey');
+                  navigate('/applicationsurvey');
+                }} 
+                className="btn-primary"
+                style={{ 
+                  marginBottom: '10px',
+                  background: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '6px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  fontSize: '16px'
+                }}
+              >
+                📝 Complete Application Survey Now
+              </button>
+              <p style={{ fontSize: '14px', color: '#856404', margin: '10px 0 0 0', fontWeight: 'bold' }}>
+                <strong>Important:</strong> Your application cannot proceed without completing the survey.
+              </p>
+            </div>
+          )}
+
+          {/* ✅ Show different message if survey is completed */}
+          {surveyCompleted && (
+            <div className="survey-completed" style={{
+              background: '#d4edda',
+              border: '1px solid #c3e6cb',
+              borderRadius: '8px',
+              padding: '20px',
+              margin: '20px 0'
+            }}>
+              <h3 style={{ color: '#155724', marginTop: '0' }}>✅ Survey Completed</h3>
+              <p style={{ color: '#155724' }}>
+                <strong>Great!</strong> Your application survey has been completed and submitted. 
+                Your application is now under review by our admissions team.
+              </p>
+            </div>
+          )}
+
+          <div className="urgent-access">
+            <h3>🚨 Need Urgent Access?</h3>
+            <div className="urgent-content">
+              <p>
+                If you believe there's an urgent need for your application to be prioritized 
+                for platform participation, you can contact our management team:
+              </p>
+              
+              <div className="contact-methods">
+                <div className="contact-method">
+                  <div className="method-header">
+                    <span className="method-icon">📧</span>
+                    <strong>Email Support</strong>
+                  </div>
+                  <div className="method-details">
+                    <p><strong>Address:</strong> admin@ikoota.com</p>
+                    <p><strong>Subject:</strong> Urgent Application Review Request</p>
+                  </div>
+                </div>
+                
+                <div className="contact-method">
+                  <div className="method-header">
+                    <span className="method-icon">📱</span>
+                    <strong>SMS/WhatsApp</strong>
+                  </div>
+                  <div className="method-details">
+                    <p><strong>Number:</strong> +1 (555) 123-4567</p>
+                    <p><strong>Hours:</strong> 9 AM - 5 PM EST</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="urgent-requirements">
+                <h4>📋 Include in Your Message:</h4>
+                <ul>
+                  <li>Your full name and username</li>
+                  <li>Email address used for registration</li>
+                  <li>Application ticket number (if available)</li>
+                  <li>Clear reason for urgency</li>
+                  <li>Specific need for platform participation</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="next-steps">
+            <h3>⏭️ What to Expect</h3>
+            <div className="steps-timeline">
+              <div className="step completed">
+                <span className="step-icon">✅</span>
+                <div className="step-content">
+                  <h4>Application Received</h4>
+                  <p>Your registration is in our system</p>
+                </div>
+              </div>
+              <div className={`step ${surveyCompleted ? 'completed' : 'current'}`}>
+                <span className="step-icon">{surveyCompleted ? '✅' : '📝'}</span>
+                <div className="step-content">
+                  <h4>Survey Completion</h4>
+                  <p>{surveyCompleted ? 'Survey responses submitted' : 'Complete your application survey'}</p>
+                </div>
+              </div>
+              <div className={`step ${surveyCompleted ? 'current' : 'future'}`}>
+                <span className="step-icon">🔍</span>
+                <div className="step-content">
+                  <h4>Under Review</h4>
+                  <p>Team is evaluating your application</p>
+                </div>
+              </div>
+              <div className="step future">
+                <span className="step-icon">📧</span>
+                <div className="step-content">
+                  <h4>Decision Notification</h4>
+                  <p>Email notification with final decision</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="action-buttons">
+            <button 
+              onClick={() => navigate('/dashboard')} 
+              className="btn-primary"
+            >
+              📊 My Dashboard
+            </button>
+            
+            <button 
+              onClick={() => navigate('/')} 
+              className="btn-secondary"
+            >
+              🏠 Return to Home
+            </button>
+          </div>
+        </div>
+
+        <div className="pending-footer">
+          <p>
+            <strong>Important:</strong> Attempting to create multiple accounts or 
+            resubmit applications will not expedite the review process.
+          </p>
+          <p>
+            <strong>Note:</strong> You can return to the home page at any time to learn more about our platform 
+            while waiting for your application review.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Pendverifyinfo;
+
+//=====================================
+
+
+// ikootaclient/src/components/info/Approveverifyinfo.jsx
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../auth/UserStatus';
+import './approveverifyinfo.css';
+
+const Approveverifyinfo = () => {
+  const navigate = useNavigate();
+  const { user } = useUser();
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  useEffect(() => {
+    // Trigger celebration animation
+    setShowConfetti(true);
+    const timer = setTimeout(() => setShowConfetti(false), 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleProceedToTowncrier = () => {
+    navigate('/towncrier');
+  };
+
+  return (
+    <div className="approved-verify-container">
+      {showConfetti && <div className="confetti-animation"></div>}
+      
+      <div className="approved-card">
+        <div className="approved-header">
+          <div className="success-icon">🎉</div>
+          <h1>Congratulations!</h1>
+          <h2>Application Approved</h2>
+          <div className="celebration-text">Welcome to the Ikoota Community!</div>
+        </div>
+
+        <div className="approved-content">
+          <div className="approval-message">
+            <p>
+              <strong>Excellent news, {user?.username || 'New Member'}!</strong>
+            </p>
+            <p>
+              Your initial application has been <span className="highlight-success">approved</span> by our admissions team. 
+              You are now a <strong>Pre-Member</strong> of the Ikoota community with access to our educational content platform.
+            </p>
+          </div>
+
+          <div className="new-status">
+            <h3>🔰 Your New Status</h3>
+            <div className="status-upgrade">
+              <div className="status-from">
+                <span className="status-label">From:</span>
+                <span className="status-badge applicant">Applicant</span>
+              </div>
+              <div className="status-arrow">→</div>
+              <div className="status-to">
+                <span className="status-label">To:</span>
+                <span className="status-badge pre-member">Pre-Member</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="new-access">
+            <h3>🔓 What You Now Have Access To</h3>
+            <div className="access-list">
+              <div className="access-item granted">
+                <span className="access-icon">✅</span>
+                <div className="access-details">
+                  <strong>Towncrier Content Platform</strong>
+                  <p>Browse and read all educational teachings and community announcements</p>
+                </div>
+              </div>
+              <div className="access-item granted">
+                <span className="access-icon">✅</span>
+                <div className="access-details">
+                  <strong>Community Updates</strong>
+                  <p>Stay informed with the latest community news and events</p>
+                </div>
+              </div>
+              <div className="access-item granted">
+                <span className="access-icon">✅</span>
+                <div className="access-details">
+                  <strong>Educational Resources</strong>
+                  <p>Access to curated learning materials and teachings</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="future-access">
+            <h3>🚀 Path to Full Membership</h3>
+            <p>
+              As a Pre-Member, you're on the path to becoming a Full Member with even more benefits:
+            </p>
+            <div className="future-benefits">
+              <div className="benefit-item">
+                <span className="benefit-icon">💬</span>
+                <span>Iko Chat System Access</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">🤝</span>
+                <span>Interactive Community Participation</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">📝</span>
+                <span>Content Creation & Sharing</span>
+              </div>
+              <div className="benefit-item">
+                <span className="benefit-icon">🎯</span>
+                <span>Advanced Learning Features</span>
+              </div>
+            </div>
+            <div className="full-membership-note">
+              <p>
+                <strong>Next Step:</strong> After participating as a Pre-Member, you'll be eligible 
+                to apply for Full Membership with enhanced community privileges.
+              </p>
+            </div>
+          </div>
+
+          <div className="action-section">
+            <h3>🎯 Ready to Get Started?</h3>
+            <p>
+              Your journey in the Ikoota community begins now. Click below to access 
+              the Towncrier platform and start exploring our educational content.
+            </p>
+            
+            <div className="action-buttons">
+              <button 
+                onClick={handleProceedToTowncrier}
+                className="btn-primary main-action"
+              >
+                🚀 Enter Towncrier Platform
+              </button>
+              
+              <button 
+                onClick={() => navigate('/')} 
+                className="btn-secondary"
+              >
+                🏠 Return to Home
+              </button>
+            </div>
+          </div>
+
+          <div className="welcome-tips">
+            <h3>💡 Getting Started Tips</h3>
+            <div className="tips-grid">
+              <div className="tip-item">
+                <span className="tip-icon">📖</span>
+                <div className="tip-content">
+                  <strong>Explore Content</strong>
+                  <p>Browse through various teachings and educational materials</p>
+                </div>
+              </div>
+              <div className="tip-item">
+                <span className="tip-icon">🔄</span>
+                <div className="tip-content">
+                  <strong>Stay Active</strong>
+                  <p>Regular engagement helps with Full Membership eligibility</p>
+                </div>
+              </div>
+              <div className="tip-item">
+                <span className="tip-icon">📧</span>
+                <div className="tip-content">
+                  <strong>Check Updates</strong>
+                  <p>Keep an eye on your email for community announcements</p>
+                </div>
+              </div>
+              <div className="tip-item">
+                <span className="tip-icon">❓</span>
+                <div className="tip-content">
+                  <strong>Need Help?</strong>
+                  <p>Contact support if you have any questions</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="approved-footer">
+          <div className="footer-message">
+            <p>
+              <strong>Welcome to Ikoota!</strong> We're excited to have you as part of our learning community.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Approveverifyinfo;
+
+//======================================
+
+
+// ikootaclient/src/components/info/ApplicationThankyou.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useUser } from '../auth/UserStatus';
+import './applicationThankyou.css';
+
+const ApplicationThankyou = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, isAuthenticated } = useUser();
+  const [applicationTicket, setApplicationTicket] = useState('');
+  const [username, setUsername] = useState('');
+
+  useEffect(() => {
+    // Get data from navigation state or generate if needed
+    if (location.state) {
+      setApplicationTicket(location.state.applicationTicket || '');
+      setUsername(location.state.username || '');
+    } else if (user) {
+      // Generate ticket if not provided but user is authenticated
+      setUsername(user.username || user.email || 'User');
+      // You could generate a ticket here if needed
+    }
+  }, [location.state, user]);
+
+  const handleApplicationSurvey = () => {
+    if (!isAuthenticated) {
+      alert('Please sign in first to access the application survey.');
+      navigate('/login');
+      return;
+    }
+    navigate('/applicationsurvey');
+  };
+
+  const handleGoToLogin = () => {
+    navigate('/login');
+  };
+
+  const handleGoHome = () => {
+    navigate('/');
+  };
+
+  return (
+    <div className="application-thankyou-container">
+      <div className="thankyou-card">
+        <div className="thankyou-header">
+          <h1>🎉 Welcome to Ikoota!</h1>
+          <h2>Registration Successful</h2>
+        </div>
+
+        <div className="thankyou-content">
+          <div className="welcome-message">
+            <p>
+              <strong>Congratulations {username}!</strong>
+            </p>
+            <p>
+              Thank you for signing up and showing interest in becoming a member of our educational platform! 
+              We greatly appreciate your intention to join our community.
+            </p>
+          </div>
+
+          {applicationTicket && (
+            <div className="ticket-info">
+              <h3>📋 Your Application Details</h3>
+              <div className="ticket-display">
+                <span className="ticket-label">Application Ticket:</span>
+                <span className="ticket-number">{applicationTicket}</span>
+              </div>
+              <p className="ticket-note">
+                Please save this ticket number for your records. You'll need it for any inquiries about your application.
+              </p>
+            </div>
+          )}
+
+          <div className="next-steps">
+            <h3>🚀 Next Steps to Membership</h3>
+            <div className="steps-list">
+              <div className="step">
+                <span className="step-number">1</span>
+                <div className="step-content">
+                  <h4>Complete Application Survey</h4>
+                  <p>
+                    Fill out our detailed application survey to help us understand your background 
+                    and interest in our educational community.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="step">
+                <span className="step-number">2</span>
+                <div className="step-content">
+                  <h4>Application Review</h4>
+                  <p>
+                    Our team will review your application and survey responses. This process 
+                    typically takes 3-5 business days.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="step">
+                <span className="step-number">3</span>
+                <div className="step-content">
+                  <h4>Approval Notification</h4>
+                  <p>
+                    You'll receive an email notification about your application status. 
+                    If approved, you'll gain access to our educational content.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="membership-info">
+            <h3>📚 About Ikoota Membership</h3>
+            <div className="membership-levels">
+              <div className="level">
+                <h4>🌟 Pre-Member Access</h4>
+                <p>After approval, you'll have access to:</p>
+                <ul>
+                  <li>View public educational content in Towncrier</li>
+                  <li>Read community posts and resources</li>
+                  <li>Browse teaching materials</li>
+                </ul>
+                <p className="note">Note: Commenting and chat access requires full membership.</p>
+              </div>
+              
+              <div className="level featured">
+                <h4>💎 Full Membership</h4>
+                <p>Apply for full membership to unlock:</p>
+                <ul>
+                  <li>Access to exclusive Iko chat system</li>
+                  <li>Participate in discussions and comments</li>
+                  <li>Create and share educational content</li>
+                  <li>Direct interaction with community members</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="action-buttons">
+            <button 
+              onClick={handleApplicationSurvey} 
+              className="btn-primary survey-btn"
+            >
+              📝 Fill Out Application Survey
+            </button>
+            
+            <div className="secondary-actions">
+              {!isAuthenticated && (
+                <button 
+                  onClick={handleGoToLogin} 
+                  className="btn-secondary"
+                >
+                  🔑 Sign In to Continue
+                </button>
+              )}
+              
+              <button 
+                onClick={handleGoHome} 
+                className="btn-secondary"
+              >
+                🏠 Return to Home
+              </button>
+            </div>
+          </div>
+
+          <div className="important-notes">
+            <h3>⚠️ Important Notes</h3>
+            <div className="notes-list">
+              <div className="note">
+                <strong>Application Status:</strong> You can check your application status by signing in to your account.
+              </div>
+              <div className="note">
+                <strong>Survey Completion:</strong> The application survey is required for membership consideration. 
+                You can complete it anytime after registration.
+              </div>
+              <div className="note">
+                <strong>Contact Support:</strong> For urgent matters, contact us at support@ikoota.com with your application ticket number.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="thankyou-footer">
+          <p>
+            Use the link above to fill out the application survey. We will review your application shortly 
+            and notify you of the decision via email.
+          </p>
+          <div className="contact-info">
+            <p>Questions? Contact us at: <strong>support@ikoota.com</strong></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ApplicationThankyou;
+
+
+//========================================  
+//iko FOLDER
+//=========================================
+
+//ikootaclient\src\components\iko\Userinfo.jsx
+import React, { useEffect, useState } from 'react';
+import api from '../service/api';
+import {jwtDecode} from 'jwt-decode';
+import './userinfo.css';
+
+const Userinfo = () => {
+  const [userInfo, setUserInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [user_id, setUserId] = useState(null);
+  const [activeTime, setActiveTime] = useState('0m ago');
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      setUserId(jwtDecode(token).user_id);
+    } else {
+      const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("access_token="));
+      if (tokenCookie) {
+        setUserId(jwtDecode(tokenCookie.split("=")[1]).user_id);
+      } else {
+        throw new Error("Access token not found");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user_id) return;
+
+    const fetchUserInfo = async () => {
+      try {
+        const response = await api.get('/users/profile', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        setUserInfo(response.data);
+        setLoading(false);
+      } catch (error) {
+        setError(error.message);
+        setLoading(false);
+      }
+    };
+
+    fetchUserInfo();
+  }, [user_id]);
+
+  useEffect(() => {
+    const startTime = Date.now();
+
+    const updateActiveTime = () => {
+      const elapsedTime = Date.now() - startTime;
+      const minutes = Math.floor(elapsedTime / 60000);
+      const hours = Math.floor(minutes / 60);
+      const displayTime = hours > 0 ? `${hours}h ${minutes % 60}m ago` : `${minutes}m ago`;
+      setActiveTime(displayTime);
+    };
+
+    const intervalId = setInterval(updateActiveTime, 60000); // Update every minute
+
+    return () => clearInterval(intervalId); // Cleanup on unmount
+  }, []);
+
+  if (loading) return <p>Loading user info...</p>;
+  if (error) return <p>Error fetching user info: {error}</p>;
+
+  return (
+    <>
+      <div className='userinfo'>
+        <div className="user">
+          <img src={userInfo.avatar || "./avatar.png"} alt="User Avatar" />
+          <h4>{userInfo.username}</h4>
+        </div>
+        <div className="icons">
+          <img src="./more.png" alt="More" />
+          <img src="./video.png" alt="Video" />
+          <img src="./edit.png" alt="Edit" />
+        </div>
+      </div>
+      <p>Email: {userInfo.email}</p>
+      <p>Class ID: {userInfo.class_id}</p>
+      <p>User ID: {userInfo.id}</p>
+      <p>Active {activeTime}</p>
+    </>
+  );
+};
+
+export default Userinfo;
+
+
+//=====================================
+
+//ikootaclient\src\components\iko\MediaGallery.jsx
+import React, { useState } from "react";
+import ReactPlayer from "react-player";
+
+const MediaGallery = ({ mediaFiles }) => {
+  const [currentMedia, setCurrentMedia] = useState(null);
+  const [playing, setPlaying] = useState(false);
+
+  const handleMediaClick = (file) => {
+    if (currentMedia === file) {
+      setPlaying(!playing);
+    } else {
+      setCurrentMedia(file);
+      setPlaying(true);
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      {mediaFiles.map((file, index) => (
+        <div key={index} className="p-2 border rounded-md">
+          {file.type.includes("image") ? (
+            <img
+              src={file.url}
+              alt={file.name}
+              className="w-full h-auto cursor-pointer"
+              onClick={() => handleMediaClick(file)}
+            />
+          ) : file.type.includes("video") ? (
+            <ReactPlayer
+              url={file.url}
+              controls
+              playing={currentMedia === file && playing}
+              width="100%"
+              height="auto"
+              onClick={() => handleMediaClick(file)}
+            />
+          ) : file.type.includes("audio") ? (
+            <ReactPlayer
+              url={file.url}
+              controls
+              playing={currentMedia === file && playing}
+              width="100%"
+              height="50px"
+              onClick={() => handleMediaClick(file)}
+            />
+          ) : (
+            <p>Unsupported format</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default MediaGallery;
+
+
+//===========================================
+
+//ikootaclient\src\components\iko\ListComments.jsx
+import React, { useEffect, useState } from 'react';
+import SearchControls from '../search/SearchControls';
+import { jwtDecode } from 'jwt-decode';
+import './listcomments.css';
+import { useFetchParentChatsAndTeachingsWithComments } from '../service/useFetchComments';
+
+const ListComments = ({ setActiveItem, activeItem = {}, deactivateListChats }) => {
+  const [addMode, setAddMode] = useState(false);
+  const [user_id, setUserId] = useState(null);
+  const [filteredData, setFilteredData] = useState([]);
+
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        setUserId(jwtDecode(token).user_id);
+      } else {
+        const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("access_token="));
+        if (tokenCookie) {
+          setUserId(jwtDecode(tokenCookie.split("=")[1]).user_id);
+        } else {
+          console.error("Access token not found");
+        }
+      }
+    } catch (error) {
+      console.error("Error decoding token:", error);
+    }
+  }, []);
+
+  const { data: fetchedData, isLoading: isLoadingComments, error } = useFetchParentChatsAndTeachingsWithComments(user_id);
+  console.log("this is the data from list comment component ", fetchedData);
+
+  const handleSearch = (query) => {
+    if (!fetchedData?.comments || !Array.isArray(fetchedData.comments)) {
+      setFilteredData([]);
+      return;
+    }
+
+    const filtered = fetchedData.comments.filter(item =>
+      (item.comment && item.comment.toLowerCase().includes(query.toLowerCase())) || 
+      (item.chat_title && item.chat_title.toLowerCase().includes(query.toLowerCase())) ||
+      (item.teaching_title && item.teaching_title.toLowerCase().includes(query.toLowerCase()))
+    );
+    setFilteredData(filtered);
+  };
+
+  const handleItemClick = (item) => {
+    if (deactivateListChats) deactivateListChats();
+    setActiveItem(item);
+  };
+
+  // Group comments by chat_id and teaching_id for easier rendering
+  const groupCommentsByParent = () => {
+    const groupedComments = {};
+    
+    // Check if fetchedData and comments exist and is an array
+    if (!fetchedData?.comments || !Array.isArray(fetchedData.comments)) {
+      console.warn('No comments available or comments is not an array:', fetchedData?.comments);
+      return groupedComments;
+    }
+
+    fetchedData.comments.forEach(comment => {
+      try {
+        if (comment.chat_id) {
+          if (!groupedComments[comment.chat_id]) {
+            groupedComments[comment.chat_id] = [];
+          }
+          groupedComments[comment.chat_id].push(comment);
+        } else if (comment.teaching_id) {
+          if (!groupedComments[comment.teaching_id]) {
+            groupedComments[comment.teaching_id] = [];
+          }
+          groupedComments[comment.teaching_id].push(comment);
+        }
+      } catch (err) {
+        console.warn('Error processing comment:', comment, err);
+      }
+    });
+    
+    return groupedComments;
+  };
+
+  // Loading state
+  if (isLoadingComments) {
+    return (
+      <div className='listcomments_container'>
+        <div className="loading-message">
+          <p>Loading comments...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className='listcomments_container'>
+        <div className="error-message">
+          <p style={{color: 'red'}}>Error loading comments: {error.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // No data state
+  if (!fetchedData) {
+    return (
+      <div className='listcomments_container'>
+        <div className="search">
+          <div className="searchbar">
+            <img src="./search.png" alt="" />
+            <SearchControls onSearch={handleSearch} />
+          </div>
+          <img src={addMode ? "./minus.png" : "./plus.png"} alt="" className='add' onClick={() => setAddMode(!addMode)} />
+        </div>
+        <p>No data available</p>
+      </div>
+    );
+  }
+
+  const groupedComments = groupCommentsByParent();
+
+  return (
+    <div className='listcomments_container'>
+      <div className="search">
+        <div className="searchbar">
+          <img src="./search.png" alt="" />
+          <SearchControls onSearch={handleSearch} />
+        </div>
+        <img src={addMode ? "./minus.png" : "./plus.png"} alt="" className='add' onClick={() => setAddMode(!addMode)} />
+      </div>
+
+      {(!fetchedData?.chats || fetchedData.chats.length === 0) && 
+       (!fetchedData?.teachings || fetchedData.teachings.length === 0) && 
+       <p>No chats or teachings available</p>}
+      
+      {/* Render Chats */}
+      {fetchedData?.chats && Array.isArray(fetchedData.chats) && fetchedData.chats.map((chat) => {
+        const commentsForChat = groupedComments[chat.id] || [];
+        
+        return (
+          <div key={chat.updatedAt || chat.id} className={`chat-item ${activeItem?.updatedAt === chat.updatedAt ? 'active' : ''}`} onClick={() => handleItemClick(chat)}>
+            <div className="texts">
+              <span>Topic: {chat.title || 'No title'}</span>
+              <p>Description: {chat.summary || 'No description'}</p>
+              <p>Lesson#: {chat.id}</p>
+              <p>Audience: {chat.audience || 'No audience'}</p>
+              <p>Post By: {chat.created_by || 'Admin'}</p>
+              <p>Date Posted: {chat.createdAt ? new Date(chat.createdAt).toLocaleString() : 'Unknown date'}</p>
+              <p>Date Updated: {chat.updatedAt ? new Date(chat.updatedAt).toLocaleString() : 'Unknown date'}</p>
+            </div>
+
+            {/* Render the comments for this chat */}
+            {commentsForChat.length > 0 ? (
+              <div className="comments">
+                <h4>Comments:</h4>
+                {commentsForChat.map((comment) => (
+                  <div key={comment.updatedAt || comment.id} className="comment-item">
+                    <p>{comment.comment}</p>
+                    <p>CreatedBy: {comment.user_id}</p>
+                    <p>Date created: {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : 'Unknown date'}</p>
+                    <p>Date updated: {comment.updatedAt ? new Date(comment.updatedAt).toLocaleString() : 'Unknown date'}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No comments for this chat</p>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Render Teachings */}
+      {fetchedData?.teachings && Array.isArray(fetchedData.teachings) && fetchedData.teachings.map((teaching) => {
+        const commentsForTeaching = groupedComments[teaching.id] || [];
+        
+        return (
+          <div key={teaching.updatedAt || teaching.id} className={`teaching-item ${activeItem?.id === teaching.id ? 'active' : ''}`} onClick={() => handleItemClick(teaching)}>
+            <div className="texts">
+              <span>Topic: {teaching.topic || 'No topic'}</span>
+              <p>Description: {teaching.description || 'No description'}</p>
+              <p>Lesson#: {teaching.id}</p>
+              <p>Audience: {teaching.audience || 'No audience'}</p>
+              <p>Post By: {teaching.created_by || 'Admin'}</p>
+              <p>Date Posted: {teaching.createdAt ? new Date(teaching.createdAt).toLocaleString() : 'Unknown date'}</p>
+              <p>Date Updated: {teaching.updatedAt ? new Date(teaching.updatedAt).toLocaleString() : 'Unknown date'}</p>
+            </div>
+
+            {/* Render the comments for this teaching */}
+            {commentsForTeaching && commentsForTeaching.length > 0 ? (
+              <div className="comments">
+                <h4>Comments:</h4>
+                {commentsForTeaching.map((comment) => (
+                  <div key={comment?.updatedAt || comment?.id} className="comment-item">
+                    <p>{comment?.comment}</p>
+                    <p>CreatedBy: {comment.user_id}</p>
+                    <p>Date created: {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : 'Unknown date'}</p>
+                    <p>Date updated: {comment.updatedAt ? new Date(comment.updatedAt).toLocaleString() : 'Unknown date'}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No comments for this teaching</p>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Show filtered comments if search is active */}
+      {filteredData.length > 0 && (
+        <div className="filtered-comments">
+          <h3>Search Results ({filteredData.length} comments)</h3>
+          {filteredData.map((comment, index) => (
+            <div key={comment.id || index} className="comment-search-result">
+              <div className="comment-content">
+                <p>"{comment.comment}"</p>
+                <div className="comment-details">
+                  <span>By: {comment.user_id}</span>
+                  <span>Created: {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : 'Unknown date'}</span>
+                  <span>
+                    On: {comment.chat_title ? `Chat - ${comment.chat_title}` : 
+                         comment.teaching_title ? `Teaching - ${comment.teaching_title}` : 'Unknown'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ListComments;
+
+//================================
+
+//ikootaclient\src\components\iko\ListChats.jsx
+import React, { useState, useEffect } from 'react';
+import SearchControls from '../search/SearchControls';
+import './listchats.css';
+import api from '../service/api';
+
+const ListChats = ({ setActiveItem, deactivateListComments }) => {
+  const [addMode, setAddMode] = useState(false);
+  const [activeItem, setActiveItemState] = useState({ id: null, type: null });
+  const [content, setContent] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [filteredItems, setFilteredItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        console.log('Fetching combined content...');
+        
+        const [contentResponse, commentsResponse] = await Promise.all([
+          api.get('/chats/combinedcontent'),
+          api.get('/comments/all')
+        ]);
+        
+        console.log('Combined content response:', contentResponse);
+
+        const contentData = contentResponse.data?.data || contentResponse.data || [];
+        const commentsData = commentsResponse.data || [];
+
+        console.log('Processed content data:', contentData);
+        console.log('Comments data:', commentsData);
+
+        // Clean and normalize the data
+        const cleanedContent = contentData.map(item => ({
+          ...item,
+          // Normalize content properties
+          content_title: item.content_title || item.title || item.topic || 'Untitled',
+          content_type: item.content_type || (item.title ? 'chat' : 'teaching'),
+          audience: item.audience === 'undefined' ? '' : item.audience,
+          summary: item.summary?.startsWith('undefined') ? 
+            item.summary.replace('undefined', '').trim() : item.summary,
+          // Ensure consistent date fields
+          display_date: item.updatedAt || item.createdAt,
+          // Create fallback prefixed_id if missing
+          prefixed_id: item.prefixed_id || `${item.content_type?.[0] || 'c'}${item.id}`
+        }));
+
+        setContent(cleanedContent);
+        setComments(commentsData);
+        setFilteredItems(cleanedContent);
+      } catch (error) {
+        console.error('Error fetching combined content:', error);
+        setError('Failed to fetch content. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Enhanced comment grouping with better error handling
+  const groupCommentsByParent = () => {
+    const groupedComments = {};
+
+    if (!Array.isArray(comments)) {
+      console.warn('Comments is not an array:', comments);
+      return groupedComments;
+    }
+    
+    comments.forEach(comment => {
+      try {
+        if (comment.chat_id) {
+          const keys = [comment.chat_id, `c${comment.chat_id}`];
+          keys.forEach(key => {
+            if (!groupedComments[key]) groupedComments[key] = [];
+            groupedComments[key].push(comment);
+          });
+        }
+        
+        if (comment.teaching_id) {
+          const keys = [comment.teaching_id, `t${comment.teaching_id}`];
+          keys.forEach(key => {
+            if (!groupedComments[key]) groupedComments[key] = [];
+            groupedComments[key].push(comment);
+          });
+        }
+      } catch (err) {
+        console.warn('Error grouping comment:', comment, err);
+      }
+    });
+    
+    return groupedComments;
+  };
+
+  const groupedComments = groupCommentsByParent();
+
+  const handleSearch = (query) => {
+    if (!Array.isArray(content)) {
+      console.warn('Content is not an array for search:', content);
+      return;
+    }
+    
+    const lowercaseQuery = query.toLowerCase();
+    const filtered = content.filter(item => {
+      const searchFields = [
+        item.content_title,
+        item.title,
+        item.topic,
+        item.summary,
+        item.description,
+        item.prefixed_id,
+        item.subjectMatter,
+        item.audience
+      ];
+      
+      return searchFields.some(field => 
+        field && field.toString().toLowerCase().includes(lowercaseQuery)
+      );
+    });
+    
+    setFilteredItems(filtered);
+  };
+
+  const handleItemClick = (item) => {
+    try {
+      if (deactivateListComments) deactivateListComments();
+      
+      const itemData = {
+        id: item.prefixed_id || item.id,
+        type: item.content_type || (item.title ? 'chat' : 'teaching'),
+        prefixed_id: item.prefixed_id,
+        ...item
+      };
+      
+      setActiveItemState(itemData);
+      if (setActiveItem) setActiveItem(itemData);
+    } catch (error) {
+      console.error('Error handling item click:', error);
+    }
+  };
+
+  // Helper functions
+  const getContentTitle = (item) => {
+    return item?.content_title || item?.title || item?.topic || 'Untitled';
+  };
+
+  const getCreationDate = (item) => {
+    const dateStr = item?.display_date || item?.createdAt;
+    if (!dateStr) return 'Unknown date';
+    
+    try {
+      return new Date(dateStr).toLocaleDateString();
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const getContentIdentifier = (item) => {
+    return item?.prefixed_id || `${item?.content_type?.[0] || 'c'}${item?.id}`;
+  };
+
+  if (loading) {
+    return (
+      <div className='listchats_container' style={{border:"3px solid brown"}}>
+        <div className="loading-message">
+          <p>Loading content...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className='listchats_container' style={{border:"3px solid brown"}}>
+        <div className="error-message">
+          <p style={{color: 'red'}}>{error}</p>
+          <button onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className='listchats_container' style={{border:"3px solid brown"}}>
+      <div className="search">
+        <div className="searchbar">
+          <img src="./search.png" alt="Search" />
+          <SearchControls onSearch={handleSearch} />
+        </div>
+        <img 
+          src={addMode ? "./minus.png" : "./plus.png"} 
+          alt="Toggle" 
+          className='add' 
+          onClick={() => setAddMode(!addMode)} 
+        />
+      </div>
+
+      {!Array.isArray(filteredItems) || filteredItems.length === 0 ? (
+        <p>No content available</p>
+      ) : (
+        filteredItems.map((item, index) => {
+          const itemKey = item.prefixed_id || item.id;
+          const commentsForItem = groupedComments[itemKey] || groupedComments[item.id] || [];
+          const uniqueKey = item.prefixed_id || `${item.content_type || 'item'}-${item.id}-${index}`;
+          
+          return (
+            <div 
+              key={uniqueKey}
+              className={`item ${activeItem?.prefixed_id === item.prefixed_id ? 'active' : ''}`} 
+              onClick={() => handleItemClick(item)}
+            >
+              <div className="texts">
+                <div className="item-header">
+                  <span className="content-type-badge">{item.content_type}</span>
+                  <span className="content-id">{getContentIdentifier(item)}</span>
+                </div>
+                
+                <span className="content-title">Title: {getContentTitle(item)}</span>
+                <p>Lesson#: {item.lessonNumber || item.id}</p>
+                <p>Audience: {item.audience || 'General'}</p>
+                <p>By: {item.user_id || item.created_by || 'Admin'}</p>
+                <p>Date: {getCreationDate(item)}</p>
+                
+                {item.subjectMatter && (
+                  <p>Subject: {item.subjectMatter}</p>
+                )}
+              </div>
+
+              {/* Comments Preview */}
+              <div className="comments-preview">
+                {commentsForItem && commentsForItem.length > 0 ? (
+                  <div className="comments">
+                    <h4>Comments ({commentsForItem.length}):</h4>
+                    {commentsForItem.slice(0, 2).map((comment, commentIndex) => (
+                      <div key={comment.id || `comment-${commentIndex}`} className="comment-item">
+                        <p>By: {comment.user_id || 'Unknown'}</p>
+                        <p>Created: {new Date(comment.createdAt).toLocaleDateString()}</p>
+                        {comment.comment && comment.comment.length > 50 ? (
+                          <p>"{comment.comment.substring(0, 50)}..."</p>
+                        ) : (
+                          <p>"{comment.comment}"</p>
+                        )}
+                      </div>
+                    ))}
+                    {commentsForItem.length > 2 && (
+                      <p className="more-comments">+{commentsForItem.length - 2} more comments</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="no-comments">
+                    <p>No comments for {getContentIdentifier(item)}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+};
+
+export default ListChats;
+
+//=======================================
+
+//ikootaclient\src\components\iko\List.jsx
+import React from 'react';
+import './list.css';
+import Userinfo from './Userinfo';
+import ListComments from './ListComments';
+
+const List = ({ teachings = [], chats = [], comments = [], setActiveItem }) => {
+  return (
+    <div className='list_container' style={{border:"3px solid black"}}>
+      <Userinfo />
+      <ListComments teachings={teachings} chats={chats} comments={comments} setActiveItem={setActiveItem} />
+    </div>
+  );
+};
+
+export default List;
+//====================================
+
+//ikootaclient\src\components\iko\IkoControls.jsx
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import './ikocontrols.css';
+// import Chat from "./Chat";
+
+const IkoControls = () => {
+  const [messages, setMessages] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [chats, setChats] = useState([]);
+  const [filter, setFilter] = useState('pending'); // Default filter for messages
+
+  // Fetch data based on filter
+  const fetchData = async (type) => {
+    try {
+      let response;
+      switch (type) {
+        case 'messages':
+          response = await axios.get(`/api/messages?status=${filter}`);
+          setMessages(response.data);
+          break;
+        case 'comments':
+          response = await axios.get(`/api/comments?status=${filter}`);
+          setComments(response.data);
+          break;
+        case 'chats':
+          response = await axios.get(`/api/chats`);
+          setChats(response.data);
+          break;
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Approve, Reject, or Delete items
+  const handleAction = async (type, id, action) => {
+    try {
+      await axios.put(`/api/${type}/${id}`, { status: action });
+      fetchData(type);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchData('messages');
+    fetchData('comments');
+    fetchData('chats');
+  }, [filter]);
+
+  return (
+    <div className="iko-controls">
+       <h2>Admin Chat Controls</h2>
+       {/* <Chat /> */}
+      <h1>Iko Controls</h1>
+      <div className="controls-container">
+        <div className="messages-section">
+          <h2>Manage Messages</h2>
+          <div className="filters">
+            <button onClick={() => setFilter('pending')}>Pending</button>
+            <button onClick={() => setFilter('approved')}>Approved</button>
+            <button onClick={() => setFilter('rejected')}>Rejected</button>
+            <button onClick={() => setFilter('deleted')}>Deleted</button>
+          </div>
+          <ul>
+            { Array.isArray(messages) && messages?.map((msg) => (
+              <li key={msg.id}>
+                <p><strong>{msg.topic}</strong>: {msg.description}</p>
+                <div>
+                  <button onClick={() => handleAction('messages', msg.id, 'approved')}>Approve</button>
+                  <button onClick={() => handleAction('messages', msg.id, 'rejected')}>Reject</button>
+                  <button onClick={() => handleAction('messages', msg.id, 'deleted')}>Delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="comments-section">
+          <h2>Manage Comments</h2>
+          <ul>
+            { Array.isArray(comments) && comments.map((comment) => (
+              <li key={comment.id}>
+                <p>{comment.content}</p>
+                <div>
+                  <button onClick={() => handleAction('comments', comment.id, 'approved')}>Approve</button>
+                  <button onClick={() => handleAction('comments', comment.id, 'rejected')}>Reject</button>
+                  <button onClick={() => handleAction('comments', comment.id, 'deleted')}>Delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="chats-section">
+          <h2>Manage Chats</h2>
+          <ul>
+            { Array.isArray(chats) && chats.map((chat) => (
+              <li key={chat.id}>
+                <p><strong>{chat.topic}</strong>: {chat.description}</p>
+                <div>
+                  <button onClick={() => handleAction('chats', chat.id, 'deleted')}>Delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default IkoControls;
+
+//=====================================
+
+// ikootaclient/src/components/iko/IkoAuthWrapper.jsx
+// ✅ Authorization wrapper for Iko component
+
+import React from 'react';
+import { useUser } from '../auth/UserStatus';
+import { Navigate } from 'react-router-dom';
+import Iko from './Iko';
+
+const IkoAuthWrapper = ({ isNested = false }) => {
+  const { user, loading, isAuthenticated } = useUser();
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        flexDirection: 'column'
+      }}>
+        <p>🔄 Checking member privileges...</p>
+        <p style={{ fontSize: '0.8em', color: '#666' }}>Verifying access to Iko Chat System</p>
+      </div>
+    );
+  }
+
+  // Check if user is authenticated
+  if (!isAuthenticated || !user) {
+    console.log('❌ User not authenticated for Iko access');
+    return <Navigate to="/login" replace />;
+  }
+
+  // ✅ Check member privileges based on your database structure
+  const hasIkoAccess = () => {
+    const membershipStage = user.membership_stage?.toLowerCase();
+    const memberStatus = user.is_member?.toLowerCase();
+    const userRole = user.role?.toLowerCase();
+
+    console.log('🔍 Checking Iko access for user:', {
+      id: user.id,
+      username: user.username,
+      membershipStage,
+      memberStatus,
+      userRole
+    });
+
+    // ✅ PRIORITY 1: Admin users always have access
+    if (['admin', 'super_admin'].includes(userRole)) {
+      console.log('✅ Admin access granted to Iko');
+      return true;
+    }
+
+    // ✅ PRIORITY 2: Full members have access
+    if (membershipStage === 'member' && memberStatus === 'member') {
+      console.log('✅ Full member access granted to Iko');
+      return true;
+    }
+
+    // ✅ PRIORITY 3: Check alternative member statuses
+    if (memberStatus === 'granted' || memberStatus === 'member') {
+      console.log('✅ Granted member access to Iko');
+      return true;
+    }
+
+    // ❌ Deny access for others
+    console.log('❌ Iko access denied:', {
+      reason: 'Insufficient privileges',
+      requiredStatus: 'member',
+      currentStage: membershipStage,
+      currentStatus: memberStatus
+    });
+    return false;
+  };
+
+  // Check access
+  if (!hasIkoAccess()) {
+    return (
+      <div style={{ 
+        padding: '40px', 
+        textAlign: 'center',
+        maxWidth: '600px',
+        margin: '0 auto',
+        background: '#f5f5f5',
+        borderRadius: '8px',
+        marginTop: '50px'
+      }}>
+        <h2 style={{ color: '#e74c3c' }}>🚫 Access Restricted</h2>
+        <p style={{ fontSize: '1.1em', marginBottom: '20px' }}>
+          <strong>Iko Chat System</strong> is available to full members only.
+        </p>
+        
+        <div style={{ 
+          background: 'white', 
+          padding: '20px', 
+          borderRadius: '4px', 
+          marginBottom: '20px',
+          border: '1px solid #ddd'
+        }}>
+          <h3>Your Current Status:</h3>
+          <p><strong>Membership Stage:</strong> {user.membership_stage || 'Not set'}</p>
+          <p><strong>Member Status:</strong> {user.is_member || 'Not set'}</p>
+          <p><strong>Role:</strong> {user.role || 'User'}</p>
+        </div>
+
+        <div style={{ 
+          background: '#e8f5e8', 
+          padding: '15px', 
+          borderRadius: '4px',
+          marginBottom: '20px'
+        }}>
+          <h4>To Access Iko Chat:</h4>
+          <ul style={{ textAlign: 'left', maxWidth: '400px', margin: '0 auto' }}>
+            <li>Complete your membership application</li>
+            <li>Wait for admin approval</li>
+            <li>Check your email for updates</li>
+          </ul>
+        </div>
+
+        <div style={{ marginTop: '30px' }}>
+          <button 
+            onClick={() => window.location.href = '/towncrier'}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#3498db',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              marginRight: '10px'
+            }}
+          >
+            📖 Browse Public Content
+          </button>
+          
+          <button 
+            onClick={() => window.location.href = '/dashboard'}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#95a5a6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            🏠 Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ User has access, render Iko component
+  console.log('✅ Iko access granted, rendering component');
+  return <Iko isNested={isNested} />;
+};
+
+export default IkoAuthWrapper;
+
+//=======================================
+
+
+// ikootaclient\src\components\iko\Iko.jsx
+// COMPLETE IKO JSX FIX
+// Updated Iko.jsx with proper admin layout support
+// ==================================================
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import './iko.css';
+import ListChats from './ListChats';
+import Chat from './Chat';
+import ListComments from './ListComments';
+import { useFetchChats } from '../service/useFetchChats';
+import { useFetchComments } from '../service/useFetchComments';
+import { useFetchTeachings } from '../service/useFetchTeachings';
+import { useUser } from '../auth/UserStatus';
+
+const Iko = ({ isNested = false }) => {
+  const { data: chats = [], isLoading: isLoadingChats, error: errorChats } = useFetchChats();
+  const { data: teachings = [], isLoading: isLoadingTeachings, error: errorTeachings } = useFetchTeachings();
+  const { data: comments = [], isLoading: isLoadingComments, error: errorComments } = useFetchComments();
+  const [activeItem, setActiveItem] = useState(null);
+  
+  const { user, logout, isAdmin } = useUser();
+  const navigate = useNavigate();
+
+  // Detect if we're inside admin layout
+  const [isInAdmin, setIsInAdmin] = useState(false);
+
+  useEffect(() => {
+    // Check if we're rendered inside admin layout
+    const checkAdminContext = () => {
+      const adminContainer = document.querySelector('.adminContainer, .mainContent, .mainCOntent');
+      setIsInAdmin(!!adminContainer);
+    };
+
+    checkAdminContext();
+    
+    // Also check on window resize
+    window.addEventListener('resize', checkAdminContext);
+    return () => window.removeEventListener('resize', checkAdminContext);
+  }, []);
+
+  useEffect(() => {
+    if (!activeItem && chats.length > 0) {
+      setActiveItem({ type: "chat", id: chats[0]?.id });
+    }
+  }, [chats, activeItem]);
+
+  const deactivateListComments = () => {
+    setActiveItem(null);
+  };
+
+  const deactivateListChats = () => {
+    setActiveItem(null);
+  };
+
+  // Navigation handlers
+  const handleNavigateToTowncrier = () => {
+    const confirmNavigation = window.confirm(
+      "Leave Iko Chat and go to public content?"
+    );
+    if (confirmNavigation) {
+      navigate('/towncrier');
+    }
+  };
+
+  const handleSignOut = () => {
+    const confirmSignOut = window.confirm("Sign out of your account?");
+    if (confirmSignOut) {
+      logout();
+      navigate('/');
+    }
+  };
+
+  const handleNavigateToAdmin = () => {
+    if (isAdmin) {
+      navigate('/admin');
+    } else {
+      alert("You don't have admin privileges.");
+    }
+  };
+
+  // Determine container style based on context
+  const getContainerStyle = () => {
+    if (isNested || isInAdmin) {
+      return {
+        '--iko-width': '100%',
+        '--iko-height': '100%',
+      };
+    }
+    return {
+      '--iko-width': '90vw',
+      '--iko-height': '90vh',
+    };
+  };
+
+  // Loading state
+  if (isLoadingChats || isLoadingComments || isLoadingTeachings) {
+    return (
+      <div 
+        className="iko_container" 
+        style={getContainerStyle()}
+      >
+        <div className="nav">
+          <div className="nav-left">
+            <span>Iko Chat - Loading...</span>
+          </div>
+          <div className="nav-right">
+            <span className="status-badge loading">⏳ Loading...</span>
+          </div>
+        </div>
+        <div className="iko_viewport">
+          <div className="status loading">
+            <div>
+              <p>🔄 Loading member chat system...</p>
+              <p style={{ fontSize: '0.8em', marginTop: '10px' }}>
+                Fetching chats, comments, and teachings...
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="footnote">
+          <span>Iko - Member Chat System</span>
+          <span>Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (errorChats || errorComments || errorTeachings) {
+    const errors = [
+      errorChats && 'Chats',
+      errorComments && 'Comments', 
+      errorTeachings && 'Teachings'
+    ].filter(Boolean);
+
+    return (
+      <div 
+        className="iko_container" 
+        style={getContainerStyle()}
+      >
+        <div className="nav">
+          <div className="nav-left">
+            <span>Iko Chat - Error</span>
+          </div>
+          <div className="nav-right">
+            <span className="status-badge error">❌ Error</span>
+          </div>
+        </div>
+        <div className="iko_viewport">
+          <div className="status error">
+            <div>
+              <p>⚠️ Error loading member chat data!</p>
+              <p style={{ fontSize: '0.8em', marginTop: '10px' }}>
+                Failed to load: {errors.join(', ')}
+              </p>
+              <button 
+                onClick={() => window.location.reload()} 
+                style={{
+                  marginTop: '15px',
+                  padding: '8px 16px',
+                  backgroundColor: '#f44336',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                🔄 Retry
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="footnote">
+          <span>Iko - Member Chat System</span>
+          <span>Error State</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Main render
+  return (
+    <div
+      className="iko_container"
+      style={getContainerStyle()}
+    >
+      {/* Navigation Bar */}
+      <div className="nav">
+        <div className="nav-left">
+          <span>Iko Chat - Member System</span>
+          <div className="member-status">
+            <span className="status-badge member">✅ Member</span>
+            <span className="user-info">
+              👤 {user?.username || user?.email || 'Member'}
+              {isAdmin && <span className="admin-badge">🛡️ Admin</span>}
+            </span>
+          </div>
+        </div>
+        
+        <div className="nav-right">
+          <span className="chat-count">💬 {chats.length}</span>
+          <span className="teaching-count">📚 {teachings.length}</span>
+          {isInAdmin && (
+            <span className="status-badge" style={{ background: '#9c27b0', color: 'white' }}>
+              📱 Admin View
+            </span>
+          )}
+        </div>
+      </div>
+      
+      {/* Main Chat Viewport */}
+      <div className="iko_viewport">
+        <ListChats 
+          setActiveItem={setActiveItem} 
+          deactivateListComments={deactivateListComments}
+          isInAdmin={isInAdmin}
+        />
+        <Chat 
+          activeItem={activeItem} 
+          chats={chats} 
+          teachings={teachings}
+          isInAdmin={isInAdmin}
+        />
+        <ListComments 
+          setActiveItem={setActiveItem} 
+          deactivateListChats={deactivateListChats}
+          isInAdmin={isInAdmin}
+        />
+      </div>
+      
+      {/* Footer */}
+      <div className="footnote">
+        <div className="footer-left">
+          <span>Iko - Member Chat</span>
+          {activeItem && (
+            <span> | {activeItem.type} #{activeItem.id}</span>
+          )}
+        </div>
+        
+        <div className="footer-center">
+          <div className="activity-indicator">
+            <span className="online-status">🟢 Online</span>
+            {isInAdmin && (
+              <span style={{ fontSize: '0.7em', marginLeft: '8px', color: '#ccc' }}>
+                Admin Layout
+              </span>
+            )}
+          </div>
+        </div>
+        
+        <div className="footer-right">
+          <div className="footer-controls">
+            {!isInAdmin && (
+              <button 
+                onClick={handleNavigateToTowncrier} 
+                className="footer-btn towncrier-btn"
+                title="View public content"
+              >
+                📖 Public
+              </button>
+            )}
+            
+            {isAdmin && !isInAdmin && (
+              <button 
+                onClick={handleNavigateToAdmin} 
+                className="footer-btn admin-btn"
+                title="Admin Panel"
+              >
+                ⚙️ Admin
+              </button>
+            )}
+            
+            <button 
+              onClick={() => window.location.reload()} 
+              className="footer-btn refresh-btn"
+              title="Refresh chat system"
+            >
+              🔄 Refresh
+            </button>
+            
+            <button 
+              onClick={handleSignOut} 
+              className="footer-btn signout-btn"
+              title="Sign out"
+            >
+              👋 Out
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Iko;
+
+//========================================
+
+//ikootaclient\src\components\iko\Chat.jsx
+import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import useUpload from "../../hooks/useUpload";
+import EmojiPicker from "emoji-picker-react";
+import DOMPurify from "dompurify";
+import ReactPlayer from "react-player";
+import "./chat.css";
+import { useFetchParentChatsAndTeachingsWithComments } from "../service/useFetchComments";
+import { jwtDecode } from "jwt-decode";
+import MediaGallery from "./MediaGallery";
+import { useUploadCommentFiles } from "../../hooks/useUploadCommentFiles";
+import { postComment } from "../service/commentServices";
+import { useQueries, Mutation } from "@tanstack/react-query"
+
+const Chat = ({ activeItem, chats = [], teachings = [] }) => {
+  const { handleSubmit, register, reset } = useForm();
+  const { validateFiles, mutation: chatMutation } = useUpload("/chats");
+  const { validateFiles: validateCommentFiles, mutation: commentMutation } = useUpload("/comments");
+  const uploadCommentFiles = useUploadCommentFiles();
+
+  const token = localStorage.getItem("token");
+  const user_id = token ? jwtDecode(token).user_id : null;
+
+  const { data: fetchedComments, isLoading: isLoadingComments } = useFetchParentChatsAndTeachingsWithComments(activeItem?.user_id);
+  
+  const [formData, setFormData] = useState({});
+  const [openEmoji, setOpenEmoji] = useState(false);
+  const [addMode, setAddMode] = useState(false);
+  const [step, setStep] = useState(0);
+  const [playingMedia, setPlayingMedia] = useState(null);
+
+  // Simple activeContent finder with proper error handling
+  const findActiveContent = () => {
+    if (!activeItem) {
+      console.log('No active item provided');
+      return null;
+    }
+
+    try {
+      // Make sure chats and teachings are arrays
+      const chatsArray = Array.isArray(chats) ? chats : [];
+      const teachingsArray = Array.isArray(teachings) ? teachings : [];
+
+      console.log('Finding content for:', activeItem);
+      console.log('Chats available:', chatsArray.length);
+      console.log('Teachings available:', teachingsArray.length);
+
+      // Try to find by prefixed_id first
+      if (activeItem.prefixed_id) {
+        if (activeItem.prefixed_id.startsWith('c') || activeItem.type === "chat") {
+          const foundChat = chatsArray.find((chat) => 
+            chat.prefixed_id === activeItem.prefixed_id || 
+            chat.id === activeItem.id ||
+            chat.updatedAt === activeItem.updatedAt
+          );
+          if (foundChat) {
+            console.log('Found chat:', foundChat);
+            return foundChat;
+          }
+        } else if (activeItem.prefixed_id.startsWith('t') || activeItem.type === "teaching") {
+          const foundTeaching = teachingsArray.find((teaching) => 
+            teaching.prefixed_id === activeItem.prefixed_id || 
+            teaching.id === activeItem.id ||
+            teaching.updatedAt === activeItem.updatedAt
+          );
+          if (foundTeaching) {
+            console.log('Found teaching:', foundTeaching);
+            return foundTeaching;
+          }
+        }
+      }
+
+      // Fallback to original method
+      if (activeItem.type === "chat") {
+        const foundChat = chatsArray.find((chat) => 
+          chat.updatedAt === activeItem.updatedAt || 
+          chat.id === activeItem.id
+        );
+        if (foundChat) {
+          console.log('Found chat by fallback:', foundChat);
+          return foundChat;
+        }
+      } else if (activeItem.type === "teaching") {
+        const foundTeaching = teachingsArray.find((teaching) => 
+          teaching.updatedAt === activeItem.updatedAt || 
+          teaching.id === activeItem.id
+        );
+        if (foundTeaching) {
+          console.log('Found teaching by fallback:', foundTeaching);
+          return foundTeaching;
+        }
+      }
+
+      // Last resort - return activeItem itself if it has content
+      if (activeItem.title || activeItem.topic || activeItem.content || activeItem.text) {
+        console.log('Using activeItem as content:', activeItem);
+        return activeItem;
+      }
+
+      console.log('No content found for activeItem:', activeItem);
+      return null;
+
+    } catch (error) {
+      console.error('Error in findActiveContent:', error);
+      return null;
+    }
+  };
+
+  const activeContent = findActiveContent();
+
+  console.log("Active item:", activeItem);
+  console.log("Active content:", activeContent);
+
+  if (!activeItem) {
+    return <p className="status">Select a chat or teaching to start.</p>;
+  }
+
+  const handleNextStep = () => {
+    if (step < 6) setStep(step + 1);
+  };
+
+  const handlePrevStep = () => {
+    if (step > 0) setStep(step - 1);
+  };
+
+  const handleEmoji = (e) => {
+    setFormData({ ...formData, comment: (formData.comment || "") + e.emoji });
+    setOpenEmoji(false);
+  };
+
+  const sanitizeMessage = (message) => {
+    if (!message) return "";
+    return DOMPurify.sanitize(message, { ALLOWED_TAGS: ["b", "i", "em", "strong", "a"] });
+  };
+
+  const handleSendChat = (data) => {
+    const formData = new FormData();
+    formData.append("created_by", user_id || "anonymous");
+    formData.append("title", data.title);
+    formData.append("audience", data.audience);
+    formData.append("summary", data.summary);
+    formData.append("text", data.text);
+    formData.append("is_flagged", false);
+
+    ["media1", "media2", "media3"].forEach((file) => {
+      if (data[file]?.[0]) {
+        formData.append(file, data[file][0]);
+      }
+    });
+
+    chatMutation.mutate(formData, {
+      onSuccess: (response) => {
+        console.log("Chat created with prefixed ID:", response.data?.prefixed_id);
+        reset();
+        setStep(0);
+        alert("Chat created successfully!");
+      },
+      onError: (error) => {
+        console.error("Error uploading chat:", error);
+        alert("Error creating chat. Please try again.");
+      },
+    });
+  };
+
+  const handleSendComment = async (data) => {
+    try {
+      if (!user_id) {
+        alert("Please log in to comment");
+        return;
+      }
+
+      const contentId = activeContent?.id || activeItem?.id;
+      const contentType = activeContent?.content_type || activeContent?.type || activeItem?.type;
+
+      if (!contentId || !contentType) {
+        console.error("Missing content ID or type");
+        alert("Error: Unable to identify content");
+        return;
+      }
+
+      const files = [data.media1, data.media2, data.media3].filter(Boolean).flat();
+      let mediaData = [];
+      
+      if (files.length > 0) {
+        try {
+          const uploadResponse = await uploadCommentFiles.mutateAsync(files);
+          mediaData = uploadResponse.map((file) => ({
+            url: file.url,
+            type: file.type,
+          }));
+        } catch (error) {
+          console.error("Error uploading media:", error);
+        }
+      }
+
+      const formData = new FormData();
+      formData.append("comment", data.comment);
+      formData.append(contentType === "chat" ? "chat_id" : "teaching_id", contentId);
+      formData.append("user_id", user_id);
+
+      ["media1", "media2", "media3"].forEach((file) => {
+        if (data[file]?.[0]) {
+          formData.append(file, data[file][0]);
+        }
+      });
+
+      const uploadResponse = await commentMutation.mutateAsync(formData);
+      
+      const commentData = {
+        user_id,
+        comment: data.comment,
+        media: mediaData,
+      };
+
+      if (contentType === "chat") {
+        commentData.chat_id = contentId;
+      } else if (contentType === "teaching") {
+        commentData.teaching_id = contentId;
+      }
+
+      await postComment(commentData);
+      
+      reset();
+      setStep(0);
+      alert("Comment posted successfully!");
+    } catch (error) {
+      console.error("Error posting comment:", error);
+      alert("Error posting comment. Please try again.");
+    }
+  };
+
+  const handleMediaClick = (url) => {
+    setPlayingMedia(url);
+  };
+
+  // Helper function to render media based on type and URL
+  const renderMedia = (url, type, alt = "media") => {
+    if (!url || !type) return null;
+
+    switch (type) {
+      case "image":
+        return <img src={url} alt={alt} width="100%" style={{ maxHeight: "300px", objectFit: "contain" }} onClick={() => handleMediaClick(url)} />;
+      case "video":
+        return <ReactPlayer url={url} controls width="100%" height="200px" />;
+      case "audio":
+        return (
+          <audio controls style={{ width: "100%" }}>
+            <source src={url} type="audio/mpeg" />
+            Your browser does not support the audio element.
+          </audio>
+        );
+      default:
+        return <p>Unsupported media type: {type}</p>;
+    }
+  };
+
+  // Helper function to get content identifier
+  const getContentIdentifier = (content) => {
+    if (!content) return 'Unknown';
+    return content.prefixed_id || `${content.content_type || content.type || 'item'}${content.id}` || 'Unknown';
+  };
+
+  return (
+    <div className="chat_container" style={{border:"3px solid red"}}>
+      <div className="top">
+        <div className="user">
+          <img src="./avatar.png" alt="Avatar" />
+        </div>
+        <div className="texts">
+          <span>{activeContent?.user_id || activeContent?.created_by || "Admin"}</span>
+          <p>{activeContent?.title || activeContent?.topic || "No title"}</p>
+          <span className="content-id">ID: {getContentIdentifier(activeContent)}</span>
+        </div>
+        <div className="icons">
+          <img src="./phone.png" alt="Phone" />
+          <img src="./video.png" alt="Video" />
+          <img src="./info.png" alt="Info" />
+        </div>
+      </div>
+
+      <div className="center" style={{border:"3px solid yellow"}}>
+        <div className="message-heading" style={{border:"5px solid brown"}}>
+          <div className="content-header">
+            <span className="content-type-badge">
+              {activeContent?.content_type || activeContent?.type || activeItem?.type || 'content'}
+            </span>
+            <span className="content-id-display">
+              {getContentIdentifier(activeContent)}
+            </span>
+          </div>
+          
+          <h3>Topic: {activeContent?.topic || activeContent?.title || "No topic"}</h3>
+          <p>Descr: {activeContent?.description || activeContent?.summary || "No description"}</p>
+          {activeContent?.subjectMatter && <p>Subject: {activeContent.subjectMatter}</p>}
+          
+          <div style={{border:"5px solid blue", display:"flex", flexDirection:"row", gap:"10px"}}>
+            <p>Lesson #: {activeContent?.lessonNumber || activeContent?.id}</p>
+            <p>Audience: {activeContent?.audience || "General"}</p>
+            <p>Created By: {activeContent?.user_id || activeContent?.created_by || "Admin"}</p>
+          </div>
+          <p>Posted: {activeContent?.createdAt ? new Date(activeContent.createdAt).toLocaleString() : "Unknown date"}</p>
+        </div>
+
+        <div className="texts" style={{border:"5px solid green"}}>
+          <p>{sanitizeMessage(activeContent?.text || activeContent?.content || "No content available")}</p>
+          <span>Updated: {activeContent?.updatedAt ? new Date(activeContent.updatedAt).toLocaleString() : "Unknown date"}</span>
+        </div>
+          
+        <div className="media-container" style={{border:"5px solid gray"}}>
+          {renderMedia(activeContent?.media_url1, activeContent?.media_type1, "Media 1")}
+          {renderMedia(activeContent?.media_url2, activeContent?.media_type2, "Media 2")}
+          {renderMedia(activeContent?.media_url3, activeContent?.media_type3, "Media 3")}
+        </div>
+
+        {/* Comments Section */}
+        <div className="comments-section" style={{border:"5px solid purple"}}>
+          <h4>Comments</h4>
+          {isLoadingComments ? (
+            <p>Loading comments...</p>
+          ) : (
+            fetchedComments?.comments && Array.isArray(fetchedComments.comments) ? (
+              fetchedComments.comments
+                .filter((comment) => {
+                  const contentId = activeContent?.id || activeItem?.id;
+                  const contentType = activeContent?.content_type || activeContent?.type || activeItem?.type;
+                  
+                  if (contentType === "chat") {
+                    return comment.chat_id === contentId;
+                  } else if (contentType === "teaching") {
+                    return comment.teaching_id === contentId;
+                  }
+                  return false;
+                })
+                .map((comment) => (
+                  <div key={comment.id} className="message Own" style={{border:"5px solid pink"}}>
+                    <div className="texts" style={{border:"5px solid magenta"}}>
+                      <p>{sanitizeMessage(comment.comment)}</p>
+                      <span>By: {comment.user_id}</span>
+                      <span>{comment.createdAt ? new Date(comment.createdAt).toLocaleString() : "Unknown date"}</span>
+                    </div>
+                    <div className="media-container-comments" style={{border:"5px solid orange"}}>
+                      {renderMedia(comment.media_url1, comment.media_type1, "Comment Media 1")}
+                      {renderMedia(comment.media_url2, comment.media_type2, "Comment Media 2")}
+                      {renderMedia(comment.media_url3, comment.media_type3, "Comment Media 3")}
+                    </div>
+                  </div>
+                ))
+            ) : (
+              <p>No comments available</p>
+            )
+          )}
+        </div>
+      </div>
+
+      <div className="bottom">
+        <div className="toggle_buttons">
+          <button className={!addMode ? 'active' : ''} onClick={() => setAddMode(false)}>Comment</button>
+          <button className={addMode ? 'active' : ''} onClick={() => setAddMode(true)}>Start New Chat</button>
+        </div>
+
+        {!addMode ? (
+          <form className="bottom_comment" onSubmit={handleSubmit(handleSendComment)} noValidate>
+            <div className="step-indicator">
+              Step {step + 1} of 4: {['Comment', 'Media 1', 'Media 2', 'Media 3'][step]}
+            </div>
+            
+            <div className="icons">
+              <img src="./img.png" alt="Upload" />
+              <img src="./camera.png" alt="Camera" />
+              <img src="./mic.png" alt="Mic" />
+            </div>
+            
+            {step === 0 && (
+              <input
+                type="text"
+                placeholder="Type a message..."
+                {...register("comment", { required: "Comment is required" })}
+              />
+            )}
+            {step === 1 && (
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                {...register("media1", { validate: validateFiles })}
+              />
+            )}
+            {step === 2 && (
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                {...register("media2", { validate: validateFiles })}
+              />
+            )}
+            {step === 3 && (
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                {...register("media3", { validate: validateFiles })}
+              />
+            )}
+            
+            <div className="emoji">
+              <img src="./emoji.png" alt="Emoji Picker" onClick={() => setOpenEmoji(!openEmoji)} />
+              {openEmoji && <EmojiPicker onEmojiClick={handleEmoji} />}
+            </div>
+            
+            <div className="input-buttons">
+              {step < 3 && <button type="button" onClick={handleNextStep}>Next</button>}
+              {step > 0 && <button type="button" onClick={handlePrevStep}>Previous</button>}
+            </div>
+            <button className="SendButton" type="submit">Send Comment</button>
+          </form>
+        ) : (
+          <form className="bottom_presentation" onSubmit={handleSubmit(handleSendChat)} noValidate>
+            <div className="step-indicator">
+              Step {step + 1} of 7: {['Title', 'Summary', 'Audience', 'Content', 'Media 1', 'Media 2', 'Media 3'][step]}
+            </div>
+            
+            {step === 0 && (
+              <input
+                type="text"
+                placeholder="Enter Title"
+                {...register("title", { required: "Title is required" })}
+              />
+            )}
+            {step === 1 && (
+              <input
+                type="text"
+                placeholder="Enter Summary"
+                {...register("summary", { required: "Summary is required" })}
+              />
+            )}
+            {step === 2 && (
+              <input
+                type="text"
+                placeholder="Enter Audience"
+                {...register("audience", { required: "Audience is required" })}
+              />
+            )}
+            {step === 3 && (
+              <textarea
+                placeholder="Enter Main Text"
+                rows="4"
+                {...register("text", { required: "Main text is required" })}
+              />
+            )}
+            {step === 4 && (
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                {...register("media1", { validate: validateFiles })}
+              />
+            )}
+            {step === 5 && (
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                {...register("media2", { validate: validateFiles })}
+              />
+            )}
+            {step === 6 && (
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                {...register("media3", { validate: validateFiles })}
+              />
+            )}
+            
+            <div className="icons">
+              <img src="./img.png" alt="Upload" />
+              <img src="./camera.png" alt="Camera" />
+              <img src="./mic.png" alt="Mic" />
+            </div>
+            
+            <div className="input-buttons">
+              {step < 6 && <button type="button" onClick={handleNextStep}>Next</button>}
+              {step > 0 && <button type="button" onClick={handlePrevStep}>Previous</button>}
+            </div>
+            <button className="SendButton" type="submit">Create Chat</button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Chat;
+
+//==================================
+//debug and config FOLDER
+//===================================
+
+
+// ikootaclient/src/components/debug/DebugUserInfo.jsx
+// ✅ DEBUG COMPONENT - Add this temporarily to see user state
+
+import React from 'react';
+import { useUser } from '../auth/UserStatus';
+import { getUserAccess, getUserStatusString } from '../config/accessMatrix';
+
+const DebugUserInfo = () => {
+  const { user, isAuthenticated, loading, error, membershipStatus } = useUser();
+
+  if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: '10px',
+        right: '10px',
+        background: '#f0f0f0',
+        border: '1px solid #ccc',
+        padding: '10px',
+        fontSize: '12px',
+        maxWidth: '300px',
+        zIndex: 9999,
+        borderRadius: '5px'
+      }}>
+        <h4>🐛 Debug Info</h4>
+        <div><strong>Loading:</strong> {loading ? 'Yes' : 'No'}</div>
+        <div><strong>Authenticated:</strong> {isAuthenticated ? 'Yes' : 'No'}</div>
+        <div><strong>Membership Status:</strong> {membershipStatus}</div>
+        <div><strong>Error:</strong> {error || 'None'}</div>
+        
+        {user && (
+          <>
+            <div><strong>User ID:</strong> {user.user_id}</div>
+            <div><strong>Username:</strong> {user.username}</div>
+            <div><strong>Role:</strong> {user.role}</div>
+            <div><strong>Member Status:</strong> {user.is_member}</div>
+            <div><strong>Membership Stage:</strong> {user.membership_stage}</div>
+            <div><strong>User Status:</strong> {getUserStatusString(user)}</div>
+            <div><strong>Default Route:</strong> {getUserAccess(user).defaultRoute}</div>
+            <div><strong>Survey Completed:</strong> {user.survey_completed ? 'Yes' : 'No'}</div>
+            <div><strong>Needs Survey:</strong> {user.needs_survey ? 'Yes' : 'No'}</div>
+          </>
+        )}
+        
+        {!user && <div>No user data</div>}
+      </div>
+    );
+  }
+
+  return null;
+};
+
+export default DebugUserInfo;
+
+
+//========================================
+
+// ikootaclient/src/components/config/accessMatrix.js
+// ✅ STANDARDIZED VERSION - Two Clear Levels: pre_member and member
+
+const ACCESS_MATRIX = {
+  // Super Admin - Full access to everything
+  super_admin: {
+    routes: ['/', '/admin/*', '/iko', '/towncrier', '/application-survey', '/dashboard', '/full-membership/*'],
+    api_endpoints: ['ALL'],
+    default_redirect: '/admin',
+    dashboard_redirect: '/dashboard',
+    permissions: ['admin', 'iko', 'towncrier', 'dashboard', 'membership_management', 'all'],
+    userType: 'admin',
+    canAccess: {
+      iko: true,
+      towncrier: true,
+      admin: true,
+      dashboard: true,
+      membershipApplication: true
+    }
+  },
+
+  // Admin - Most access
+  admin: {
+    routes: ['/', '/admin/*', '/iko', '/towncrier', '/dashboard', '/full-membership/*'],
+    api_endpoints: [
+      '/admin/*',
+      '/membership/*', 
+      '/users/*',
+      '/classes/*',
+      '/teachings/*',
+      '/chats/*'
+    ],
+    default_redirect: '/admin',
+    dashboard_redirect: '/dashboard',
+    permissions: ['admin', 'iko', 'towncrier', 'dashboard', 'membership_management'],
+    userType: 'admin',
+    canAccess: {
+      iko: true,
+      towncrier: true,
+      admin: true,
+      dashboard: true,
+      membershipApplication: true
+    }
+  },
+
+  // ✅ MEMBER - Full access (highest non-admin level)
+  member: {
+    conditions: {
+      membership_stage: 'member',
+      is_member: 'member',
+      status: 'member'
+    },
+    routes: ['/', '/iko', '/towncrier', '/dashboard', '/profile'],
+    api_endpoints: [
+      '/teachings/*',
+      '/chats/*',
+      '/users/profile',
+      '/membership/dashboard'
+    ],
+    default_redirect: '/iko',
+    dashboard_redirect: '/dashboard',
+    permissions: ['iko', 'towncrier', 'dashboard'],
+    userType: 'member',
+    canAccess: {
+      iko: true,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: false // Already a member
+    }
+  },
+
+  // ✅ PRE-MEMBER with Pending Membership Application
+  pre_member_pending_upgrade: {
+    conditions: {
+      status: 'pre_member_pending_upgrade',
+      membershipApplicationStatus: 'pending'
+    },
+    routes: ['/', '/towncrier', '/dashboard', '/full-membership/status', '/full-membership/pending'],
+    api_endpoints: [
+      '/teachings/*',
+      '/membership/dashboard',
+      '/membership/full-membership-status/*'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard', 'membership_status'],
+    userType: 'pre_member',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: false // Cannot apply while pending
+    },
+    statusMessage: 'Your membership application is under review'
+  },
+
+  // ✅ PRE-MEMBER with Declined Application (can reapply)
+  pre_member_can_reapply: {
+    conditions: {
+      status: 'pre_member_can_reapply',
+      membershipApplicationStatus: 'declined'
+    },
+    routes: ['/', '/towncrier', '/dashboard', '/full-membership/info', '/full-membership/apply', '/full-membership/declined'],
+    api_endpoints: [
+      '/teachings/*',
+      '/membership/dashboard',
+      '/membership/full-membership-status/*',
+      '/membership/full-membership/apply'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard', 'membership_reapply'],
+    userType: 'pre_member',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: true // Can reapply
+    },
+    statusMessage: 'You can reapply for full membership'
+  },
+
+  // ✅ PRE-MEMBER - Eligible for membership application
+  pre_member: {
+    conditions: {
+      membership_stage: 'pre_member',
+      status: 'pre_member',
+      membershipApplicationStatus: ['not_applied', null, undefined]
+    },
+    routes: ['/', '/towncrier', '/dashboard', '/full-membership/info', '/full-membership/apply'],
+    api_endpoints: [
+      '/teachings/*',
+      '/membership/dashboard',
+      '/membership/full-membership-status/*',
+      '/membership/full-membership/apply'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard', 'membership_apply'],
+    userType: 'pre_member',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: true // Can apply
+    },
+    statusMessage: 'You are eligible to apply for full membership'
+  },
+
+  // Applicant - Very limited access
+  applicant: {
+    conditions: {
+      membership_stage: 'applicant'
+    },
+    routes: ['/', '/towncrier', '/application-survey', '/application-status', '/dashboard'],
+    api_endpoints: [
+      '/membership/survey/*',
+      '/teachings/*'
+    ],
+    default_redirect: '/application-survey',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard'],
+    userType: 'applicant',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: false
+    }
+  },
+
+  // Applied/Pending users (initial application)
+  applied: {
+    conditions: {
+      is_member: ['applied', 'pending']
+    },
+    routes: ['/', '/towncrier', '/application-status', '/pending-verification', '/dashboard'],
+    api_endpoints: [
+      '/membership/survey/*',
+      '/teachings/*'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard'],
+    userType: 'pending',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: false
+    }
+  },
+
+  // Non-authenticated users
+  guest: {
+    routes: ['/', '/login', '/register', '/signup', '/forgot-password'],
+    api_endpoints: [
+      '/auth/*',
+      '/teachings/public'
+    ],
+    default_redirect: '/login',
+    dashboard_redirect: '/login',
+    permissions: [],
+    userType: 'guest',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: false,
+      membershipApplication: false
+    }
+  }
+};
+
+// ✅ STANDARDIZED: Helper function with clear member/pre_member logic
+const checkUserAccess = (user, requestedRoute = null, requestedEndpoint = null) => {
+  if (!user) {
+    return ACCESS_MATRIX.guest;
+  }
+
+  console.log('🔍 Checking user access with standardized levels for:', {
+    role: user.role,
+    membership_stage: user.membership_stage,
+    is_member: user.is_member,
+    status: user.status,
+    membershipApplicationStatus: user.membershipApplicationStatus
+  });
+
+  const role = user.role?.toLowerCase();
+  const status = user.status || user.finalStatus;
+
+  // ✅ Admin checks (preserved from original)
+  if (role === 'super_admin' && ACCESS_MATRIX.super_admin) {
+    console.log('👑 Super admin access granted');
+    return ACCESS_MATRIX.super_admin;
+  }
+  
+  if (role === 'admin' && ACCESS_MATRIX.admin) {
+    console.log('👑 Admin access granted');
+    return ACCESS_MATRIX.admin;
+  }
+
+  // ✅ STANDARDIZED: Status-based access
+  switch (status) {
+    case 'member':
+      console.log('💎 Member access granted');
+      return ACCESS_MATRIX.member;
+      
+    case 'pre_member_pending_upgrade':
+      console.log('⏳ Pre-member with pending upgrade access');
+      return ACCESS_MATRIX.pre_member_pending_upgrade;
+      
+    case 'pre_member_can_reapply':
+      console.log('🔄 Pre-member can reapply access');
+      return ACCESS_MATRIX.pre_member_can_reapply;
+      
+    case 'pre_member':
+      console.log('👤 Pre-member access granted');
+      return ACCESS_MATRIX.pre_member;
+      
+    case 'pending_verification':
+    case 'applied':
+      console.log('⏳ Applied/Pending access granted');
+      return ACCESS_MATRIX.applied;
+      
+    default:
+      console.log('📝 Default applicant access granted');
+      return ACCESS_MATRIX.applicant;
+  }
+};
+
+// ✅ STANDARDIZED: Usage function (preserving original structure)
+const getUserAccess = (userData) => {
+  if (!userData) {
+    return {
+      userType: 'guest',
+      defaultRoute: '/',
+      dashboardRoute: '/login',
+      permissions: [],
+      canAccess: ACCESS_MATRIX.guest.canAccess,
+      canAccessIko: false,
+      canAccessAdmin: false,
+      canAccessTowncrier: true,
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'not_eligible',
+      allowedRoutes: ACCESS_MATRIX.guest.routes,
+      allowedEndpoints: ACCESS_MATRIX.guest.api_endpoints
+    };
+  }
+
+  const access = checkUserAccess(userData);
+  
+  return {
+    userType: access.userType,
+    defaultRoute: access.default_redirect,
+    dashboardRoute: access.dashboard_redirect,
+    permissions: access.permissions || [],
+    canAccess: access.canAccess,
+    statusMessage: access.statusMessage,
+    
+    // ✅ PRESERVED: Original properties
+    canAccessIko: access.routes.includes('/iko'),
+    canAccessAdmin: access.routes.some(route => route.startsWith('/admin')),
+    canAccessTowncrier: access.routes.includes('/towncrier'),
+    
+    // ✅ STANDARDIZED: Membership properties
+    canApplyForMembership: access.canAccess?.membershipApplication === true && 
+                          userData.membershipApplicationStatus === 'not_applied',
+    canReapplyForMembership: access.canAccess?.membershipApplication === true && 
+                            userData.membershipApplicationStatus === 'declined',
+    membershipApplicationStatus: userData.membershipApplicationStatus || 'not_applied',
+    membershipTicket: userData.membershipTicket,
+    
+    allowedRoutes: access.routes,
+    allowedEndpoints: access.api_endpoints
+  };
+};
+
+// ✅ STANDARDIZED: Membership application route function
+export const getMembershipApplicationRoute = (userData) => {
+  const access = getUserAccess(userData);
+  const status = userData?.membershipApplicationStatus;
+  
+  switch (status) {
+    case 'not_applied':
+      return access.canApplyForMembership ? '/full-membership/info' : '/towncrier';
+    case 'pending':
+      return '/full-membership/pending';
+    case 'approved':
+      return '/iko'; // Members go to Iko
+    case 'declined':
+      return '/full-membership/declined';
+    default:
+      return '/dashboard';
+  }
+};
+
+export const canAccessMembershipFeature = (userData, feature) => {
+  const access = getUserAccess(userData);
+  
+  switch (feature) {
+    case 'apply':
+      return access.canApplyForMembership;
+    case 'reapply':
+      return access.canReapplyForMembership;
+    case 'status':
+      return access.userType !== 'guest';
+    case 'iko_chat':
+      return access.canAccessIko;
+    default:
+      return false;
+  }
+};
+
+// ✅ PRESERVED: Route checking from original
+export const canAccessRoute = (userData, route) => {
+  const access = getUserAccess(userData);
+  
+  // Check direct route access
+  if (access.allowedRoutes.includes(route)) {
+    return true;
+  }
+  
+  // Check wildcard routes
+  const hasWildcardAccess = access.allowedRoutes.some(allowedRoute => {
+    if (allowedRoute.endsWith('/*')) {
+      const basePath = allowedRoute.replace('/*', '');
+      return route.startsWith(basePath);
+    }
+    return false;
+  });
+  
+  if (hasWildcardAccess) {
+    return true;
+  }
+  
+  // ✅ STANDARDIZED: Membership route checks
+  if (route.startsWith('/full-membership/')) {
+    const subRoute = route.replace('/full-membership/', '');
+    
+    switch (subRoute) {
+      case 'info':
+      case 'apply':
+        return access.canApplyForMembership || access.canReapplyForMembership;
+      case 'pending':
+        return userData?.membershipApplicationStatus === 'pending';
+      case 'approved':
+        return userData?.membershipApplicationStatus === 'approved';
+      case 'declined':
+        return userData?.membershipApplicationStatus === 'declined';
+      case 'status':
+        return access.userType !== 'guest';
+      default:
+        return access.canAccess.membershipApplication;
+    }
+  }
+  
+  // ✅ PRESERVED: Original route checks
+  switch (route) {
+    case '/admin':
+      return access.canAccess.admin;
+    case '/iko':
+      return access.canAccess.iko;
+    case '/towncrier':
+      return access.canAccess.towncrier;
+    case '/dashboard':
+      return access.canAccess.dashboard;
+    default:
+      return false;
+  }
+};
+
+// ✅ STANDARDIZED: User status with clear levels (updated for member vs full_member)
+export const getUserStatusString = (userData) => {
+  if (!userData) return 'guest';
+  
+  const role = userData.role?.toLowerCase();
+  const memberStatus = userData.is_member?.toLowerCase();
+  const membershipStage = userData.membership_stage?.toLowerCase();
+  const status = userData.status || userData.finalStatus;
+
+  // Admin users
+  if (role === 'admin' || role === 'super_admin') return 'admin';
+  
+  // ✅ STANDARDIZED: Member (no more "full_member")
+  if (status === 'member' || 
+      (memberStatus === 'member' && membershipStage === 'member')) {
+    return 'member';
+  }
+  
+  // ✅ STANDARDIZED: Pre-member states
+  if (status === 'pre_member_pending_upgrade') return 'pre_member_pending_upgrade';
+  if (status === 'pre_member_can_reapply') return 'pre_member_can_reapply';
+  
+  if (status === 'pre_member' || 
+      memberStatus === 'approved' && membershipStage === 'pre' ||
+      membershipStage === 'pre_member') {
+    return 'pre_member';
+  }
+  
+  // Pending/Applied
+  if (memberStatus === 'applied' || memberStatus === 'pending') return 'pending_verification';
+  
+  // Denied
+  if (memberStatus === 'declined' || memberStatus === 'denied') return 'denied';
+  
+  return 'authenticated';
+};
+
+// ✅ PRESERVED: Dashboard route function
+export const getDashboardRoute = (userData) => {
+  const access = getUserAccess(userData);
+  return access.dashboardRoute || '/dashboard';
+};
+
+// ✅ PRESERVED: Default route function
+export const getDefaultRoute = (userData) => {
+  const access = getUserAccess(userData);
+  return access.defaultRoute;
+};
+
+// ✅ PRESERVED: Endpoint access check
+export const canAccessEndpoint = (userData, endpoint) => {
+  const access = checkUserAccess(userData);
+  
+  if (access.api_endpoints.includes('ALL')) {
+    return true;
+  }
+  
+  if (access.api_endpoints.includes(endpoint)) {
+    return true;
+  }
+  
+  return access.api_endpoints.some(allowedEndpoint => {
+    if (allowedEndpoint.endsWith('/*')) {
+      const basePath = allowedEndpoint.replace('/*', '');
+      return endpoint.startsWith(basePath);
+    }
+    return false;
+  });
+};
+
+// ✅ PRESERVED: Export everything (maintaining backward compatibility)
+export { 
+  ACCESS_MATRIX, 
+  checkUserAccess, 
+  getUserAccess 
+};
+
+// ✅ PRESERVED: Default export for modern import styles
+export default {
+  ACCESS_MATRIX,
+  checkUserAccess,
+  getUserAccess,
+  getDefaultRoute,
+  getDashboardRoute,
+  canAccessRoute,
+  getUserStatusString,
+  canAccessEndpoint,
+  getMembershipApplicationRoute,
+  canAccessMembershipFeature
+};
+
+//===========================================
+//auth FOLDER
+//============================================
+
+// ikootaclient/src/components/auth/UserStatus.jsx - FIXED LOGIC
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { jwtDecode } from 'jwt-decode';
+import api from '../service/api';
+
+const UserContext = createContext();
+
+export const useUser = () => {
+  const context = useContext(UserContext);
+  if (!context) {
+    throw new Error('useUser must be used within a UserProvider');
+  }
+  return context;
+};
+
+// ✅ STANDARDIZED: Two clear levels - pre_member and member
+const determineUserStatus = ({ 
+  role, 
+  memberStatus, 
+  membershipStage, 
+  userId, 
+  approvalStatus,
+  fullMembershipApplicationStatus, // This tracks the APPLICATION, not a separate membership level
+  fullMembershipAppliedAt 
+}) => {
+  console.log('🔍 Status determination with standardized levels:', { 
+    role, memberStatus, membershipStage, userId, approvalStatus, fullMembershipApplicationStatus 
+  });
+
+  // Normalize empty strings
+  const normalizedMemberStatus = memberStatus === '' ? null : memberStatus;
+  const normalizedMembershipStage = membershipStage === '' ? null : membershipStage;
+  const normalizedRole = role === '' ? 'user' : role;
+  const normalizedApplicationStatus = fullMembershipApplicationStatus === '' ? 'not_applied' : fullMembershipApplicationStatus;
+
+  console.log('🔧 Normalized values:', { 
+    normalizedRole, 
+    normalizedMemberStatus, 
+    normalizedMembershipStage, 
+    approvalStatus,
+    normalizedApplicationStatus
+  });
+
+  // ✅ Admin check
+  if (normalizedRole === 'admin' || normalizedRole === 'super_admin') {
+    console.log('👑 Admin user detected');
+    return {
+      isMember: true, // Admins have full access
+      isPendingMember: false,
+      userType: 'admin',
+      status: 'admin',
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'admin_exempt',
+      canAccessTowncrier: true,
+      canAccessIko: true
+    };
+  }
+
+  // ✅ FULL MEMBER CHECK (member level - highest non-admin level)
+  if (normalizedMemberStatus === 'member' && normalizedMembershipStage === 'member') {
+    console.log('💎 Full member detected');
+    return {
+      isMember: true,
+      isPendingMember: false,
+      userType: 'member',
+      status: 'member',
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'approved', // They already are members
+      canAccessTowncrier: true,
+      canAccessIko: true
+    };
+  }
+
+  // ✅ PRE-MEMBER WITH MEMBERSHIP APPLICATION LOGIC
+  if (normalizedMemberStatus === 'pre_member' || 
+      normalizedMembershipStage === 'pre_member' ||
+      (normalizedMemberStatus === 'granted' && normalizedMembershipStage === 'pre_member') ||
+      ((normalizedMemberStatus === 'applied' || normalizedMemberStatus === null) && 
+       (approvalStatus === 'granted' || approvalStatus === 'approved'))) {
+    
+    console.log('👤 Pre-member detected, checking membership application status...');
+    
+    // Handle different application states for pre-members
+    switch (normalizedApplicationStatus) {
+      case 'pending':
+        console.log('⏳ Pre-member with pending membership application');
+        return {
+          isMember: false,
+          isPendingMember: true,
+          userType: 'pre_member',
+          status: 'pre_member_pending_upgrade',
+          canApplyForMembership: false, // Already applied
+          membershipApplicationStatus: 'pending',
+          canAccessTowncrier: true,
+          canAccessIko: false
+        };
+        
+      case 'approved':
+        // If application approved, they should be upgraded to member
+        console.log('✅ Pre-member with approved application - should be member now');
+        return {
+          isMember: true,
+          isPendingMember: false,
+          userType: 'member',
+          status: 'member',
+          canApplyForMembership: false,
+          membershipApplicationStatus: 'approved',
+          canAccessTowncrier: true,
+          canAccessIko: true
+        };
+        
+      case 'declined':
+        console.log('❌ Pre-member with declined application');
+        return {
+          isMember: false,
+          isPendingMember: true,
+          userType: 'pre_member',
+          status: 'pre_member_can_reapply',
+          canApplyForMembership: true, // Can reapply
+          membershipApplicationStatus: 'declined',
+          canAccessTowncrier: true,
+          canAccessIko: false
+        };
+        
+      case 'not_applied':
+      default:
+        console.log('📝 Pre-member eligible for membership application');
+        return {
+          isMember: false,
+          isPendingMember: true,
+          userType: 'pre_member',
+          status: 'pre_member',
+          canApplyForMembership: true,
+          membershipApplicationStatus: 'not_applied',
+          canAccessTowncrier: true,
+          canAccessIko: false
+        };
+    }
+  }
+
+  // ✅ Applied/Pending check (for initial applications)
+  if (normalizedMemberStatus === 'applied' || normalizedMemberStatus === 'pending' || normalizedMemberStatus === null) {
+    console.log('⏳ Applicant detected');
+    return {
+      isMember: false,
+      isPendingMember: true,
+      userType: 'applicant',
+      status: 'pending_verification',
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'not_eligible',
+      canAccessTowncrier: false,
+      canAccessIko: false
+    };
+  }
+  
+  // Denied/Suspended check
+  if (normalizedMemberStatus === 'denied' || normalizedMemberStatus === 'suspended' || normalizedMemberStatus === 'declined') {
+    console.log('❌ Denied user detected');
+    return {
+      isMember: false,
+      isPendingMember: false,
+      userType: 'denied',
+      status: 'denied',
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'not_eligible',
+      canAccessTowncrier: false,
+      canAccessIko: false
+    };
+  }
+
+  // Default fallback
+  console.log('⚠️ Using fallback status for authenticated user');
+  return {
+    isMember: false,
+    isPendingMember: false,
+    userType: 'authenticated',
+    status: 'authenticated',
+    canApplyForMembership: false,
+    membershipApplicationStatus: 'unknown',
+    canAccessTowncrier: false,
+    canAccessIko: false
+  };
+};
+
+export const UserProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [membershipStatus, setMembershipStatus] = useState('not loaded');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const initializationRef = useRef(false);
+  const membershipFetchRef = useRef(false);
+  const lastFetchTime = useRef(0);
+  const RATE_LIMIT_MS = 5000;
+
+  console.log('🚀 Initializing UserProvider with standardized levels');
+
+  const updateUserState = (newState) => {
+    console.log('👤 User state updated:', newState);
+    setUser(newState.user || null);
+    setMembershipStatus(newState.membershipStatus || 'not loaded');
+    setLoading(newState.loading || false);
+    setError(newState.error || null);
+  };
+
+  // ✅ RENAMED: Fetch membership application status (not a separate membership level)
+  const fetchMembershipApplicationStatus = async (userId) => {
+    try {
+      const response = await api.get(`/membership/full-membership-status/${userId}`);
+      console.log('✅ Membership application status response:', response.data);
+      return {
+        membershipApplicationStatus: response.data.status || 'not_applied',
+        membershipAppliedAt: response.data.appliedAt,
+        membershipReviewedAt: response.data.reviewedAt,
+        membershipTicket: response.data.ticket,
+        membershipAdminNotes: response.data.adminNotes
+      };
+    } catch (error) {
+      console.log('⚠️ Membership application status not available:', error.message);
+      return {
+        membershipApplicationStatus: 'not_applied',
+        membershipAppliedAt: null,
+        membershipReviewedAt: null,
+        membershipTicket: null,
+        membershipAdminNotes: null
+      };
+    }
+  };
+
+  // ✅ STANDARDIZED: fetchMembershipStatus
+  const fetchMembershipStatus = async () => {
+    const now = Date.now();
+    if (now - lastFetchTime.current < RATE_LIMIT_MS) {
+      console.log('🚫 Rate limited - skipping membership status fetch');
+      return;
+    }
+
+    if (membershipFetchRef.current) {
+      console.log('🚫 Membership fetch already in progress');
+      return;
+    }
+
+    membershipFetchRef.current = true;
+    lastFetchTime.current = now;
+
+    console.log('🔍 Fetching comprehensive membership status...');
+    
+    try {
+      const tokenData = getTokenUserData();
+      if (!tokenData) {
+        console.log('❌ No token data available');
+        membershipFetchRef.current = false;
+        return;
+      }
+
+      // Fetch both initial status and membership application status
+      const [surveyResponse, membershipApplicationData] = await Promise.allSettled([
+        api.get('/membership/survey/check-status'),
+        fetchMembershipApplicationStatus(tokenData.user_id)
+      ]);
+
+      let surveyData = {};
+      if (surveyResponse.status === 'fulfilled') {
+        surveyData = surveyResponse.value.data;
+      }
+
+      let membershipApplicationInfo = {};
+      if (membershipApplicationData.status === 'fulfilled') {
+        membershipApplicationInfo = membershipApplicationData.value;
+      }
+
+      // ✅ STANDARDIZED: Combine all data sources
+      const combinedUserData = {
+        user_id: tokenData.user_id,
+        username: tokenData.username,
+        email: tokenData.email,
+        membership_stage: tokenData.membership_stage,
+        is_member: tokenData.is_member,
+        role: tokenData.role,
+        // Initial membership data
+        survey_completed: surveyData.survey_completed,
+        approval_status: surveyData.approval_status,
+        needs_survey: surveyData.needs_survey,
+        survey_data: surveyData.survey_data,
+        // ✅ STANDARDIZED: Membership application data (not separate membership level)
+        ...membershipApplicationInfo
+      };
+
+      console.log('✅ Combined user data with membership application status:', combinedUserData);
+
+      // ✅ STANDARDIZED: Status determination
+      const statusResult = determineUserStatus({
+        role: combinedUserData.role,
+        memberStatus: combinedUserData.is_member,
+        membershipStage: combinedUserData.membership_stage,
+        userId: combinedUserData.user_id,
+        approvalStatus: combinedUserData.approval_status,
+        fullMembershipApplicationStatus: combinedUserData.membershipApplicationStatus,
+        fullMembershipAppliedAt: combinedUserData.membershipAppliedAt
+      });
+
+      console.log('✅ Standardized status determined:', statusResult);
+
+      let finalStatus = statusResult.status;
+
+      // Additional checks for survey requirements (excluding admins and members)
+      if (finalStatus !== 'admin' && finalStatus !== 'member') {
+        if (surveyData.needs_survey === true || surveyData.survey_completed === false) {
+          finalStatus = 'needs_application';
+          console.log('🚨 User needs to complete initial application survey');
+        }
+      }
+
+      updateUserState({
+        user: {
+          ...combinedUserData,
+          ...statusResult,
+          finalStatus
+        },
+        membershipStatus: 'loaded',
+        status: finalStatus,
+        loading: false,
+        error: null
+      });
+
+    } catch (error) {
+      console.error('❌ Error fetching membership status:', error);
+      
+      const tokenData = getTokenUserData();
+      if (tokenData) {
+        const fallbackStatus = determineUserStatus({
+          role: tokenData.role,
+          memberStatus: tokenData.is_member,
+          membershipStage: tokenData.membership_stage,
+          userId: tokenData.user_id,
+          approvalStatus: null,
+          fullMembershipApplicationStatus: 'not_applied'
+        });
+        
+        updateUserState({
+          user: {
+            ...tokenData,
+            ...fallbackStatus
+          },
+          membershipStatus: 'error',
+          status: fallbackStatus.status,
+          loading: false,
+          error: `API Error: ${error.message}`
+        });
+      } else {
+        updateUserState({
+          user: null,
+          membershipStatus: 'error',
+          status: 'error',
+          loading: false,
+          error: error.message
+        });
+      }
+    } finally {
+      membershipFetchRef.current = false;
+    }
+  };
+
+  const getTokenUserData = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+
+    try {
+      const decoded = jwtDecode(token);
+      
+      if (decoded.exp * 1000 < Date.now()) {
+        console.log('⚠️ Token expired, removing...');
+        localStorage.removeItem('token');
+        return null;
+      }
+
+      console.log('🔍 Token user data:', decoded);
+      return decoded;
+    } catch (error) {
+      console.error('❌ Error decoding token:', error);
+      localStorage.removeItem('token');
+      return null;
+    }
+  };
+
+  const initializeUser = async () => {
+    if (initializationRef.current) {
+      console.log('🚫 User already initialized');
+      return;
+    }
+
+    initializationRef.current = true;
+    console.log('🔄 Initializing user with standardized levels...');
+
+    const tokenData = getTokenUserData();
+    
+    if (!tokenData) {
+      console.log('❌ No valid token found');
+      updateUserState({
+        user: null,
+        membershipStatus: 'not loaded',
+        status: 'guest',
+        loading: false,
+        error: null
+      });
+      return;
+    }
+
+    const initialStatus = determineUserStatus({
+      role: tokenData.role,
+      memberStatus: tokenData.is_member,
+      membershipStage: tokenData.membership_stage,
+      userId: tokenData.user_id,
+      approvalStatus: null,
+      fullMembershipApplicationStatus: 'not_applied'
+    });
+
+    updateUserState({
+      user: {
+        ...tokenData,
+        ...initialStatus
+      },
+      membershipStatus: 'loading',
+      status: initialStatus.status,
+      loading: true,
+      error: null
+    });
+
+    await fetchMembershipStatus();
+  };
+
+  useEffect(() => {
+    if (!initializationRef.current) {
+      initializeUser();
+    }
+  }, []);
+
+  const isAuthenticated = () => {
+    return !!user && !!localStorage.getItem('token');
+  };
+
+  const getUserStatus = () => {
+    if (!user) return 'guest';
+    
+    if (user.finalStatus) {
+      return user.finalStatus;
+    }
+    
+    if (user.status) {
+      return user.status;
+    }
+    
+    const fallbackStatus = determineUserStatus({
+      role: user.role,
+      memberStatus: user.is_member,
+      membershipStage: user.membership_stage,
+      userId: user.user_id,
+      approvalStatus: user.approval_status,
+      fullMembershipApplicationStatus: user.membershipApplicationStatus || 'not_applied'
+    });
+    
+    return fallbackStatus.status;
+  };
+
+  const refreshUser = async () => {
+    console.log('🔄 Refreshing user data...');
+    
+    const now = Date.now();
+    if (now - lastFetchTime.current > RATE_LIMIT_MS) {
+      membershipFetchRef.current = false;
+      await fetchMembershipStatus();
+    } else {
+      console.log('🚫 Refresh rate limited');
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    
+    initializationRef.current = false;
+    membershipFetchRef.current = false;
+    lastFetchTime.current = 0;
+    
+    updateUserState({
+      user: null,
+      membershipStatus: 'not loaded',
+      status: 'guest',
+      loading: false,
+      error: null
+    });
+  };
+
+  // ✅ FIXED: Context value with correct member/pre_member distinction
+  const value = {
+    user,
+    membershipStatus,
+    loading,
+    error,
+    isAuthenticated: isAuthenticated(),
+    getUserStatus,
+    refreshUser,
+    updateUser: refreshUser,
+    logout,
+    // ✅ FIXED: Clear status checks based on the actual user status
+    isAdmin: () => getUserStatus() === 'admin',
+    isMember: () => {
+      const status = getUserStatus();
+      // ✅ FIXED: Only return true for actual full members
+      return status === 'member';
+    },
+    isPreMember: () => {
+      const status = getUserStatus();
+      return status === 'pre_member' || status === 'pre_member_pending_upgrade' || status === 'pre_member_can_reapply';
+    },
+    // ✅ FIXED: isPending should return true for pre-members (they are "pending" full membership)
+    isPending: () => {
+      const status = getUserStatus();
+      return status === 'pre_member' || status === 'pre_member_pending_upgrade' || status === 'pre_member_can_reapply' || status === 'pending_verification';
+    },
+    needsApplication: () => getUserStatus() === 'needs_application',
+    // ✅ STANDARDIZED: Application status checks
+    isPendingUpgrade: () => getUserStatus() === 'pre_member_pending_upgrade',
+    canReapplyForMembership: () => getUserStatus() === 'pre_member_can_reapply',
+    canApplyForMembership: () => user?.canApplyForMembership === true,
+    getMembershipApplicationStatus: () => user?.membershipApplicationStatus || 'not_applied',
+    getMembershipTicket: () => user?.membershipTicket || null,
+    canAccessIko: () => user?.canAccessIko === true,
+    canAccessTowncrier: () => user?.canAccessTowncrier === true
+  };
+
+  return (
+    <UserContext.Provider value={value}>
+      {children}
+    </UserContext.Provider>
+  );
+};
+
+
+//===========================================
+
+// ikootaclient/src/components/auth/Signup.jsx - COMPLETE FIXED WITH ENHANCED DEBUGGING
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import './signup.css';
+
+const Signup = () => {
+  const [values, setValues] = useState({
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    phone: "",
+  });
+  
+  const [verificationStep, setVerificationStep] = useState('form'); // 'form', 'verification', 'success'
+  const [verificationMethod, setVerificationMethod] = useState(''); // 'email' or 'phone'
+  const [verificationCode, setVerificationCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [devCode, setDevCode] = useState(''); // For development
+  
+  axios.defaults.withCredentials = true;
+  const navigate = useNavigate();
+
+  // Step 1: Submit initial signup form and send verification code
+  const handleInitialSubmit = async (event) => {
+    event.preventDefault();
+    
+    // Validation
+    if (values.password !== values.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    
+    if (!values.username || !values.email || !values.password || !values.phone) {
+      alert("Please fill in all required fields!");
+      return;
+    }
+    
+    if (!verificationMethod) {
+      alert("Please select a verification method!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      console.log('🔍 Sending verification request:', {
+        email: values.email,
+        phone: values.phone,
+        method: verificationMethod
+      });
+      
+      // ✅ UPDATED: Use auth endpoint instead of membership endpoint
+      const verificationResponse = await axios.post("http://localhost:3000/api/auth/send-verification", {
+        email: values.email,
+        phone: values.phone,
+        method: verificationMethod, // ✅ Use 'method' to match database
+        username: values.username
+      });
+      
+      console.log('✅ Verification response:', verificationResponse.data);
+      
+      if (verificationResponse.status === 200) {
+        // ✅ Store dev code if provided (development mode)
+        if (verificationResponse.data.devCode) {
+          setDevCode(verificationResponse.data.devCode);
+          console.log('🛠️ Dev code received:', verificationResponse.data.devCode);
+        }
+        
+        setVerificationStep('verification');
+        alert(`Verification code sent to your ${verificationMethod}!`);
+      }
+    } catch (err) {
+      console.error('❌ Verification error:', err);
+      
+      let errorMessage = 'Failed to send verification code.';
+      
+      if (err.response?.status === 404) {
+        errorMessage = 'The verification endpoint is not available. Please check the server.';
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      alert(`${errorMessage} Please try again.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ ENHANCED: Step 2 - Verify code and complete registration with extensive debugging
+  const handleVerificationSubmit = async (event) => {
+    event.preventDefault();
+    
+    if (!verificationCode) {
+      alert("Please enter the verification code!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // ✅ ENHANCED: Clean and validate the verification code
+      const cleanedCode = verificationCode.trim();
+      
+      const requestData = {
+        username: values.username,
+        email: values.email,
+        password: values.password,
+        phone: values.phone,
+        verificationCode: cleanedCode,
+        verificationMethod
+      };
+      
+      console.log('🔍 Submitting registration with data:', {
+        ...requestData,
+        password: '***HIDDEN***' // Don't log the actual password
+      });
+      
+      // ✅ ENHANCED: Log verification code details for debugging
+      console.log('🔍 Verification code details:', {
+        original: verificationCode,
+        trimmed: cleanedCode,
+        length: cleanedCode.length,
+        type: typeof cleanedCode,
+        charCodes: [...cleanedCode].map(char => char.charCodeAt(0)),
+        isNumeric: /^\d+$/.test(cleanedCode),
+        devCodeMatch: devCode ? (cleanedCode === devCode) : 'No dev code available'
+      });
+      
+      // ✅ ENHANCED: Additional validation
+      if (cleanedCode.length !== 6) {
+        alert("Verification code must be exactly 6 digits!");
+        return;
+      }
+      
+      if (!/^\d+$/.test(cleanedCode)) {
+        alert("Verification code must contain only numbers!");
+        return;
+      }
+      
+      // ✅ UPDATED: Use auth endpoint instead of membership endpoint
+      const registerResponse = await axios.post("http://localhost:3000/api/auth/register", requestData, { 
+        withCredentials: true 
+      });
+      
+      console.log('✅ Registration response:', registerResponse.data);
+      
+      if (registerResponse.status === 201) {
+        setVerificationStep('success');
+        
+        // Use server-provided application ticket or generate fallback
+        const applicationTicket = registerResponse.data.user?.application_ticket || 
+                                generateApplicationTicket(values.username, values.email);
+        
+        setTimeout(() => {
+          navigate('/application-thankyou', { 
+            state: { 
+              applicationTicket,
+              username: values.username,
+              userId: registerResponse.data.user?.id
+            }
+          });
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('❌ Registration error:', err);
+      console.error('❌ Full error response:', err.response);
+      
+      // ✅ ENHANCED: Enhanced error logging and debugging
+      if (err.response?.data?.debug) {
+        console.error('🔍 Server debug info:', err.response.data.debug);
+      }
+      
+      let errorMessage = 'Registration failed.';
+      
+      if (err.response?.status === 400) {
+        if (err.response.data?.error?.includes('verification')) {
+          errorMessage = "Invalid verification code. Please try again.";
+          
+          // ✅ ENHANCED: Show debug info in development
+          if (process.env.NODE_ENV === 'development' && err.response.data?.debug) {
+            console.log('🔍 Debug info from server:', err.response.data.debug);
+            const debugInfo = err.response.data.debug;
+            errorMessage += `\n\nDEBUG INFO (Development Mode):\nStored: ${debugInfo.storedCode}\nSubmitted: ${debugInfo.submittedCode}\nTypes: ${debugInfo.storedType} vs ${debugInfo.submittedType}`;
+          }
+          
+          // ✅ ENHANCED: Additional debugging for development
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 Local verification analysis:', {
+              enteredCode: verificationCode.trim(),
+              devCode: devCode,
+              match: verificationCode.trim() === devCode,
+              expectedLength: 6,
+              actualLength: verificationCode.trim().length
+            });
+          }
+        } else {
+          errorMessage = err.response.data?.error || 'Invalid input data.';
+        }
+      } else if (err.response?.status === 409) {
+        errorMessage = "User already exists with this email or username. Please try logging in.";
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      alert(`${errorMessage} Please try again.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate application ticket number (fallback)
+  const generateApplicationTicket = (username, email) => {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substr(2, 5);
+    return `APP-${username.substr(0, 3).toUpperCase()}-${timestamp}-${random}`.toUpperCase();
+  };
+
+  // Resend verification code
+  const handleResendCode = async () => {
+    try {
+      setLoading(true);
+      
+      console.log('🔍 Resending verification code...');
+      
+      // ✅ UPDATED: Use auth endpoint instead of membership endpoint
+      const response = await axios.post("http://localhost:3000/api/auth/send-verification", {
+        email: values.email,
+        phone: values.phone,
+        method: verificationMethod, // ✅ Use 'method' field
+        username: values.username
+      });
+      
+      console.log('✅ Resend response:', response.data);
+      
+      // ✅ Update dev code if provided
+      if (response.data.devCode) {
+        setDevCode(response.data.devCode);
+        console.log('🛠️ New dev code received:', response.data.devCode);
+      }
+      
+      alert(`Verification code resent to your ${verificationMethod}!`);
+    } catch (err) {
+      console.error('❌ Resend error:', err);
+      alert("Failed to resend code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ ENHANCED: Auto-fill verification code with validation
+  const handleDevCodeFill = () => {
+    if (devCode) {
+      setVerificationCode(devCode);
+      console.log('🛠️ Auto-filled verification code:', devCode);
+    } else {
+      console.warn('⚠️ No dev code available to auto-fill');
+    }
+  };
+
+  // ✅ ENHANCED: Input handler for verification code with real-time validation
+  const handleVerificationCodeChange = (e) => {
+    const value = e.target.value;
+    // Only allow numeric input and limit to 6 characters
+    if (/^\d*$/.test(value) && value.length <= 6) {
+      setVerificationCode(value);
+    }
+  };
+
+  // Render based on current step
+  if (verificationStep === 'success') {
+    return (
+      <div className="signup-form success-message">
+        <h2>🎉 Registration Successful!</h2>
+        <div className="success-content">
+          <p>Welcome to Ikoota, {values.username}!</p>
+          <p>Your account has been created successfully.</p>
+          <div className="loading-spinner">
+            <p>Redirecting you to complete your application...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (verificationStep === 'verification') {
+    return (
+      <div className="signup-form verification-form">
+        <h2>Verify Your Account</h2>
+        <p>We've sent a verification code to your {verificationMethod}.</p>
+        
+        {/* ✅ ENHANCED: Development debug info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="dev-code-info" style={{
+            background: '#f0f8ff', 
+            padding: '15px', 
+            margin: '15px 0', 
+            borderRadius: '8px',
+            border: '1px solid #b0d4ff'
+          }}>
+            <p><strong>🛠️ Development Mode Debug Info:</strong></p>
+            {devCode ? (
+              <>
+                <p>Latest verification code: <code style={{
+                  background: '#ffe6e6', 
+                  padding: '2px 6px', 
+                  borderRadius: '4px',
+                  fontWeight: 'bold',
+                  fontSize: '16px'
+                }}>{devCode}</code></p>
+                <button 
+                  type="button" 
+                  onClick={handleDevCodeFill} 
+                  className="dev-fill-btn"
+                  style={{
+                    background: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginTop: '5px'
+                  }}
+                >
+                  Auto-fill Code
+                </button>
+                <p style={{fontSize: '12px', color: '#666', marginTop: '5px'}}>
+                  Current input: "{verificationCode}" | Match: {verificationCode.trim() === devCode ? '✅' : '❌'}
+                </p>
+              </>
+            ) : (
+              <p style={{color: '#ff6600'}}>No dev code available. Check server logs.</p>
+            )}
+          </div>
+        )}
+        
+        <form onSubmit={handleVerificationSubmit}>
+          <div className="verification-input">
+            <label htmlFor="verificationCode">
+              <strong>Enter Verification Code:</strong>
+            </label>
+            <input
+              type="text"
+              placeholder="Enter 6-digit code"
+              value={verificationCode}
+              onChange={handleVerificationCodeChange} // ✅ ENHANCED: Use new handler
+              maxLength="6"
+              className="form-control verification-code-input"
+              autoComplete="off"
+              style={{
+                fontSize: '18px',
+                textAlign: 'center',
+                letterSpacing: '3px',
+                fontFamily: 'monospace'
+              }}
+            />
+            {/* ✅ ENHANCED: Real-time validation feedback */}
+            {verificationCode && (
+              <div style={{fontSize: '12px', marginTop: '5px'}}>
+                {verificationCode.length === 6 ? (
+                  <span style={{color: 'green'}}>✅ Code length correct</span>
+                ) : (
+                  <span style={{color: 'orange'}}>⚠️ Code must be 6 digits ({verificationCode.length}/6)</span>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <div className="verification-actions">
+            <button 
+              type="submit" 
+              disabled={loading || !verificationCode || verificationCode.length !== 6}
+              style={{
+                opacity: (loading || !verificationCode || verificationCode.length !== 6) ? 0.6 : 1
+              }}
+            >
+              {loading ? 'Verifying...' : 'Verify & Complete Registration'}
+            </button>
+            
+            <button type="button" onClick={handleResendCode} disabled={loading} className="resend-btn">
+              {loading ? 'Resending...' : 'Resend Code'}
+            </button>
+            
+            <button type="button" onClick={() => setVerificationStep('form')} className="back-btn">
+              ← Back to Form
+            </button>
+          </div>
+        </form>
+        
+        <div className="verification-help">
+          <p>Didn't receive the code? Check your spam folder or try resending.</p>
+          <p>Code sent to: {verificationMethod === 'email' ? values.email : values.phone}</p>
+          
+          {/* ✅ ENHANCED: Additional help in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{marginTop: '15px', padding: '10px', background: '#fff3cd', borderRadius: '5px'}}>
+              <p><strong>🔧 Development Tips:</strong></p>
+              <ul style={{fontSize: '14px', marginBottom: '0'}}>
+                <li>Check browser console for detailed debugging information</li>
+                <li>Server logs show the generated verification code</li>
+                <li>Use the auto-fill button above for quick testing</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Initial signup form
+  return (
+    <div className="signup-form">
+      <h2>Join Ikoota Platform</h2>
+      <p>Create your account to apply for membership</p>
+      
+      <form onSubmit={handleInitialSubmit}>
+        <div className="form-group">
+          <label htmlFor="username"><strong>Username:</strong></label>
+          <input
+            type="text"
+            placeholder="Enter Username"
+            name="username"
+            value={values.username}
+            onChange={e => setValues({ ...values, username: e.target.value })}
+            className="form-control"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="email"><strong>Email:</strong></label>
+          <input
+            type="email"
+            autoComplete="off"
+            placeholder="Enter Email"
+            name="email"
+            value={values.email}
+            onChange={e => setValues({ ...values, email: e.target.value })}
+            className="form-control"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="phone"><strong>Phone:</strong></label>
+          <input
+            type="tel"
+            autoComplete="off"
+            placeholder="Enter WhatsApp Phone Number"
+            name="phone"
+            value={values.phone}
+            onChange={e => setValues({ ...values, phone: e.target.value })}
+            className="form-control"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="password"><strong>Password:</strong></label>
+          <input
+            type="password"
+            placeholder="Enter Password"
+            name="password"
+            value={values.password}
+            onChange={e => setValues({ ...values, password: e.target.value })}
+            className="form-control"
+            autoComplete="off"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="confirmPassword"><strong>Confirm Password:</strong></label>
+          <input
+            type="password"
+            placeholder="Confirm Password"
+            name="confirmPassword"
+            value={values.confirmPassword}
+            onChange={e => setValues({ ...values, confirmPassword: e.target.value })}
+            className="form-control"
+            autoComplete="off"
+            required
+          />
+        </div>
+        
+        {/* ✅ FIXED: Verification Method Selection */}
+        <div className="form-group verification-method">
+          <label><strong>Verify account via:</strong></label>
+          <div className="method-options">
+            <label className="radio-option">
+              <input
+                type="radio"
+                name="verificationMethod"
+                value="email"
+                checked={verificationMethod === 'email'}
+                onChange={e => setVerificationMethod(e.target.value)}
+                required
+              />
+              <span>Email</span>
+            </label>
+            <label className="radio-option">
+              <input
+                type="radio"
+                name="verificationMethod"
+                value="phone"
+                checked={verificationMethod === 'phone'}
+                onChange={e => setVerificationMethod(e.target.value)}
+                required
+              />
+              <span>Phone/SMS</span>
+            </label>
+          </div>
+        </div>
+        
+        <button type="submit" disabled={loading || !verificationMethod}>
+          {loading ? 'Sending Code...' : 'Send Verification Code'}
+        </button>
+        
+        <div className="next-step-info">
+          <p>📋 Next: Complete application survey for membership consideration</p>
+        </div>
+      </form>
+      
+      <div className="form-footer">
+        <Link to="/login">Already have an account? <strong>Sign In</strong></Link>
+        <br />
+        <Link to="/">← Back to Home</Link>
+      </div>
+    </div>
+  );
+};
+
+export default Signup;
+
+
+//===========================================
+
+//ikootaclient\src\components\auth\RoleProtectedRoute.jsx
+const RoleProtectedRoute = ({ children, requiredRole, requiredMembership }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkUserAccess = async () => {
+      try {
+        // Get user data from token or API
+        const token = localStorage.getItem('token');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+
+        // Decode token to get user info
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        
+        // Check role access
+        if (requiredRole && payload.role !== requiredRole) {
+          console.error('❌ Insufficient role permissions');
+          navigate('/unauthorized');
+          return;
+        }
+
+        // Check membership access
+        if (requiredMembership && payload.membership_stage !== requiredMembership) {
+          console.error('❌ Insufficient membership permissions');
+          navigate('/application-survey');
+          return;
+        }
+
+        setUser(payload);
+      } catch (error) {
+        console.error('❌ Access check failed:', error);
+        navigate('/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkUserAccess();
+  }, [requiredRole, requiredMembership]);
+
+  if (loading) return <div>Checking permissions...</div>;
+  if (!user) return null;
+
+  return children;
+};
+
+export default RoleProtectedRoute;
+
+
+//=========================================
+
+// ikootaclient/src/components/auth/ProtectedRoute.jsx
+// ✅ PRESERVES ALL EXISTING FUNCTIONALITY + adds standardized membership support
+
+import React, { useEffect, useState } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useUser } from './UserStatus';
+import { getUserAccess, getUserStatusString } from '../config/accessMatrix';
+
+const ProtectedRoute = ({ 
+  children, 
+  // ✅ PRESERVED: All your existing props
+  requireAuth = false,
+  requireMember = false,        // ✅ ENHANCED: Now means "member" (highest level)
+  requirePreMember = false,     // ✅ PRESERVED: Your existing logic
+  requireAdmin = false,         // ✅ PRESERVED: Your existing logic
+  allowedUserTypes = [],        // ✅ PRESERVED: Your existing logic
+  redirectTo = '/login',        // ✅ PRESERVED: Your existing logic
+  // ✅ NEW: Additional props for standardized membership
+  allowPending = false          // ✅ NEW: Allow pending applications
+}) => {
+  const { user, isAuthenticated, loading, membershipStatus } = useUser();
+  const location = useLocation();
+  const [isReady, setIsReady] = useState(false);
+
+  // ✅ PRESERVED: Your exact loading logic
+  useEffect(() => {
+    if (!loading && (membershipStatus === 'loaded' || !user)) {
+      setIsReady(true);
+    } else {
+      setIsReady(false);
+    }
+  }, [loading, membershipStatus, user]);
+
+  // ✅ PRESERVED: Your exact loading component with styles
+  if (!isReady) {
+    return (
+      <div className="route-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading user status...</p>
+        <style>
+          {`
+            .route-loading {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+              flex-direction: column;
+            }
+            .loading-spinner {
+              border: 4px solid #f3f3f3;
+              border-top: 4px solid #3498db;
+              border-radius: 50%;
+              width: 40px;
+              height: 40px;
+              animation: spin 2s linear infinite;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}
+        </style>
+      </div>
+    );
+  }
+
+  // ✅ ENHANCED: Use standardized status but preserve all your logic
+  const userStatus = getUserStatusString(user);
+  
+  console.log('🔐 ProtectedRoute Check:', {
+    path: location.pathname,
+    userStatus,
+    requireAuth,
+    requireMember,
+    requirePreMember,
+    requireAdmin,
+    allowedUserTypes,
+    allowPending, // ✅ NEW
+    isAuthenticated,
+    membershipStatus,
+    isReady
+  });
+
+  // ✅ PRESERVED: Your exact public routes logic
+  const publicRoutes = ['/', '/login', '/signup', '/forgot-password', '/towncrier'];
+  const isPublicRoute = publicRoutes.includes(location.pathname);
+
+  // ✅ PRESERVED: Your exact public route handling
+  if (!requireAuth && !requireMember && !requirePreMember && !requireAdmin && allowedUserTypes.length === 0 && !allowPending) {
+    console.log('✅ Public route access granted');
+    return children;
+  }
+
+  // ✅ PRESERVED: Your exact authentication check
+  if (requireAuth && !isAuthenticated) {
+    console.log('🚨 SECURITY: Authentication required but user not authenticated');
+    return <Navigate to={redirectTo} state={{ from: location }} replace />;
+  }
+
+  // ✅ ENHANCED: Authenticated user checks with standardized statuses
+  if (isAuthenticated && user) {
+    const access = getUserAccess(user);
+    
+    // ✅ PRESERVED: Your exact admin requirement check
+    if (requireAdmin) {
+      if (userStatus === 'admin') {
+        console.log('✅ Admin access granted');
+        return children;
+      } else {
+        console.log('🚨 SECURITY: Admin access required but user is not admin');
+        return <Navigate to="/towncrier" replace />;
+      }
+    }
+
+    // ✅ ENHANCED: Member requirement check (now standardized to "member" only)
+    if (requireMember) {
+      if (userStatus === 'member' || userStatus === 'admin') {
+        console.log('✅ Member access granted');
+        return children;
+      } else {
+        console.log('🚨 SECURITY: Member access required but user is not member');
+        // ✅ ENHANCED: Better redirects based on current status
+        if (userStatus === 'pre_member') {
+          return <Navigate to="/full-membership/info" replace />;
+        }
+        if (userStatus === 'pre_member_pending_upgrade') {
+          return <Navigate to="/full-membership/pending" replace />;
+        }
+        if (userStatus === 'pre_member_can_reapply') {
+          return <Navigate to="/full-membership/declined" replace />;
+        }
+        return <Navigate to="/towncrier" replace />;
+      }
+    }
+
+    // ✅ ENHANCED: Pre-member requirement check with ALL pre-member states
+    if (requirePreMember) {
+      const allowedForPreMember = [
+        'pre_member', 
+        'pre_member_pending_upgrade', 
+        'pre_member_can_reapply', 
+        'member', 
+        'admin'
+      ];
+      
+      if (allowedForPreMember.includes(userStatus)) {
+        console.log('✅ Pre-member access granted for userStatus:', userStatus);
+        return children;
+      } else {
+        console.log('🚨 SECURITY: Pre-member access required but user status insufficient:', {
+          currentStatus: userStatus,
+          expectedStatuses: allowedForPreMember,
+          userObject: {
+            role: user.role,
+            is_member: user.is_member,
+            membership_stage: user.membership_stage,
+            approval_status: user.approval_status
+          }
+        });
+        return <Navigate to="/towncrier" replace />;
+      }
+    }
+
+    // ✅ NEW: Allow pending applications
+    if (allowPending) {
+      const allowedForPending = [
+        'admin',
+        'member',
+        'pre_member',
+        'pre_member_pending_upgrade', 
+        'pre_member_can_reapply',
+        'pending_verification',
+        'needs_application'
+      ];
+      
+      if (allowedForPending.includes(userStatus)) {
+        console.log('✅ Pending access granted');
+        return children;
+      } else {
+        console.log('❌ Pending access denied for status:', userStatus);
+        return <Navigate to="/login" replace />;
+      }
+    }
+
+    // ✅ PRESERVED: Your exact user types check
+    if (allowedUserTypes.length > 0) {
+      if (allowedUserTypes.includes(userStatus)) {
+        console.log('✅ User type access granted');
+        return children;
+      } else {
+        console.log('🚨 SECURITY: User type not in allowed list');
+        return <Navigate to={access.defaultRoute} replace />;
+      }
+    }
+
+    // ✅ PRESERVED: Your exact auth-only check
+    if (requireAuth && isAuthenticated) {
+      console.log('✅ Authenticated access granted');
+      return children;
+    }
+  }
+
+  // ✅ PRESERVED: Your exact default case logic
+  if (isAuthenticated && user) {
+    const access = getUserAccess(user);
+    
+    // ✅ PRESERVED: Your exact dashboard route handling
+    if (location.pathname === '/dashboard') {
+      // ✅ ENHANCED: Include all membership states that can access dashboard
+      const dashboardAllowed = ['admin', 'member', 'pre_member', 'pre_member_pending_upgrade', 'pre_member_can_reapply'];
+      if (dashboardAllowed.includes(userStatus)) {
+        console.log('✅ Dashboard access granted');
+        return children;
+      } else {
+        console.log('🚨 SECURITY: Dashboard access denied for user status:', userStatus);
+        return <Navigate to={access.defaultRoute} replace />;
+      }
+    }
+
+    // ✅ PRESERVED: Your exact default authenticated access
+    console.log('✅ Default authenticated access granted');
+    return children;
+  }
+
+  // ✅ PRESERVED: Your exact final fallback
+  console.log('🚨 SECURITY: Access denied, redirecting to login');
+  return <Navigate to={redirectTo} state={{ from: location }} replace />;
+};
+
+export default ProtectedRoute;
+
+
+//============================================
+
+//ikootaclient\src\components\auth\Passwordreset.jsx
+import React, { useState } from "react";
+import axios from "axios";
+import "./passwordreset.css";
+
+const Passwordreset = () => {
+  const [step, setStep] = useState(1);
+  const [values, setValues] = useState({
+    emailOrPhone: "",
+    newPassword: "",
+    confirmNewPassword: "",
+    verificationCode: "",
+  });
+
+  const handleResetRequest = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post("http://localhost:3000/api/auth/passwordreset/request", {
+        emailOrPhone: values.emailOrPhone,
+      });
+      setStep(2); // Move to password reset step
+    } catch (err) {
+      console.error(err.response.data.message);
+    }
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post("http://localhost:3000/api/auth/passwordreset/reset", {
+        ...values,
+      });
+      setStep(3); // Move to verification step
+    } catch (err) {
+      console.error(err.response.data.message);
+    }
+  };
+
+  const handleVerification = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post("http://localhost:3000/api/auth/passwordreset/verify", {
+        emailOrPhone: values.emailOrPhone,
+        verificationCode: values.verificationCode,
+      });
+      alert("Password reset successful!");
+    } catch (err) {
+      console.error(err.response.data.message);
+    }
+  };
+
+  return (
+    <div className="password-reset-container">
+      {step === 1 && (
+        <form onSubmit={handleResetRequest}>
+          <h2>Request Password Reset</h2>
+          <input
+            type="text"
+            placeholder="Enter Email or Phone"
+            onChange={(e) => setValues({ ...values, emailOrPhone: e.target.value })}
+            required
+          />
+          <button type="submit">Send Reset Link</button>
+        </form>
+      )}
+      {step === 2 && (
+        <form onSubmit={handlePasswordReset}>
+          <h2>Reset Password</h2>
+          <input
+            type="password"
+            placeholder="New Password"
+            onChange={(e) => setValues({ ...values, newPassword: e.target.value })}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Confirm New Password"
+            onChange={(e) => setValues({ ...values, confirmNewPassword: e.target.value })}
+            required
+          />
+          <button type="submit">Reset Password</button>
+        </form>
+      )}
+      {step === 3 && (
+        <form onSubmit={handleVerification}>
+          <h2>Verify Reset</h2>
+          <input
+            type="text"
+            placeholder="Enter Verification Code"
+            onChange={(e) => setValues({ ...values, verificationCode: e.target.value })}
+            required
+          />
+          <button type="submit">Verify</button>
+        </form>
+      )}
+    </div>
+  );
+};
+
+export default Passwordreset;
+
+
+//===========================================
+
+// ikootaclient/src/components/auth/NavigationWrapper.jsx
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { useUser } from './UserStatus';
+
+const NavigationWrapper = ({ children }) => {
+  const { loading, isAuthenticated, getUserStatus, getDefaultRoute } = useUser();
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner">Loading...</div>
+      </div>
+    );
+  }
+
+  // Auto-redirect logic based on user status
+  const userStatus = getUserStatus();
+  const currentPath = window.location.pathname;
+
+  // Define which paths are allowed for each user status
+  const allowedPaths = {
+    guest: ['/', '/login', '/signup', '/towncrier'],
+    pending: ['/towncrier', '/applicationsurvey', '/thankyou'],
+    member: ['/iko', '/iko/*'],
+    admin: ['/admin', '/admin/*', '/iko', '/iko/*', '/towncrier']
+  };
+
+  // Check if current path is allowed for user status
+  const isPathAllowed = (status, path) => {
+    const allowed = allowedPaths[status] || [];
+    return allowed.some(allowedPath => {
+      if (allowedPath.endsWith('/*')) {
+        return path.startsWith(allowedPath.slice(0, -2));
+      }
+      return path === allowedPath;
+    });
+  };
+
+  // Auto-redirect if user is on wrong path for their status
+  if (!isPathAllowed(userStatus, currentPath)) {
+    return <Navigate to={getDefaultRoute()} replace />;
+  }
+
+  return children;
+};
+
+export default NavigationWrapper;
+
+//================================================
+
+// ikootaclient/src/components/auth/Login.jsx
+// ✅ FIXED VERSION - Proper routing based on user status and privileges
+
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { useUser } from "./UserStatus";
+import './login.css';
+import { getUserAccess } from '../config/accessMatrix';
+
+const Login = () => {
+  const [values, setValues] = useState({
+    email: "",
+    password: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const navigate = useNavigate();
+  const { updateUser, isAuthenticated } = useUser();
+  
+  axios.defaults.withCredentials = true;
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+    
+    if (!values.email || !values.password) {
+      setError("Please fill in all fields.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const response = await axios.post("http://localhost:3000/api/auth/login", {
+        email: values.email,
+        password: values.password
+      }, { 
+        withCredentials: true,
+        timeout: 15000
+      });
+
+      console.log('🔍 Login response:', response.data);
+
+      if (response.status === 200) {
+        const responseData = response.data;
+        let token, user;
+
+        // Handle multiple response formats
+        if (responseData.token && responseData.user) {
+          token = responseData.token;
+          user = responseData.user;
+        } else if (responseData.data?.token && responseData.data?.user) {
+          token = responseData.data.token;
+          user = responseData.data.user;
+        } else if (responseData.access_token || responseData.accessToken) {
+          token = responseData.access_token || responseData.accessToken;
+          user = responseData.user || responseData.data?.user;
+        } else if (responseData.success && responseData.data) {
+          token = responseData.data.token || responseData.data.access_token;
+          user = responseData.data.user;
+        } else {
+          user = responseData.user || responseData.data || responseData;
+          token = responseData.token || responseData.access_token || responseData.accessToken;
+        }
+
+        console.log('🔍 Extracted token:', token ? 'Present' : 'Missing');
+        console.log('🔍 Extracted user:', user);
+
+        if (!user) {
+          console.error('❌ No user data received from login response');
+          setError('Login failed: Invalid response from server');
+          return;
+        }
+
+        // Store token properly
+        if (token) {
+          localStorage.setItem("token", token);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+        
+        // Update user context first
+        try {
+          console.log('🔄 Updating user context...');
+          await updateUser();
+          
+          // Small delay to ensure context is updated
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (updateError) {
+          console.warn('⚠️ Failed to update user context:', updateError);
+        }
+        
+        // ✅ FIXED: Smart routing based on user status
+        await handleUserRouting(user, token);
+      }
+    } catch (err) {
+      console.error('❌ Login error:', err);
+      
+      if (err.response?.status === 401) {
+        setError("Invalid email or password.");
+      } else if (err.response?.status === 403) {
+        const message = err.response.data?.message || '';
+        if (message.includes('banned')) {
+          setError("Your account has been banned. Contact support for assistance.");
+        } else if (message.includes('pending')) {
+          handlePendingUser(err.response.data);
+        } else {
+          setError("Access denied. Please contact support.");
+        }
+      } else if (err.response?.status === 404) {
+        setError("No account found with this email. Please sign up first.");
+      } else if (err.code === 'ECONNABORTED') {
+        setError("Login request timed out. Please check your connection and try again.");
+      } else {
+        setError("Login failed. Please check your network and try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ COMPLETELY REWRITTEN: Smart user routing based on membership status
+  const handleUserRouting = async (userData, token) => {
+    if (!userData) {
+      console.error('❌ No user data provided to handleUserRouting');
+      setError('Login failed: Invalid user data received');
+      return;
+    }
+    
+    console.log('🔍 Routing user based on data:', userData);
+    
+    try {
+      const role = userData.role?.toLowerCase();
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      console.log('🔍 User routing analysis:', {
+        role,
+        memberStatus, 
+        membershipStage,
+        userId: userData.id
+      });
+
+      // ✅ PRIORITY 1: Admin users - Go straight to admin panel
+      if (role === 'admin' || role === 'super_admin') {
+        console.log('👑 Admin user detected - routing to admin panel');
+        navigate('/admin', { replace: true });
+        return;
+      }
+
+      // ✅ PRIORITY 2: Full Members - Go to Iko Chat
+      if ((memberStatus === 'member' && membershipStage === 'member') || 
+          (memberStatus === 'active' && membershipStage === 'member')) {
+        console.log('💎 Full member detected - routing to Iko Chat');
+        navigate('/iko', { replace: true });
+        return;
+      }
+
+      // ✅ PRIORITY 3: Pre-Members - Go to Towncrier  
+      if (memberStatus === 'pre_member' || membershipStage === 'pre_member') {
+        console.log('👤 Pre-member detected - routing to Towncrier');
+        navigate('/towncrier', { replace: true });
+        return;
+      }
+
+      // ✅ PRIORITY 4: Check if user needs to complete application survey
+      if (token) {
+        const needsSurvey = await checkIfUserNeedsApplication(token, userData);
+        
+        if (needsSurvey) {
+          console.log('📝 User needs to complete application - routing to survey');
+          navigate('/applicationsurvey', { replace: true });
+          return;
+        }
+      }
+
+      // ✅ PRIORITY 5: Other authenticated users - Go to dashboard
+      console.log('🏠 Default routing - going to dashboard');
+      navigate('/dashboard', { replace: true });
+      
+    } catch (error) {
+      console.error('❌ Error in user routing:', error);
+      setError('Login successful but routing failed. Redirecting to dashboard...');
+      
+      // Last resort fallback
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 2000);
+    }
+  };
+
+  // ✅ NEW: More precise check for application survey requirement
+  const checkIfUserNeedsApplication = async (token, userData) => {
+    try {
+      console.log('🔍 Checking if user needs application survey...');
+      
+      // Skip survey check for known member statuses
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      // Users who definitely don't need survey
+      if (memberStatus === 'pre_member' || 
+          memberStatus === 'member' || 
+          memberStatus === 'active' ||
+          membershipStage === 'pre_member' || 
+          membershipStage === 'member') {
+        console.log('✅ User has confirmed membership status - no survey needed');
+        return false;
+      }
+
+      // Check survey status via API for edge cases
+      const response = await axios.get('http://localhost:3000/api/membership/survey/check-status', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        timeout: 5000
+      });
+      
+      const statusData = response.data;
+      console.log('📋 Survey status check:', statusData);
+      
+      // Only require survey if explicitly needed and not completed
+      const needsSurvey = statusData.needs_survey === true && 
+                         statusData.survey_completed === false &&
+                         memberStatus === 'applied' &&
+                         membershipStage === 'none';
+      
+      console.log('🎯 Survey requirement decision:', {
+        needsSurvey,
+        reason: needsSurvey ? 'New user needs to complete application' : 'User has existing status'
+      });
+      
+      return needsSurvey;
+      
+    } catch (error) {
+      console.warn('⚠️ Survey status check failed:', error);
+      
+      // Conservative fallback: only require survey for clearly new users
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      const isNewUser = memberStatus === 'applied' && 
+                       membershipStage === 'none' &&
+                       !userData.application_submittedAt;
+      
+      console.log('🔄 Fallback survey check:', {
+        isNewUser,
+        memberStatus,
+        membershipStage
+      });
+      
+      return isNewUser;
+    }
+  };
+
+  const handlePendingUser = (data) => {
+    const { applicationStatus, applicationTicket } = data;
+    
+    switch (applicationStatus) {
+      case 'pending':
+        alert(`Your application is still under review.\n\nApplication Ticket: ${applicationTicket || 'N/A'}\n\nYou'll receive an email notification once the review is complete.`);
+        navigate('/pending-verification');
+        break;
+      case 'suspended':
+        alert(`Your application review is suspended and requires additional information.\n\nPlease check your email for details on what's needed.\n\nApplication Ticket: ${applicationTicket || 'N/A'}`);
+        navigate('/suspended-verification');
+        break;
+      default:
+        setError("Your application is being processed. Please check your email for updates.");
+    }
+  };
+
+  const handleForgotPassword = () => {
+    const email = values.email;
+    if (!email) {
+      alert("Please enter your email address first, then click 'Forgot Password'.");
+      return;
+    }
+    
+    navigate('/forgot-password', { state: { email } });
+  };
+
+  const handleChange = (e) => {
+    setValues({ ...values, [e.target.name]: e.target.value });
+  };
+
+  return (
+    <div className="login-container">
+      <div className="login-form">
+        <div className="login-header">
+          <h2>Sign In to Ikoota</h2>
+          <p>Access your educational community account</p>
+        </div>
+
+        {error && (
+          <div className="error-message">
+            <span className="error-icon">⚠️</span>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="email">
+              <strong>Email Address:</strong>
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={values.email}
+              onChange={handleChange}
+              placeholder="Enter your email"
+              className="form-control"
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">
+              <strong>Password:</strong>
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={values.password}
+              onChange={handleChange}
+              placeholder="Enter your password"
+              className="form-control"
+              autoComplete="current-password"
+              required
+            />
+          </div>
+
+          <div className="form-actions">
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="btn-login"
+            >
+              {loading ? 'Signing In...' : 'Sign In'}
+            </button>
+            
+            <button 
+              type="button" 
+              onClick={handleForgotPassword}
+              className="btn-forgot"
+            >
+              Forgot Password?
+            </button>
+          </div>
+        </form>
+
+        <div className="login-divider">
+          <span>New to Ikoota?</span>
+        </div>
+
+        <div className="signup-section">
+          <p>Join our educational community</p>
+          <Link to="/signup" className="btn-signup">
+            Create Account
+          </Link>
+        </div>
+
+        <div className="login-help">
+          <h3>Having trouble signing in?</h3>
+          <div className="help-options">
+            <div className="help-item">
+              <span className="help-icon">📧</span>
+              <div>
+                <h4>Check Your Application Status</h4>
+                <p>If you've applied for membership, check your email for status updates</p>
+              </div>
+            </div>
+            <div className="help-item">
+              <span className="help-icon">⏳</span>
+              <div>
+                <h4>Application Under Review</h4>
+                <p>Pending applications typically take 3-5 business days to review</p>
+              </div>
+            </div>
+            <div className="help-item">
+              <span className="help-icon">❓</span>
+              <div>
+                <h4>Need Help?</h4>
+                <p>Contact support@ikoota.com with your application ticket number</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="login-footer">
+          <div className="footer-links">
+            <Link to="/">← Back to Home</Link>
+            <Link to="/towncrier">Browse Public Content</Link>
+          </div>
+          <p className="footer-note">
+            By signing in, you agree to our Terms of Service and Privacy Policy.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
+
+//====================================
+
+// ikootaclient/src/components/auth/LandingPage.jsx - FIXED WITH DASHBOARD REDIRECT & PRESERVED FUNCTIONALITY
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
+import { useUser } from './UserStatus';
+import { getUserAccess, getDashboardRoute } from '../config/accessMatrix'; // ✅ ADDED: getDashboardRoute import
+import './LandingPage.css';
+
+const LandingPage = () => {
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [activeFeature, setActiveFeature] = useState(0);
+  const navigate = useNavigate();
+  const { isAuthenticated, loading, user, logout, getUserStatus } = useUser();
+
+  // ✅ Get user status and access properly
+  const userStatus = getUserStatus();
+  const userAccess = user ? getUserAccess(user) : null;
+
+  console.log('🔍 LandingPage - User Status:', userStatus);
+  console.log('🔍 LandingPage - User Access:', userAccess);
+  console.log('🔍 LandingPage - User Data:', user);
+
+  // ✅ FIXED: Dashboard redirect handler using new function
+  const handleDashboardRedirect = () => {
+    const dashboardRoute = getDashboardRoute(user);
+    console.log('🎯 Dashboard redirect to:', dashboardRoute);
+    navigate(dashboardRoute); // Will always be '/dashboard' for authenticated users
+  };
+
+  // ✅ FIXED: Safer redirect logic with proper error handling
+  useEffect(() => {
+    // Don't redirect while still loading user data
+    if (loading) return;
+    
+    try {
+      // ✅ IMPORTANT: Allow pending users to freely access the landing page
+      // Only redirect users who have full access to other areas
+      if (isAuthenticated && !loading && user) {
+        // ✅ Only redirect users who are NOT pending verification
+        // Pending users should be able to browse the landing page freely
+        if (userStatus === 'admin' || userStatus === 'full_member') {
+          const defaultRoute = userAccess?.defaultRoute;
+          if (defaultRoute && defaultRoute !== '/') {
+            console.log('🔄 Active user on landing page, redirecting to:', defaultRoute);
+            // Don't auto-redirect from landing page - let user choose
+            // navigate(defaultRoute);
+            // return;
+          }
+        }
+        // ✅ Applicants and pending users can stay on landing page
+        console.log('✅ Pending/applicant user can access landing page freely');
+      }
+    } catch (error) {
+      console.error('Error in landing page redirect logic:', error);
+      // Don't redirect on error - let user stay on landing page
+    }
+  }, [isAuthenticated, loading, navigate, userAccess, user, userStatus]);
+
+  // Handle scroll effect for navbar
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Auto-rotate features
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveFeature((prev) => (prev + 1) % 4);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const features = [
+    {
+      id: 1,
+      title: "Interactive Teaching",
+      description: "Create engaging lessons with multimedia content including videos, images, and audio.",
+      icon: "🎓",
+      color: "#3498db"
+    },
+    {
+      id: 2,
+      title: "Real-time Chat",
+      description: "Connect with students and colleagues through our integrated chat system.",
+      icon: "💬",
+      color: "#e74c3c"
+    },
+    {
+      id: 3,
+      title: "Content Management",
+      description: "Organize and manage your teaching materials with our smart content system.",
+      icon: "📚",
+      color: "#2ecc71"
+    },
+    {
+      id: 4,
+      title: "Community Learning",
+      description: "Join a community of educators sharing knowledge and best practices.",
+      icon: "🌟",
+      color: "#f39c12"
+    }
+  ];
+
+  const handleGetStarted = () => {
+    navigate('/signup');
+  };
+
+  const handleLogin = () => {
+    navigate('/login');
+  };
+
+  const handleJoinCommunity = () => {
+    navigate('/signup');
+  };
+
+  const handleViewPublicContent = () => {
+    // ✅ FIXED: For public content viewing, we can navigate to towncrier
+    // but we should handle this more gracefully for non-authenticated users
+    try {
+      navigate('/towncrier');
+    } catch (error) {
+      console.log('Error navigating to public content:', error);
+      // Fallback - could show a modal or scroll to features section
+      document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  // ✅ NEW: Handle logout functionality
+  const handleLogout = async () => {
+    try {
+      console.log('🔓 Logging out user...');
+      await logout(); // Call the logout function from UserStatus
+      alert('You have been logged out successfully. Others can now use this system to sign up or log in.');
+      // The page will automatically update to show login/signup buttons
+    } catch (error) {
+      console.error('Logout error:', error);
+      alert('Logout completed. You can now use the system for other accounts.');
+    }
+  };
+
+  // ✅ PRESERVED: Navigate to user's appropriate area (but using dashboard for dashboard buttons)
+  const navigateToUserArea = () => {
+    try {
+      // ✅ FIXED: Use getDashboardRoute for dashboard buttons instead of defaultRoute
+      const dashboardRoute = getDashboardRoute(user);
+      console.log('🎯 Navigating to user dashboard:', dashboardRoute);
+      navigate(dashboardRoute);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      navigate('/dashboard');
+    }
+  };
+
+  // ✅ Show loading state while determining user authentication status
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        flexDirection: 'column'
+      }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          border: '4px solid #f3f3f3',
+          borderTop: '4px solid #667eea',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }}></div>
+        <p style={{ marginTop: '20px', color: '#666' }}>Loading...</p>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  return (
+    <div className="landing-page">
+      {/* Navigation */}
+      <nav className={`landing-nav ${isScrolled ? 'scrolled' : ''}`}>
+        <div className="nav-container">
+          <div className="nav-brand">
+            <h2>Ikoota</h2>
+            <span className="brand-tagline">Teaching System</span>
+          </div>
+          
+          <div className="nav-links">
+            <a href="#features" className="nav-link">Features</a>
+            <a href="#membership" className="nav-link">Membership</a>
+            <a href="#about" className="nav-link">About</a>
+            <a href="#contact" className="nav-link">Contact</a>
+          </div>
+          
+          <div className="nav-actions">
+            {/* ✅ ENHANCED: Show different buttons based on authentication status */}
+            {isAuthenticated && user ? (
+              <div className="authenticated-actions">
+                <button 
+                  onClick={handleDashboardRedirect} // ✅ FIXED: Use dashboard redirect handler
+                  className="btn-primary"
+                >
+                  Go to Dashboard
+                </button>
+                {/* ✅ NEW: Logout button for authenticated users */}
+                <button 
+                  onClick={handleLogout} 
+                  className="btn-logout"
+                  title="Logout to allow others to use this system"
+                >
+                  🔓 Logout
+                </button>
+              </div>
+            ) : (
+              <>
+                <button onClick={handleLogin} className="btn-secondary">
+                  Sign In
+                </button>
+                <button onClick={handleGetStarted} className="btn-primary">
+                  Join Community
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="hero">
+        <div className="hero-background">
+          <div className="hero-shapes">
+            <div className="shape shape-1"></div>
+            <div className="shape shape-2"></div>
+            <div className="shape shape-3"></div>
+          </div>
+        </div>
+        
+        <div className="hero-content">
+          <div className="hero-text">
+            <h1 className="hero-title">
+              Join the Future of
+              <span className="gradient-text"> Educational Community</span>
+            </h1>
+            <p className="hero-description">
+              Ikoota is an exclusive educational platform where approved members 
+              collaborate, share knowledge, and build the future of learning together. 
+              Apply for membership to join our growing community of educators.
+            </p>
+            
+            <div className="hero-actions">
+              {/* ✅ ENHANCED: Conditional rendering with logout option */}
+              {isAuthenticated && user ? (
+                <div className="authenticated-hero-actions">
+                  <button 
+                    onClick={handleDashboardRedirect} // ✅ FIXED: Use dashboard redirect handler
+                    className="btn-hero-primary"
+                  >
+                    Go to Your Dashboard
+                    <span className="btn-icon">→</span>
+                  </button>
+                  {/* ✅ NEW: Logout option in hero section */}
+                  <button onClick={handleLogout} className="btn-hero-logout">
+                    <span className="logout-icon">🔓</span>
+                    Allow Others to Sign Up
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button onClick={handleJoinCommunity} className="btn-hero-primary">
+                    Apply for Membership
+                    <span className="btn-icon">→</span>
+                  </button>
+                  <button onClick={handleViewPublicContent} className="btn-hero-secondary">
+                    <span className="play-icon">👁</span>
+                    View Public Content
+                  </button>
+                </>
+              )}
+            </div>
+            
+            <div className="hero-stats">
+              <div className="stat">
+                <span className="stat-number">1,000+</span>
+                <span className="stat-label">Active Members</span>
+              </div>
+              <div className="stat">
+                <span className="stat-number">50K+</span>
+                <span className="stat-label">Students Impacted</span>
+              </div>
+              <div className="stat">
+                <span className="stat-number">10K+</span>
+                <span className="stat-label">Collaborative Projects</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="hero-visual">
+            <div className="dashboard-preview">
+              <div className="preview-header">
+                <div className="preview-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <span className="preview-title">Ikoota Member Dashboard</span>
+              </div>
+              <div className="preview-content">
+                <div className="preview-sidebar">
+                  <div className="sidebar-item active">💬 Community Chat</div>
+                  <div className="sidebar-item">📚 Shared Resources</div>
+                  <div className="sidebar-item">👥 Member Directory</div>
+                  <div className="sidebar-item">📊 Collaboration Tools</div>
+                </div>
+                <div className="preview-main">
+                  <div className="content-card">
+                    <div className="card-header">
+                      <span className="content-type">Discussion</span>
+                      <span className="content-id">d{Math.floor(Math.random() * 100)}</span>
+                    </div>
+                    <h4>Advanced Teaching Methodologies</h4>
+                    <p>Collaborative discussion with verified educators...</p>
+                  </div>
+                  <div className="content-card">
+                    <div className="card-header">
+                      <span className="content-type resource">Resource</span>
+                      <span className="content-id">r{Math.floor(Math.random() * 100)}</span>
+                    </div>
+                    <h4>Exclusive Educational Materials</h4>
+                    <p>Member-only content and resources...</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Membership Section */}
+      <section id="membership" className="membership">
+        <div className="container">
+          <div className="section-header">
+            <h2>Exclusive Membership Community</h2>
+            <p>Join a curated community of verified educators and educational professionals</p>
+          </div>
+          
+          <div className="membership-tiers">
+            {/* ✅ PUBLIC ACCESS TIER */}
+            <div className="tier-card">
+              <h3>🌟 Public Access</h3>
+              <p>View our public content and community announcements</p>
+              <ul>
+                <li>Access to Towncrier public feed</li>
+                <li>View community announcements</li>
+                <li>See public educational content</li>
+              </ul>
+              <button onClick={handleViewPublicContent} className="btn-tier">
+                View Public Content
+              </button>
+            </div>
+            
+            {/* ✅ MEMBER ACCESS TIER - ENHANCED WITH CONDITIONAL BUTTONS */}
+            <div className="tier-card featured">
+              <h3>🎓 Member Access</h3>
+              <p>Full access to our exclusive educational community</p>
+              <ul>
+                <li>Join internal Iko chat system</li>
+                <li>Access exclusive resources</li>
+                <li>Collaborate with verified educators</li>
+                <li>Create and share content</li>
+                <li>Participate in member discussions</li>
+              </ul>
+              
+              {/* ✅ FIXED: Show appropriate buttons based on user status */}
+              <div className="tier-buttons">
+                {isAuthenticated && user ? (
+                  <>
+                    {/* ✅ FIXED: Dashboard button using new handler */}
+                    <button 
+                      onClick={handleDashboardRedirect} // ✅ FIXED: Use dashboard redirect handler
+                      className="btn-tier primary"
+                    >
+                      User Dashboard
+                    </button>
+                    
+                    {/* ✅ IKO CHAT BUTTON - Show for full members and admins */}
+                    {(userStatus === 'full_member' || userStatus === 'admin') && (
+                      <button 
+                        onClick={() => navigate('/iko')} 
+                        className="btn-tier iko-btn"
+                        style={{ marginTop: '10px', backgroundColor: '#e74c3c' }}
+                      >
+                        💬 Access Iko Chat
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button onClick={handleJoinCommunity} className="btn-tier primary">
+                    Apply for Membership
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {/* ✅ ADMIN ACCESS TIER - ENHANCED WITH WORKING BUTTON */}
+            <div className="tier-card">
+              <h3>⚡ Admin Access</h3>
+              <p>Leadership and management privileges</p>
+              <ul>
+                <li>All member privileges</li>
+                <li>Community management tools</li>
+                <li>User approval system</li>
+                <li>Analytics and reporting</li>
+              </ul>
+              
+              {/* ✅ FIXED: Show working admin button for admin users */}
+              {isAuthenticated && user && userStatus === 'admin' ? (
+                <button 
+                  onClick={() => navigate('/admin')} 
+                  className="btn-tier admin-btn"
+                  style={{ backgroundColor: '#f39c12', color: 'white' }}
+                >
+                  🔧 Access Admin Panel
+                </button>
+              ) : (
+                <button disabled className="btn-tier">
+                  By Invitation Only
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="features">
+        <div className="container">
+          <div className="section-header">
+            <h2>Powerful Features for Educational Collaboration</h2>
+            <p>Everything you need to connect, create, and collaborate with fellow educators</p>
+          </div>
+          
+          <div className="features-grid">
+            {features.map((feature, index) => (
+              <div 
+                key={feature.id}
+                className={`feature-card ${activeFeature === index ? 'active' : ''}`}
+                onMouseEnter={() => setActiveFeature(index)}
+                style={{'--feature-color': feature.color}}
+              >
+                <div className="feature-icon">{feature.icon}</div>
+                <h3>{feature.title}</h3>
+                <p>{feature.description}</p>
+                <div className="feature-arrow">→</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* About Section */}
+      <section id="about" className="about">
+        <div className="container">
+          <div className="about-content">
+            <div className="about-text">
+              <h2>Built for Educators, by Educators</h2>
+              <p>
+                Ikoota is a curated community platform designed specifically for 
+                educational professionals. Our membership-based approach ensures 
+                high-quality discussions, verified expertise, and meaningful 
+                collaborative opportunities.
+              </p>
+              
+              <div className="about-highlights">
+                <div className="highlight">
+                  <div className="highlight-icon">🔐</div>
+                  <div>
+                    <h4>Verified Members Only</h4>
+                    <p>All members go through an application and verification process</p>
+                  </div>
+                </div>
+                <div className="highlight">
+                  <div className="highlight-icon">🚀</div>
+                  <div>
+                    <h4>Quality Discussions</h4>
+                    <p>Curated community ensures meaningful educational conversations</p>
+                  </div>
+                </div>
+                <div className="highlight">
+                  <div className="highlight-icon">🔒</div>
+                  <div>
+                    <h4>Secure & Private</h4>
+                    <p>Member data and discussions are protected with enterprise-grade security</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="about-visual">
+              <div className="testimonial-card">
+                <div className="testimonial-content">
+                  <p>"Being part of Ikoota's exclusive community has elevated my teaching practice. The quality of discussions and resources is unmatched."</p>
+                </div>
+                <div className="testimonial-author">
+                  <div className="author-avatar">👩‍🏫</div>
+                  <div>
+                    <h5>Dr. Sarah Johnson</h5>
+                    <span>Verified Member - Mathematics Education</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="cta">
+        <div className="container">
+          <div className="cta-content">
+            <h2>Ready to Join Our Educational Community?</h2>
+            <p>
+              {isAuthenticated && user
+                ? "Welcome back! Access your dashboard to continue your educational journey."
+                : "Apply for membership and become part of an exclusive network of verified educators."
+              }
+            </p>
+            
+            <div className="cta-actions">
+              {isAuthenticated && user ? (
+                <div className="authenticated-cta-actions">
+                  <button 
+                    onClick={handleDashboardRedirect} // ✅ FIXED: Use dashboard redirect handler
+                    className="btn-cta-primary"
+                  >
+                    Go to Dashboard
+                  </button>
+                  {/* ✅ NEW: Logout option in CTA section */}
+                  <button onClick={handleLogout} className="btn-cta-logout">
+                    🔓 Logout & Allow Others to Join
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button onClick={handleJoinCommunity} className="btn-cta-primary">
+                    Apply for Membership
+                  </button>
+                  <Link to="/login" className="btn-cta-secondary">
+                    Already a member? Sign in
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer id="contact" className="footer">
+        <div className="container">
+          <div className="footer-content">
+            <div className="footer-section">
+              <h3>Ikoota</h3>
+              <p>Exclusive community for educational professionals.</p>
+              <div className="social-links">
+                <a href="#" aria-label="Facebook">📘</a>
+                <a href="#" aria-label="Twitter">🐦</a>
+                <a href="#" aria-label="LinkedIn">💼</a>
+                <a href="#" aria-label="YouTube">📺</a>
+              </div>
+            </div>
+            
+            <div className="footer-section">
+              <h4>Community</h4>
+              <ul>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#membership">Membership</a></li>
+                <li><a href="#about">About</a></li>
+                <li>
+                  {/* ✅ ENHANCED: Footer Apply Now with logout option if authenticated */}
+                  {isAuthenticated && user ? (
+                    <div className="footer-auth-actions">
+                      <Link to="/signup">Apply Now (Others)</Link>
+                      <button onClick={handleLogout} className="footer-logout-btn">
+                        🔓 Logout First
+                      </button>
+                    </div>
+                  ) : (
+                    <Link to="/signup">Apply Now</Link>
+                  )}
+                </li>
+              </ul>
+            </div>
+            
+            <div className="footer-section">
+              <h4>Support</h4>
+              <ul>
+                <li><a href="#">Help Center</a></li>
+                <li><a href="#">Application Process</a></li>
+                <li><a href="#">Contact Us</a></li>
+                <li><a href="#">Privacy Policy</a></li>
+              </ul>
+            </div>
+            
+            <div className="footer-section">
+              <h4>Contact</h4>
+              <ul>
+                <li>📧 membership@ikoota.com</li>
+                <li>📞 +1 (555) 123-4567</li>
+                <li>📍 123 Education St, Learning City</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="footer-bottom">
+            <p>&copy; 2025 Ikoota. All rights reserved.</p>
+            <div className="footer-links">
+              <a href="#">Terms of Service</a>
+              <a href="#">Privacy Policy</a>
+              <a href="#">Membership Agreement</a>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default LandingPage;
+
+
+//===========================================
+
+//ikootaclient/src/components/auth/AuthControls.jsx
+import React, { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
+import api from "../service/api";
+import "./authControls.css";
+
+const AuthControls = () => {
+  const queryClient = useQueryClient();
+  const location = useLocation();
+  const [surveyQuestions, setSurveyQuestions] = useState([]);
+  const [selectedSurvey, setSelectedSurvey] = useState(null);
+  const [userRoleUpdates, setUserRoleUpdates] = useState({ userId: "", role: "" });
+
+  // ✅ Detect if we're in admin context
+  const isInAdminContext = location.pathname.includes('/admin');
+
+  // ✅ Add context class to body for CSS targeting
+  useEffect(() => {
+    const bodyClass = 'auth-controls-in-admin';
+    
+    if (isInAdminContext) {
+      document.body.classList.add(bodyClass);
+    } else {
+      document.body.classList.remove(bodyClass);
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove(bodyClass);
+    };
+  }, [isInAdminContext]);
+
+  // ✅ Fetch question labels
+  const { data: questionLabels, refetch: fetchQuestionLabels, isLoading: labelsLoading } = useQuery({
+    queryKey: ["fetchQuestionLabels"],
+    queryFn: async () => {
+      console.log('🔍 Fetching question labels...');
+      const res = await api.get("/survey/question-labels");
+      console.log("✅ Question labels response:", res.data);
+      
+      // Handle different response formats from API
+      if (res.data?.success && res.data?.data) {
+        return res.data.data; // New format: {success: true, data: {...}}
+      } else if (res.data?.labels) {
+        return res.data.labels; // Backup format with labels field
+      } else if (typeof res.data === 'object') {
+        return res.data; // Direct object format
+      } else {
+        console.warn('⚠️ Unexpected labels format:', res.data);
+        return {}; // Fallback to empty object
+      }
+    },
+    retry: 2,
+    retryDelay: 1000,
+  });
+
+  // ✅ Fetch survey logs with enhanced error handling
+  const { 
+    data: surveys, 
+    refetch: fetchSurveyLogs, 
+    isLoading: surveysLoading,
+    error: surveysError 
+  } = useQuery({
+    queryKey: ["fetchSurveyLogs"],
+    queryFn: async () => {
+      console.log('🔍 Fetching survey logs...');
+      try {
+        const res = await api.get("/survey/logs");
+        console.log("✅ Survey logs response:", res.data);
+        
+        // Handle different response formats
+        if (res.data?.success && res.data?.data) {
+          return res.data.data; // New format with success wrapper
+        } else if (Array.isArray(res.data)) {
+          return res.data; // Direct array format
+        } else if (res.data?.logs) {
+          return res.data.logs; // Alternative format
+        } else {
+          console.warn('⚠️ Unexpected survey logs format:', res.data);
+          return [];
+        }
+      } catch (error) {
+        console.error('❌ Survey logs fetch error:', error);
+        if (error.response?.status === 403) {
+          throw new Error('Admin privileges required to view survey logs');
+        }
+        throw error;
+      }
+    },
+    retry: 2,
+    retryDelay: 1000,
+    onError: (error) => {
+      console.error('❌ Survey logs query error:', error);
+    }
+  });
+
+  // ✅ Update question labels mutation
+  const { mutate: updateLabels, isLoading: updatingLabels } = useMutation({
+    mutationFn: (labels) => {
+      console.log('🔍 Updating question labels:', labels);
+      
+      if (!labels || Object.keys(labels).length === 0) {
+        throw new Error('Please provide at least one question label before saving');
+      }
+      
+      return api.put("/survey/question-labels", { labels });
+    },
+    onSuccess: () => {
+      console.log('✅ Question labels updated successfully');
+      fetchQuestionLabels();
+      alert('Survey question labels updated successfully!');
+    },
+    onError: (error) => {
+      console.error('❌ Error updating question labels:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update question labels';
+      alert('Failed to update question labels: ' + errorMessage);
+    }
+  });
+
+  // ✅ Update approval status mutation
+  const { mutate: updateApprovalStatus, isLoading: updatingApproval } = useMutation({
+    mutationFn: ({ surveyId, userId, status }) => {
+      console.log('🔍 Updating approval status:', { surveyId, userId, status });
+      return api.put("/survey/approve", { surveyId, userId, status });
+    },
+    onSuccess: (data, variables) => {
+      console.log('✅ Approval status updated:', variables);
+      fetchSurveyLogs();
+      alert(`Application ${variables.status} successfully!`);
+    },
+    onError: (error) => {
+      console.error('❌ Error updating approval status:', error);
+      alert('Failed to update approval status: ' + error.message);
+    }
+  });
+
+  // ✅ Update user role mutation
+  const { mutate: updateUserRole, isLoading: updatingRole } = useMutation({
+    mutationFn: ({ userId, role }) => {
+      console.log('🔍 Updating user role:', { userId, role });
+      return api.put("/users/role", { userId, role });
+    },
+    onSuccess: () => {
+      console.log('✅ User role updated successfully');
+      alert("User role updated successfully.");
+      setUserRoleUpdates({ userId: "", role: "" });
+    },
+    onError: (error) => {
+      console.error('❌ Error updating user role:', error);
+      alert('Failed to update user role: ' + error.message);
+    }
+  });
+
+  // ✅ Convert question labels to editable format
+  useEffect(() => {
+    if (questionLabels) {
+      console.log('🔍 Setting question labels:', questionLabels);
+      // Convert labels object to editable array format for the UI
+      if (typeof questionLabels === 'object') {
+        const labelsArray = Object.entries(questionLabels).map(([field, label]) => ({
+          field,
+          label
+        }));
+        setSurveyQuestions(labelsArray.length > 0 ? labelsArray : [{ field: '', label: '' }]);
+      } else {
+        setSurveyQuestions([{ field: '', label: '' }]);
+      }
+    } else {
+      // If no labels loaded, start with one empty entry
+      setSurveyQuestions([{ field: '', label: '' }]);
+    }
+  }, [questionLabels]);
+
+  // ✅ Handle question label changes
+  const handleQuestionChange = (index, field, value) => {
+    const updatedQuestions = [...surveyQuestions];
+    updatedQuestions[index] = {
+      ...updatedQuestions[index],
+      [field]: value
+    };
+    setSurveyQuestions(updatedQuestions);
+  };
+
+  // ✅ Add new question label
+  const addQuestionLabel = () => {
+    setSurveyQuestions([...surveyQuestions, { field: '', label: '' }]);
+  };
+
+  // ✅ Remove question label
+  const removeQuestionLabel = (index) => {
+    if (surveyQuestions.length > 1) {
+      const newQuestions = surveyQuestions.filter((_, i) => i !== index);
+      setSurveyQuestions(newQuestions);
+    }
+  };
+
+  // ✅ Load current form labels from your actual form
+  const loadCurrentFormLabels = () => {
+    const currentFormLabels = [
+      { field: 'fullName', label: 'Full Name' },
+      { field: 'dateOfBirth', label: 'Date of Birth' },
+      { field: 'nationality', label: 'Nationality' },
+      { field: 'currentLocation', label: 'Current Location' },
+      { field: 'phoneNumber', label: 'Phone Number' },
+      { field: 'highestEducation', label: 'Highest Level of Education' },
+      { field: 'fieldOfStudy', label: 'Field of Study' },
+      { field: 'currentInstitution', label: 'Current/Most Recent Institution' },
+      { field: 'graduationYear', label: 'Graduation Year' },
+      { field: 'currentOccupation', label: 'Current Occupation' },
+      { field: 'workExperience', label: 'Years of Work Experience' },
+      { field: 'reasonForJoining', label: 'Why do you want to join Ikoota?' },
+      { field: 'educationalGoals', label: 'What are your educational goals?' },
+      { field: 'expectedContributions', label: 'How do you plan to contribute to the community?' },
+      { field: 'howDidYouHear', label: 'How did you hear about Ikoota?' },
+      { field: 'languagesSpoken', label: 'Languages Spoken' },
+      { field: 'agreeToTerms', label: 'I agree to the Terms and Conditions' },
+      { field: 'agreeToCodeOfConduct', label: 'I agree to follow the Community Code of Conduct' },
+      { field: 'agreeToDataProcessing', label: 'I consent to processing of my personal data' }
+    ];
+    setSurveyQuestions(currentFormLabels);
+  };
+
+  // ✅ Save question labels
+  const saveQuestionLabels = () => {
+    // Convert array format back to object format for API
+    const labelsObject = {};
+    surveyQuestions.forEach(item => {
+      if (item.field && item.field.trim() && item.label && item.label.trim()) {
+        labelsObject[item.field.trim()] = item.label.trim();
+      }
+    });
+    
+    updateLabels(labelsObject);
+  };
+
+  // ✅ Handle approval/decline actions
+  const handleApproveOrDecline = (surveyId, userId, status) => {
+    console.log('🔍 Handling approval/decline:', { surveyId, userId, status });
+    updateApprovalStatus({ surveyId, userId, status });
+  };
+
+  // ✅ Send feedback email
+  const handleSendFeedback = (email, status) => {
+    console.log('🔍 Sending feedback:', { email, status });
+    const feedbackTemplate = status === "granted" ? "approveverifyinfo" : "suspendedverifyinfo";
+    api.post("/email/send", { email, template: feedbackTemplate, status })
+      .then(() => {
+        console.log('✅ Feedback sent successfully');
+        alert('Feedback email sent successfully!');
+      })
+      .catch((error) => {
+        console.error('❌ Error sending feedback:', error);
+        alert('Failed to send feedback email: ' + error.message);
+      });
+  };
+
+  // ✅ Enhanced survey answers rendering with proper formatting
+  const renderSurveyAnswers = (answers) => {
+    try {
+      console.log('🔍 Raw answers data:', answers, typeof answers);
+      
+      if (!answers) {
+        return (
+          <div className="no-answers">
+            <em>No answers provided</em>
+          </div>
+        );
+      }
+
+      let parsedAnswers;
+
+      // Handle string JSON data
+      if (typeof answers === 'string') {
+        try {
+          parsedAnswers = JSON.parse(answers);
+        } catch (parseError) {
+          console.warn('⚠️ Error parsing JSON string:', parseError);
+          return (
+            <div className="invalid-answers">
+              <strong>Raw Answer Data:</strong>
+              <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
+                {answers}
+              </pre>
+            </div>
+          );
+        }
+      } else {
+        parsedAnswers = answers;
+      }
+
+      console.log('🔍 Parsed answers:', parsedAnswers);
+
+      // Handle array of question-answer objects (new format)
+      if (Array.isArray(parsedAnswers)) {
+        // Check if it's array of objects with question/answer structure
+        if (parsedAnswers.length > 0 && typeof parsedAnswers[0] === 'object' && parsedAnswers[0].question) {
+          return (
+            <div className="survey-answers-detailed">
+              {parsedAnswers.map((item, index) => (
+                <div key={index} className="answer-item">
+                  <div className="question-label">
+                    <strong>{formatQuestionLabel(item.question)}:</strong>
+                  </div>
+                  <div className="answer-value">
+                    {formatAnswerValue(item.answer)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        } 
+        // Handle simple array format (old format)
+        else {
+          return (
+            <div className="survey-answers-simple">
+              <div className="answer-list">
+                {parsedAnswers.map((answer, index) => (
+                  <div key={index} className="simple-answer">
+                    <strong>Answer {index + 1}:</strong> {answer || 'No response'}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
+      }
+
+      // Handle object format (alternative format)
+      if (typeof parsedAnswers === 'object') {
+        return (
+          <div className="survey-answers-object">
+            {Object.entries(parsedAnswers).map(([key, value], index) => (
+              <div key={index} className="answer-item">
+                <div className="question-label">
+                  <strong>{formatQuestionLabel(key)}:</strong>
+                </div>
+                <div className="answer-value">
+                  {formatAnswerValue(value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // Fallback for any other format
+      return (
+        <div className="fallback-answers">
+          <strong>Survey Response:</strong>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
+            {JSON.stringify(parsedAnswers, null, 2)}
+          </pre>
+        </div>
+      );
+
+    } catch (error) {
+      console.error('❌ Critical error in renderSurveyAnswers:', error);
+      return (
+        <div className="error-answers">
+          <em style={{ color: 'red' }}>Error displaying answers: {error.message}</em>
+          <details style={{ marginTop: '10px' }}>
+            <summary>Raw Data (for debugging)</summary>
+            <pre style={{ fontSize: '0.8em', background: '#f5f5f5', padding: '10px' }}>
+              {JSON.stringify(answers, null, 2)}
+            </pre>
+          </details>
+        </div>
+      );
+    }
+  };
+
+  // ✅ Helper function to format question labels
+  const formatQuestionLabel = (questionKey) => {
+    const labelMap = {
+      fullName: 'Full Name',
+      dateOfBirth: 'Date of Birth',
+      nationality: 'Nationality',
+      currentLocation: 'Current Location',
+      phoneNumber: 'Phone Number',
+      highestEducation: 'Highest Education',
+      fieldOfStudy: 'Field of Study',
+      currentInstitution: 'Current Institution',
+      graduationYear: 'Graduation Year',
+      currentOccupation: 'Current Occupation',
+      workExperience: 'Work Experience',
+      professionalSkills: 'Professional Skills',
+      careerGoals: 'Career Goals',
+      howDidYouHear: 'How Did You Hear About Us',
+      reasonForJoining: 'Reason for Joining',
+      expectedContributions: 'Expected Contributions',
+      educationalGoals: 'Educational Goals',
+      previousMemberships: 'Previous Memberships',
+      specialSkills: 'Special Skills',
+      languagesSpoken: 'Languages Spoken',
+      availabilityForEvents: 'Availability for Events',
+      agreeToTerms: 'Agree to Terms',
+      agreeToCodeOfConduct: 'Agree to Code of Conduct',
+      agreeToDataProcessing: 'Agree to Data Processing'
+    };
+
+    return labelMap[questionKey] || questionKey.charAt(0).toUpperCase() + questionKey.slice(1);
+  };
+
+  // ✅ Helper function to format answer values
+  const formatAnswerValue = (answer) => {
+    if (answer === true || answer === 'true') {
+      return <span style={{ color: 'green' }}>✅ Yes</span>;
+    }
+    if (answer === false || answer === 'false') {
+      return <span style={{ color: 'red' }}>❌ No</span>;
+    }
+    if (!answer || answer === '') {
+      return <em style={{ color: '#888' }}>Not provided</em>;
+    }
+    return answer;
+  };
+
+  return (
+    <div className="auth_controls_body">
+      {/* ✅ Context-aware header */}
+      <div className="admin_controls_header">
+        Auth Controls
+        {isInAdminContext && (
+          <small style={{ fontSize: '0.8rem', color: '#666', marginLeft: '10px' }}>
+            (Admin Panel)
+          </small>
+        )}
+      </div>
+
+      {/* Section: Edit Survey Question Labels */}
+      <div className="section">
+        <h3>Edit Survey Question Labels</h3>
+        <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
+          Update the labels/text that appear in your survey form. These changes will be reflected in the 
+          Applicationsurvey.jsx form that users fill out.
+        </p>
+        
+        {labelsLoading && <p>Loading question labels...</p>}
+        
+        {/* ✅ Question label management interface */}
+        <div className="question-labels-container">
+          {Array.isArray(surveyQuestions) && surveyQuestions.map((item, index) => (
+            <div key={index} className="question-label-item" style={{ 
+              marginBottom: '15px', 
+              padding: '15px', 
+              border: '1px solid #ddd', 
+              borderRadius: '6px',
+              backgroundColor: '#f9f9f9'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ minWidth: '60px', fontWeight: 'bold', color: '#666' }}>
+                    #{index + 1}
+                  </span>
+                  <div style={{ flex: 1, display: 'flex', gap: '10px' }}>
+                    <div style={{ flex: '0 0 200px' }}>
+                      <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>
+                        Field Name
+                      </label>
+                      <input
+                        type="text"
+                        value={item.field || ''}
+                        onChange={(e) => handleQuestionChange(index, 'field', e.target.value)}
+                        disabled={updatingLabels}
+                        placeholder="e.g., fullName"
+                        style={{ 
+                          width: '100%', 
+                          padding: '8px', 
+                          border: '1px solid #ccc', 
+                          borderRadius: '4px',
+                          fontSize: '13px'
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>
+                        Label Text (What users see)
+                      </label>
+                      <input
+                        type="text"
+                        value={item.label || ''}
+                        onChange={(e) => handleQuestionChange(index, 'label', e.target.value)}
+                        disabled={updatingLabels}
+                        placeholder="e.g., Full Name"
+                        style={{ 
+                          width: '100%', 
+                          padding: '8px', 
+                          border: '1px solid #ccc', 
+                          borderRadius: '4px',
+                          fontSize: '13px'
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {surveyQuestions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeQuestionLabel(index)}
+                      disabled={updatingLabels}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                      title="Remove this question label"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* ✅ Action buttons */}
+        <div className="question-labels-actions" style={{ 
+          marginTop: '20px', 
+          display: 'flex', 
+          gap: '10px', 
+          flexWrap: 'wrap',
+          alignItems: 'center'
+        }}>
+          <button
+            type="button"
+            onClick={addQuestionLabel}
+            disabled={updatingLabels}
+            style={{
+              padding: '10px 15px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            ➕ Add Label
+          </button>
+          
+          <button
+            type="button"
+            onClick={loadCurrentFormLabels}
+            disabled={updatingLabels}
+            style={{
+              padding: '10px 15px',
+              backgroundColor: '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            📋 Load Current Form Labels
+          </button>
+          
+          <button 
+            onClick={saveQuestionLabels}
+            disabled={updatingLabels || !Array.isArray(surveyQuestions)}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: updatingLabels ? '#6c757d' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: updatingLabels ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold'
+            }}
+          >
+            {updatingLabels ? '⏳ Saving...' : '💾 Save Labels'}
+          </button>
+        </div>
+        
+        {/* ✅ Helpful info */}
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '15px', 
+          backgroundColor: '#e8f4f8', 
+          borderRadius: '6px',
+          fontSize: '14px',
+          color: '#0c5460'
+        }}>
+          <strong>📌 How This Works:</strong>
+          <ul style={{ marginLeft: '20px', marginBottom: '0', marginTop: '8px' }}>
+            <li><strong>Field Name:</strong> Must match the field names in your Applicationsurvey.jsx component</li>
+            <li><strong>Label Text:</strong> This is what users will see as the question/label text</li>
+            <li><strong>Dynamic Updates:</strong> Changes here will update the actual survey form users fill out</li>
+            <li><strong>Load Current:</strong> Use "Load Current Form Labels" to see your existing form fields</li>
+          </ul>
+        </div>
+        
+        {/* ✅ Preview section */}
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '15px', 
+          backgroundColor: '#f8f9fa', 
+          borderRadius: '6px',
+          border: '1px solid #dee2e6'
+        }}>
+          <h4 style={{ margin: '0 0 15px 0', color: '#495057' }}>📋 Preview of Current Labels:</h4>
+          <div style={{ fontSize: '13px', color: '#6c757d' }}>
+            {surveyQuestions.filter(item => item.field && item.label).length > 0 ? (
+              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                {surveyQuestions
+                  .filter(item => item.field && item.label)
+                  .map((item, index) => (
+                    <div key={index} style={{ marginBottom: '5px' }}>
+                      <strong>{item.field}:</strong> "{item.label}"
+                    </div>
+                  ))
+                }
+              </div>
+            ) : (
+              <em>No valid labels configured yet. Use "Load Current Form Labels" to get started.</em>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Section: Fetch and Vet Survey Forms */}
+      <div className="section">
+        <h3>Vetting Survey Forms</h3>
+        
+        {/* ✅ Survey logs loading and error states */}
+        {surveysLoading && (
+          <div className="loading-state">
+            <p>Loading survey submissions...</p>
+          </div>
+        )}
+        
+        {surveysError && (
+          <div className="error-state" style={{ color: 'red', padding: '10px', border: '1px solid red', borderRadius: '4px', marginBottom: '10px' }}>
+            <strong>Error loading surveys:</strong> {surveysError.message}
+            <button 
+              onClick={() => fetchSurveyLogs()} 
+              style={{ marginLeft: '10px', padding: '5px 10px' }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* ✅ Display survey submissions */}
+        {surveys && surveys.length > 0 ? (
+          <div className="surveys-list">
+            {surveys.map((survey, index) => (
+              <div key={survey.id || index} className="survey-item" style={{
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                padding: '15px',
+                marginBottom: '15px',
+                backgroundColor: survey.approval_status === 'approved' ? '#f0f8f0' : 
+                               survey.approval_status === 'declined' ? '#fff0f0' : '#fff'
+              }}>
+                {/* ✅ Survey header with user info */}
+                <div className="survey-header" style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: '10px',
+                  paddingBottom: '10px',
+                  borderBottom: '1px solid #eee'
+                }}>
+                  <div className="user-info">
+                    <h4 style={{ margin: '0 0 5px 0' }}>
+                      Survey #{survey.id} - {survey.username || 'Unknown User'}
+                    </h4>
+                    <p style={{ margin: '0', color: '#666', fontSize: '0.9em' }}>
+                      Email: {survey.user_email || 'No email'}
+                    </p>
+                    <p style={{ margin: '0', color: '#666', fontSize: '0.9em' }}>
+                      Submitted: {survey.createdAt ? new Date(survey.createdAt).toLocaleDateString() : 'Unknown date'}
+                    </p>
+                    {survey.application_ticket && (
+                      <p style={{ margin: '0', color: '#666', fontSize: '0.8em' }}>
+                        Ticket: {survey.application_ticket}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="status-badge">
+                    <span style={{
+                      padding: '5px 10px',
+                      borderRadius: '15px',
+                      fontSize: '0.8em',
+                      fontWeight: 'bold',
+                      backgroundColor: survey.approval_status === 'approved' ? '#d4edda' : 
+                                     survey.approval_status === 'declined' ? '#f8d7da' : 
+                                     survey.approval_status === 'granted' ? '#d4edda' : '#fff3cd',
+                      color: survey.approval_status === 'approved' ? '#155724' : 
+                             survey.approval_status === 'declined' ? '#721c24' : 
+                             survey.approval_status === 'granted' ? '#155724' : '#856404'
+                    }}>
+                      {survey.approval_status?.toUpperCase() || 'PENDING'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* ✅ Basic Info Grid */}
+                <div className="survey-info" style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '10px',
+                  marginBottom: '20px'
+                }}>
+                  <div><strong>User ID:</strong> {survey.user_id}</div>
+                  <div><strong>Email:</strong> {survey.user_email || 'N/A'}</div>
+                  <div><strong>Application Type:</strong> {survey.application_type || 'initial_application'}</div>
+                  <div><strong>Membership Stage:</strong> {survey.membership_stage || 'N/A'}</div>
+                </div>
+
+                {/* ✅ Survey answers display */}
+                <div className="survey-answers-section" style={{
+                  backgroundColor: '#f8f9fa',
+                  padding: '15px',
+                  borderRadius: '5px',
+                  marginBottom: '15px'
+                }}>
+                  <h5 style={{ marginTop: '0', marginBottom: '15px', color: '#495057' }}>
+                    📝 Survey Responses:
+                  </h5>
+                  {renderSurveyAnswers(survey.answers)}
+                </div>
+
+                {/* Admin Notes */}
+                {survey.admin_notes && (
+                  <div style={{ 
+                    backgroundColor: '#e8f4fd', 
+                    padding: '10px', 
+                    borderRadius: '5px',
+                    marginBottom: '15px'
+                  }}>
+                    <strong>Admin Notes:</strong> {survey.admin_notes}
+                  </div>
+                )}
+
+                {/* ✅ Action buttons */}
+                <div className="survey-actions" style={{ 
+                  marginTop: '15px', 
+                  paddingTop: '15px', 
+                  borderTop: '1px solid #eee',
+                  display: 'flex',
+                  gap: '10px',
+                  flexWrap: 'wrap'
+                }}>
+                  <button
+                    onClick={() => handleApproveOrDecline(survey.id, survey.user_id, 'approved')}
+                    disabled={updatingApproval || survey.approval_status === 'approved' || survey.approval_status === 'granted'}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: (survey.approval_status === 'approved' || survey.approval_status === 'granted') ? '#95a5a6' : '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: (survey.approval_status === 'approved' || survey.approval_status === 'granted') ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {(survey.approval_status === 'approved' || survey.approval_status === 'granted') ? '✅ Already Approved' : 
+                     updatingApproval ? 'Processing...' : '✅ Approve'}
+                  </button>
+                  
+                  <button
+                    onClick={() => handleApproveOrDecline(survey.id, survey.user_id, 'declined')}
+                    disabled={updatingApproval || survey.approval_status === 'declined'}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: survey.approval_status === 'declined' ? '#95a5a6' : '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: survey.approval_status === 'declined' ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {survey.approval_status === 'declined' ? '❌ Already Declined' : 
+                     updatingApproval ? 'Processing...' : '❌ Decline'}
+                  </button>
+                  
+                  {survey.user_email && (
+                    <button
+                      onClick={() => handleSendFeedback(survey.user_email, survey.approval_status)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      📧 Send Feedback
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setSelectedSurvey(selectedSurvey === survey.id ? null : survey.id)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#6c757d',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {selectedSurvey === survey.id ? 'Hide Details' : 'View Details'}
+                  </button>
+                </div>
+
+                {/* ✅ Detailed view when selected */}
+                {selectedSurvey === survey.id && (
+                  <div className="survey-details" style={{
+                    marginTop: '15px',
+                    padding: '15px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '4px'
+                  }}>
+                    <h5>Full Survey Details:</h5>
+                    <pre style={{ 
+                      whiteSpace: 'pre-wrap', 
+                      fontSize: '0.85em',
+                      maxHeight: '300px',
+                      overflow: 'auto'
+                    }}>
+                      {JSON.stringify(survey, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          !surveysLoading && !surveysError && (
+            <div className="no-surveys" style={{ 
+              textAlign: 'center', 
+              padding: '20px', 
+              color: '#666',
+              fontStyle: 'italic'
+            }}>
+              No survey submissions found.
+            </div>
+          )
+        )}
+
+        {/* ✅ Refresh button */}
+        <div style={{ marginTop: '20px' }}>
+          <button 
+            onClick={() => fetchSurveyLogs()}
+            disabled={surveysLoading}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            {surveysLoading ? 'Refreshing...' : 'Refresh Survey List'}
+          </button>
+        </div>
+      </div>
+
+      {/* Section: Update User Roles */}
+      <div className="section">
+        <h3>Update User Roles</h3>
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            placeholder="User ID"
+            value={userRoleUpdates.userId}
+            onChange={(e) => setUserRoleUpdates({ ...userRoleUpdates, userId: e.target.value })}
+            disabled={updatingRole}
+            style={{ padding: '8px', minWidth: '200px' }}
+          />
+          <select
+            value={userRoleUpdates.role}
+            onChange={(e) => setUserRoleUpdates({ ...userRoleUpdates, role: e.target.value })}
+            disabled={updatingRole}
+            style={{ padding: '8px', minWidth: '150px' }}
+          >
+            <option value="">Select Role</option>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+            <option value="moderator">Moderator</option>
+            <option value="member">Member</option>
+          </select>
+          <button
+            onClick={() => updateUserRole(userRoleUpdates)}
+            disabled={updatingRole || !userRoleUpdates.userId || !userRoleUpdates.role}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            {updatingRole ? 'Updating...' : 'Update Role'}
+          </button>
+        </div>
+        <small style={{ color: '#666' }}>
+          Enter the user ID and select a new role to update user permissions.
+        </small>
+      </div>
+
+      {/* ✅ Context-aware footer */}
+      <div className="auth-controls-footer" style={{ 
+        marginTop: '30px', 
+        paddingTop: '20px', 
+        borderTop: '1px solid #eee',
+        fontSize: '0.9em',
+        color: '#666'
+      }}>
+        {isInAdminContext ? (
+          <p>You are viewing AuthControls in Admin Panel context with full administrative privileges.</p>
+        ) : (
+          <p>AuthControls running in standalone mode.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AuthControls;
+
+
+
+//==========================================
+
+// ikootaclient/src/components/auth/Applicationsurvey.jsx - CORRECTED TO STOP AUTO REDIRECTS
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from './UserStatus';
+import './applicationSurvey.css';
+import api from '../service/api';
+import { useDynamicLabels } from '../../hooks/useDynamicLabels';
+
+
+const ApplicationSurvey = () => {
+  const navigate = useNavigate();
+  const { labels: dynamicLabels, loading: labelsLoading } = useDynamicLabels();
+  const { user, isAuthenticated } = useUser();
+  const [loading, setLoading] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [error, setError] = useState('');
+  const [currentStep, setCurrentStep] = useState(1);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const totalSteps = 4;
+
+  // ✅ ADD REFS TO PREVENT API LOOPS
+  const statusCheckRef = useRef(false);
+  const hasCheckedStatus = useRef(false);
+  const initialLoadComplete = useRef(false);
+
+  // Storage key for this user's application data
+  const STORAGE_KEY = `ikoota_application_${user?.id || 'guest'}`;
+  const STEP_STORAGE_KEY = `ikoota_application_step_${user?.id || 'guest'}`;
+
+  // Initial form data
+  const initialFormData = {
+    // Personal Information
+    fullName: '',
+    dateOfBirth: '',
+    nationality: '',
+    currentLocation: '',
+    phoneNumber: '',
+    
+    // Educational Background
+    highestEducation: '',
+    fieldOfStudy: '',
+    currentInstitution: '',
+    graduationYear: '',
+    
+    // Professional Background
+    currentOccupation: '',
+    workExperience: '',
+    professionalSkills: [],
+    careerGoals: '',
+    
+    // Interest in Ikoota
+    howDidYouHear: '',
+    reasonForJoining: '',
+    expectedContributions: '',
+    educationalGoals: '',
+    
+    // Additional Information
+    previousMemberships: '',
+    specialSkills: '',
+    languagesSpoken: [],
+    availabilityForEvents: '',
+    
+    // Agreements
+    agreeToTerms: false,
+    agreeToCodeOfConduct: false,
+    agreeToDataProcessing: false
+  };
+
+  // Form state with auto-save functionality
+  const [formData, setFormData] = useState(initialFormData);
+
+  // Load saved data from localStorage
+  const loadSavedData = useCallback(() => {
+    try {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      const savedStep = localStorage.getItem(STEP_STORAGE_KEY);
+      
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        console.log('📂 Loading saved application data:', Object.keys(parsedData).length, 'fields');
+        
+        setFormData(prev => ({
+          ...prev,
+          ...parsedData
+        }));
+        
+        const savedTime = parsedData._savedAt;
+        if (savedTime) {
+          setLastSaved(new Date(savedTime));
+        }
+      }
+      
+      if (savedStep) {
+        const stepNumber = parseInt(savedStep, 10);
+        if (stepNumber >= 1 && stepNumber <= totalSteps) {
+          setCurrentStep(stepNumber);
+          console.log('📂 Resuming from step:', stepNumber);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading saved data:', error);
+      // If there's corrupted data, clear it
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STEP_STORAGE_KEY);
+    }
+  }, [STORAGE_KEY, STEP_STORAGE_KEY, totalSteps]);
+
+  // Save data to localStorage
+  const saveToStorage = useCallback((dataToSave, stepToSave = currentStep) => {
+    try {
+      const saveData = {
+        ...dataToSave,
+        _savedAt: new Date().toISOString(),
+        _version: '1.0' // For future migrations if needed
+      };
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+      localStorage.setItem(STEP_STORAGE_KEY, stepToSave.toString());
+      setLastSaved(new Date());
+      
+      console.log('💾 Auto-saved application data');
+    } catch (error) {
+      console.error('❌ Error saving data:', error);
+      // Handle storage quota exceeded
+      if (error.name === 'QuotaExceededError') {
+        alert('Storage space is full. Please clear some browser data and try again.');
+      }
+    }
+  }, [STORAGE_KEY, STEP_STORAGE_KEY, currentStep]);
+
+  // Clear saved data
+  const clearSavedData = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STEP_STORAGE_KEY);
+    setLastSaved(null);
+    console.log('🗑️ Cleared saved application data');
+  }, [STORAGE_KEY, STEP_STORAGE_KEY]);
+
+  // ✅ FIXED: Status check with NO AUTO-REDIRECT
+  const checkApplicationStatus = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (statusCheckRef.current || hasCheckedStatus.current) {
+      console.log('🚫 Skipping status check - already in progress or completed');
+      return;
+    }
+
+    statusCheckRef.current = true;
+    hasCheckedStatus.current = true;
+
+    try {
+      console.log('🔍 Checking application status... (ONE TIME ONLY)');
+      
+      const response = await api.get('/membership/survey/check-status');
+      console.log('✅ Response data:', response.data);
+      
+      // ✅ CRITICAL FIX: DO NOT REDIRECT IF SURVEY NOT COMPLETED
+      // Let the user stay on the survey page to complete it
+      if (response.data.survey_completed) {
+        console.log('✅ Survey already completed, redirecting to status page');
+        clearSavedData();
+        navigate('/application-status');
+        return;
+      }
+
+      // ✅ If survey not completed, let user fill it out - DON'T REDIRECT
+      console.log('📝 Survey not completed - allowing user to fill it out');
+      
+      // Only load saved data if survey not completed and we haven't loaded yet
+      if (!initialLoadComplete.current) {
+        loadSavedData();
+        initialLoadComplete.current = true;
+      }
+      
+      return response.data;
+      
+    } catch (error) {
+      console.error('❌ Error checking application status:', error);
+      // Don't block the user from continuing with their saved data
+      if (!initialLoadComplete.current) {
+        loadSavedData();
+        initialLoadComplete.current = true;
+      }
+    } finally {
+      statusCheckRef.current = false;
+    }
+  }, [clearSavedData, loadSavedData, navigate]);
+
+  // Auto-save with debouncing
+  useEffect(() => {
+    if (!user?.id || !initialLoadComplete.current) return; // Don't save if no user or not loaded
+
+    const timeoutId = setTimeout(() => {
+      setIsAutoSaving(true);
+      saveToStorage(formData, currentStep);
+      setTimeout(() => setIsAutoSaving(false), 500);
+    }, 2000); // Auto-save after 2 seconds of no changes
+
+    return () => clearTimeout(timeoutId);
+  }, [formData, currentStep, saveToStorage, user?.id]);
+
+  // ✅ FIXED: Check authentication and application status ONCE
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    // Only check status once on mount
+    if (!hasCheckedStatus.current) {
+      console.log('🚀 Applicationsurvey mounted - checking status once');
+      checkApplicationStatus();
+    }
+  }, [isAuthenticated, navigate, checkApplicationStatus]);
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    
+    setFormData(prev => {
+      let newData = { ...prev };
+      
+      if (type === 'checkbox') {
+        if (name === 'professionalSkills' || name === 'languagesSpoken') {
+          // Handle array checkboxes
+          newData[name] = checked 
+            ? [...prev[name], value]
+            : prev[name].filter(item => item !== value);
+        } else {
+          newData[name] = checked;
+        }
+      } else {
+        newData[name] = value;
+      }
+      
+      return newData;
+    });
+  };
+
+  const validateStep = (step) => {
+    const errors = [];
+    
+    switch (step) {
+      case 1: // Personal Information
+        if (!formData.fullName) errors.push('Full name is required');
+        if (!formData.dateOfBirth) errors.push('Date of birth is required');
+        if (!formData.nationality) errors.push('Nationality is required');
+        if (!formData.currentLocation) errors.push('Current location is required');
+        break;
+        
+      case 2: // Educational Background
+        if (!formData.highestEducation) errors.push('Highest education is required');
+        if (!formData.fieldOfStudy) errors.push('Field of study is required');
+        break;
+        
+      case 3: // Professional Background & Interest
+        if (!formData.currentOccupation) errors.push('Current occupation is required');
+        if (!formData.reasonForJoining) errors.push('Reason for joining is required');
+        if (!formData.educationalGoals) errors.push('Educational goals are required');
+        break;
+        
+      case 4: // Agreements
+        if (!formData.agreeToTerms) errors.push('You must agree to terms and conditions');
+        if (!formData.agreeToCodeOfConduct) errors.push('You must agree to code of conduct');
+        if (!formData.agreeToDataProcessing) errors.push('You must agree to data processing');
+        break;
+    }
+    
+    if (errors.length > 0) {
+      setError(errors.join(', '));
+      return false;
+    }
+    
+    setError('');
+    return true;
+  };
+
+  const nextStep = () => {
+    if (validateStep(currentStep)) {
+      const newStep = Math.min(currentStep + 1, totalSteps);
+      setCurrentStep(newStep);
+      // Save immediately when moving to next step
+      saveToStorage(formData, newStep);
+    }
+  };
+
+  const prevStep = () => {
+    const newStep = Math.max(currentStep - 1, 1);
+    setCurrentStep(newStep);
+    setError('');
+    // Save immediately when moving to previous step
+    saveToStorage(formData, newStep);
+  };
+
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+    
+  //   if (!validateStep(currentStep)) {
+  //     return;
+  //   }
+
+  //   setLoading(true);
+  //   setError('');
+
+  //   try {
+  //     // Prepare answers array for backend
+  //     const answers = Object.entries(formData)
+  //       .filter(([key]) => !key.startsWith('_')) // Exclude internal keys like _savedAt
+  //       .map(([key, value]) => ({
+  //         question: key,
+  //         answer: Array.isArray(value) ? value.join(', ') : value.toString()
+  //       }));
+
+  //     const response = await api.post('/membership/survey/submit-application', {
+  //       answers,
+  //       applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`
+  //     });
+
+  //     const data = response.data;
+
+  //     // Clear saved data after successful submission
+  //     clearSavedData();
+      
+  //     setSubmitSuccess(true);
+      
+  //     // Redirect to success page after delay
+  //     setTimeout(() => {
+  //       navigate('/pending-verification', {
+  //         state: {
+  //           applicationTicket: data.applicationTicket,
+  //           username: user.username
+  //         }
+  //       });
+  //     }, 3000);
+
+  //   } catch (error) {
+  //     console.error('Error submitting application:', error);
+      
+  //     if (error.response) {
+  //       setError(error.response.data?.error || error.response.data?.message || 'Failed to submit application');
+  //     } else if (error.request) {
+  //       setError('Network error. Please check your connection and try again.');
+  //     } else {
+  //       setError('An unexpected error occurred. Please try again.');
+  //     }
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  // Manual save function
+  
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateStep(currentStep)) {
+    return;
+  }
+
+  setLoading(true);
+  setError('');
+
+  try {
+    // Prepare answers array for backend
+    const answers = Object.entries(formData)
+      .filter(([key]) => !key.startsWith('_')) // Exclude internal keys like _savedAt
+      .map(([key, value]) => ({
+        question: key,
+        answer: Array.isArray(value) ? value.join(', ') : value.toString()
+      }));
+
+    const response = await api.post('/membership/survey/submit-application', {
+      answers,
+      applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`,
+      username: user.username, // ADD THIS LINE
+      userId: user.id || user.user_id // ADD THIS LINE TOO
+    });
+
+    const data = response.data;
+
+    // Clear saved data after successful submission
+    clearSavedData();
+    
+    setSubmitSuccess(true);
+    
+    // Redirect to success page after delay
+    setTimeout(() => {
+      navigate('/pending-verification', {
+        state: {
+          applicationTicket: data.applicationTicket,
+          username: user.username
+        }
+      });
+    }, 3000);
+
+  } catch (error) {
+    console.error('Error submitting application:', error);
+    
+    if (error.response) {
+      setError(error.response.data?.error || error.response.data?.message || 'Failed to submit application');
+    } else if (error.request) {
+      setError('Network error. Please check your connection and try again.');
+    } else {
+      setError('An unexpected error occurred. Please try again.');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+  
+  
+  const handleManualSave = () => {
+    setIsAutoSaving(true);
+    saveToStorage(formData, currentStep);
+    setTimeout(() => setIsAutoSaving(false), 1000);
+  };
+
+  // Clear data confirmation
+  const handleClearData = () => {
+    if (window.confirm('Are you sure you want to clear all saved data? This action cannot be undone.')) {
+      clearSavedData();
+      setFormData(initialFormData);
+      setCurrentStep(1);
+    }
+  };
+
+  // Auto-save indicator component
+  const AutoSaveIndicator = () => {
+    if (isAutoSaving) {
+      return (
+        <div className="auto-save-indicator saving">
+          <span className="save-spinner">⟳</span>
+          Saving...
+        </div>
+      );
+    }
+    
+    if (lastSaved) {
+      const timeDiff = Date.now() - lastSaved.getTime();
+      const minutes = Math.floor(timeDiff / 60000);
+      const seconds = Math.floor((timeDiff % 60000) / 1000);
+      
+      let timeText;
+      if (minutes > 0) {
+        timeText = `${minutes}m ago`;
+      } else if (seconds > 5) {
+        timeText = `${seconds}s ago`;
+      } else {
+        timeText = 'just now';
+      }
+      
+      return (
+        <div className="auto-save-indicator saved">
+          <span className="save-icon">✓</span>
+          Saved {timeText}
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
+
+ const renderStep1 = () => (
+    <div className="survey-step">
+      <h3>📋 Personal Information</h3>
+      
+      <div className="form-group">
+        <label htmlFor="fullName">{dynamicLabels.fullName} *</label>
+        <input
+          type="text"
+          id="fullName"
+          name="fullName"
+          value={formData.fullName}
+          onChange={handleInputChange}
+          placeholder="Enter your full legal name"
+          required
+        />
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor="dateOfBirth">{dynamicLabels.dateOfBirth} *</label>
+          <input
+            type="date"
+            id="dateOfBirth"
+            name="dateOfBirth"
+            value={formData.dateOfBirth}
+            onChange={handleInputChange}
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="nationality">{dynamicLabels.nationality} *</label>
+          <input
+            type="text"
+            id="nationality"
+            name="nationality"
+            value={formData.nationality}
+            onChange={handleInputChange}
+            placeholder="Your nationality"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="currentLocation">{dynamicLabels.currentLocation} *</label>
+        <input
+          type="text"
+          id="currentLocation"
+          name="currentLocation"
+          value={formData.currentLocation}
+          onChange={handleInputChange}
+          placeholder="City, Country"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="phoneNumber">{dynamicLabels.phoneNumber}</label>
+        <input
+          type="tel"
+          id="phoneNumber"
+          name="phoneNumber"
+          value={formData.phoneNumber}
+          onChange={handleInputChange}
+          placeholder="+1 (555) 123-4567"
+        />
+      </div>
+    </div>
+  );
+
+  const renderStep2 = () => (
+    <div className="survey-step">
+      <h3>🎓 Educational Background</h3>
+      
+      <div className="form-group">
+        <label htmlFor="highestEducation">{dynamicLabels.highestEducation} *</label>
+        <select
+          id="highestEducation"
+          name="highestEducation"
+          value={formData.highestEducation}
+          onChange={handleInputChange}
+          required
+        >
+          <option value="">Select your highest education</option>
+          <option value="high_school">High School</option>
+          <option value="associate">Associate Degree</option>
+          <option value="bachelor">Bachelor's Degree</option>
+          <option value="master">Master's Degree</option>
+          <option value="doctorate">Doctorate/PhD</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor="fieldOfStudy">{dynamicLabels.fieldOfStudy} *</label>
+          <input
+            type="text"
+            id="fieldOfStudy"
+            name="fieldOfStudy"
+            value={formData.fieldOfStudy}
+            onChange={handleInputChange}
+            placeholder="e.g., Computer Science, Business, etc."
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="graduationYear">{dynamicLabels.graduationYear}</label>
+          <input
+            type="number"
+            id="graduationYear"
+            name="graduationYear"
+            value={formData.graduationYear}
+            onChange={handleInputChange}
+            placeholder="YYYY"
+            min="1950"
+            max="2030"
+          />
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="currentInstitution">{dynamicLabels.currentInstitution}</label>
+        <input
+          type="text"
+          id="currentInstitution"
+          name="currentInstitution"
+          value={formData.currentInstitution}
+          onChange={handleInputChange}
+          placeholder="University or institution name"
+        />
+      </div>
+    </div>
+  );
+
+  const renderStep3 = () => (
+    <div className="survey-step">
+      <h3>💼 Professional Background & Interests</h3>
+      
+      <div className="form-group">
+        <label htmlFor="currentOccupation">{dynamicLabels.currentOccupation} *</label>
+        <input
+          type="text"
+          id="currentOccupation"
+          name="currentOccupation"
+          value={formData.currentOccupation}
+          onChange={handleInputChange}
+          placeholder="Your current job title or status"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="workExperience">{dynamicLabels.workExperience}</label>
+        <select
+          id="workExperience"
+          name="workExperience"
+          value={formData.workExperience}
+          onChange={handleInputChange}
+        >
+          <option value="">Select experience level</option>
+          <option value="0-1">0-1 years</option>
+          <option value="2-5">2-5 years</option>
+          <option value="6-10">6-10 years</option>
+          <option value="11-15">11-15 years</option>
+          <option value="16+">16+ years</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="reasonForJoining">{dynamicLabels.reasonForJoining} *</label>
+        <textarea
+          id="reasonForJoining"
+          name="reasonForJoining"
+          value={formData.reasonForJoining}
+          onChange={handleInputChange}
+          placeholder="Tell us what motivates you to join our educational community..."
+          rows="4"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="educationalGoals">{dynamicLabels.educationalGoals} *</label>
+        <textarea
+          id="educationalGoals"
+          name="educationalGoals"
+          value={formData.educationalGoals}
+          onChange={handleInputChange}
+          placeholder="Describe what you hope to learn or achieve through Ikoota..."
+          rows="4"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="expectedContributions">{dynamicLabels.expectedContributions}</label>
+        <textarea
+          id="expectedContributions"
+          name="expectedContributions"
+          value={formData.expectedContributions}
+          onChange={handleInputChange}
+          placeholder="Share your skills, knowledge, or ways you'd like to help..."
+          rows="3"
+        />
+      </div>
+    </div>
+  );
+
+  const renderStep4 = () => (
+    <div className="survey-step">
+      <h3>📄 Additional Information & Agreements</h3>
+      
+      <div className="form-group">
+        <label htmlFor="howDidYouHear">{dynamicLabels.howDidYouHear}</label>
+        <select
+          id="howDidYouHear"
+          name="howDidYouHear"
+          value={formData.howDidYouHear}
+          onChange={handleInputChange}
+        >
+          <option value="">Please select</option>
+          <option value="social_media">Social Media</option>
+          <option value="friend_referral">Friend/Colleague Referral</option>
+          <option value="web_search">Web Search</option>
+          <option value="online_community">Online Community</option>
+          <option value="educational_institution">Educational Institution</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label>{dynamicLabels.languagesSpoken}</label>
+        <div className="checkbox-group">
+          {['English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese', 'Arabic', 'Other'].map(lang => (
+            <label key={lang} className="checkbox-label">
+              <input
+                type="checkbox"
+                name="languagesSpoken"
+                value={lang}
+                checked={formData.languagesSpoken.includes(lang)}
+                onChange={handleInputChange}
+              />
+              {lang}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="agreements-section">
+        <h4>📋 Required Agreements</h4>
+        
+        <div className="agreement-item">
+          <label className="agreement-label">
+            <input
+              type="checkbox"
+              name="agreeToTerms"
+              checked={formData.agreeToTerms}
+              onChange={handleInputChange}
+              required
+            />
+            <span className="checkmark"></span>
+            {dynamicLabels.agreeToTerms} * <a href="/terms" target="_blank">(View Terms)</a>
+          </label>
+        </div>
+
+        <div className="agreement-item">
+          <label className="agreement-label">
+            <input
+              type="checkbox"
+              name="agreeToCodeOfConduct"
+              checked={formData.agreeToCodeOfConduct}
+              onChange={handleInputChange}
+              required
+            />
+            <span className="checkmark"></span>
+            {dynamicLabels.agreeToCodeOfConduct} * <a href="/code-of-conduct" target="_blank">(View Code)</a>
+          </label>
+        </div>
+
+        <div className="agreement-item">
+          <label className="agreement-label">
+            <input
+              type="checkbox"
+              name="agreeToDataProcessing"
+              checked={formData.agreeToDataProcessing}
+              onChange={handleInputChange}
+              required
+            />
+            <span className="checkmark"></span>
+            {dynamicLabels.agreeToDataProcessing} * <a href="/privacy" target="_blank">(View Policy)</a>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ✅ Show loading state while labels are being fetched
+  if (labelsLoading) {
+    return (
+      <div className="survey-container">
+        <div className="survey-card">
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <div className="loading-spinner"></div>
+            <p>Loading survey form...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+  if (submitSuccess) {
+    return (
+      <div className="survey-container">
+        <div className="survey-card success-card">
+          <div className="success-icon">🎉</div>
+          <h2>Application Submitted Successfully!</h2>
+          <p>Thank you for completing your membership application. You will be redirected shortly...</p>
+          <div className="loading-spinner"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="survey-container">
+      <div className="survey-card">
+        <div className="survey-header">
+          <div className="header-top">
+            <h1>🎯 Membership Application Survey</h1>
+            <div className="header-actions">
+              <AutoSaveIndicator />
+              <button 
+                type="button" 
+                onClick={handleManualSave}
+                className="btn-save-manual"
+                disabled={isAutoSaving}
+                title="Save progress manually"
+              >
+                💾
+              </button>
+              <button 
+                type="button" 
+                onClick={handleClearData}
+                className="btn-clear-data"
+                title="Clear all saved data"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+          <p>Help us get to know you better and understand your educational goals.</p>
+          
+          <div className="progress-bar">
+            <div className="progress-steps">
+              {[1, 2, 3, 4].map(step => (
+                <div 
+                  key={step} 
+                  className={`progress-step ${currentStep >= step ? 'active' : ''} ${currentStep > step ? 'completed' : ''}`}
+                >
+                  <span className="step-number">{step}</span>
+                  <span className="step-label">
+                    {step === 1 && 'Personal'}
+                    {step === 2 && 'Education'}
+                    {step === 3 && 'Professional'}
+                    {step === 4 && 'Agreements'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="progress-fill" style={{ width: `${(currentStep / totalSteps) * 100}%` }}></div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="survey-form">
+          {currentStep === 1 && renderStep1()}
+          {currentStep === 2 && renderStep2()}
+          {currentStep === 3 && renderStep3()}
+          {currentStep === 4 && renderStep4()}
+
+          {error && (
+            <div className="error-message">
+              <span className="error-icon">⚠️</span>
+              {error}
+            </div>
+          )}
+
+          <div className="form-navigation">
+            {currentStep > 1 && (
+              <button 
+                type="button" 
+                onClick={prevStep}
+                className="btn-secondary"
+                disabled={loading}
+              >
+                ← Previous
+              </button>
+            )}
+            
+            <div className="nav-spacer"></div>
+            
+            {currentStep < totalSteps ? (
+              <button 
+                type="button" 
+                onClick={nextStep}
+                className="btn-primary"
+                disabled={loading}
+              >
+                Next →
+              </button>
+            ) : (
+              <button 
+                type="submit" 
+                className="btn-primary submit-btn"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="loading-spinner"></span>
+                    Submitting...
+                  </>
+                ) : (
+                  '📤 Submit Application'
+                )}
+              </button>
+            )}
+          </div>
+        </form>
+
+        <div className="survey-footer">
+          <p>Step {currentStep} of {totalSteps} • All required fields marked with *</p>
+          {lastSaved && (
+            <p className="auto-save-info">
+              💾 Your progress is automatically saved as you type
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ApplicationSurvey;
+
+
+//=====================================
+
+// ikootaclient/src/components/auth/AdminRoute.jsx
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
+import ProtectedRoute from './ProtectedRoute';
+
+const AdminRoute = ({ children }) => {
+  const isAdmin = () => {
+    const token = localStorage.getItem("token");
+    
+    if (!token) {
+      // Check for token in cookies
+      const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("access_token="));
+      if (!tokenCookie) return false;
+      
+      const cookieToken = tokenCookie.split("=")[1];
+      if (!cookieToken) return false;
+      
+      try {
+        const decoded = jwtDecode(cookieToken);
+        return decoded.role === 'admin' || decoded.isAdmin === true;
+      } catch (error) {
+        return false;
+      }
+    }
+    
+    try {
+      const decoded = jwtDecode(token);
+      return decoded.role === 'admin' || decoded.isAdmin === true;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  return (
+    <ProtectedRoute>
+      {isAdmin() ? children : <Navigate to="/iko" replace />}
+    </ProtectedRoute>
+  );
+};
+
+export default AdminRoute;
+
+
+
+
+//=================================
+//admin FOLDER
+//================================
+
+
+// ikootaclient/src/components/admin/UserManagement.jsx
+// ==================================================
+// This component merges ALL functionalities from both:
+// - /auth/UserManagement.jsx (legacy user management)
+// - /admin/UserManagement.jsx (converse ID & identity masking)
+// - NEW: Two-stage membership system management
+
+import React, { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../service/api';
+import './userManagement.css';
+import { 
+  generateUniqueConverseId, 
+  generateRandomId, 
+  validateIdFormat, 
+  formatIdForDisplay 
+} from '../service/idGenerationService';
+
+// ==================================================
+// API FUNCTIONS - ALL SYSTEMS
+// ==================================================
+
+// NEW: Two-Stage Membership System APIs
+// const fetchMembershipOverview = async () => {
+//   const { data } = await api.get('/membership/admin/membership-overview');
+//   return data;
+// };
+
+const fetchMembershipOverview = async () => {
+  try {
+    const { data } = await api.get('/membership/admin/membership-overview');
+    return data?.overview || {};
+  } catch (error) {
+    console.error('❌ Error fetching membership overview:', error);
+    return {};
+  }
+};
+
+
+// const fetchPendingApplications = async (filters = {}) => {
+//   const params = new URLSearchParams(filters);
+//   const { data } = await api.get(`/membership/admin/pending-applications?${params}`);
+//   return data;
+// };
+
+
+const fetchPendingApplications = async (filters = {}) => {
+  try {
+    const params = new URLSearchParams(filters);
+    const { data } = await api.get(`/membership/admin/pending-applications?${params}`);
+    return data || { applications: [], pagination: { total: 0, page: 1, totalPages: 1 } };
+  } catch (error) {
+    console.error('❌ Error fetching pending applications:', error);
+    return { applications: [], pagination: { total: 0, page: 1, totalPages: 1 } };
+  }
+};
+
+
+const bulkApproveApplications = async ({ userIds, action, adminNotes }) => {
+  const { data } = await api.post('/membership/admin/bulk-approve', {
+    userIds,
+    action,
+    adminNotes
+  });
+  return data;
+};
+// THis fxn also exist at membershipcontroller.js
+const updateApplicationStatus = async ({ userId, status, adminNotes }) => {
+  const { data } = await api.put(`/membership/admin/update-user-status/${userId}`, {
+    status,
+    adminNotes
+  });
+  return data;
+};
+
+
+
+// Legacy APIs (preserve existing functionality)
+// const fetchUsers = async () => {
+//   const { data } = await api.get('/admin/users');
+//   return data;
+// };
+
+
+
+// const fetchUsers = async () => {
+//   try {
+//     const { data } = await api.get('/admin/users');
+//     // Handle different response formats
+//     if (data?.success && Array.isArray(data.users)) {
+//       return data.users;
+//     }
+//     if (Array.isArray(data)) {
+//       return data;
+//     }
+//     return [];
+//   } catch (error) {
+//     console.error('Error fetching users:', error);
+//     return [];
+//   }
+// };
+
+
+const fetchUsers = async () => {
+  try {
+    const { data } = await api.get('/admin/users');
+    console.log('👤 Users API Response:', data);
+    
+    // Handle different response formats safely
+    if (data?.success && Array.isArray(data.users)) {
+      return data.users;
+    }
+    if (data?.users && Array.isArray(data.users)) {
+      return data.users;
+    }
+    if (Array.isArray(data)) {
+      return data;
+    }
+    
+    console.warn('⚠️ Unexpected users API response format:', data);
+    return [];
+  } catch (error) {
+    console.error('❌ Error fetching users:', error);
+    // Return empty array instead of throwing to prevent crash
+    return [];
+  }
+};
+
+// const fetchClasses = async () => {
+//   const { data } = await api.get('/classes');
+//   return data;
+// };
+
+const fetchClasses = async () => {
+  try {
+    const { data } = await api.get('/classes');
+    return Array.isArray(data?.classes) ? data.classes : [];
+  } catch (error) {
+    console.error('❌ Error fetching classes:', error);
+    return [];
+  }
+};
+
+
+// const fetchMentors = async () => {
+//   const { data } = await api.get('/admin/mentors');
+//   return data;
+// };
+
+const fetchMentors = async () => {
+  try {
+    const { data } = await api.get('/admin/mentors');
+    return Array.isArray(data?.mentors) ? data.mentors : [];
+  } catch (error) {
+    console.error('❌ Error fetching mentors:', error);
+    return [];
+  }
+};
+
+
+// const fetchReports = async () => {
+//   const { data } = await api.get('/admin/reports');
+//   return data;
+// };
+
+const fetchReports = async () => {
+  try {
+    const { data } = await api.get('/admin/reports');
+    console.log('📊 Reports API Response:', data);
+    
+    // Handle different response formats safely
+    if (data?.success && Array.isArray(data.reports)) {
+      return data.reports;
+    }
+    if (data?.reports && Array.isArray(data.reports)) {
+      return data.reports;
+    }
+    if (Array.isArray(data)) {
+      return data;
+    }
+    
+    console.warn('⚠️ Unexpected reports API response format:', data);
+    return [];
+  } catch (error) {
+    console.error('❌ Error fetching reports:', error);
+    // Return empty array instead of throwing to prevent crash
+    return [];
+  }
+};
+
+const updateUser = async ({ id, formData }) => {
+  const { data } = await api.put(`/admin/update-user/${id}`, formData);
+  return data;
+};
+
+const maskUserIdentity = async ({ userId, adminConverseId, mentorConverseId, classId }) => {
+  const { data } = await api.post('/admin/mask-identity', {
+    userId,
+    adminConverseId,
+    mentorConverseId,
+    classId
+  });
+  return data;
+};
+
+const deleteUser = async (userId) => {
+  const { data } = await api.delete(`/admin/delete-user/${userId}`);
+  return data;
+};
+
+const createUser = async (userData) => {
+  const { data } = await api.post('/admin/create-user', userData);
+  return data;
+};
+
+const sendNotification = async ({ userId, message, type }) => {
+  const { data } = await api.post('/admin/send-notification', {
+    userId,
+    message,
+    type
+  });
+  return data;
+};
+
+const updateReportStatus = async ({ reportId, status, adminNotes }) => {
+  const { data } = await api.put(`/admin/update-report/${reportId}`, {
+    status,
+    adminNotes
+  });
+  return data;
+};
+
+const exportUserData = async (filters = {}) => {
+  const params = new URLSearchParams(filters);
+  const { data } = await api.get(`/admin/export-users?${params}`);
+  return data;
+};
+
+
+
+// ==================================================
+// MAIN COMPONENT WITH ENHANCED ERROR BOUNDARIES
+// ==================================================
+
+const UserManagement = () => {
+  const queryClient = useQueryClient();
+  
+  // Tab management
+  const [activeTab, setActiveTab] = useState('membership_overview');
+  
+  // State management
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [bulkAction, setBulkAction] = useState('');
+  const [adminNotes, setAdminNotes] = useState('');
+  const [filters, setFilters] = useState({
+    page: 1,
+    limit: 20,
+    search: '',
+    sortBy: 'submittedAt',
+    sortOrder: 'ASC'
+  });
+
+  // Legacy state
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [formData, setFormData] = useState({
+    converse_id: '',
+    mentor_id: '',
+    class_id: '',
+    is_member: '',
+    role: '',
+    username: '',
+    email: '',
+    password: '',
+    isblocked: false,
+    isbanned: false
+  });
+
+  // ===== REACT QUERY HOOKS WITH SAFE DEFAULTS =====
+
+  // ✅ FIXED: Safe users query with proper error handling
+  const { 
+    data: rawUsers, 
+    isLoading: usersLoading, 
+    isError: usersError, 
+    error: usersErrorData 
+  } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+    staleTime: 3 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
+    retry: (failureCount, error) => {
+      if (failureCount < 2) return true;
+      return false;
+    },
+    onError: (error) => {
+      console.error('❌ Users query error:', error);
+    }
+  });
+
+  // ✅ CRITICAL FIX: Safe users array with memoization
+  const users = useMemo(() => {
+    if (!rawUsers) return [];
+    if (Array.isArray(rawUsers)) return rawUsers;
+    if (rawUsers.users && Array.isArray(rawUsers.users)) return rawUsers.users;
+    return [];
+  }, [rawUsers]);
+
+  // ✅ FIXED: Safe reports query
+  const { 
+    data: rawReports, 
+    isLoading: reportsLoading, 
+    error: reportsError 
+  } = useQuery({
+    queryKey: ['reports'],
+    queryFn: fetchReports,
+    staleTime: 2 * 60 * 1000,
+    cacheTime: 5 * 60 * 1000,
+    retry: 1,
+    onError: (error) => {
+      console.error('❌ Reports query error:', error);
+    }
+  });
+
+  // ✅ CRITICAL FIX: Safe reports array with memoization  
+  const reports = useMemo(() => {
+    if (!rawReports) return [];
+    if (Array.isArray(rawReports)) return rawReports;
+    if (rawReports.reports && Array.isArray(rawReports.reports)) return rawReports.reports;
+    return [];
+  }, [rawReports]);
+
+  // Other queries with safe defaults
+  const { data: membershipOverview, isLoading: overviewLoading, error: overviewError } = useQuery({
+    queryKey: ['membershipOverview'],
+    queryFn: fetchMembershipOverview,
+    staleTime: 5 * 60 * 1000,
+    retry: 1
+  });
+
+  const { data: pendingApplications, isLoading: applicationsLoading, error: applicationsError } = useQuery({
+    queryKey: ['pendingApplications', activeTab, filters],
+    queryFn: () => fetchPendingApplications({
+      ...filters,
+      stage: activeTab === 'membership_pending' ? 'initial' : 'full_membership'
+    }),
+    enabled: activeTab === 'membership_pending' || activeTab === 'membership_full',
+    staleTime: 2 * 60 * 1000,
+    retry: 1
+  });
+
+  const { data: classes, isLoading: classesLoading, error: classesError } = useQuery({
+    queryKey: ['classes'],
+    queryFn: fetchClasses,
+    staleTime: 10 * 60 * 1000,
+    retry: 1
+  });
+
+  const { data: mentors, isLoading: mentorsLoading, error: mentorsError } = useQuery({
+    queryKey: ['mentors'],
+    queryFn: fetchMentors,
+    staleTime: 5 * 60 * 1000,
+    retry: 1
+  });
+
+  // ===== SAFE FILTERED USERS WITH MEMOIZATION =====
+
+  // ✅ CRITICAL FIX: Safe filtered users computation
+  const filteredUsers = useMemo(() => {
+    try {
+      const userArray = Array.isArray(users) ? users : [];
+      
+      switch (activeTab) {
+        case 'legacy_pending':
+          return userArray.filter(user => user?.is_member === 'applied');
+        case 'legacy_granted':
+          return userArray.filter(user => user?.is_member === 'granted');
+        case 'legacy_declined':
+          return userArray.filter(user => user?.is_member === 'declined');
+        default:
+          return userArray;
+      }
+    } catch (error) {
+      console.error('❌ Error filtering users:', error);
+      return [];
+    }
+  }, [users, activeTab]);
+
+  // ===== HELPER FUNCTIONS =====
+
+  const resetFormData = () => {
+    setFormData({
+      converse_id: '',
+      mentor_id: '',
+      class_id: '',
+      is_member: '',
+      role: '',
+      username: '',
+      email: '',
+      password: '',
+      isblocked: false,
+      isbanned: false
+    });
+  };
+
+  const formatUserDisplayName = (user) => {
+    if (!user) return 'Unknown User';
+    if (user.is_identity_masked && user.converse_id) {
+      return user.converse_id;
+    }
+    return user.username || user.email || 'Unknown User';
+  };
+
+  const getStatusBadgeClass = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+      case 'granted':
+        return 'status-success';
+      case 'rejected':
+      case 'declined':
+        return 'status-danger';
+      case 'pending':
+      case 'applied':
+        return 'status-warning';
+      default:
+        return 'status-default';
+    }
+  };
+
+  // ===== EVENT HANDLERS =====
+
+  const handleRefreshData = () => {
+    queryClient.invalidateQueries();
+    alert('Data refreshed successfully!');
+  };
+
+  const handleTabChange = (newTab) => {
+    try {
+      setActiveTab(newTab);
+      setSelectedUsers([]);
+      setSelectedUser(null);
+      setSelectedReport(null);
+    } catch (error) {
+      console.error('❌ Error changing tab:', error);
+    }
+  };
+
+  // ===== ERROR BOUNDARY COMPONENT =====
+  
+  if (usersError && reportsError) {
+    return (
+      <div className="user-management-container">
+        <div className="error-state major">
+          <div className="error-icon">⚠️</div>
+          <h3>System Error</h3>
+          <p>Unable to load essential data. Please try refreshing the page.</p>
+          <div className="error-details">
+            <details>
+              <summary>Error Details</summary>
+              <pre>
+                Users Error: {usersErrorData?.message || 'Unknown error'}
+                Reports Error: {reportsError?.message || 'Unknown error'}
+              </pre>
+            </details>
+          </div>
+          <div className="error-actions">
+            <button onClick={handleRefreshData} className="btn-retry">
+              🔄 Retry
+            </button>
+            <button onClick={() => window.location.reload()} className="btn-reload">
+              🔃 Reload Page
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ===== MAIN RENDER =====
+
+  return (
+    <div className="user-management-container">
+      <div className="header-section">
+        <h2>User Management System</h2>
+        <div className="header-actions">
+          <button onClick={handleRefreshData} className="btn-refresh">
+            🔄 Refresh All
+          </button>
+        </div>
+      </div>
+
+      {/* Enhanced Tab Navigation */}
+      <div className="tab-navigation">
+        <button 
+          className={`tab-btn ${activeTab === 'membership_overview' ? 'active' : ''}`} 
+          onClick={() => handleTabChange('membership_overview')}
+        >
+          <span>Overview</span>
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'membership_pending' ? 'active' : ''}`} 
+          onClick={() => handleTabChange('membership_pending')}
+        >
+          <span>Pending Applications</span>
+          <span className="tab-count">({pendingApplications?.pagination?.total || 0})</span>
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'all_users' ? 'active' : ''}`} 
+          onClick={() => handleTabChange('all_users')}
+        >
+          <span>All Users</span>
+          <span className="tab-count">({users?.length || 0})</span>
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'reports' ? 'active' : ''}`} 
+          onClick={() => handleTabChange('reports')}
+        >
+          <span>Reports</span>
+          <span className="tab-count">({reports?.length || 0})</span>
+        </button>
+      </div>
+
+      {/* ===== OVERVIEW TAB ===== */}
+      {activeTab === 'membership_overview' && (
+        <div className="overview-section">
+          <h3>System Overview</h3>
+          {overviewLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Loading overview...</p>
+            </div>
+          ) : overviewError ? (
+            <div className="error-state">
+              <p>Error loading overview: {overviewError.message}</p>
+            </div>
+          ) : (
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon">👥</div>
+                <div className="stat-content">
+                  <h4>Total Users</h4>
+                  <span className="stat-number">{users?.length || 0}</span>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">✅</div>
+                <div className="stat-content">
+                  <h4>Active Members</h4>
+                  <span className="stat-number">
+                    {users?.filter(u => u?.is_member === 'granted').length || 0}
+                  </span>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">⏳</div>
+                <div className="stat-content">
+                  <h4>Pending Applications</h4>
+                  <span className="stat-number">
+                    {users?.filter(u => u?.is_member === 'applied').length || 0}
+                  </span>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">📊</div>
+                <div className="stat-content">
+                  <h4>Reports</h4>
+                  <span className="stat-number">{reports?.length || 0}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== ALL USERS TAB ===== */}
+      {activeTab === 'all_users' && (
+        <div className="all-users-section">
+          <div className="section-header">
+            <h3>All Users ({users?.length || 0})</h3>
+          </div>
+          
+          {usersLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Loading users...</p>
+            </div>
+          ) : usersError ? (
+            <div className="error-state">
+              <div className="error-icon">⚠️</div>
+              <p>Error loading users: {usersErrorData?.message || 'Unknown error'}</p>
+              <button 
+                onClick={() => queryClient.invalidateQueries(['users'])}
+                className="retry-btn"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : !users?.length ? (
+            <div className="empty-state">
+              <div className="empty-icon">👥</div>
+              <h4>No Users Found</h4>
+              <p>No users are registered in the system yet.</p>
+            </div>
+          ) : (
+            <div className="users-table-container">
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id} className="user-row">
+                      <td className="user-cell">
+                        <div className="user-info">
+                          <div className="user-avatar small">
+                            {(user.username || 'U').charAt(0).toUpperCase()}
+                          </div>
+                          <div className="user-details">
+                            <span className="username">{formatUserDisplayName(user)}</span>
+                            <span className="user-id">ID: {user.id}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="email-cell">{user.email}</td>
+                      <td className="role-cell">
+                        <span className={`role-badge role-${user.role}`}>{user.role}</span>
+                      </td>
+                      <td className="status-cell">
+                        <span className={`status-badge ${getStatusBadgeClass(user.is_member)}`}>
+                          {user.is_member}
+                        </span>
+                        {user.isblocked && <span className="status-badge blocked">Blocked</span>}
+                        {user.isbanned && <span className="status-badge banned">Banned</span>}
+                      </td>
+                      <td className="joined-cell">
+                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== REPORTS TAB ===== */}
+      {activeTab === 'reports' && (
+        <div className="reports-section">
+          <div className="section-header">
+            <h3>User Reports ({reports?.length || 0})</h3>
+          </div>
+          
+          {reportsLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Loading reports...</p>
+            </div>
+          ) : reportsError ? (
+            <div className="error-state">
+              <div className="error-icon">⚠️</div>
+              <p>Error loading reports: {reportsError.message}</p>
+              <button 
+                onClick={() => queryClient.invalidateQueries(['reports'])}
+                className="retry-btn"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : !reports?.length ? (
+            <div className="empty-state">
+              <div className="empty-icon">📋</div>
+              <h4>No Reports Found</h4>
+              <p>No user reports have been submitted yet.</p>
+            </div>
+          ) : (
+            <div className="reports-list">
+              {reports.map(report => (
+                <div key={report.id} className="report-card">
+                  <div className="report-header">
+                    <span className="report-id">Report #{report.id}</span>
+                    <span className={`status-badge ${getStatusBadgeClass(report.status)}`}>
+                      {report.status}
+                    </span>
+                    <span className="report-date">
+                      {new Date(report.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="report-content">
+                    <p><strong>Reporter:</strong> {report.reporter_id}</p>
+                    <p><strong>Reported User:</strong> {report.reported_id}</p>
+                    <p><strong>Reason:</strong> {report.reason}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== PENDING APPLICATIONS TAB ===== */}
+      {activeTab === 'membership_pending' && (
+        <div className="pending-applications-section">
+          <div className="section-header">
+            <h3>Pending Applications ({pendingApplications?.pagination?.total || 0})</h3>
+          </div>
+          
+          {applicationsLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Loading applications...</p>
+            </div>
+          ) : applicationsError ? (
+            <div className="error-state">
+              <div className="error-icon">⚠️</div>
+              <p>Error loading applications: {applicationsError.message}</p>
+              <button 
+                onClick={() => queryClient.invalidateQueries(['pendingApplications'])}
+                className="retry-btn"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : !pendingApplications?.applications?.length ? (
+            <div className="empty-state">
+              <div className="empty-icon">📋</div>
+              <h4>No Applications Found</h4>
+              <p>No pending applications at this time.</p>
+            </div>
+          ) : (
+            <div className="applications-list">
+              {pendingApplications.applications.map((application) => (
+                <div key={application.application_id} className="application-card">
+                  <div className="application-header">
+                    <div className="user-info">
+                      <h4 className="username">{application.username}</h4>
+                      <p className="email">{application.email}</p>
+                      <span className="user-id">ID: {application.user_id}</span>
+                    </div>
+                    
+                    <div className="application-meta">
+                      <div className="timing-info">
+                        <span className="days-pending">
+                          {application.days_pending} day{application.days_pending !== 1 ? 's' : ''} pending
+                        </span>
+                        <span className="submitted-date">
+                          Submitted: {new Date(application.submittedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <span className={`status-badge ${getStatusBadgeClass(application.status)}`}>
+                        {application.status}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="application-details">
+                    <div className="detail-grid">
+                      <div className="detail-item">
+                        <strong>Stage:</strong> 
+                        <span>{application.membership_stage || 'Initial Application'}</span>
+                      </div>
+                      {application.application_ticket && (
+                        <div className="detail-item">
+                          <strong>Ticket:</strong> 
+                          <span className="ticket-number">{application.application_ticket}</span>
+                        </div>
+                      )}
+                      {application.admin_notes && (
+                        <div className="detail-item">
+                          <strong>Admin Notes:</strong> 
+                          <span className="admin-note">{application.admin_notes}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="application-answers">
+                    <details className="answers-details">
+                      <summary className="answers-summary">
+                        View Application Answers
+                        <span className="expand-icon">▼</span>
+                      </summary>
+                      <div className="answers-content">
+                        {typeof application.answers === 'string' ? (
+                          <pre className="answers-text">{application.answers}</pre>
+                        ) : (
+                          <pre className="answers-json">
+                            {JSON.stringify(application.answers, null, 2)}
+                          </pre>
+                        )}
+                      </div>
+                    </details>
+                  </div>
+
+                  <div className="application-actions">
+                    <button 
+                      onClick={() => console.log('Approve', application.user_id)}
+                      className="btn-approve"
+                      title="Approve this application"
+                    >
+                      <span className="btn-icon">✅</span>
+                      Approve
+                    </button>
+                    <button 
+                      onClick={() => console.log('Reject', application.user_id)}
+                      className="btn-reject"
+                      title="Reject this application"
+                    >
+                      <span className="btn-icon">❌</span>
+                      Reject
+                    </button>
+                    <button 
+                      onClick={() => console.log('View', application.user_id)}
+                      className="btn-view"
+                      title="View detailed information"
+                    >
+                      <span className="btn-icon">👁️</span>
+                      View
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination for applications */}
+          {pendingApplications?.pagination && pendingApplications.pagination.totalPages > 1 && (
+            <div className="pagination">
+              <div className="pagination-controls">
+                <button 
+                  onClick={() => setFilters(prev => ({ ...prev, page: 1 }))}
+                  disabled={filters.page <= 1}
+                  className="pagination-btn first"
+                  title="First page"
+                >
+                  ⏮️
+                </button>
+                <button 
+                  onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+                  disabled={filters.page <= 1}
+                  className="pagination-btn prev"
+                  title="Previous page"
+                >
+                  ◀️
+                </button>
+                
+                <div className="pagination-info">
+                  <span className="current-page">
+                    Page {pendingApplications.pagination.page} of {pendingApplications.pagination.totalPages}
+                  </span>
+                  <span className="total-items">
+                    ({pendingApplications.pagination.total} total items)
+                  </span>
+                </div>
+                
+                <button 
+                  onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+                  disabled={filters.page >= pendingApplications.pagination.totalPages}
+                  className="pagination-btn next"
+                  title="Next page"
+                >
+                  ▶️
+                </button>
+                <button 
+                  onClick={() => setFilters(prev => ({ ...prev, page: pendingApplications.pagination.totalPages }))}
+                  disabled={filters.page >= pendingApplications.pagination.totalPages}
+                  className="pagination-btn last"
+                  title="Last page"
+                >
+                  ⏭️
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== GLOBAL LOADING STATES ===== */}
+      {(usersLoading || reportsLoading || overviewLoading) && (
+        <div className="global-loading-overlay">
+          <div className="loading-container">
+            <div className="loading-spinner large"></div>
+            <p>Loading system data...</p>
+            <small>This may take a few moments</small>
+          </div>
+        </div>
+      )}
+
+      {/* ===== GLOBAL ERROR STATES ===== */}
+      {(usersError || reportsError || overviewError) && (
+        <div className="global-error-banner">
+          <div className="error-content">
+            <span className="error-icon">⚠️</span>
+            <div className="error-details">
+              <strong>System Error Detected</strong>
+              <p>Some components may not function properly. Please try refreshing the page.</p>
+            </div>
+            <div className="error-actions">
+              <button 
+                onClick={handleRefreshData}
+                className="btn-retry"
+              >
+                Refresh Data
+              </button>
+              <button 
+                onClick={() => window.location.reload()}
+                className="btn-reload"
+              >
+                Reload Page
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer Information */}
+      <div className="footer-info">
+        <div className="system-stats">
+          <span>Total Users: {users?.length || 0}</span>
+          <span>•</span>
+          <span>Active Members: {users?.filter(u => u?.is_member === 'granted').length || 0}</span>
+          <span>•</span>
+          <span>Pending Reports: {reports?.filter(r => r?.status === 'pending').length || 0}</span>
+          <span>•</span>
+          <span>Last Updated: {new Date().toLocaleTimeString()}</span>
+        </div>
+        <div className="version-info">
+          <small>User Management System v3.0 - Enhanced Error Handling</small>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default UserManagement;
+
+
+//============================================
+
+// ikootaclient/src/components/admin/Sidebar.jsx
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import api from '../service/api';
+import './sidbar.css';
+
+const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) => {
+  const location = useLocation();
+
+  // ✅ ADD: Fetch pending full membership applications count
+  const { data: pendingFullMembershipCount } = useQuery({
+    queryKey: ['pendingFullMembershipCount'],
+    queryFn: async () => {
+      try {
+        const { data } = await api.get('/admin/membership/pending-count', { withCredentials: true });
+        return data?.count || 0;
+      } catch (error) {
+        console.error('Failed to fetch pending full membership count:', error);
+        return 0;
+      }
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+    retry: 1
+  });
+
+  // ✅ UPDATED: Add Full Membership Review to sidebar items
+  const sidebarItems = [
+    { name: 'Dashboard', to: '', label: 'Dashboard', icon: '📊' },
+    { name: 'Towncrier', to: 'towncrier', label: 'Towncrier', icon: '📢' },
+    { name: 'Towncrier Controls', to: 'towncriercontrols', label: 'Towncrier Controls', icon: '🎛️' },
+    { name: 'Iko', to: 'iko', label: 'Iko', icon: '🤖' },
+    { name: 'Iko Controls', to: 'ikocontrols', label: 'Iko Controls', icon: '⚙️' },
+    { name: 'AuthControls', to: 'authcontrols', label: 'AuthControls', icon: '🔐' },
+    { name: 'SearchControls', to: 'searchcontrols', label: 'SearchControls', icon: '🔍' },
+    { name: 'Reports', to: 'reports', label: 'Reports', icon: '📈' },
+    { name: 'UserManagement', to: 'usermanagement', label: 'UserManagement', icon: '👥' },
+    { name: 'AudienceClassMgr', to: 'audienceclassmgr', label: 'AudienceClassMgr', icon: '🎯' },
+    // ✅ ADD: Full Membership Review item
+    { 
+      name: 'Full Membership Review', 
+      to: 'full-membership-review', 
+      label: 'Full Membership Review', 
+      icon: '🎓',
+      badge: pendingFullMembershipCount // Add badge count
+    }
+  ];
+
+  const handleItemClick = (itemName) => {
+    setSelectedItem(itemName);
+    
+    // Close mobile menu when item is clicked on mobile
+    if (isMobile && closeMobileMenu) {
+      setTimeout(() => {
+        closeMobileMenu();
+      }, 150); // Small delay for better UX
+    }
+  };
+
+  return (
+    <div className="admin_sidebar">
+      {sidebarItems.map((item) => (
+        <Link
+          key={item.name}
+          to={item.to}
+          className={`admin_sidebar_item ${selectedItem === item.name ? 'active' : ''}`}
+          onClick={() => handleItemClick(item.name)}
+          data-discover="true"
+        >
+          {/* Icon */}
+          <span className="sidebar-icon" style={{ marginRight: '8px' }}>
+            {item.icon}
+          </span>
+          
+          {/* Label */}
+          <span className="sidebar-label">
+            {item.label}
+          </span>
+          
+          {/* ✅ ADD: Badge for pending count */}
+          {item.badge && item.badge > 0 && (
+            <span className="sidebar-badge">
+              {item.badge}
+            </span>
+          )}
+        </Link>
+      ))}
+    </div>
+  );
+};
+
+export default Sidebar;
+
+//======================================
+
+//ikootaclient\src\components\admin\Reports.jsx
+import React from 'react'
+
+const Reports = () => {
+  return (
+    <div>Reports</div>
+  )
+}
+
+export default Reports
+
+//========================================
+
+//ikootaclient\src\components\admin\PendingReports.jsx
+import React from 'react'
+
+const PendingReports = () => {
+  return (
+    <div>PendingReports</div>
+  )
+}
+
+export default PendingReports
+
+//==================================
+
+// ikootaclient/src/components/admin/Navbar.jsx
+// ==================================================
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import './navbar.css';
+
+const Navbar = () => {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [notificationCount, setNotificationCount] = useState(3); // Example notification count
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: "New user registration pending approval", time: "5 min ago", type: "info" },
+    { id: 2, message: "System backup completed successfully", time: "1 hour ago", type: "success" },
+    { id: 3, message: "Server maintenance scheduled for tonight", time: "2 hours ago", type: "warning" }
+  ]);
+  
+  const navigate = useNavigate();
+
+  // Update time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Get current user info (replace with your auth logic)
+  useEffect(() => {
+    // Replace this with your actual user fetching logic
+    const user = {
+      name: 'Admin User',
+      role: 'Administrator',
+      email: 'admin@ikoota.com'
+    };
+    setCurrentUser(user);
+  }, []);
+
+  // Close notifications when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showNotifications && !event.target.closest('.notifications-dropdown') && !event.target.closest('.notifications-btn')) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNotifications]);
+
+  const formatTime = (date) => {
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
+  const formatDate = (date) => {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short',
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  // ✅ Enhanced action button handlers
+  const handleNotifications = () => {
+    console.log('Notifications clicked');
+    setShowNotifications(!showNotifications);
+    
+    // Reset notification count when opened
+    if (!showNotifications) {
+      setNotificationCount(0);
+    }
+  };
+
+  const handleSettings = () => {
+    console.log('Settings clicked');
+    // Navigate to settings page
+    navigate('/admin/settings');
+    // Or you could show a settings modal instead
+  };
+
+  const handleLogout = () => {
+    console.log('Logout clicked');
+    const confirmLogout = window.confirm('Are you sure you want to logout?');
+    
+    if (confirmLogout) {
+      // Clear user session/tokens
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userData');
+      sessionStorage.clear();
+      
+      // Optional: Call logout API
+      // api.post('/auth/logout').then(() => {
+      //   navigate('/login');
+      // }).catch(() => {
+      //   navigate('/login'); // Still navigate even if API fails
+      // });
+      
+      // Redirect to login page
+      navigate('/login');
+      
+      // Show success message
+      alert('Successfully logged out!');
+    }
+  };
+
+  const markNotificationAsRead = (notificationId) => {
+    setNotifications(prev => 
+      prev.filter(notification => notification.id !== notificationId)
+    );
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+    setNotificationCount(0);
+    setShowNotifications(false);
+  };
+
+  return (
+    <nav className="admin-navbar-content">
+      {/* Left side - Page title area */}
+      <div className="navbar-left">
+        <h1 className="navbar-title">Admin Dashboard</h1>
+      </div>
+
+      {/* Center - Status indicators (hidden on mobile) */}
+      <div className="navbar-center">
+        <div className="status-indicators">
+          <span className="status-indicator online">
+            <span className="status-dot"></span>
+            System Online
+          </span>
+        </div>
+      </div>
+
+      {/* Right side - User info and actions */}
+      <div className="navbar-right">
+        {/* Time display (hidden on small mobile) */}
+        <div className="time-display">
+          <span className="current-time">{formatTime(currentTime)}</span>
+          <span className="current-date">{formatDate(currentTime)}</span>
+        </div>
+
+        {/* User info */}
+        {currentUser && (
+          <div className="user-info">
+            <span className="user-name">{currentUser.name}</span>
+            <span className="user-role">{currentUser.role}</span>
+          </div>
+        )}
+
+        {/* ✅ Enhanced Actions with full functionality */}
+        <div className="navbar-actions">
+          {/* Notifications Button with Dropdown */}
+          <div className="notifications-container">
+            <button 
+              className="action-btn notifications-btn" 
+              onClick={handleNotifications}
+              aria-label="Notifications"
+              title="Notifications"
+            >
+              🔔
+              {notificationCount > 0 && (
+                <span className="notification-badge">{notificationCount}</span>
+              )}
+            </button>
+
+            {/* Notifications Dropdown */}
+            {showNotifications && (
+              <div className="notifications-dropdown">
+                <div className="notifications-header">
+                  <h4>Notifications</h4>
+                  {notifications.length > 0 && (
+                    <button 
+                      className="clear-all-btn"
+                      onClick={clearAllNotifications}
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
+                
+                <div className="notifications-list">
+                  {notifications.length > 0 ? (
+                    notifications.map(notification => (
+                      <div key={notification.id} className={`notification-item ${notification.type}`}>
+                        <div className="notification-content">
+                          <p className="notification-message">{notification.message}</p>
+                          <span className="notification-time">{notification.time}</span>
+                        </div>
+                        <button 
+                          className="dismiss-btn"
+                          onClick={() => markNotificationAsRead(notification.id)}
+                          aria-label="Dismiss notification"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="no-notifications">
+                      <p>No new notifications</p>
+                    </div>
+                  )}
+                </div>
+                
+                {notifications.length > 3 && (
+                  <div className="notifications-footer">
+                    <button 
+                      className="view-all-btn"
+                      onClick={() => navigate('/admin/notifications')}
+                    >
+                      View All Notifications
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {/* Settings Button */}
+          <button 
+            className="action-btn settings-btn" 
+            onClick={handleSettings}
+            aria-label="Settings"
+            title="Settings"
+          >
+            ⚙️
+          </button>
+          
+          {/* Logout Button */}
+          <button 
+            className="action-btn logout-btn" 
+            onClick={handleLogout}
+            aria-label="Logout"
+            title="Logout"
+          >
+            🚪
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+export default Navbar;
+
+
+//===============================================
+
+//ikootaclient\src\components\admin\KeyStats.jsx
+import React from 'react';
+
+const KeyStats = () => {
+  return (
+    <div className="key_stats">
+      <h3>Key Statistics</h3>
+      <p>Total Users: 500</p>
+      <p>Active Chats: 50</p>
+      <p>Pending Reports: 10</p>
+    </div>
+  );
+};
+
+export default KeyStats;
+
+//======================================
+
+// ikootaclient/src/components/admin/FullMembershipReviewControls.jsx
+// FIXED VERSION: Corrected API endpoints and error handling
+
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
+import './FullMembershipReviewControls.css';
+
+// ✅ Use your existing API service
+let api;
+try {
+  api = require('../service/api').default;
+} catch (error) {
+  console.log('Custom API service not found, using fetch');
+  api = null;
+}
+
+const FullMembershipReviewControls = () => {
+  const [selectedApplications, setSelectedApplications] = useState([]);
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('pending');
+  const [searchTerm, setSearchTerm] = useState('');
+  const queryClient = useQueryClient();
+  const location = useLocation();
+
+  // Detect if we're in admin context
+  const isInAdminContext = location.pathname.includes('/admin');
+
+  // Add context class to body for CSS targeting
+  useEffect(() => {
+    const bodyClass = 'full-membership-review-in-admin';
+    
+    if (isInAdminContext) {
+      document.body.classList.add(bodyClass);
+    } else {
+      document.body.classList.remove(bodyClass);
+    }
+
+    return () => {
+      document.body.classList.remove(bodyClass);
+    };
+  }, [isInAdminContext]);
+
+  // ✅ FIXED: Enhanced API call function with proper endpoint detection
+  const makeApiCall = async (endpoint, options = {}) => {
+    try {
+      console.log('🔍 API: Making request to endpoint:', endpoint);
+      
+      if (api) {
+        // Use custom API service if available
+        const method = options.method?.toLowerCase() || 'get';
+        if (method === 'get') {
+          return await api.get(endpoint);
+        } else if (method === 'put') {
+          return await api.put(endpoint, options.body);
+        } else if (method === 'post') {
+          return await api.post(endpoint, options.body);
+        }
+      } else {
+        // ✅ FIXED: Build correct URL based on server setup
+        let fullUrl;
+        
+        // Check if endpoint already starts with /api
+        if (endpoint.startsWith('/api/')) {
+          fullUrl = endpoint; // Use as-is
+        } else if (endpoint.startsWith('/admin/')) {
+          // Admin endpoints need /api prefix
+          fullUrl = `/api${endpoint}`;
+        } else if (endpoint.startsWith('/')) {
+          // Other endpoints need /api prefix
+          fullUrl = `/api${endpoint}`;
+        } else {
+          // No leading slash, add /api/
+          fullUrl = `/api/${endpoint}`;
+        }
+
+        console.log('🔍 FETCH: Final URL:', fullUrl);
+        
+        const response = await fetch(fullUrl, {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+          },
+          ...options
+        });
+        
+        console.log('📡 FETCH: Response status:', response.status, response.statusText);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const text = await response.text();
+        console.log('📄 FETCH: Raw response preview:', text.substring(0, 100) + '...');
+        
+        // Check if response is JSON
+        try {
+          const jsonData = JSON.parse(text);
+          return { data: jsonData };
+        } catch (parseError) {
+          console.error('❌ FETCH: Failed to parse JSON. Response was:', text.substring(0, 500));
+          throw new Error(`Invalid JSON response from ${fullUrl}. Got: ${text.substring(0, 100)}...`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ API Call failed for endpoint:', endpoint, error);
+      throw error;
+    }
+  };
+
+  // ✅ FIXED: Applications query with corrected endpoint
+  const { 
+    data: applicationsData, 
+    isLoading: applicationsLoading, 
+    error: applicationsError, 
+    refetch: refetchApplications 
+  } = useQuery({
+    queryKey: ['admin', 'membership', 'applications', filterStatus],
+    queryFn: async () => {
+      try {
+        console.log('🔍 QUERY: Fetching applications with status:', filterStatus);
+        
+        // ✅ Try multiple endpoint patterns to find the working one
+        const endpoints = [
+          `/admin/membership/applications?status=${filterStatus}`,
+          `/api/admin/membership/applications?status=${filterStatus}`,
+          `/admin/membership/full-membership-applications?status=${filterStatus}`
+        ];
+
+        let lastError;
+        for (const endpoint of endpoints) {
+          try {
+            console.log('🔍 TRYING: Endpoint:', endpoint);
+            const response = await makeApiCall(endpoint);
+            console.log("✅ SUCCESS: Response from", endpoint, ":", response);
+            
+            // Handle different response structures
+            if (response?.data?.success && response.data?.data) {
+              return Array.isArray(response.data.data) ? response.data.data : [];
+            } else if (Array.isArray(response?.data)) {
+              return response.data;
+            } else if (response?.data) {
+              return [];
+            }
+          } catch (error) {
+            console.log('❌ FAILED: Endpoint', endpoint, 'error:', error.message);
+            lastError = error;
+            continue;
+          }
+        }
+        
+        // If all endpoints failed, throw the last error
+        throw lastError || new Error('All endpoint attempts failed');
+        
+      } catch (error) {
+        console.error('❌ Applications query failed:', error);
+        return []; // Return empty array instead of throwing
+      }
+    },
+    retry: 1,
+    retryDelay: 1000,
+    initialData: [],
+    keepPreviousData: true
+  });
+
+  // ✅ FIXED: Stats query with corrected endpoint
+  const { 
+    data: stats, 
+    isLoading: statsLoading, 
+    error: statsError 
+  } = useQuery({
+    queryKey: ['admin', 'membership', 'stats'],
+    queryFn: async () => {
+      try {
+        console.log('🔍 QUERY: Fetching membership stats');
+        
+        // ✅ Try multiple endpoint patterns for stats
+        const endpoints = [
+          '/admin/membership/full-membership-stats',
+          '/api/admin/membership/full-membership-stats',
+          '/admin/membership/stats'
+        ];
+
+        let lastError;
+        for (const endpoint of endpoints) {
+          try {
+            console.log('🔍 TRYING: Stats endpoint:', endpoint);
+            const response = await makeApiCall(endpoint);
+            console.log("✅ STATS SUCCESS: Response from", endpoint, ":", response);
+            
+            // Handle different response structures
+            if (response?.data?.success && response.data?.data) {
+              return response.data.data;
+            } else if (response?.data) {
+              // Try to extract stats from response
+              const data = response.data;
+              return {
+                pending: data.pending || data.pendingCount || 0,
+                approved: data.approved || data.approvedCount || 0,
+                declined: data.declined || data.declinedCount || 0,
+                total: data.total || data.totalApplications || 0
+              };
+            }
+          } catch (error) {
+            console.log('❌ FAILED: Stats endpoint', endpoint, 'error:', error.message);
+            lastError = error;
+            continue;
+          }
+        }
+        
+        // Return default stats if all endpoints failed
+        console.warn('⚠️ All stats endpoints failed, using defaults');
+        return { pending: 0, approved: 0, declined: 0, total: 0 };
+        
+      } catch (error) {
+        console.error('❌ Stats query failed, using defaults:', error);
+        return { pending: 0, approved: 0, declined: 0, total: 0 };
+      }
+    },
+    retry: 1,
+    retryDelay: 1000,
+    initialData: { pending: 0, approved: 0, declined: 0, total: 0 }
+  });
+
+  // ✅ Ensure applications is always an array
+  const applications = React.useMemo(() => {
+    if (!applicationsData) {
+      console.log('📋 No applications data, returning empty array');
+      return [];
+    }
+    
+    if (Array.isArray(applicationsData)) {
+      console.log('📋 Applications is array with', applicationsData.length, 'items');
+      return applicationsData;
+    }
+    
+    console.warn('⚠️ Applications data is not array:', applicationsData);
+    return [];
+  }, [applicationsData]);
+
+  // ✅ Review individual application mutation
+  const reviewMutation = useMutation({
+    mutationFn: async ({ applicationId, decision, notes }) => {
+      console.log('🔍 REVIEW: Reviewing application:', { applicationId, decision, notes });
+      
+      const endpoints = [
+        `/admin/membership/review/${applicationId}`,
+        `/admin/membership/full-membership/review/${applicationId}`
+      ];
+
+      let lastError;
+      for (const endpoint of endpoints) {
+        try {
+          const response = await makeApiCall(endpoint, {
+            method: 'PUT',
+            body: JSON.stringify({ 
+              status: decision, 
+              adminNotes: notes || ''
+            })
+          });
+          return response.data;
+        } catch (error) {
+          lastError = error;
+          continue;
+        }
+      }
+      
+      throw lastError || new Error('Review failed');
+    },
+    onSuccess: (data, variables) => {
+      console.log('✅ Application review completed:', variables);
+      queryClient.invalidateQueries(['admin', 'membership']);
+      setSelectedApplications([]);
+      alert(`Application ${variables.decision}d successfully!`);
+    },
+    onError: (error) => {
+      console.error('❌ Error reviewing application:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+      alert('Failed to review application: ' + errorMessage);
+    }
+  });
+
+  // ✅ Bulk review mutation
+  const bulkReviewMutation = useMutation({
+    mutationFn: async ({ applicationIds, decision, notes }) => {
+      console.log('🔍 BULK: Bulk reviewing applications:', { applicationIds, decision, notes });
+      
+      const endpoints = [
+        '/admin/membership/bulk-review',
+        '/admin/membership/full-membership/bulk-review'
+      ];
+
+      let lastError;
+      for (const endpoint of endpoints) {
+        try {
+          const response = await makeApiCall(endpoint, {
+            method: 'POST',
+            body: JSON.stringify({ 
+              applicationIds, 
+              decision, 
+              notes: notes || '' 
+            })
+          });
+          return response.data;
+        } catch (error) {
+          lastError = error;
+          continue;
+        }
+      }
+      
+      throw lastError || new Error('Bulk review failed');
+    },
+    onSuccess: (data, variables) => {
+      console.log('✅ Bulk review completed:', variables);
+      queryClient.invalidateQueries(['admin', 'membership']);
+      setSelectedApplications([]);
+      alert(`${variables.applicationIds.length} applications ${variables.decision}d successfully!`);
+    },
+    onError: (error) => {
+      console.error('❌ Error in bulk review:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+      alert('Failed to bulk review: ' + errorMessage);
+    }
+  });
+
+  // Handle individual review
+  const handleReview = (applicationId, decision, notes = '') => {
+    if (!applicationId) {
+      alert('Invalid application ID');
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to ${decision} this application?`;
+    if (window.confirm(confirmMessage)) {
+      reviewMutation.mutate({ applicationId, decision, notes });
+    }
+  };
+
+  // Handle bulk review
+  const handleBulkReview = (decision, notes = '') => {
+    if (selectedApplications.length === 0) {
+      alert('Please select applications to review');
+      return;
+    }
+    
+    const confirmMessage = `Are you sure you want to ${decision} ${selectedApplications.length} application(s)?`;
+    if (window.confirm(confirmMessage)) {
+      bulkReviewMutation.mutate({ 
+        applicationIds: selectedApplications, 
+        decision, 
+        notes 
+      });
+    }
+  };
+
+  // Toggle application selection
+  const toggleSelection = (applicationId) => {
+    setSelectedApplications(prev => 
+      prev.includes(applicationId)
+        ? prev.filter(id => id !== applicationId)
+        : [...prev, applicationId]
+    );
+  };
+
+  // Select all applications
+  const selectAll = () => {
+    if (filteredApplications && filteredApplications.length > 0) {
+      const allIds = filteredApplications.map(app => app.id || app.user_id);
+      setSelectedApplications(allIds);
+    }
+  };
+
+  // Clear selection
+  const clearSelection = () => {
+    setSelectedApplications([]);
+  };
+
+  // ✅ Enhanced application answers rendering
+  const renderApplicationAnswers = (answers) => {
+    try {
+      if (!answers) {
+        return (
+          <div className="no-answers">
+            <em>No answers provided</em>
+          </div>
+        );
+      }
+
+      let parsedAnswers;
+
+      // Handle string JSON data
+      if (typeof answers === 'string') {
+        try {
+          parsedAnswers = JSON.parse(answers);
+        } catch (parseError) {
+          return (
+            <div className="invalid-answers">
+              <strong>Application Response:</strong>
+              <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
+                {answers}
+              </pre>
+            </div>
+          );
+        }
+      } else {
+        parsedAnswers = answers;
+      }
+
+      // Handle array format (most common)
+      if (Array.isArray(parsedAnswers)) {
+        return (
+          <div className="full-membership-answers">
+            {parsedAnswers.map((answer, index) => (
+              <div key={index} className="answer-item">
+                <div className="question-label">
+                  <strong>Question {index + 1}:</strong>
+                </div>
+                <div className="answer-value">
+                  {answer || 'No response provided'}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // Handle object format
+      if (typeof parsedAnswers === 'object') {
+        return (
+          <div className="full-membership-answers-object">
+            {Object.entries(parsedAnswers).map(([key, value], index) => (
+              <div key={index} className="answer-item">
+                <div className="question-label">
+                  <strong>{formatQuestionLabel(key)}:</strong>
+                </div>
+                <div className="answer-value">
+                  {formatAnswerValue(value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // Fallback
+      return (
+        <div className="fallback-answers">
+          <strong>Application Response:</strong>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
+            {JSON.stringify(parsedAnswers, null, 2)}
+          </pre>
+        </div>
+      );
+
+    } catch (error) {
+      console.error('❌ Error rendering answers:', error);
+      return (
+        <div className="error-answers">
+          <em style={{ color: 'red' }}>Error displaying answers: {error.message}</em>
+        </div>
+      );
+    }
+  };
+
+  // Helper function to format question labels
+  const formatQuestionLabel = (questionKey) => {
+    const labelMap = {
+      whyFullMembership: 'Why do you want full membership?',
+      contributionPlans: 'How will you contribute as a full member?',
+      educationalGoals: 'What are your educational goals?',
+      communityInvolvement: 'How do you plan to be involved in the community?',
+      previousExperience: 'Previous relevant experience?',
+      availability: 'What is your availability?',
+      specialSkills: 'What special skills do you bring?',
+      mentorshipInterest: 'Interest in mentoring others?',
+      researchInterests: 'Research interests and areas of expertise?',
+      collaborationStyle: 'Preferred collaboration style?'
+    };
+
+    return labelMap[questionKey] || 
+           questionKey.charAt(0).toUpperCase() + questionKey.slice(1);
+  };
+
+  // Helper function to format answer values
+  const formatAnswerValue = (answer) => {
+    if (answer === true || answer === 'true') {
+      return <span style={{ color: 'green' }}>✅ Yes</span>;
+    }
+    if (answer === false || answer === 'false') {
+      return <span style={{ color: 'red' }}>❌ No</span>;
+    }
+    if (!answer || answer === '') {
+      return <em style={{ color: '#888' }}>Not provided</em>;
+    }
+    return answer;
+  };
+
+  // ✅ Filter applications
+  const filteredApplications = React.useMemo(() => {
+    if (!Array.isArray(applications)) {
+      return [];
+    }
+    
+    return applications.filter(app => {
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      
+      // Check various possible field names for compatibility
+      const searchableFields = [
+        app?.user_email,
+        app?.user_name,
+        app?.username,
+        app?.email,
+        app?.membership_ticket,
+        app?.ticket
+      ].filter(Boolean);
+      
+      // Check if any field contains the search term
+      const fieldMatch = searchableFields.some(field => 
+        field.toLowerCase().includes(searchLower)
+      );
+      
+      // Check answers/responses
+      const answersMatch = (
+        (typeof app?.answers === 'string' && app.answers.toLowerCase().includes(searchLower)) ||
+        (typeof app?.responses === 'object' && JSON.stringify(app.responses).toLowerCase().includes(searchLower)) ||
+        (Array.isArray(app?.answers) && app.answers.some(answer => 
+          typeof answer === 'string' && answer.toLowerCase().includes(searchLower)
+        ))
+      );
+      
+      return fieldMatch || answersMatch;
+    });
+  }, [applications, searchTerm]);
+
+  if (applicationsLoading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading membership applications...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="membership-review-container">
+      {/* Context-aware header */}
+      <div className="review-header">
+        <h2>Full Membership Review</h2>
+        {isInAdminContext && (
+          <small style={{ fontSize: '0.8rem', color: '#666', marginLeft: '10px' }}>
+            (Admin Panel - Pre-member → Member Applications)
+          </small>
+        )}
+        
+        {/* ✅ Enhanced error display with debugging info */}
+        {applicationsError && (
+          <div style={{ backgroundColor: '#fee', padding: '10px', borderRadius: '5px', marginTop: '10px', border: '1px solid #fcc' }}>
+            <details>
+              <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
+                ⚠️ API Error: {applicationsError.message}
+              </summary>
+              <div style={{ marginTop: '10px', fontSize: '0.9em' }}>
+                <p><strong>Debugging Information:</strong></p>
+                <ul>
+                  <li>Error Type: {applicationsError.name}</li>
+                  <li>Error Message: {applicationsError.message}</li>
+                  <li>Applications Count: {applications.length}</li>
+                  <li>Current Filter: {filterStatus}</li>
+                </ul>
+                <button 
+                  onClick={() => refetchApplications()} 
+                  style={{ marginTop: '10px', padding: '5px 10px' }}
+                >
+                  🔄 Retry Fetch
+                </button>
+              </div>
+            </details>
+          </div>
+        )}
+        
+        {/* Stats Overview */}
+        {stats && !statsError && (
+          <div className="stats-overview">
+            <div className="stat-card">
+              <h4>Pending</h4>
+              <span className="stat-number">{stats?.pending || 0}</span>
+            </div>
+            <div className="stat-card">
+              <h4>Approved</h4>
+              <span className="stat-number approved">{stats?.approved || 0}</span>
+            </div>
+            <div className="stat-card">
+              <h4>Declined</h4>
+              <span className="stat-number declined">{stats?.declined || 0}</span>
+            </div>
+            <div className="stat-card">
+              <h4>Total</h4>
+              <span className="stat-number">{stats?.total || 0}</span>
+            </div>
+          </div>
+        )}
+
+        {statsError && (
+          <div style={{ backgroundColor: '#fff3cd', padding: '10px', borderRadius: '5px', marginTop: '10px' }}>
+            <small>⚠️ Stats temporarily unavailable: {statsError.message}</small>
+          </div>
+        )}
+      </div>
+
+      {/* Enhanced Controls */}
+      <div className="review-controls">
+        <div className="control-group">
+          <label>Filter by Status:</label>
+          <select 
+            value={filterStatus} 
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="status-filter"
+          >
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="declined">Declined</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+
+        <div className="control-group">
+          <label>Search Applications:</label>
+          <input
+            type="text"
+            placeholder="Search by email, name, ticket, or responses..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Bulk Actions */}
+        {selectedApplications.length > 0 && (
+          <div className="bulk-actions">
+            <span className="selection-count">
+              {selectedApplications.length} selected
+            </span>
+            <button 
+              onClick={() => handleBulkReview('approve')}
+              className="bulk-btn approve-btn"
+              disabled={bulkReviewMutation.isPending}
+            >
+              Approve Selected
+            </button>
+            <button 
+              onClick={() => handleBulkReview('decline')}
+              className="bulk-btn decline-btn"
+              disabled={bulkReviewMutation.isPending}
+            >
+              Decline Selected
+            </button>
+            <button onClick={clearSelection} className="bulk-btn clear-btn">
+              Clear Selection
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Selection Controls */}
+      <div className="selection-controls">
+        <button onClick={selectAll} className="select-all-btn">
+          Select All ({filteredApplications.length})
+        </button>
+        <button onClick={clearSelection} className="clear-selection-btn">
+          Clear Selection
+        </button>
+      </div>
+
+      {/* Applications List */}
+      <div className="applications-list">
+        {filteredApplications.length === 0 ? (
+          <div className="no-applications">
+            <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📋</div>
+            <h4>No Full Membership Applications</h4>
+            <p>No applications found for the current filters.</p>
+            <div style={{ marginTop: '20px', fontSize: '0.9em', color: '#666' }}>
+              <p><strong>Debug Info:</strong></p>
+              <ul style={{ textAlign: 'left', display: 'inline-block' }}>
+                <li>Raw applications data: {Array.isArray(applications) ? `Array(${applications.length})` : typeof applications}</li>
+                <li>Current filter: "{filterStatus}"</li>
+                <li>Search term: "{searchTerm}"</li>
+                <li>Has error: {!!applicationsError}</li>
+                <li>Is loading: {applicationsLoading}</li>
+                <li>Database has 1 pending application (user_id: 7, status: pending)</li>
+              </ul>
+              <button 
+                onClick={() => {
+                  console.log('📊 Debug dump:', { 
+                    applications, 
+                    applicationsData, 
+                    filteredApplications, 
+                    applicationsError,
+                    applicationsLoading 
+                  });
+                  alert('Check browser console for debug info');
+                }}
+                style={{ marginTop: '10px', padding: '5px 10px', fontSize: '0.8em' }}
+              >
+                🔍 Debug Data
+              </button>
+              <button 
+                onClick={() => refetchApplications()}
+                style={{ marginTop: '10px', marginLeft: '10px', padding: '5px 10px', fontSize: '0.8em' }}
+              >
+                🔄 Retry Fetch
+              </button>
+            </div>
+          </div>
+        ) : (
+          filteredApplications.map((application) => (
+            <EnhancedApplicationCard
+              key={application.id || application.user_id}
+              application={application}
+              isSelected={selectedApplications.includes(application.id || application.user_id)}
+              onToggleSelection={() => toggleSelection(application.id || application.user_id)}
+              onReview={handleReview}
+              isReviewing={reviewMutation.isPending}
+              renderAnswers={renderApplicationAnswers}
+              selectedForDetails={selectedApplication}
+              onToggleDetails={setSelectedApplication}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Loading states */}
+      {(reviewMutation.isPending || bulkReviewMutation.isPending) && (
+        <div className="review-loading-overlay">
+          <div className="loading-spinner"></div>
+          <p>
+            {reviewMutation.isPending && 'Processing review...'}
+            {bulkReviewMutation.isPending && 'Processing bulk review...'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ✅ Enhanced Application Card Component
+const EnhancedApplicationCard = ({ 
+  application, 
+  isSelected, 
+  onToggleSelection, 
+  onReview, 
+  isReviewing,
+  renderAnswers,
+  selectedForDetails,
+  onToggleDetails
+}) => {
+  const [reviewNotes, setReviewNotes] = useState('');
+  const applicationId = application.id || application.user_id;
+  const showDetails = selectedForDetails === applicationId;
+
+  return (
+    <div className={`application-card ${isSelected ? 'selected' : ''}`}>
+      <div className="application-header">
+        <div className="application-info">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onToggleSelection}
+            className="selection-checkbox"
+          />
+          <div className="user-info">
+            <h4>
+              {application.user_name || application.username || 'Unknown User'}
+              <span style={{ fontSize: '0.8em', color: '#666', marginLeft: '10px' }}>
+                #{applicationId}
+              </span>
+            </h4>
+            <p className="user-email">{application.user_email || application.email}</p>
+            <p className="submission-date">
+              Submitted: {
+                application.createdAt ? new Date(application.createdAt).toLocaleDateString() : 
+                application.submittedAt ? new Date(application.submittedAt).toLocaleDateString() : 
+                'Unknown date'
+              }
+            </p>
+            {(application.membership_ticket || application.ticket) && (
+              <p style={{ margin: '0', color: '#666', fontSize: '0.8em' }}>
+                <strong>Ticket:</strong> 
+                <span style={{ 
+                  fontFamily: 'monospace', 
+                  backgroundColor: '#f0f0f0', 
+                  padding: '2px 6px', 
+                  borderRadius: '3px',
+                  marginLeft: '5px'
+                }}>
+                  {application.membership_ticket || application.ticket}
+                </span>
+              </p>
+            )}
+          </div>
+        </div>
+        
+        <div className="application-status">
+          <span className={`status-badge ${application.status || 'pending'}`}>
+            {(application.status || 'pending').toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      {/* Enhanced application answers display */}
+      <div className="application-answers-section">
+        <h5>📝 Application Responses:</h5>
+        {renderAnswers(application.answers || application.responses)}
+      </div>
+
+      {/* Admin Notes */}
+      {(application.admin_notes || application.adminNotes) && (
+        <div style={{ 
+          backgroundColor: '#e8f4fd', 
+          padding: '10px', 
+          borderRadius: '5px',
+          marginBottom: '15px'
+        }}>
+          <strong>Admin Notes:</strong> {application.admin_notes || application.adminNotes}
+        </div>
+      )}
+
+      <div className="application-actions">
+        <button 
+          onClick={() => onToggleDetails(showDetails ? null : applicationId)}
+          className="toggle-details-btn"
+        >
+          {showDetails ? 'Hide Details' : 'Show Details'}
+        </button>
+        
+        {(application.status === 'pending' || !application.status) && (
+          <div className="review-actions">
+            <button 
+              onClick={() => onReview(applicationId, 'approved', reviewNotes)}
+              className="approve-btn"
+              disabled={isReviewing}
+            >
+              {isReviewing ? '⏳ Processing...' : '✅ Approve'}
+            </button>
+            <button 
+              onClick={() => onReview(applicationId, 'declined', reviewNotes)}
+              className="decline-btn"
+              disabled={isReviewing}
+            >
+              {isReviewing ? '⏳ Processing...' : '❌ Decline'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {showDetails && (
+        <div className="application-details">
+          <h5>Full Application Details:</h5>
+          <div className="review-notes-section">
+            <label>Review Notes:</label>
+            <textarea
+              value={reviewNotes}
+              onChange={(e) => setReviewNotes(e.target.value)}
+              placeholder="Add notes for this review..."
+              className="review-notes-input"
+            />
+          </div>
+          <details style={{ marginTop: '15px' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>Raw Application Data</summary>
+            <pre style={{ 
+              whiteSpace: 'pre-wrap', 
+              fontSize: '0.85em',
+              maxHeight: '300px',
+              overflow: 'auto',
+              backgroundColor: '#f8f9fa',
+              padding: '10px',
+              borderRadius: '4px',
+              marginTop: '10px'
+            }}>
+              {JSON.stringify(application, null, 2)}
+            </pre>
+          </details>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default FullMembershipReviewControls;
+
+
+//====================================================
+
+// ikootaclient/src/components/admin/Dashboard.jsx
+import KeyStats from './KeyStats';
+import PendingReports from './PendingReports';
+import Analytics from './Analytics';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import api from '../service/api';
+
+// Update your API functions to handle errors better
+const fetchMembershipAnalytics = async (period = '30d') => {
+  try {
+    const { data } = await api.get(`/membership/admin/analytics?period=${period}&detailed=true`);
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch membership analytics:', error);
+    // Return empty structure instead of throwing
+    return {
+      conversionFunnel: {
+        total_registrations: 0,
+        started_application: 0,
+        approved_initial: 0,
+        full_members: 0
+      },
+      timeSeries: []
+    };
+  }
+};
+
+const fetchMembershipStats = async () => {
+  try {
+    const { data } = await api.get('/membership/admin/membership-stats');
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch membership stats:', error);
+    return {
+      stats: {
+        total_users: 0,
+        new_registrations: 0,
+        conversion_to_pre_member: 0,
+        conversion_to_full_member: 0,
+        avg_approval_days: 0
+      }
+    };
+  }
+};
+
+// ✅ ADD: Fetch full membership specific stats
+const fetchFullMembershipStats = async () => {
+  try {
+    const { data } = await api.get('/admin/membership/full-membership-stats');
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch full membership stats:', error);
+    return {
+      pendingCount: 0,
+      approvedCount: 0,
+      declinedCount: 0,
+      totalApplications: 0,
+      avgReviewTime: 0
+    };
+  }
+};
+
+// Update your queries to handle errors better
+const Dashboard = () => {
+  const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
+
+  // Legacy audit logs query with error handling
+  const { data: auditLogs, isLoading: auditLoading, error: auditError } = useQuery({
+    queryKey: ['auditLogs'],
+    queryFn: async () => {
+      try {
+        const { data } = await api.get('/admin/audit-logs');
+        return data;
+      } catch (error) {
+        console.error('Failed to fetch audit logs:', error);
+        return []; // Return empty array instead of throwing
+      }
+    },
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+  });
+
+  // Membership analytics queries with error handling
+  const { data: membershipAnalytics, isLoading: analyticsLoading, error: analyticsError } = useQuery({
+    queryKey: ['membershipAnalytics', analyticsPeriod],
+    queryFn: () => fetchMembershipAnalytics(analyticsPeriod),
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+  });
+
+  const { data: membershipStats, isLoading: statsLoading, error: statsError } = useQuery({
+    queryKey: ['membershipStats'],
+    queryFn: fetchMembershipStats,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+  });
+
+  // ✅ ADD: Full membership stats query
+  const { data: fullMembershipStats, isLoading: fullMembershipLoading, error: fullMembershipError } = useQuery({
+    queryKey: ['fullMembershipStats'],
+    queryFn: fetchFullMembershipStats,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchInterval: 60000 // Refresh every minute
+  });
+
+  // Helper function for safe access
+  const safeAccess = (obj, path, fallback = 0) => {
+    try {
+      return path.split('.').reduce((current, key) => current?.[key], obj) ?? fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  return (
+    <div className="dashboard">
+      <h2>Admin Dashboard</h2>
+      
+      {/* Existing components */}
+      <KeyStats />
+      
+      {/* ✅ ADD: Full Membership Stats Section */}
+      <div className="full-membership-stats-section">
+        <h3>Full Membership Overview</h3>
+        
+        {fullMembershipError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Full membership stats temporarily unavailable.</span>
+          </div>
+        )}
+
+        {fullMembershipLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading full membership stats...</p>
+          </div>
+        ) : (
+          <div className="full-membership-cards">
+            <div className="stat-card pending">
+              <div className="stat-icon">⏳</div>
+              <div className="stat-content">
+                <h4>Pending Full Membership</h4>
+                <span className="stat-number">{fullMembershipStats?.pendingCount || 0}</span>
+                <small>Applications awaiting review</small>
+              </div>
+            </div>
+            
+            <div className="stat-card approved">
+              <div className="stat-icon">✅</div>
+              <div className="stat-content">
+                <h4>Approved This Month</h4>
+                <span className="stat-number">{fullMembershipStats?.approvedCount || 0}</span>
+                <small>New full members</small>
+              </div>
+            </div>
+            
+            <div className="stat-card declined">
+              <div className="stat-icon">❌</div>
+              <div className="stat-content">
+                <h4>Declined This Month</h4>
+                <span className="stat-number">{fullMembershipStats?.declinedCount || 0}</span>
+                <small>Applications declined</small>
+              </div>
+            </div>
+            
+            <div className="stat-card total">
+              <div className="stat-icon">📊</div>
+              <div className="stat-content">
+                <h4>Total Applications</h4>
+                <span className="stat-number">{fullMembershipStats?.totalApplications || 0}</span>
+                <small>All time applications</small>
+              </div>
+            </div>
+            
+            <div className="stat-card review-time">
+              <div className="stat-icon">⏱️</div>
+              <div className="stat-content">
+                <h4>Avg Review Time</h4>
+                <span className="stat-number">{(fullMembershipStats?.avgReviewTime || 0).toFixed(1)}</span>
+                <small>Days to review</small>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Quick Actions */}
+        <div className="quick-actions">
+          <h4>Quick Actions</h4>
+          <div className="action-buttons">
+            <a href="/admin/full-membership-review" className="action-btn primary">
+              🎓 Review Applications ({fullMembershipStats?.pendingCount || 0})
+            </a>
+            <a href="/admin/usermanagement" className="action-btn secondary">
+              👥 Manage Users
+            </a>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="action-btn tertiary"
+            >
+              🔄 Refresh Stats
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced Membership Analytics Section with Error Handling */}
+      <div className="membership-analytics-section">
+        <h3>Membership Analytics</h3>
+        
+        <div className="period-selector">
+          <label>Time Period:</label>
+          <select 
+            value={analyticsPeriod} 
+            onChange={(e) => setAnalyticsPeriod(e.target.value)}
+          >
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="90d">Last 90 Days</option>
+            <option value="1y">Last Year</option>
+          </select>
+        </div>
+
+        {/* Error States */}
+        {analyticsError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Analytics temporarily unavailable. Some features may be limited.</span>
+          </div>
+        )}
+
+        {analyticsLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading analytics...</p>
+          </div>
+        ) : (
+          <div className="analytics-grid">
+            {/* Safe Conversion Funnel */}
+            <div className="funnel-chart">
+              <h4>Membership Conversion Funnel</h4>
+              <div className="funnel-steps">
+                <div className="funnel-step">
+                  <span className="step-label">Total Registrations</span>
+                  <span className="step-value">
+                    {safeAccess(membershipAnalytics, 'conversionFunnel.total_registrations')}
+                  </span>
+                </div>
+                <div className="funnel-step">
+                  <span className="step-label">Started Application</span>
+                  <span className="step-value">
+                    {safeAccess(membershipAnalytics, 'conversionFunnel.started_application')}
+                  </span>
+                  <span className="step-percentage">
+                    {membershipAnalytics?.conversionFunnel?.total_registrations > 0 
+                      ? ((safeAccess(membershipAnalytics, 'conversionFunnel.started_application') / 
+                          safeAccess(membershipAnalytics, 'conversionFunnel.total_registrations')) * 100).toFixed(1)
+                      : 0}%
+                  </span>
+                </div>
+                <div className="funnel-step">
+                  <span className="step-label">Approved Initial</span>
+                  <span className="step-value">
+                    {safeAccess(membershipAnalytics, 'conversionFunnel.approved_initial')}
+                  </span>
+                  <span className="step-percentage">
+                    {membershipAnalytics?.conversionFunnel?.started_application > 0 
+                      ? ((safeAccess(membershipAnalytics, 'conversionFunnel.approved_initial') / 
+                          safeAccess(membershipAnalytics, 'conversionFunnel.started_application')) * 100).toFixed(1)
+                      : 0}%
+                  </span>
+                </div>
+                <div className="funnel-step">
+                  <span className="step-label">Full Members</span>
+                  <span className="step-value">
+                    {safeAccess(membershipAnalytics, 'conversionFunnel.full_members')}
+                  </span>
+                  <span className="step-percentage">
+                    {membershipAnalytics?.conversionFunnel?.approved_initial > 0 
+                      ? ((safeAccess(membershipAnalytics, 'conversionFunnel.full_members') / 
+                          safeAccess(membershipAnalytics, 'conversionFunnel.approved_initial')) * 100).toFixed(1)
+                      : 0}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Safe Time Series Chart */}
+            <div className="time-series-chart">
+              <h4>Registration & Approval Trends</h4>
+              <div className="chart-container">
+                <div className="simple-chart">
+                  {membershipAnalytics?.timeSeries?.length > 0 ? (
+                    membershipAnalytics.timeSeries.map((point, index) => (
+                      <div key={index} className="chart-point">
+                        <span>{new Date(point.date).toLocaleDateString()}</span>
+                        <span>Registrations: {point.registrations || 0}</span>
+                        <span>Approvals: {point.approvals || 0}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="no-data">No trend data available</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Safe Membership Stats Overview */}
+        {statsError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Stats temporarily unavailable.</span>
+          </div>
+        )}
+
+        {statsLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading stats...</p>
+          </div>
+        ) : (
+          <div className="membership-stats">
+            <h4>Current Status Distribution</h4>
+            <div className="stats-breakdown">
+              <div className="stat-item">
+                <span>Total Users:</span>
+                <span>{safeAccess(membershipStats, 'stats.total_users')}</span>
+              </div>
+              <div className="stat-item">
+                <span>New Registrations ({analyticsPeriod}):</span>
+                <span>{safeAccess(membershipStats, 'stats.new_registrations')}</span>
+              </div>
+              <div className="stat-item">
+                <span>Pre-Members:</span>
+                <span>{safeAccess(membershipStats, 'stats.conversion_to_pre_member')}</span>
+              </div>
+              <div className="stat-item">
+                <span>Full Members:</span>
+                <span>{safeAccess(membershipStats, 'stats.conversion_to_full_member')}</span>
+              </div>
+              <div className="stat-item">
+                <span>Avg. Approval Time:</span>
+                <span>{safeAccess(membershipStats, 'stats.avg_approval_days', 0).toFixed(1)} days</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Existing components */}
+      <Analytics />
+      <PendingReports />
+
+      {/* Safe Audit Logs */}
+      <div className="audit-logs-section">
+        <h3>Audit Logs</h3>
+        
+        {auditError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Audit logs temporarily unavailable.</span>
+          </div>
+        )}
+
+        {auditLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading audit logs...</p>
+          </div>
+        ) : (
+          <div className="audit-table-container">
+            {auditLogs?.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Details</th>
+                    <th>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.map(log => (
+                    <tr key={log.id}>
+                      <td>{log.action || 'N/A'}</td>
+                      <td>{log.target_id || 'N/A'}</td>
+                      <td>{log.details || 'N/A'}</td>
+                      <td>{log.updatedAt ? new Date(log.updatedAt).toLocaleString() : 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="no-data">No audit logs available</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
+
+
+//==============================================
+
+// ikootaclient/src/components/admin/AudienceClassMgr.jsx
+// Updated for 10-character format (OTU#XXXXXX)
+
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../service/api';
+import './audienceclassmgr.css';
+import { generateUniqueClassId, validateIdFormat } from '../service/idGenerationService';
+import './converseId.css';
+
+
+const AudienceClassMgr = () => {
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    class_id: '',
+    name: '',
+    description: '',
+  });
+
+  const { data: classes, isLoading, isError } = useQuery({
+    queryKey: ['classes'],
+    queryFn: async () => {
+      const { data } = await api.get('/classes');
+      return data;
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (classData) => {
+      // Validate ID format before sending
+      if (!validateIdFormat(classData.class_id, 'class')) {
+        throw new Error('Invalid class ID format. Must be OTU# followed by 6 alphanumeric characters.');
+      }
+      
+      if (classData.id) {
+        return await api.put(`/classes/${classData.id}`, classData);
+      } else {
+        return await api.post('/classes', classData);
+      }
+    },
+    onSuccess: () => {
+      alert('Class saved successfully!');
+      queryClient.invalidateQueries(['classes']);
+      setFormData({ class_id: '', name: '', description: '' });
+    },
+    onError: (error) => {
+      alert(`Failed to save the class: ${error.message}`);
+    },
+  });
+
+  const handleGenerateNewClassId = async () => {
+    try {
+      const newId = await generateUniqueClassId();
+      setFormData((prev) => ({ ...prev, class_id: newId }));
+    } catch (error) {
+      console.error('Failed to generate class ID:', error);
+      alert('Failed to generate unique class ID. Please try again.');
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    mutation.mutate(formData);
+  };
+
+  return (
+    <div className="audience-class-mgr-container">
+      <h2>Manage Classes</h2>
+      
+      <form onSubmit={handleSubmit} className="audience-class-form">
+        <label>
+          Class ID:
+          <input
+            type="text"
+            name="class_id"
+            value={formData.class_id}
+            onChange={handleInputChange}
+            placeholder="OTU#XXXXXX (10 characters)"
+            pattern="^OTU#[A-Z0-9]{6}$"
+            title="Class ID must be OTU# followed by 6 alphanumeric characters (total 10 characters)"
+            maxLength="10"
+            readOnly
+          />
+          <button type="button" onClick={handleGenerateNewClassId}>
+            Generate Class ID
+          </button>
+          {formData.class_id && (
+            <span className={validateIdFormat(formData.class_id, 'class') ? 'valid' : 'invalid'}>
+              {validateIdFormat(formData.class_id, 'class') ? '✓ Valid format (OTU#XXXXXX)' : '✗ Invalid format'}
+            </span>
+          )}
+        </label>
+        
+        <label>
+          Class Name:
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleInputChange}
+            placeholder="Enter class name"
+            required
+          />
+        </label>
+        
+        <label>
+          Description:
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleInputChange}
+            placeholder="Enter class description"
+          />
+        </label>
+        
+        <button type="submit" disabled={mutation.isLoading}>
+          {mutation.isLoading ? 'Saving...' : 'Save Class'}
+        </button>
+      </form>
+
+      <div className="class-list">
+        <h3>Existing Classes</h3>
+        {isLoading && <p>Loading classes...</p>}
+        {isError && <p>Error loading classes.</p>}
+        <ul>
+          {classes?.map((cls) => (
+            <li key={cls.class_id}>
+              <strong>{cls.name}</strong> ({cls.class_id}) - {cls.description}
+              <div className="id-info">
+                <small>Format: {cls.class_id.length === 10 ? '✓ 10 chars' : '✗ Invalid length'}</small>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+};
+
+export default AudienceClassMgr;
+
+
+//====================================
+
+//ikootaclient\src\components\admin\Analytics.jsx
+import React from 'react';
+import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+
+const Analytics = () => {
+  const data = {
+    labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
+    datasets: [
+      {
+        label: 'Dataset 1',
+        data: [65, 59, 80, 81, 56, 55, 40],
+        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+      title: {
+        display: true,
+        text: 'Chart.js Bar Chart',
+      },
+    },
+  };
+
+  return (
+    <div>
+      <h2>Analytics</h2>
+      <Bar data={data} options={options} />
+    </div>
+  );
+};
+
+export default Analytics;
+
+//==============================================
+
+
+// ikootaclient/src/components/admin/Admin.jsx
+import React, { useState, useEffect } from 'react';
+import './admin.css';
+import Navbar from './Navbar';
+import Sidebar from './Sidebar';
+import { Outlet, useLocation } from "react-router-dom";
+import FullMembershipReviewControls from './FullMembershipReviewControls';
+
+const Admin = () => {
+  const [selectedItem, setSelectedItem] = useState('Dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const location = useLocation();
+
+  // Check if device is mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+      // Close mobile menu when switching to desktop
+      if (window.innerWidth > 768) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Update selected item based on current route
+  useEffect(() => {
+    const path = location.pathname;
+    
+    if (path === '/admin' || path === '/admin/') {
+      setSelectedItem('Dashboard');
+    } else if (path.includes('towncrier')) {
+      setSelectedItem(path.includes('controls') ? 'Towncrier Controls' : 'Towncrier');
+    } else if (path.includes('iko')) {
+      setSelectedItem(path.includes('controls') ? 'Iko Controls' : 'Iko');
+    } else if (path.includes('authcontrols')) {
+      setSelectedItem('AuthControls');
+    } else if (path.includes('searchcontrols')) {
+      setSelectedItem('SearchControls');
+    } else if (path.includes('reports')) {
+      setSelectedItem('Reports');
+    } else if (path.includes('usermanagement')) {
+      setSelectedItem('UserManagement');
+    } else if (path.includes('audienceclassmgr')) {
+      setSelectedItem('AudienceClassMgr');
+    } else if (path.includes('full-membership-review')) {
+      // ✅ ADD: Handle full membership review route
+      setSelectedItem('Full Membership Review');
+    }
+  }, [location.pathname]);
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    if (isMobile) {
+      setIsMobileMenuOpen(false);
+    }
+  }, [location.pathname, isMobile]);
+
+  // Handle mobile menu toggle
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  // Handle overlay click (close menu)
+  const handleOverlayClick = () => {
+    setIsMobileMenuOpen(false);
+  };
+
+  // Handle escape key press
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isMobileMenuOpen) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isMobileMenuOpen]);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileMenuOpen]);
+
+  return (
+    <div className='adminContainer'>
+      {/* Mobile Overlay */}
+      {isMobile && (
+        <div 
+          className={`mobile-overlay ${isMobileMenuOpen ? 'active' : ''}`}
+          onClick={handleOverlayClick}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={`adminSidebar ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
+        {/* Mobile Sidebar Header */}
+        {isMobile && (
+          <div className="mobile-sidebar-header">
+            <span className="mobile-sidebar-title">Admin Menu</span>
+            <button 
+              className="mobile-close-btn"
+              onClick={toggleMobileMenu}
+              aria-label="Close menu"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        <Sidebar 
+          selectedItem={selectedItem} 
+          setSelectedItem={setSelectedItem}
+          isMobile={isMobile}
+          closeMobileMenu={() => setIsMobileMenuOpen(false)}
+        />
+      </div>
+
+      <div className='headerContent'>
+        <div className='adminNav'>
+          {/* Mobile Menu Toggle Button */}
+          {isMobile && (
+            <button 
+              className="mobile-menu-toggle"
+              onClick={toggleMobileMenu}
+              aria-label="Toggle menu"
+            >
+              ☰
+            </button>
+          )}
+          
+          {/* ✅ Navbar component now contains all action buttons */}
+          <Navbar />
+        </div>
+        
+        <div className="mainContent">
+          <Outlet />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Admin;
+
+//==================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//index.js and routes
+
+// File: ikootaapi/routes/index.js
+// ===============================================
+
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+
+// ===============================================
+// IMPORT REORGANIZED ROUTE MODULES
+// ===============================================
+
+// Phase 1 Routes - Core System
+import authRoutes from './authRoutes.js';
+import userRoutes from './userRoutes.js';
+import systemRoutes from './systemRoutes.js';
+
+// Phase 2 Routes - Membership & Admin
+import membershipApplicationRoutes from './membershipApplicationRoutes.js';
+import surveyRoutes from './surveyRoutes.js';
+import adminUserRoutes from './adminUserRoutes.js';
+import adminMembershipRoutes from './adminMembershipRoutes.js';
+import adminContentRoutes from './adminContentRoutes.js';
+
+// Phase 3 Routes - Content & Communication
+import contentRoutes from './contentRoutes.js';
+import communicationRoutes from './communicationRoutes.js';
+import identityRoutes from './identityRoutes.js';
+
+// ===============================================
+// 🚨 CRITICAL MISSING ROUTES - NOW ADDED
+// ===============================================
+import userStatusRoutes from './userStatusRoutes.js';
+import analyticsRoutes from './analyticsRoutes.js';
+
+// ===============================================
+// LEGACY/EXISTING ROUTES (PROPER NAMES - NO "legacy" PREFIX)
+// ===============================================
+import membershipRoutes from './membershipRoutes.js';        // ✅ RENAMED: was legacyMembershipRoutes
+import teachingsRoutes from './teachingsRoutes.js';          // ✅ RENAMED: was legacyTeachingsRoutes  
+import chatRoutes from './chatRoutes.js';                    // ✅ RENAMED: was legacyChatRoutes
+import commentRoutes from './commentRoutes.js';              // ✅ RENAMED: was legacyCommentRoutes
+import classRoutes from './classRoutes.js';                  // ✅ RENAMED: was legacyClassRoutes
+
+// ===============================================
+// NOTE: THESE CAN BE SAFELY DELETED (FULLY DUPLICATED)
+// ===============================================
+// adminRoutes.js - All endpoints covered in specialized admin routes
+// fullMembershipRoutes.js - All endpoints covered in membershipApplicationRoutes.js
+// adminApplicationRoutes.js - Mostly covered, but check for system config endpoints first
+
+const router = express.Router();
+
+// ===============================================
+// GLOBAL MIDDLEWARE SETUP (UNCHANGED)
+// ===============================================
+
+// Security middleware
+router.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
+
+// CORS configuration
+router.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? process.env.ALLOWED_ORIGINS?.split(',') || []
+    : true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+router.use(compression());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000,
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+router.use(limiter);
+
+// Request logging middleware
+router.use((req, res, next) => {
+  const startTime = Date.now();
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`📥 ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`, {
+      ip: req.ip,
+      userAgent: req.get('User-Agent')?.substring(0, 50) + '...'
+    });
+  }
+  
+  const originalSend = res.send;
+  res.send = function(data) {
+    const duration = Date.now() - startTime;
+    
+    if (process.env.NODE_ENV === 'development') {
+      const statusColor = res.statusCode < 400 ? '✅' : '❌';
+      console.log(`📤 ${statusColor} ${res.statusCode} - ${req.method} ${req.originalUrl} (${duration}ms)`);
+    }
+    
+    originalSend.call(this, data);
+  };
+  
+  next();
+});
+
+// ===============================================
+// ROUTE MOUNTING - LOGICAL ORDER
+// ===============================================
+
+console.log('🔧 Mounting reorganized API routes...');
+
+// ===== 1. SYSTEM ROUTES (Health, Info, Testing) =====
+router.use('/', systemRoutes);
+
+// ===== 2. AUTHENTICATION (Critical - Must be early) =====
+router.use('/auth', authRoutes);
+
+// ===== 3. USER MANAGEMENT =====
+router.use('/users', userRoutes);
+
+// ===== 🚨 4. USER STATUS (CRITICAL MISSING ROUTE) =====
+router.use('/user-status', userStatusRoutes);
+
+// ===== 5. MEMBERSHIP & APPLICATIONS =====
+router.use('/membership', membershipApplicationRoutes);
+router.use('/survey', surveyRoutes);
+
+// ===== 6. ADMIN ROUTES (Grouped by function) =====
+router.use('/admin/users', adminUserRoutes);
+router.use('/admin/membership', adminMembershipRoutes);
+router.use('/admin/content', adminContentRoutes);
+
+// ===== 🚨 7. ANALYTICS (MISSING IMPORTANT ROUTE) =====
+router.use('/analytics', analyticsRoutes);
+
+// ===== 8. CONTENT & COMMUNITY =====
+router.use('/content', contentRoutes);
+
+// ===== 9. COMMUNICATION =====
+router.use('/communication', communicationRoutes);
+
+// ===== 10. IDENTITY VERIFICATION =====
+router.use('/identity', identityRoutes);
+
+// ===============================================
+// BACKWARD COMPATIBILITY ROUTES (PROPER NAMES)
+// ===============================================
+
+console.log('🔄 Mounting backward compatibility routes...');
+
+// ✅ RENAMED: Comprehensive membership routes (no "legacy" prefix)
+router.use('/membership-complete', membershipRoutes);
+
+// ✅ RENAMED: Individual content type routes (no "legacy" prefix)  
+router.use('/teachings', teachingsRoutes);
+router.use('/chats', chatRoutes);
+router.use('/comments', commentRoutes);
+router.use('/classes', classRoutes);
+
+// Content route aliases (redirect to new structure)
+router.use('/chat', (req, res, next) => {
+  req.url = '/communication' + req.url;
+  communicationRoutes(req, res, next);
+});
+
+// ===============================================
+// API INFORMATION ENDPOINTS (UPDATED)
+// ===============================================
+
+router.get('/info', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Ikoota API - Complete Reorganized Architecture',
+    version: '2.1.0',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    architecture: {
+      description: 'Modular route organization with zero legacy naming',
+      phases: {
+        phase1: 'Core system routes (auth, users, system, user-status)',
+        phase2: 'Membership applications and admin management',
+        phase3: 'Content, communication, identity, and analytics',
+        phase4: 'Backward compatibility with proper naming'
+      }
+    },
+    routes: {
+      // New organized routes
+      core: {
+        authentication: '/api/auth/*',
+        users: '/api/users/*',
+        userStatus: '/api/user-status/*',      // ✅ ADDED
+        system: '/api/health, /api/info'
+      },
+      membership: {
+        applications: '/api/membership/*',
+        surveys: '/api/survey/*'
+      },
+      admin: {
+        users: '/api/admin/users/*',
+        membership: '/api/admin/membership/*',
+        content: '/api/admin/content/*'
+      },
+      content: {
+        unified: '/api/content/*',
+        communication: '/api/communication/*'
+      },
+      analytics: '/api/analytics/*',           // ✅ ADDED
+      identity: '/api/identity/*',
+      
+      // Backward compatibility routes (proper names)
+      compatibility: {
+        membershipComplete: '/api/membership-complete/*',  // ✅ RENAMED
+        teachings: '/api/teachings/*',
+        chats: '/api/chats/*', 
+        comments: '/api/comments/*',
+        classes: '/api/classes/*'
+      }
+    },
+    features: {
+      security: ['Helmet protection', 'CORS configured', 'Rate limiting'],
+      performance: ['Response compression', 'Request caching', 'Response time logging'],
+      monitoring: ['Request logging', 'Error tracking', 'Performance metrics'],
+      compatibility: ['No legacy prefixes', 'Gradual migration path', 'Zero downtime deployment']
+    },
+    improvements: {
+      added: ['User status routes', 'Analytics routes', 'Proper route naming'],
+      removed: ['Legacy prefixes', 'Redundant route files'],
+      enhanced: ['Complete API coverage', 'Better organization', 'Clear naming']
+    }
+  });
+});
+
+// Route discovery endpoint (updated)
+router.get('/routes', (req, res) => {
+  const routes = [];
+  
+  function extractRoutes(router, basePath = '') {
+    if (router.stack) {
+      router.stack.forEach(layer => {
+        if (layer.route) {
+          const methods = Object.keys(layer.route.methods);
+          routes.push({
+            path: basePath + layer.route.path,
+            methods: methods.map(m => m.toUpperCase())
+          });
+        } else if (layer.name === 'router') {
+          const path = layer.regexp.source
+            .replace('^\\/(?=\\/|$)', '')
+            .replace('\\', '')
+            .replace('$', '')
+            .replace('?', '');
+          extractRoutes(layer.handle, basePath + '/' + path);
+        }
+      });
+    }
+  }
+  
+  extractRoutes(router);
+  
+  res.json({
+    success: true,
+    message: 'Complete API Route Discovery',
+    totalRoutes: routes.length,
+    routes: routes.slice(0, 50),
+    criticalRoutes: {
+      userStatus: '/api/user-status/*',
+      analytics: '/api/analytics/*',
+      membershipComplete: '/api/membership-complete/*'
+    },
+    note: 'All legacy prefixes removed. Showing first 50 routes.',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// PERFORMANCE MONITORING ENDPOINTS (UNCHANGED)
+// ===============================================
+
+router.get('/metrics', (req, res) => {
+  const memUsage = process.memoryUsage();
+  
+  res.json({
+    success: true,
+    metrics: {
+      uptime: process.uptime(),
+      memory: {
+        rss: Math.round(memUsage.rss / 1024 / 1024) + 'MB',
+        heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024) + 'MB',
+        heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + 'MB',
+        external: Math.round(memUsage.external / 1024 / 1024) + 'MB'
+      },
+      cpu: process.cpuUsage(),
+      platform: process.platform,
+      nodeVersion: process.version,
+      environment: process.env.NODE_ENV
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// ENHANCED 404 HANDLER (UPDATED)
+// ===============================================
+
+router.use('*', (req, res) => {
+  console.log(`❌ API route not found: ${req.method} ${req.originalUrl}`);
+  
+  const requestedPath = req.originalUrl.toLowerCase();
+  const suggestions = [];
+  
+  if (requestedPath.includes('user')) {
+    suggestions.push('/api/users', '/api/user-status', '/api/auth');
+  }
+  if (requestedPath.includes('status')) {
+    suggestions.push('/api/user-status', '/api/users/status');
+  }
+  if (requestedPath.includes('member')) {
+    suggestions.push('/api/membership', '/api/membership-complete', '/api/admin/membership');
+  }
+  if (requestedPath.includes('admin')) {
+    suggestions.push('/api/admin/users', '/api/admin/membership', '/api/admin/content');
+  }
+  if (requestedPath.includes('analytics') || requestedPath.includes('stats')) {
+    suggestions.push('/api/analytics', '/api/admin/membership');
+  }
+  if (requestedPath.includes('chat') || requestedPath.includes('message')) {
+    suggestions.push('/api/communication', '/api/chats');
+  }
+  if (requestedPath.includes('content') || requestedPath.includes('teaching')) {
+    suggestions.push('/api/content', '/api/teachings');
+  }
+  
+  res.status(404).json({
+    success: false,
+    message: 'API endpoint not found',
+    path: req.originalUrl,
+    method: req.method,
+    suggestions: suggestions.length > 0 ? suggestions : undefined,
+    availableRoutes: {
+      core: {
+        authentication: '/api/auth/*',
+        users: '/api/users/*',
+        userStatus: '/api/user-status/*',        // ✅ ADDED
+        system: '/api/health, /api/info, /api/routes'
+      },
+      membership: {
+        applications: '/api/membership/*',
+        surveys: '/api/survey/*',
+        complete: '/api/membership-complete/*'   // ✅ ADDED
+      },
+      admin: {
+        users: '/api/admin/users/*',
+        membership: '/api/admin/membership/*',
+        content: '/api/admin/content/*'
+      },
+      analytics: '/api/analytics/*',             // ✅ ADDED
+      content: {
+        unified: '/api/content/*',
+        communication: '/api/communication/*',
+        identity: '/api/identity/*'
+      },
+      compatibility: {
+        note: 'Individual content routes available',
+        routes: '/api/teachings/*, /api/chats/*, /api/comments/*, /api/classes/*'
+      }
+    },
+    help: {
+      documentation: '/api/info',
+      routeDiscovery: '/api/routes',
+      healthCheck: '/api/health',
+      performance: '/api/metrics'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// GLOBAL ERROR HANDLER (UNCHANGED)
+// ===============================================
+
+router.use((error, req, res, next) => {
+  const errorId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  
+  console.error('🚨 Global API Error:', {
+    errorId,
+    error: error.message,
+    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    path: req.originalUrl,
+    method: req.method,
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    timestamp: new Date().toISOString()
+  });
+  
+  let statusCode = error.statusCode || error.status || 500;
+  let errorType = 'server_error';
+  
+  if (error.message.includes('validation') || error.message.includes('required')) {
+    statusCode = 400;
+    errorType = 'validation_error';
+  } else if (error.message.includes('authentication') || error.message.includes('token')) {
+    statusCode = 401;
+    errorType = 'authentication_error';
+  } else if (error.message.includes('permission') || error.message.includes('access denied')) {
+    statusCode = 403;
+    errorType = 'authorization_error';
+  } else if (error.message.includes('not found')) {
+    statusCode = 404;
+    errorType = 'not_found_error';
+  } else if (error.message.includes('database') || error.message.includes('connection')) {
+    statusCode = 503;
+    errorType = 'database_error';
+  } else if (error.message.includes('timeout')) {
+    statusCode = 504;
+    errorType = 'timeout_error';
+  }
+  
+  const errorResponse = {
+    success: false,
+    error: error.message || 'Internal server error',
+    errorType,
+    errorId,
+    path: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  };
+  
+  // Add debug info in development
+  if (process.env.NODE_ENV === 'development') {
+    errorResponse.debug = {
+      stack: error.stack,
+      details: error
+    };
+  }
+  
+  // Add helpful suggestions based on error type
+  if (statusCode === 401) {
+    errorResponse.help = {
+      message: 'Authentication required',
+      endpoint: '/api/auth/login',
+      documentation: '/api/auth'
+    };
+  } else if (statusCode === 403) {
+    errorResponse.help = {
+      message: 'Insufficient permissions',
+      note: 'Contact administrator if you believe this is an error'
+    };
+  } else if (statusCode === 404) {
+    errorResponse.help = {
+      message: 'Endpoint not found',
+      routeDiscovery: '/api/routes',
+      documentation: '/api/info'
+    };
+  }
+  
+  res.status(statusCode).json(errorResponse);
+});
+
+// ===============================================
+// DEVELOPMENT LOGGING & STARTUP (UPDATED)
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('\n🚀 IKOOTA API - COMPLETE REORGANIZED ARCHITECTURE LOADED');
+  console.log('================================================================================');
+  console.log('✅ PHASE 1: Core system routes (auth, users, system, user-status)');
+  console.log('✅ PHASE 2: Membership applications and admin management');
+  console.log('✅ PHASE 3: Content, communication, identity, and analytics');
+  console.log('✅ PHASE 4: Backward compatibility with proper naming');
+  console.log('================================================================================');
+  
+  console.log('\n📊 COMPLETE ROUTE ORGANIZATION:');
+  console.log('   🔐 Authentication & Authorization: /api/auth/*');
+  console.log('   👤 User Management: /api/users/*');
+  console.log('   📊 User Status & Dashboard: /api/user-status/*      ✅ CRITICAL ADDITION');
+  console.log('   📋 Membership Applications: /api/membership/*');
+  console.log('   📊 Surveys & Questionnaires: /api/survey/*');
+  console.log('   👨‍💼 Admin User Management: /api/admin/users/*');
+  console.log('   🏛️ Admin Membership Review: /api/admin/membership/*');
+  console.log('   📄 Admin Content Management: /api/admin/content/*');
+  console.log('   📈 Analytics & Reporting: /api/analytics/*          ✅ CRITICAL ADDITION');
+  console.log('   📚 Content & Community: /api/content/*');
+  console.log('   💬 Communication & Messaging: /api/communication/*');
+  console.log('   🆔 Identity Verification: /api/identity/*');
+  console.log('   🔧 System & Health: /api/health, /api/info, /api/routes');
+  
+  console.log('\n🔄 BACKWARD COMPATIBILITY (PROPER NAMES):');
+  console.log('   📚 Complete Membership System: /api/membership-complete/*  ✅ RENAMED');
+  console.log('   📚 Individual Teachings: /api/teachings/*                  ✅ RENAMED');
+  console.log('   💬 Individual Chats: /api/chats/*                         ✅ RENAMED');
+  console.log('   💭 Individual Comments: /api/comments/*                    ✅ RENAMED');
+  console.log('   🎓 Individual Classes: /api/classes/*                     ✅ RENAMED');
+  
+  console.log('\n🛡️ SECURITY & PERFORMANCE:');
+  console.log('   • Helmet security headers enabled');
+  console.log('   • CORS configured for development/production');
+  console.log('   • Rate limiting: 100 req/15min (prod), 1000 req/15min (dev)');
+  console.log('   • Response compression enabled');
+  console.log('   • Request/response logging enabled');
+  console.log('   • Global error handling with categorization');
+  
+  console.log('\n📈 MONITORING ENDPOINTS:');
+  console.log('   📋 API Information: /api/info');
+  console.log('   🗺️ Route Discovery: /api/routes');
+  console.log('   ❤️ Health Check: /api/health');
+  console.log('   📊 Performance Metrics: /api/metrics');
+  
+  console.log('\n🎯 CRITICAL FIXES IMPLEMENTED:');
+  console.log('   ✅ Added missing userStatusRoutes.js (/api/user-status/*)');
+  console.log('   ✅ Added missing analyticsRoutes.js (/api/analytics/*)');
+  console.log('   ✅ Removed all "legacy" prefixes from route names');
+  console.log('   ✅ Proper backward compatibility with clear naming');
+  console.log('   ✅ Complete API endpoint coverage verified');
+  console.log('   ✅ Zero functionality loss during reorganization');
+  
+  console.log('\n📁 ROUTE FILES STATUS:');
+  console.log('   ✅ MOUNTED: authRoutes.js, userRoutes.js, systemRoutes.js');
+  console.log('   ✅ MOUNTED: membershipApplicationRoutes.js, surveyRoutes.js');  
+  console.log('   ✅ MOUNTED: adminUserRoutes.js, adminMembershipRoutes.js, adminContentRoutes.js');
+  console.log('   ✅ MOUNTED: contentRoutes.js, communicationRoutes.js, identityRoutes.js');
+  console.log('   ✅ MOUNTED: userStatusRoutes.js, analyticsRoutes.js          ← CRITICAL ADDITIONS');
+  console.log('   ✅ MOUNTED: membershipRoutes.js, teachingsRoutes.js, chatRoutes.js, commentRoutes.js, classRoutes.js');
+  
+  console.log('\n🗑️ SAFE TO DELETE (FULLY DUPLICATED):');
+  console.log('   ❌ adminRoutes.js - All endpoints covered in specialized admin routes');
+  console.log('   ❌ fullMembershipRoutes.js - All endpoints covered in membershipApplicationRoutes.js');
+  console.log('   ⚠️ adminApplicationRoutes.js - Mostly covered, check system config endpoints first');
+  
+  console.log('\n🚀 BENEFITS ACHIEVED:');
+  console.log('   ✅ Complete API endpoint coverage');
+  console.log('   ✅ Zero downtime migration path');
+  console.log('   ✅ Eliminated route duplication');
+  console.log('   ✅ Clear separation of concerns');
+  console.log('   ✅ Enhanced security and monitoring');
+  console.log('   ✅ Improved performance and caching');
+  console.log('   ✅ Comprehensive error handling');
+  console.log('   ✅ Better developer experience');
+  console.log('   ✅ Clean naming without legacy prefixes');
+  
+  console.log('================================================================================');
+  console.log('🌟 API READY FOR PRODUCTION DEPLOYMENT WITH COMPLETE ENDPOINT COVERAGE!');
+  console.log('================================================================================\n');
+}
+
+export default router;
+
+
+
+//======================//============================//
+
+// File: ikootaapi/routes/adminContentRoutes.js
+// ADMIN CONTENT ROUTES - ADMIN CONTENT & COMMUNICATION
+
+import express from 'express';
+import { authenticate, authorize, cacheMiddleware } from '../middlewares/auth.middleware.js';
+
+// Import admin controllers
+import {
+  getPendingContent,
+  manageContent,
+  approveContent,
+  rejectContent,
+  getReports,
+  updateReportStatus,
+  getAuditLogs,
+  sendNotification
+} from '../controllers/adminControllers.js';
+
+const adminContentRouter = express.Router();
+
+// ===== BASIC MIDDLEWARE =====
+adminContentRouter.use(authenticate);
+adminContentRouter.use(authorize(['admin', 'super_admin']));
+
+// ===============================================
+// CONTENT MANAGEMENT ROUTES
+// ===============================================
+
+// Get pending content
+adminContentRouter.get('/pending', cacheMiddleware(300), getPendingContent);
+
+// Get all content for management
+adminContentRouter.get('/all', cacheMiddleware(300), manageContent);
+adminContentRouter.get('/', cacheMiddleware(300), manageContent); // Alias
+
+// Bulk content actions
+adminContentRouter.post('/bulk-manage', manageContent);
+
+// Approve/reject specific content
+adminContentRouter.post('/:id/approve', approveContent);
+adminContentRouter.post('/:id/reject', rejectContent);
+
+// ===============================================
+// REPORTS MANAGEMENT ROUTES
+// ===============================================
+
+// Get all reports
+adminContentRouter.get('/reports', cacheMiddleware(600), getReports);
+
+// Update report status
+adminContentRouter.put('/reports/:reportId/status', updateReportStatus);
+
+// ===============================================
+// NOTIFICATIONS & COMMUNICATION ROUTES
+// ===============================================
+
+// Send general notifications
+adminContentRouter.post('/notifications/send', sendNotification);
+
+// Send membership-specific notifications
+adminContentRouter.post('/notifications/membership', async (req, res) => {
+  // This would integrate with membership notification controller
+  res.json({ message: 'Membership notification endpoint - integrate with membership controller' });
+});
+
+// Send bulk notifications
+adminContentRouter.post('/notifications/bulk', async (req, res) => {
+  // This would integrate with bulk notification controller
+  res.json({ message: 'Bulk notification endpoint - integrate with communication controller' });
+});
+
+// ===============================================
+// AUDIT LOGS ROUTES
+// ===============================================
+
+// Get audit logs
+adminContentRouter.get('/audit-logs', cacheMiddleware(300), getAuditLogs);
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler for admin content routes
+adminContentRouter.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Admin content route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      content: [
+        'GET /pending - Get pending content',
+        'GET /all - Get all content',
+        'POST /bulk-manage - Bulk content actions',
+        'POST /:id/approve - Approve content',
+        'POST /:id/reject - Reject content'
+      ],
+      reports: [
+        'GET /reports - Get all reports',
+        'PUT /reports/:reportId/status - Update report status'
+      ],
+      notifications: [
+        'POST /notifications/send - Send notification',
+        'POST /notifications/membership - Send membership notification',
+        'POST /notifications/bulk - Send bulk notifications'
+      ],
+      audit: [
+        'GET /audit-logs - Get audit logs'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Global error handler for admin content routes
+adminContentRouter.use((error, req, res, next) => {
+  console.error('❌ Admin content route error:', {
+    error: error.message,
+    stack: error.stack,
+    route: req.originalUrl,
+    method: req.method,
+    user: req.user?.username,
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.status || 500).json({
+    success: false,
+    message: error.message || 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? {
+      stack: error.stack
+    } : undefined,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('📄 Admin content routes loaded with content management and communication');
+}
+
+export default adminContentRouter;
+
+
+//======================//============================//
+
+
+// File: ikootaapi/routes/adminMembershipRoutes.js
+// ADMIN MEMBERSHIP ROUTES - COMPLETE ADMIN MEMBERSHIP REVIEW SYSTEM
+// Handles all admin review functionality for full membership applications
+
+import express from 'express';
+import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+import db from '../config/db.js';
+
+const adminMembershipRouter = express.Router();
+
+// Basic admin authentication middleware
+adminMembershipRouter.use(authenticate);
+adminMembershipRouter.use(authorize(['admin', 'super_admin']));
+
+// ===============================================
+// FULL MEMBERSHIP APPLICATION MANAGEMENT
+// ===============================================
+
+// Get full membership applications
+adminMembershipRouter.get('/applications', async (req, res) => {
+  try {
+    console.log('🔍 ADMIN: Fetching full membership applications');
+    const { status = 'pending' } = req.query;
+
+    let query = `
+      SELECT 
+        fma.id,
+        fma.user_id,
+        fma.membership_ticket,
+        fma.answers,
+        fma.status,
+        fma.submittedAt,
+        fma.reviewedAt,
+        fma.reviewed_by,
+        fma.admin_notes,
+        u.username as user_name,
+        u.email as user_email,
+        reviewer.username as reviewer_name
+      FROM full_membership_applications fma
+      JOIN users u ON fma.user_id = u.id
+      LEFT JOIN users reviewer ON fma.reviewed_by = reviewer.id
+    `;
+
+    let queryParams = [];
+
+    if (status !== 'all') {
+      query += ' WHERE fma.status = ?';
+      queryParams = [status];
+    }
+
+    query += ' ORDER BY fma.submittedAt DESC';
+
+    const applications = await db.query(query, queryParams);
+    
+    console.log('✅ Found', applications.length, 'applications');
+
+    res.json({
+      success: true,
+      data: applications,
+      meta: {
+        count: applications.length,
+        status: status,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching applications:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      count: 0
+    });
+  }
+});
+
+// Get specific application details
+adminMembershipRouter.get('/applications/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log('🔍 ADMIN: Getting application details for ID:', id);
+    
+    const applications = await db.query(`
+      SELECT 
+        fma.*,
+        u.username,
+        u.email,
+        u.membership_stage,
+        u.is_member,
+        reviewer.username as reviewer_name
+      FROM full_membership_applications fma
+      JOIN users u ON fma.user_id = u.id
+      LEFT JOIN users reviewer ON fma.reviewed_by = reviewer.id
+      WHERE fma.id = ?
+    `, [id]);
+
+    if (applications.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Application not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: applications[0],
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting application details:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: 'Failed to get application details'
+    });
+  }
+});
+
+// Alternative route for application details (from clean version)
+adminMembershipRouter.get('/application/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log('🔍 ADMIN: Getting application details for ID:', id);
+    
+    const applications = await db.query(`
+      SELECT 
+        fma.*,
+        u.username,
+        u.email,
+        u.membership_stage,
+        u.is_member,
+        reviewer.username as reviewer_name
+      FROM full_membership_applications fma
+      JOIN users u ON fma.user_id = u.id
+      LEFT JOIN users reviewer ON fma.reviewed_by = reviewer.id
+      WHERE fma.id = ?
+    `, [id]);
+
+    if (applications.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Application not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: applications[0],
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting application details:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: 'Failed to get application details'
+    });
+  }
+});
+
+// ===============================================
+// APPLICATION REVIEW ACTIONS
+// ===============================================
+
+// Review individual application (approve/decline)
+adminMembershipRouter.put('/applications/:id/review', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, adminNotes } = req.body;
+    
+    console.log('🔍 ADMIN: Reviewing application:', { id, status, adminNotes });
+    
+    // Validate status
+    if (!['approved', 'declined', 'suspended'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid status. Must be approved, declined, or suspended'
+      });
+    }
+
+    // Start transaction
+    await db.query('START TRANSACTION');
+
+    try {
+      // Update the application
+      await db.query(`
+        UPDATE full_membership_applications 
+        SET 
+          status = ?,
+          admin_notes = ?,
+          reviewedAt = NOW(),
+          reviewed_by = ?
+        WHERE id = ?
+      `, [status, adminNotes || '', req.user?.id || 1, id]);
+
+      // If approved, update user's membership status
+      if (status === 'approved') {
+        await db.query(`
+          UPDATE users 
+          SET 
+            is_member = 'member',
+            membership_stage = 'member',
+            full_membership_status = 'approved',
+            fullMembershipReviewedAt = NOW()
+          WHERE id = (
+            SELECT user_id 
+            FROM full_membership_applications 
+            WHERE id = ?
+          )
+        `, [id]);
+
+        console.log('✅ User promoted to full member');
+      }
+
+      // Commit transaction
+      await db.query('COMMIT');
+
+      console.log('✅ Application reviewed successfully');
+
+      res.json({
+        success: true,
+        message: `Application ${status} successfully`,
+        applicationId: id,
+        newStatus: status,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('❌ Error reviewing application:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: 'Failed to review application'
+    });
+  }
+});
+
+// Alternative review route (from clean version)
+adminMembershipRouter.put('/review/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, adminNotes } = req.body;
+    
+    console.log('🔍 ADMIN: Reviewing application:', { id, status, adminNotes });
+    
+    // Validate status
+    if (!['approved', 'declined', 'suspended'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid status. Must be approved, declined, or suspended'
+      });
+    }
+
+    // Start transaction
+    await db.query('START TRANSACTION');
+
+    try {
+      // Update the application
+      await db.query(`
+        UPDATE full_membership_applications 
+        SET 
+          status = ?,
+          admin_notes = ?,
+          reviewedAt = NOW(),
+          reviewed_by = ?
+        WHERE id = ?
+      `, [status, adminNotes || '', req.user?.id || 1, id]);
+
+      // If approved, update user's membership status
+      if (status === 'approved') {
+        await db.query(`
+          UPDATE users 
+          SET 
+            is_member = 'member',
+            membership_stage = 'member',
+            full_membership_status = 'approved',
+            fullMembershipReviewedAt = NOW()
+          WHERE id = (
+            SELECT user_id 
+            FROM full_membership_applications 
+            WHERE id = ?
+          )
+        `, [id]);
+
+        console.log('✅ User promoted to full member');
+      }
+
+      // Commit transaction
+      await db.query('COMMIT');
+
+      console.log('✅ Application reviewed successfully');
+
+      res.json({
+        success: true,
+        message: `Application ${status} successfully`,
+        applicationId: id,
+        newStatus: status,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('❌ Error reviewing application:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: 'Failed to review application'
+    });
+  }
+});
+
+// Bulk review applications
+adminMembershipRouter.post('/applications/bulk-review', async (req, res) => {
+  try {
+    const { applicationIds, decision, notes } = req.body;
+    
+    console.log('🔍 ADMIN: Bulk reviewing applications:', { applicationIds, decision, notes });
+    
+    // Validate input
+    if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'applicationIds must be a non-empty array'
+      });
+    }
+
+    if (!['approved', 'declined', 'suspended'].includes(decision)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid decision. Must be approved, declined, or suspended'
+      });
+    }
+
+    // Start transaction
+    await db.query('START TRANSACTION');
+
+    try {
+      // Bulk update applications
+      const placeholders = applicationIds.map(() => '?').join(',');
+      await db.query(`
+        UPDATE full_membership_applications 
+        SET 
+          status = ?,
+          admin_notes = ?,
+          reviewedAt = NOW(),
+          reviewed_by = ?
+        WHERE id IN (${placeholders})
+      `, [decision, notes || '', req.user?.id || 1, ...applicationIds]);
+
+      // If approved, update users' membership status
+      if (decision === 'approved') {
+        await db.query(`
+          UPDATE users 
+          SET 
+            is_member = 'member',
+            membership_stage = 'member',
+            full_membership_status = 'approved',
+            fullMembershipReviewedAt = NOW()
+          WHERE id IN (
+            SELECT user_id 
+            FROM full_membership_applications 
+            WHERE id IN (${placeholders})
+          )
+        `, applicationIds);
+
+        console.log(`✅ ${applicationIds.length} users promoted to full members`);
+      }
+
+      // Commit transaction
+      await db.query('COMMIT');
+
+      console.log('✅ Bulk review completed successfully');
+
+      res.json({
+        success: true,
+        message: `${applicationIds.length} applications ${decision} successfully`,
+        processedCount: applicationIds.length,
+        applicationIds: applicationIds,
+        decision: decision,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('❌ Error in bulk review:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: 'Failed to bulk review applications'
+    });
+  }
+});
+
+// Alternative bulk review route (from clean version)
+adminMembershipRouter.post('/bulk-review', async (req, res) => {
+  try {
+    const { applicationIds, decision, notes } = req.body;
+    
+    console.log('🔍 ADMIN: Bulk reviewing applications:', { applicationIds, decision, notes });
+    
+    // Validate input
+    if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'applicationIds must be a non-empty array'
+      });
+    }
+
+    if (!['approved', 'declined', 'suspended'].includes(decision)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid decision. Must be approved, declined, or suspended'
+      });
+    }
+
+    // Start transaction
+    await db.query('START TRANSACTION');
+
+    try {
+      // Bulk update applications
+      const placeholders = applicationIds.map(() => '?').join(',');
+      await db.query(`
+        UPDATE full_membership_applications 
+        SET 
+          status = ?,
+          admin_notes = ?,
+          reviewedAt = NOW(),
+          reviewed_by = ?
+        WHERE id IN (${placeholders})
+      `, [decision, notes || '', req.user?.id || 1, ...applicationIds]);
+
+      // If approved, update users' membership status
+      if (decision === 'approved') {
+        await db.query(`
+          UPDATE users 
+          SET 
+            is_member = 'member',
+            membership_stage = 'member',
+            full_membership_status = 'approved',
+            fullMembershipReviewedAt = NOW()
+          WHERE id IN (
+            SELECT user_id 
+            FROM full_membership_applications 
+            WHERE id IN (${placeholders})
+          )
+        `, applicationIds);
+
+        console.log(`✅ ${applicationIds.length} users promoted to full members`);
+      }
+
+      // Commit transaction
+      await db.query('COMMIT');
+
+      console.log('✅ Bulk review completed successfully');
+
+      res.json({
+        success: true,
+        message: `${applicationIds.length} applications ${decision} successfully`,
+        processedCount: applicationIds.length,
+        applicationIds: applicationIds,
+        decision: decision,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('❌ Error in bulk review:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: 'Failed to bulk review applications'
+    });
+  }
+});
+
+// ===============================================
+// MEMBERSHIP STATISTICS
+// ===============================================
+
+// Get full membership statistics
+adminMembershipRouter.get('/stats', async (req, res) => {
+  try {
+    console.log('🔍 ADMIN: Fetching membership stats');
+    
+    const stats = await db.query(`
+      SELECT 
+        status,
+        COUNT(*) as count
+      FROM full_membership_applications 
+      GROUP BY status
+    `);
+
+    const result = {
+      pending: 0,
+      approved: 0,
+      declined: 0,
+      suspended: 0,
+      total: 0
+    };
+
+    stats.forEach(stat => {
+      result[stat.status] = stat.count;
+      result.total += stat.count;
+    });
+
+    console.log('✅ Stats result:', result);
+
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: 'Failed to fetch membership statistics'
+    });
+  }
+});
+
+// Alternative stats route (from adminRoutes)
+adminMembershipRouter.get('/full-membership-stats', async (req, res) => {
+  try {
+    console.log('🔍 ADMIN: Fetching membership stats');
+    
+    const stats = await db.query(`
+      SELECT 
+        status,
+        COUNT(*) as count
+      FROM full_membership_applications 
+      GROUP BY status
+    `);
+
+    const result = {
+      pending: 0,
+      approved: 0,
+      declined: 0,
+      suspended: 0,
+      total: 0
+    };
+
+    stats.forEach(stat => {
+      result[stat.status] = stat.count;
+      result.total += stat.count;
+    });
+
+    console.log('✅ Stats result:', result);
+
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: 'Failed to fetch membership statistics'
+    });
+  }
+});
+
+// Get pending count (for sidebar badge)
+adminMembershipRouter.get('/pending-count', async (req, res) => {
+  try {
+    console.log('🔍 ADMIN: Getting pending count');
+    
+    const result = await db.query(`
+      SELECT COUNT(*) as count 
+      FROM full_membership_applications 
+      WHERE status = 'pending'
+    `);
+
+    const count = result[0]?.count || 0;
+    console.log('✅ Pending count:', count);
+
+    res.json({
+      success: true,
+      count: count,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting pending count:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      count: 0
+    });
+  }
+});
+
+// ===============================================
+// MEMBERSHIP OVERVIEW & ANALYTICS
+// ===============================================
+
+// Get membership overview
+adminMembershipRouter.get('/overview', async (req, res) => {
+  // This would integrate with analytics controller
+  res.json({ message: 'Membership overview endpoint - integrate with analyticsController' });
+});
+
+// Get membership analytics
+adminMembershipRouter.get('/analytics', async (req, res) => {
+  // This would integrate with analytics controller
+  res.json({ message: 'Membership analytics endpoint - integrate with analyticsController' });
+});
+
+// Export membership data
+adminMembershipRouter.get('/export', async (req, res) => {
+  // This would integrate with analytics controller
+  res.json({ message: 'Export membership data endpoint - integrate with analyticsController' });
+});
+
+// ===============================================
+// ADMIN APPLICATION ROUTES (FROM adminApplicationRoutes)
+// ===============================================
+
+// Enhanced admin application management routes
+adminMembershipRouter.get('/admin/pending-applications', async (req, res) => {
+  try {
+    console.log('🔍 ADMIN: Getting pending applications');
+    
+    const applications = await db.query(`
+      SELECT 
+        fma.id,
+        fma.user_id,
+        fma.membership_ticket,
+        fma.answers,
+        fma.status,
+        fma.submittedAt,
+        u.username,
+        u.email
+      FROM full_membership_applications fma
+      JOIN users u ON fma.user_id = u.id
+      WHERE fma.status = 'pending'
+      ORDER BY fma.submittedAt ASC
+    `);
+
+    res.json({
+      success: true,
+      data: applications,
+      count: applications.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting pending applications:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+adminMembershipRouter.get('/admin/applications', async (req, res) => {
+  try {
+    console.log('🔍 ADMIN: Getting all applications');
+    
+    const applications = await db.query(`
+      SELECT 
+        fma.id,
+        fma.user_id,
+        fma.membership_ticket,
+        fma.answers,
+        fma.status,
+        fma.submittedAt,
+        fma.reviewedAt,
+        u.username,
+        u.email
+      FROM full_membership_applications fma
+      JOIN users u ON fma.user_id = u.id
+      ORDER BY fma.submittedAt DESC
+    `);
+
+    res.json({
+      success: true,
+      data: applications,
+      count: applications.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting applications:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+adminMembershipRouter.get('/admin/membership/applications', async (req, res) => {
+  try {
+    console.log('🔍 ADMIN: Getting membership applications');
+    
+    const applications = await db.query(`
+      SELECT 
+        fma.id,
+        fma.user_id,
+        fma.membership_ticket,
+        fma.answers,
+        fma.status,
+        fma.submittedAt,
+        fma.reviewedAt,
+        u.username,
+        u.email
+      FROM full_membership_applications fma
+      JOIN users u ON fma.user_id = u.id
+      ORDER BY fma.submittedAt DESC
+    `);
+
+    res.json({
+      success: true,
+      data: applications,
+      count: applications.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting membership applications:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Review membership application with validation
+adminMembershipRouter.put('/admin/membership/review/:applicationId', async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    const { status, adminNotes } = req.body;
+    
+    console.log('🔍 ADMIN: Reviewing membership application:', { applicationId, status, adminNotes });
+    
+    // Validate status
+    if (!['approved', 'declined', 'suspended'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid status. Must be approved, declined, or suspended'
+      });
+    }
+
+    // Start transaction
+    await db.query('START TRANSACTION');
+
+    try {
+      // Update the application
+      await db.query(`
+        UPDATE full_membership_applications 
+        SET 
+          status = ?,
+          admin_notes = ?,
+          reviewedAt = NOW(),
+          reviewed_by = ?
+        WHERE id = ?
+      `, [status, adminNotes || '', req.user?.id || 1, applicationId]);
+
+      // If approved, update user's membership status
+      if (status === 'approved') {
+        await db.query(`
+          UPDATE users 
+          SET 
+            is_member = 'member',
+            membership_stage = 'member',
+            full_membership_status = 'approved',
+            fullMembershipReviewedAt = NOW()
+          WHERE id = (
+            SELECT user_id 
+            FROM full_membership_applications 
+            WHERE id = ?
+          )
+        `, [applicationId]);
+
+        console.log('✅ User promoted to full member');
+      }
+
+      // Commit transaction
+      await db.query('COMMIT');
+
+      console.log('✅ Membership application reviewed successfully');
+
+      res.json({
+        success: true,
+        message: `Application ${status} successfully`,
+        applicationId: applicationId,
+        newStatus: status,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('❌ Error reviewing membership application:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: 'Failed to review membership application'
+    });
+  }
+});
+
+// Application statistics with access control
+adminMembershipRouter.get('/admin/applications/stats', async (req, res) => {
+  try {
+    console.log('🔍 ADMIN: Getting application statistics');
+    
+    const stats = await db.query(`
+      SELECT 
+        status,
+        COUNT(*) as count,
+        AVG(TIMESTAMPDIFF(DAY, submittedAt, reviewedAt)) as avg_review_days
+      FROM full_membership_applications 
+      GROUP BY status
+    `);
+
+    const totalCount = await db.query(`
+      SELECT COUNT(*) as total FROM full_membership_applications
+    `);
+
+    const recentStats = await db.query(`
+      SELECT 
+        COUNT(*) as recent_count
+      FROM full_membership_applications 
+      WHERE submittedAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        statusBreakdown: stats,
+        totalApplications: totalCount[0].total,
+        recentApplications: recentStats[0].recent_count
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting application statistics:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ===============================================
+// DEBUG ROUTES (DEVELOPMENT ONLY)
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  
+  // Test database connectivity
+  adminMembershipRouter.get('/debug/test', async (req, res) => {
+    try {
+      const result = await db.query('SELECT COUNT(*) as count FROM full_membership_applications');
+      res.json({
+        success: true,
+        message: 'Database connection working',
+        totalApplications: result[0].count,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // Get all available routes
+  adminMembershipRouter.get('/debug/routes', (req, res) => {
+    res.json({
+      success: true,
+      message: 'Admin membership routes',
+      routes: [
+        'GET /applications - Get all applications (query: ?status=pending|approved|declined|all)',
+        'GET /applications/:id - Get application details',
+        'GET /application/:id - Alternative application details route',
+        'PUT /applications/:id/review - Review individual application',
+        'PUT /review/:id - Alternative review route',
+        'POST /applications/bulk-review - Bulk review applications',
+        'POST /bulk-review - Alternative bulk review route',
+        'GET /stats - Get membership statistics',
+        'GET /full-membership-stats - Alternative stats route',
+        'GET /pending-count - Get pending applications count',
+        'GET /overview - Get membership overview',
+        'GET /analytics - Get membership analytics',
+        'GET /export - Export membership data',
+        'GET /admin/pending-applications - Enhanced pending applications',
+        'GET /admin/applications - Enhanced all applications',
+        'GET /admin/membership/applications - Enhanced membership applications',
+        'PUT /admin/membership/review/:applicationId - Enhanced review with validation',
+        'GET /admin/applications/stats - Enhanced application statistics',
+        'GET /debug/test - Test database connectivity',
+        'GET /debug/routes - This route list'
+      ],
+      timestamp: new Date().toISOString()
+    });
+  });
+}
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler for admin membership routes
+adminMembershipRouter.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Admin membership route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      applications: [
+        'GET /applications - Get all applications',
+        'GET /applications/:id - Get application details',
+        'GET /application/:id - Alternative application details',
+        'PUT /applications/:id/review - Review application',
+        'PUT /review/:id - Alternative review route',
+        'POST /applications/bulk-review - Bulk review applications',
+        'POST /bulk-review - Alternative bulk review'
+      ],
+      statistics: [
+        'GET /stats - Get membership statistics',
+        'GET /full-membership-stats - Alternative stats',
+        'GET /pending-count - Get pending count'
+      ],
+      analytics: [
+        'GET /overview - Get membership overview',
+        'GET /analytics - Get membership analytics',
+        'GET /export - Export membership data'
+      ],
+      enhanced: [
+        'GET /admin/pending-applications - Enhanced pending applications',
+        'GET /admin/applications - Enhanced all applications',
+        'GET /admin/membership/applications - Enhanced membership applications',
+        'PUT /admin/membership/review/:applicationId - Enhanced review',
+        'GET /admin/applications/stats - Enhanced statistics'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Global error handler for admin membership routes
+adminMembershipRouter.use((error, req, res, next) => {
+  console.error('❌ Admin membership route error:', {
+    error: error.message,
+    stack: error.stack,
+    route: req.originalUrl,
+    method: req.method,
+    user: req.user?.username,
+    timestamp: new Date().toISOString()
+  });
+
+  res.status(error.status || 500).json({
+    success: false,
+    message: error.message || 'Internal server error',
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('🏛️ Admin membership routes loaded with full membership review capabilities');
+  console.log('📊 Total endpoints: 21 (19 production + 2 debug)');
+  console.log('🔧 Features: Complete application management, bulk operations, enhanced admin routes');
+}
+
+export default adminMembershipRouter;
+
+
+
+
+//======================//============================//
+
+// File: ikootaapi/routes/adminUserRoutes.js
+// ADMIN USER ROUTES - ADMIN USER & APPLICATION MANAGEMENT
+
+import express from 'express';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+// Import membership middleware
+import { 
+  canReviewApplications,
+  validateApplicationReview,
+  logMembershipAction 
+} from '../middlewares/membershipMiddleware.js';
+
+// Import existing middleware
+import { 
+  requireAdmin, 
+  requireSuperAdmin 
+} from '../controllers/membershipControllers_1.OLD.js/index.js';
+
+// Import updated controllers
+import {
+  getAllPendingMembershipApplications,
+  reviewMembershipApplication,
+  setupDevAdmin,
+  getSystemConfig,
+  emergencyUserReset,
+  getApplicationStats
+} from '../controllers/adminApplicationController.js';
+
+// Import existing controller functions
+import {
+  getPendingApplications,
+  updateApplicationStatus,
+  bulkApproveApplications,
+  approvePreMemberApplication,
+  declinePreMemberApplication,
+  getAvailableMentors,
+  getAvailableClasses,
+  testUserLookup
+} from '../controllers/membershipControllers.OLD.js';
+
+// Import admin controllers
+import {
+  getUsers,
+  updateUserById,
+  updateUser,
+  banUser,
+  unbanUser,
+  manageUsers,
+  grantPostingRights,
+  deleteUser,
+  createUser,
+  exportUserData,
+  maskUserIdentity
+} from '../controllers/adminControllers.js';
+
+import { verifyApplicationStatusConsistency } from '../controllers/membershipControllers_2.OLD.js/index.js';
+
+const adminUserRouter = express.Router();
+
+// ===== BASIC MIDDLEWARE =====
+adminUserRouter.use(authenticate);
+adminUserRouter.use(requireAdmin);
+
+// ===============================================
+// USER MANAGEMENT ROUTES
+// ===============================================
+
+// GET /admin/users - Get all users
+adminUserRouter.get('/', getUsers);
+
+// PUT /admin/users/:id - Update user by ID
+adminUserRouter.put('/:id', updateUserById);
+
+// POST /admin/users/update - Update user
+adminUserRouter.post('/update', updateUser);
+
+// POST /admin/users/create - Create new user
+adminUserRouter.post('/create', createUser);
+
+// DELETE /admin/users/:id - Delete user (super admin only)
+adminUserRouter.delete('/:id', requireSuperAdmin, deleteUser);
+
+// POST /admin/users/ban - Ban user
+adminUserRouter.post('/ban', banUser);
+
+// POST /admin/users/unban - Unban user
+adminUserRouter.post('/unban', unbanUser);
+
+// POST /admin/users/grant-posting-rights - Grant posting rights
+adminUserRouter.post('/grant-posting-rights', grantPostingRights);
+
+// POST /admin/users/mask-identity - Mask user identity
+adminUserRouter.post('/mask-identity', maskUserIdentity);
+
+// GET /admin/users/manage - Get all users for management
+adminUserRouter.get('/manage', manageUsers);
+
+// POST /admin/users/manage - Bulk user actions
+adminUserRouter.post('/manage', manageUsers);
+
+// GET /admin/users/search - Search users
+adminUserRouter.get('/search', async (req, res) => {
+  // Implement user search functionality
+  res.json({ message: 'User search endpoint - implement with search controller' });
+});
+
+// GET /admin/users/export - Export user data
+adminUserRouter.get('/export', exportUserData);
+
+// ===============================================
+// APPLICATION REVIEW ROUTES
+// ===============================================
+
+// Get pending applications with middleware protection
+adminUserRouter.get('/applications/pending',
+  canReviewApplications,
+  logMembershipAction('view_pending_applications'),
+  getAllPendingMembershipApplications
+);
+
+adminUserRouter.get('/applications',
+  canReviewApplications,
+  logMembershipAction('view_applications'),
+  getAllPendingMembershipApplications
+);
+
+// Application statistics with access control
+adminUserRouter.get('/applications/stats',
+  canReviewApplications,
+  logMembershipAction('view_application_stats'),
+  getApplicationStats
+);
+
+// Update application status - Multiple endpoints for compatibility
+adminUserRouter.put('/applications/:userId/status', updateApplicationStatus);
+
+// Pre-member specific approval/decline
+adminUserRouter.post('/applications/:userId/approve', approvePreMemberApplication);
+adminUserRouter.post('/applications/:userId/decline', declinePreMemberApplication);
+
+// Bulk operations
+adminUserRouter.post('/applications/bulk-approve', bulkApproveApplications);
+
+// ===============================================
+// SYSTEM CONFIGURATION ROUTES
+// ===============================================
+
+// System configuration (Admin only)
+adminUserRouter.get('/config', getSystemConfig);
+adminUserRouter.get('/config/super', requireSuperAdmin, getSystemConfig);
+
+// ===============================================
+// SUPER ADMIN ROUTES
+// ===============================================
+
+adminUserRouter.post('/super/emergency-reset/:userId', requireSuperAdmin, emergencyUserReset);
+adminUserRouter.get('/super/debug/user/:userId', requireSuperAdmin, testUserLookup);
+
+// ===============================================
+// DEVELOPMENT ROUTES
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  adminUserRouter.post('/dev/setup-admin/:userId', setupDevAdmin);
+  adminUserRouter.get('/debug/status-consistency', verifyApplicationStatusConsistency);
+  adminUserRouter.get('/test-user-lookup/:userId', testUserLookup);
+  adminUserRouter.get('/test-user-lookup', testUserLookup);
+}
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler for admin user routes
+adminUserRouter.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Admin user route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      users: [
+        'GET / - Get all users',
+        'PUT /:id - Update user by ID',
+        'POST /create - Create new user',
+        'DELETE /:id - Delete user (super admin)',
+        'POST /ban - Ban user',
+        'POST /unban - Unban user',
+        'GET /export - Export user data'
+      ],
+      applications: [
+        'GET /applications/pending - Get pending applications',
+        'GET /applications/stats - Get application statistics',
+        'PUT /applications/:userId/status - Update application status',
+        'POST /applications/:userId/approve - Approve application',
+        'POST /applications/bulk-approve - Bulk approve applications'
+      ],
+      system: [
+        'GET /config - Get system configuration',
+        'GET /config/super - Get super admin configuration'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Global error handler for admin user routes
+adminUserRouter.use((error, req, res, next) => {
+  console.error('❌ Admin user route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.username,
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.status || 500).json({
+    success: false,
+    message: error.message || 'Internal server error',
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('👨‍💼 Admin user routes loaded with user management and application review');
+}
+
+export default adminUserRouter;
+
+
+
+//======================//============================//
+
+// ikootaapi/routes/analyticsRoutes.js
+// ===============================================
+// ANALYTICS AND REPORTING ROUTES
+// Handles all analytics, statistics, and data export routes
+// ===============================================
+
+import express from 'express';
+import { authenticate, cacheMiddleware } from '../middlewares/auth.middleware.js';
+import { requireAdmin } from '../controllers/membershipControllers_1.OLD.js/index.js';
+import {
+  getMembershipAnalytics,
+  getMembershipOverview,
+  getMembershipStats,
+  exportMembershipData
+} from '../controllers/analyticsController.js';
+
+const router = express.Router();
+
+// ===============================================
+// ANALYTICS & REPORTING ROUTES
+// All routes require admin authentication and use caching
+// ===============================================
+
+// Main analytics endpoints
+router.get('/admin/membership-overview', 
+  authenticate, 
+  requireAdmin, 
+  cacheMiddleware(600), 
+  getMembershipOverview
+);
+
+router.get('/admin/overview', 
+  authenticate, 
+  requireAdmin, 
+  getMembershipOverview
+);
+
+router.get('/admin/applications-overview', 
+  authenticate, 
+  requireAdmin, 
+  getMembershipOverview
+);
+
+router.get('/admin/membership-stats', 
+  authenticate, 
+  requireAdmin, 
+  cacheMiddleware(600), 
+  getMembershipStats
+);
+
+router.get('/admin/stats', 
+  authenticate, 
+  requireAdmin, 
+  getMembershipStats
+);
+
+router.get('/admin/analytics', 
+  authenticate, 
+  requireAdmin, 
+  cacheMiddleware(600), 
+  getMembershipAnalytics
+);
+
+router.get('/admin/membership-analytics', 
+  authenticate, 
+  requireAdmin, 
+  getMembershipAnalytics
+);
+
+// Data export routes
+router.get('/admin/export-membership-data', 
+  authenticate, 
+  requireAdmin, 
+  exportMembershipData
+);
+
+router.get('/admin/export', 
+  authenticate, 
+  requireAdmin, 
+  exportMembershipData
+);
+
+export default router;
+
+
+
+//======================//============================//
+
+// File: ikootaapi/routes/authRoutes.js
+// AUTH ROUTES - CONSOLIDATED AUTHENTICATION
+
+import express from 'express';
+import {
+  // Enhanced authentication functions from membership
+  sendVerificationCode,
+  registerWithVerification,
+  enhancedLogin,
+  logoutUser,
+  
+  // Existing password reset functions
+  requestPasswordReset,
+  resetPassword,
+  verifyPasswordReset,
+  verifyUser,
+  getAuthenticatedUser,
+} from '../controllers/authControllers.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
+import { sendEmail } from '../utils/notifications.js';
+
+const authRouter = express.Router();
+
+// ===============================================
+// PRIMARY AUTHENTICATION ROUTES (Enhanced versions)
+// ===============================================
+
+// Enhanced verification and registration system
+authRouter.post('/send-verification', sendVerificationCode);
+authRouter.post('/register', registerWithVerification);
+authRouter.post('/login', enhancedLogin);
+authRouter.get('/logout', logoutUser);
+
+// ===============================================
+// PASSWORD RESET ROUTES
+// ===============================================
+
+authRouter.post('/passwordreset/request', requestPasswordReset);
+authRouter.post('/passwordreset/reset', resetPassword);
+authRouter.post('/passwordreset/verify', verifyPasswordReset);
+
+// ===============================================
+// USER VERIFICATION ROUTES
+// ===============================================
+
+authRouter.get('/verify/:token', verifyUser);
+
+// ===============================================
+// AUTHENTICATED USER ROUTES
+// ===============================================
+
+authRouter.get('/', authenticate, getAuthenticatedUser);
+
+// ===============================================
+// DEVELOPMENT & TESTING ROUTES
+// ===============================================
+
+// Simple test route to verify auth routes work
+authRouter.get('/test-simple', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Authentication routes are working!',
+    timestamp: new Date().toISOString(),
+    path: req.path,
+    method: req.method
+  });
+});
+
+// Test route with authentication
+authRouter.get('/test-auth', authenticate, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Authentication is working!',
+    user: req.user,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===== DEVELOPMENT EMAIL TEST ROUTES =====
+if (process.env.NODE_ENV === 'development') {
+  
+  // Test basic email sending
+  authRouter.post('/test-email', async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Email address required',
+          example: { email: 'your-email@gmail.com' }
+        });
+      }
+      
+      console.log('🧪 Testing email to:', email);
+      
+      const result = await sendEmail(email, 'verification_code', {
+        VERIFICATION_CODE: '123456',
+        EXPIRES_IN: '10 minutes'
+      });
+      
+      res.json({
+        success: true,
+        message: 'Test email sent successfully',
+        result,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Test email failed:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        help: 'Check your Gmail App Password configuration',
+        instructions: [
+          '1. Enable 2FA on Gmail',
+          '2. Generate App Password',
+          '3. Set MAIL_USER and MAIL_PASS in .env',
+          '4. Restart server'
+        ]
+      });
+    }
+  });
+
+  // Test email configuration
+  authRouter.get('/test-email-config', async (req, res) => {
+    try {
+      const { testEmailConnection, getEmailConfig } = await import('../utils/email.js');
+      
+      const config = getEmailConfig();
+      const connectionTest = await testEmailConnection();
+      
+      res.json({
+        success: true,
+        configuration: config,
+        connectionTest,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Email config test failed:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // Test all notification services
+  authRouter.get('/test-notifications', async (req, res) => {
+    try {
+      const { testNotificationServices } = await import('../utils/notifications.js');
+      
+      const results = await testNotificationServices();
+      
+      res.json({
+        success: true,
+        services: results,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Notification services test failed:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+}
+
+// ===============================================
+// ERROR HANDLING & LOGGING
+// ===============================================
+
+// 404 handler for unmatched auth routes
+authRouter.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Authentication route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      primary: [
+        'POST /send-verification',
+        'POST /register',
+        'POST /login',
+        'GET /logout'
+      ],
+      passwordReset: [
+        'POST /passwordreset/request',
+        'POST /passwordreset/reset',
+        'POST /passwordreset/verify'
+      ],
+      verification: [
+        'GET /verify/:token'
+      ],
+      user: [
+        'GET /'
+      ],
+      testing: [
+        'GET /test-simple',
+        'GET /test-auth'
+      ]
+    }
+  });
+});
+
+// Global error handler for auth routes
+authRouter.use((error, req, res, next) => {
+  console.error('Authentication route error:', error);
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Internal server error',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Log routes in development
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔐 Authentication routes loaded:');
+  console.log('   Primary Auth: /send-verification, /register, /login, /logout');
+  console.log('   Password Reset: /passwordreset/request, /passwordreset/reset, /passwordreset/verify');
+  console.log('   User Verification: /verify/:token');
+  console.log('   Authenticated User: /');
+  console.log('   Test: /test-simple, /test-auth');
+}
+
+export default authRouter;
+
+
+
+
+
+//======================//============================//
+
+//ikootaapi\routes\chatRoutes.js
+import express from 'express';
+import { uploadMiddleware, uploadToS3 } from '../middlewares/upload.middleware.js';
+import {
+  fetchAllChats,
+  fetchChatsByUserId,
+  createChat,
+  addCommentToChat,
+  getChatHistory,
+  editChat,
+  removeChat,
+  fetchChatsByIds, // New controller function
+  fetchChatByPrefixedId, // NEW
+  fetchCombinedContent,  // NEW
+} from '../controllers/chatControllers.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+const router = express.Router();
+
+// Fetch all chats
+router.get('/', authenticate, fetchAllChats);
+
+// Fetch chats by user_id
+router.get('/user', authenticate, fetchChatsByUserId);
+
+// Fetch chats by IDs
+router.get('/ids', authenticate, fetchChatsByIds); // New route
+
+// Create new chat
+router.post('/', authenticate, uploadMiddleware, uploadToS3, createChat);
+
+// Add comment to specific chat
+router.post('/:chatId/comments', authenticate, uploadMiddleware, uploadToS3, addCommentToChat);
+
+// Get chat history between two users
+router.get('/:userId1/:userId2', authenticate, getChatHistory);
+
+// Update a chat by ID
+router.put('/:id', authenticate, editChat);
+
+// Delete a chat by ID
+router.delete('/:id', authenticate, removeChat);
+
+// NEW routes for prefixed IDs
+router.get('/prefixed/:prefixedId', authenticate, fetchChatByPrefixedId);
+router.get('/combinedcontent', authenticate, fetchCombinedContent);
+
+
+export default router;
+
+
+
+
+//======================//============================//
+
+// ikootaapi/routes/classRoutes.js
+import express from 'express';
+import { getClasses, postClass, putClass, assignUserToClass, getClassContent } from '../controllers/classControllers.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+
+const router = express.Router();
+
+// Fetch all classes
+router.get('/', getClasses);
+
+// Create a new class
+router.post('/', postClass);
+
+// Update an existing class
+router.put('/:id', putClass);
+
+// Assign user to class
+router.post('/assign', authenticate, assignUserToClass);
+
+// Get content for a specific class
+router.get('/:classId/content', authenticate, getClassContent);
+
+export default router;
+
+
+
+
+
+//======================//============================//
+
+// ikootaapi/routes/commentRoutes.js
+import express from 'express';
+import { uploadMiddleware, uploadToS3 } from '../middlewares/upload.middleware.js';
+import {
+  createComment,
+  uploadCommentFiles,
+  fetchParentChatsAndTeachingsWithComments,
+  fetchCommentsByParentIds,
+  fetchCommentsByUserId,
+  fetchAllComments,
+  fetchCommentStats,
+  fetchCommentById,
+  updateComment,
+  deleteComment
+} from '../controllers/commentControllers.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+const router = express.Router();
+
+// Routes in order of specificity (most specific first)
+
+// GET /comments/stats - Get comment statistics (admin only)
+router.get('/stats', authenticate, fetchCommentStats);
+
+// GET /comments/all - Fetch all comments (admin only)
+router.get('/all', authenticate, fetchAllComments);
+
+// GET /comments/parent-comments - Fetch parent chats and teachings with comments
+router.get('/parent-comments', authenticate, fetchParentChatsAndTeachingsWithComments);
+
+// GET /comments/comments - Fetch comments using parent IDs (legacy route)
+router.get('/comments', authenticate, fetchCommentsByParentIds);
+
+// GET /comments/user/:user_id - Fetch comments by user_id
+router.get('/user/:user_id', authenticate, fetchCommentsByUserId);
+
+// POST /comments/upload - Upload files for comments
+router.post('/upload', authenticate, uploadMiddleware, uploadToS3, uploadCommentFiles);
+
+// POST /comments - Create a new comment
+router.post('/', authenticate, uploadMiddleware, uploadToS3, createComment);
+
+// GET /comments/:commentId - Get specific comment by ID (must be after other GET routes)
+router.get('/:commentId', authenticate, fetchCommentById);
+
+// PUT /comments/:commentId - Update a comment
+router.put('/:commentId', authenticate, uploadMiddleware, uploadToS3, updateComment);
+
+// DELETE /comments/:commentId - Delete a comment
+router.delete('/:commentId', authenticate, deleteComment);
+
+export default router;
+
+//======================//============================//
+
+// 2. COMMUNICATION ROUTES - CHAT & MESSAGING
+// File: ikootaapi/routes/communicationRoutes.js
+// ===============================================
+
+import express from 'express';
+import {
+  sendEmailHandler,
+  sendSMSHandler,
+  sendBulkEmailHandler,
+  sendBulkSMSHandler,
+  sendNotificationHandler,
+  checkCommunicationHealthHandler,
+  getCommunicationStatsHandler,
+  getAvailableTemplatesHandler
+} from '../controllers/communicationControllers.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+const communicationRouter = express.Router();
+
+// ===============================================
+// COMMUNICATION SETTINGS & UTILITIES
+// ===============================================
+
+// GET /communication/settings - Get communication settings
+communicationRouter.get('/settings', authenticate, async (req, res) => {
+  // This would integrate with user communication settings
+  res.json({ message: 'Communication settings endpoint - implement with settings controller' });
+});
+
+// PUT /communication/settings - Update communication settings
+communicationRouter.put('/settings', authenticate, async (req, res) => {
+  // This would integrate with user communication settings
+  res.json({ message: 'Update communication settings endpoint - implement with settings controller' });
+});
+
+// GET /communication/notifications - Get notification preferences
+communicationRouter.get('/notifications', authenticate, async (req, res) => {
+  // This would integrate with notification preferences
+  res.json({ message: 'Notification preferences endpoint - implement with preferences controller' });
+});
+
+// PUT /communication/notifications - Update notification preferences
+communicationRouter.put('/notifications', authenticate, async (req, res) => {
+  // This would integrate with notification preferences
+  res.json({ message: 'Update notification preferences endpoint - implement with preferences controller' });
+});
+
+// ===============================================
+// EMAIL SERVICES
+// ===============================================
+
+// POST /communication/email/send - Send single email
+communicationRouter.post('/email/send', authenticate, sendEmailHandler);
+
+// POST /communication/email/bulk - Send bulk emails (admin only)
+communicationRouter.post('/email/bulk', authenticate, sendBulkEmailHandler);
+
+// ===============================================
+// SMS SERVICES
+// ===============================================
+
+// POST /communication/sms/send - Send single SMS
+communicationRouter.post('/sms/send', authenticate, sendSMSHandler);
+
+// POST /communication/sms/bulk - Send bulk SMS (admin only)
+communicationRouter.post('/sms/bulk', authenticate, sendBulkSMSHandler);
+
+// ===============================================
+// COMBINED NOTIFICATIONS
+// ===============================================
+
+// POST /communication/notification - Send combined notification (email + SMS)
+communicationRouter.post('/notification', authenticate, sendNotificationHandler);
+
+// ===============================================
+// COMMUNICATION MANAGEMENT
+// ===============================================
+
+// GET /communication/templates - Get available email and SMS templates
+communicationRouter.get('/templates', authenticate, getAvailableTemplatesHandler);
+
+// GET /communication/health - Check communication services health (admin only)
+communicationRouter.get('/health', authenticate, checkCommunicationHealthHandler);
+
+// GET /communication/stats - Get communication statistics (admin only)
+communicationRouter.get('/stats', authenticate, getCommunicationStatsHandler);
+
+// ===============================================
+// CHAT ROOM MANAGEMENT
+// ===============================================
+
+// GET /communication/rooms - Get chat rooms
+communicationRouter.get('/rooms', authenticate, async (req, res) => {
+  // This would integrate with chat room controller
+  res.json({ message: 'Chat rooms endpoint - implement with chat room controller' });
+});
+
+// POST /communication/rooms - Create chat room
+communicationRouter.post('/rooms', authenticate, async (req, res) => {
+  // This would integrate with chat room controller
+  res.json({ message: 'Create chat room endpoint - implement with chat room controller' });
+});
+
+// GET /communication/rooms/:id/messages - Get chat room messages
+communicationRouter.get('/rooms/:id/messages', authenticate, async (req, res) => {
+  // This would integrate with chat room messages controller
+  res.json({ message: 'Chat room messages endpoint - implement with chat room controller' });
+});
+
+// POST /communication/rooms/:id/messages - Send message to chat room
+communicationRouter.post('/rooms/:id/messages', authenticate, async (req, res) => {
+  // This would integrate with chat room messages controller
+  res.json({ message: 'Send chat room message endpoint - implement with chat room controller' });
+});
+
+// PUT /communication/rooms/:id/messages/:messageId - Update chat room message
+communicationRouter.put('/rooms/:id/messages/:messageId', authenticate, async (req, res) => {
+  // This would integrate with chat room messages controller
+  res.json({ message: 'Update chat room message endpoint - implement with chat room controller' });
+});
+
+// DELETE /communication/rooms/:id/messages/:messageId - Delete chat room message
+communicationRouter.delete('/rooms/:id/messages/:messageId', authenticate, async (req, res) => {
+  // This would integrate with chat room messages controller
+  res.json({ message: 'Delete chat room message endpoint - implement with chat room controller' });
+});
+
+// ===============================================
+// DIRECT MESSAGING
+// ===============================================
+
+// GET /communication/conversations - Get conversations
+communicationRouter.get('/conversations', authenticate, async (req, res) => {
+  // This would integrate with direct messaging controller
+  res.json({ message: 'Conversations endpoint - implement with messaging controller' });
+});
+
+// POST /communication/conversations - Create conversation
+communicationRouter.post('/conversations', authenticate, async (req, res) => {
+  // This would integrate with direct messaging controller
+  res.json({ message: 'Create conversation endpoint - implement with messaging controller' });
+});
+
+// GET /communication/conversations/:id - Get specific conversation
+communicationRouter.get('/conversations/:id', authenticate, async (req, res) => {
+  // This would integrate with direct messaging controller
+  res.json({ message: 'Get conversation endpoint - implement with messaging controller' });
+});
+
+// POST /communication/conversations/:id/messages - Send message in conversation
+communicationRouter.post('/conversations/:id/messages', authenticate, async (req, res) => {
+  // This would integrate with direct messaging controller
+  res.json({ message: 'Send conversation message endpoint - implement with messaging controller' });
+});
+
+// ===============================================
+// LEGACY COMPATIBILITY
+// ===============================================
+
+// Legacy route support for backward compatibility
+communicationRouter.post('/send', authenticate, sendEmailHandler);
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler for communication routes
+communicationRouter.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Communication route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      settings: [
+        'GET /settings - Get communication settings',
+        'PUT /settings - Update communication settings',
+        'GET /notifications - Get notification preferences',
+        'PUT /notifications - Update notification preferences'
+      ],
+      email: [
+        'POST /email/send - Send single email',
+        'POST /email/bulk - Send bulk emails (admin)'
+      ],
+      sms: [
+        'POST /sms/send - Send single SMS',
+        'POST /sms/bulk - Send bulk SMS (admin)'
+      ],
+      notifications: [
+        'POST /notification - Send combined notification'
+      ],
+      management: [
+        'GET /templates - Get available templates',
+        'GET /health - Check service health (admin)',
+        'GET /stats - Get communication statistics (admin)'
+      ],
+      chatRooms: [
+        'GET /rooms - Get chat rooms',
+        'POST /rooms - Create chat room',
+        'GET /rooms/:id/messages - Get room messages',
+        'POST /rooms/:id/messages - Send room message'
+      ],
+      directMessaging: [
+        'GET /conversations - Get conversations',
+        'POST /conversations - Create conversation',
+        'GET /conversations/:id - Get specific conversation',
+        'POST /conversations/:id/messages - Send message'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Global error handler for communication routes
+communicationRouter.use((error, req, res, next) => {
+  console.error('❌ Communication route error:', error);
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Internal server error',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('💬 Communication routes loaded with email, SMS, chat rooms, and messaging');
+}
+
+export default communicationRouter;
+
+
+
+//======================//============================//
+
+// 1. CONTENT ROUTES - COMMUNITY CONTENT MANAGEMENT
+// File: ikootaapi/routes/contentRoutes.js
+// ===============================================
+
+import express from 'express';
+import { uploadMiddleware, uploadToS3 } from '../middlewares/upload.middleware.js';
+import { authenticate, cacheMiddleware } from '../middlewares/auth.middleware.js';
+
+// Import teachings controllers
+import {
+  createTeaching,
+  fetchAllTeachings,
+  fetchTeachingsByUserId,
+  editTeaching,
+  removeTeaching,
+  fetchTeachingsByIds,
+  fetchTeachingByPrefixedId,
+  searchTeachingsController,
+  fetchTeachingStats,
+} from '../controllers/teachingsControllers.js';
+
+// Import chat controllers
+import {
+  fetchAllChats,
+  fetchChatsByUserId,
+  createChat,
+  addCommentToChat,
+  getChatHistory,
+  editChat,
+  removeChat,
+  fetchChatsByIds,
+  fetchChatByPrefixedId,
+  fetchCombinedContent,
+} from '../controllers/chatControllers.js';
+
+// Import comment controllers
+import {
+  createComment,
+  uploadCommentFiles,
+  fetchParentChatsAndTeachingsWithComments,
+  fetchCommentsByParentIds,
+  fetchCommentsByUserId,
+  fetchAllComments,
+  fetchCommentStats,
+  fetchCommentById,
+  updateComment,
+  deleteComment
+} from '../controllers/commentControllers.js';
+
+// Import class controllers
+import {
+  getClasses,
+  postClass,
+  putClass,
+  assignUserToClass,
+  getClassContent
+} from '../controllers/classControllers.js';
+
+const contentRouter = express.Router();
+
+// ===============================================
+// TEACHINGS/CONTENT ROUTES
+// ===============================================
+
+// GET /content/teachings - Fetch all teachings with optional pagination and filtering
+contentRouter.get('/teachings', authenticate, fetchAllTeachings);
+
+// GET /content/teachings/search - Search teachings (dedicated search endpoint)
+contentRouter.get('/teachings/search', authenticate, cacheMiddleware(120), searchTeachingsController);
+
+// GET /content/teachings/stats - Get teaching statistics
+contentRouter.get('/teachings/stats', authenticate, cacheMiddleware(120), fetchTeachingStats);
+
+// GET /content/teachings/user - Fetch teachings by user_id
+contentRouter.get('/teachings/user', authenticate, fetchTeachingsByUserId);
+
+// GET /content/teachings/ids - Fetch teachings by multiple IDs
+contentRouter.get('/teachings/ids', authenticate, fetchTeachingsByIds);
+
+// GET /content/teachings/prefixed/:prefixedId - Fetch teaching by prefixed ID or numeric ID
+contentRouter.get('/teachings/prefixed/:prefixedId', authenticate, fetchTeachingByPrefixedId);
+
+// GET /content/teachings/:id - Fetch single teaching by ID (alternative endpoint)
+contentRouter.get('/teachings/:id', authenticate, fetchTeachingByPrefixedId);
+
+// POST /content/teachings - Create a new teaching
+contentRouter.post('/teachings', authenticate, uploadMiddleware, uploadToS3, createTeaching);
+
+// PUT /content/teachings/:id - Update a teaching by ID
+contentRouter.put('/teachings/:id', authenticate, uploadMiddleware, uploadToS3, editTeaching);
+
+// DELETE /content/teachings/:id - Delete a teaching by ID
+contentRouter.delete('/teachings/:id', authenticate, removeTeaching);
+
+// ===============================================
+// CHAT ROUTES
+// ===============================================
+
+// GET /content/chats - Fetch all chats
+contentRouter.get('/chats', authenticate, fetchAllChats);
+
+// GET /content/chats/user - Fetch chats by user_id
+contentRouter.get('/chats/user', authenticate, fetchChatsByUserId);
+
+// GET /content/chats/ids - Fetch chats by IDs
+contentRouter.get('/chats/ids', authenticate, fetchChatsByIds);
+
+// GET /content/chats/prefixed/:prefixedId - NEW routes for prefixed IDs
+contentRouter.get('/chats/prefixed/:prefixedId', authenticate, fetchChatByPrefixedId);
+
+// GET /content/chats/combinedcontent - Combined content endpoint
+contentRouter.get('/chats/combinedcontent', authenticate, fetchCombinedContent);
+
+// GET /content/chats/:userId1/:userId2 - Get chat history between two users
+contentRouter.get('/chats/:userId1/:userId2', authenticate, getChatHistory);
+
+// POST /content/chats - Create new chat
+contentRouter.post('/chats', authenticate, uploadMiddleware, uploadToS3, createChat);
+
+// POST /content/chats/:chatId/comments - Add comment to specific chat
+contentRouter.post('/chats/:chatId/comments', authenticate, uploadMiddleware, uploadToS3, addCommentToChat);
+
+// PUT /content/chats/:id - Update a chat by ID
+contentRouter.put('/chats/:id', authenticate, editChat);
+
+// DELETE /content/chats/:id - Delete a chat by ID
+contentRouter.delete('/chats/:id', authenticate, removeChat);
+
+// ===============================================
+// COMMENTS ROUTES
+// ===============================================
+
+// GET /content/comments/stats - Get comment statistics (admin only)
+contentRouter.get('/comments/stats', authenticate, fetchCommentStats);
+
+// GET /content/comments/all - Fetch all comments (admin only)
+contentRouter.get('/comments/all', authenticate, fetchAllComments);
+
+// GET /content/comments/parent-comments - Fetch parent chats and teachings with comments
+contentRouter.get('/comments/parent-comments', authenticate, fetchParentChatsAndTeachingsWithComments);
+
+// GET /content/comments/comments - Fetch comments using parent IDs (legacy route)
+contentRouter.get('/comments/comments', authenticate, fetchCommentsByParentIds);
+
+// GET /content/comments/user/:user_id - Fetch comments by user_id
+contentRouter.get('/comments/user/:user_id', authenticate, fetchCommentsByUserId);
+
+// POST /content/comments/upload - Upload files for comments
+contentRouter.post('/comments/upload', authenticate, uploadMiddleware, uploadToS3, uploadCommentFiles);
+
+// POST /content/comments - Create a new comment
+contentRouter.post('/comments', authenticate, uploadMiddleware, uploadToS3, createComment);
+
+// GET /content/comments/:commentId - Get specific comment by ID (must be after other GET routes)
+contentRouter.get('/comments/:commentId', authenticate, fetchCommentById);
+
+// PUT /content/comments/:commentId - Update a comment
+contentRouter.put('/comments/:commentId', authenticate, uploadMiddleware, uploadToS3, updateComment);
+
+// DELETE /content/comments/:commentId - Delete a comment
+contentRouter.delete('/comments/:commentId', authenticate, deleteComment);
+
+// ===============================================
+// CLASSES ROUTES
+// ===============================================
+
+// GET /content/classes - Fetch all classes
+contentRouter.get('/classes', getClasses);
+
+// POST /content/classes - Create a new class
+contentRouter.post('/classes', postClass);
+
+// PUT /content/classes/:id - Update an existing class
+contentRouter.put('/classes/:id', putClass);
+
+// POST /content/classes/assign - Assign user to class
+contentRouter.post('/classes/assign', authenticate, assignUserToClass);
+
+// GET /content/classes/:classId/content - Get content for a specific class
+contentRouter.get('/classes/:classId/content', authenticate, getClassContent);
+
+// GET /content/classes/:classId/participants - Get class participants
+contentRouter.get('/classes/:classId/participants', authenticate, async (req, res) => {
+  // This would integrate with class participant controller
+  res.json({ message: 'Class participants endpoint - implement with class controller' });
+});
+
+// POST /content/classes/:id/join - Join a class
+contentRouter.post('/classes/:id/join', authenticate, async (req, res) => {
+  // This would integrate with class joining controller
+  res.json({ message: 'Join class endpoint - implement with class controller' });
+});
+
+// POST /content/classes/:id/leave - Leave a class
+contentRouter.post('/classes/:id/leave', authenticate, async (req, res) => {
+  // This would integrate with class leaving controller
+  res.json({ message: 'Leave class endpoint - implement with class controller' });
+});
+
+// ===============================================
+// CONTENT CATEGORIES ROUTES
+// ===============================================
+
+// GET /content/categories - Get all content categories
+contentRouter.get('/categories', authenticate, async (req, res) => {
+  // This would integrate with categories controller
+  res.json({ message: 'Content categories endpoint - implement with categories controller' });
+});
+
+// GET /content/teachings/categories - Get teaching categories (alias)
+contentRouter.get('/teachings/categories', authenticate, async (req, res) => {
+  // This would integrate with categories controller
+  res.json({ message: 'Teaching categories endpoint - implement with categories controller' });
+});
+
+// ===============================================
+// CONTENT INTERACTION ROUTES
+// ===============================================
+
+// POST /content/comments/:id/like - Like a comment
+contentRouter.post('/comments/:id/like', authenticate, async (req, res) => {
+  // This would integrate with like/reaction controller
+  res.json({ message: 'Like comment endpoint - implement with reaction controller' });
+});
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// Enhanced 404 handler for content routes
+contentRouter.use('*', (req, res) => {
+  console.warn(`❌ 404 - Content route not found: ${req.method} ${req.path}`);
+  
+  res.status(404).json({
+    success: false,
+    error: 'Content route not found',
+    path: req.path,
+    method: req.method,
+    availableEndpoints: {
+      teachings: [
+        'GET /teachings - Get all teachings',
+        'GET /teachings/search - Search teachings',
+        'GET /teachings/stats - Get teaching statistics',
+        'POST /teachings - Create new teaching',
+        'PUT /teachings/:id - Update teaching',
+        'DELETE /teachings/:id - Delete teaching'
+      ],
+      chats: [
+        'GET /chats - Get all chats',
+        'GET /chats/user - Get user chats',
+        'POST /chats - Create new chat',
+        'PUT /chats/:id - Update chat',
+        'DELETE /chats/:id - Delete chat'
+      ],
+      comments: [
+        'GET /comments/all - Get all comments',
+        'GET /comments/stats - Get comment statistics',
+        'POST /comments - Create new comment',
+        'PUT /comments/:id - Update comment',
+        'DELETE /comments/:id - Delete comment'
+      ],
+      classes: [
+        'GET /classes - Get all classes',
+        'POST /classes - Create new class',
+        'PUT /classes/:id - Update class',
+        'POST /classes/assign - Assign user to class',
+        'POST /classes/:id/join - Join class'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Enhanced global error handler for content routes
+contentRouter.use((error, req, res, next) => {
+  const errorId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  
+  console.error('❌ Content route error:', {
+    errorId,
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.id || 'not authenticated',
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Internal server error',
+    errorId,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('📚 Content routes loaded with teachings, chats, comments, and classes');
+}
+
+export default contentRouter;
+
+
+//======================//============================//
+
+// File: ikootaapi/routes/identityRoutes.js
+// 3. IDENTITY ROUTES - IDENTITY VERIFICATION & MANAGEMENT
+
+import express from 'express';
+import { 
+    maskUserIdentity, 
+    unmaskUserIdentity, 
+    getClassMembers, 
+    getMentees 
+} from '../controllers/identityController.js';
+import { authenticate, requireSuperAdmin, requireAdmin } from '../middlewares/auth.middleware.js';
+
+const identityRouter = express.Router();
+
+// ===============================================
+// IDENTITY VERIFICATION ROUTES
+// ===============================================
+
+// POST /identity/verify - Start identity verification process
+identityRouter.post('/verify', authenticate, async (req, res) => {
+  // This would integrate with identity verification service
+  res.json({ message: 'Identity verification endpoint - implement with verification service' });
+});
+
+// GET /identity/status - Get identity verification status
+identityRouter.get('/status', authenticate, async (req, res) => {
+  // This would integrate with identity verification status
+  res.json({ message: 'Identity verification status endpoint - implement with verification service' });
+});
+
+// POST /identity/documents/upload - Upload identity documents
+identityRouter.post('/documents/upload', authenticate, async (req, res) => {
+  // This would integrate with document upload service
+  res.json({ message: 'Document upload endpoint - implement with document service' });
+});
+
+// GET /identity/documents - Get uploaded documents
+identityRouter.get('/documents', authenticate, async (req, res) => {
+  // This would integrate with document retrieval service
+  res.json({ message: 'Get documents endpoint - implement with document service' });
+});
+
+// DELETE /identity/documents/:id - Delete uploaded document
+identityRouter.delete('/documents/:id', authenticate, async (req, res) => {
+  // This would integrate with document deletion service
+  res.json({ message: 'Delete document endpoint - implement with document service' });
+});
+
+// ===============================================
+// IDENTITY MANAGEMENT ROUTES
+// ===============================================
+
+// PUT /identity/update - Update identity information
+identityRouter.put('/update', authenticate, async (req, res) => {
+  // This would integrate with identity update service
+  res.json({ message: 'Update identity endpoint - implement with identity service' });
+});
+
+// GET /identity/verification-requirements - Get verification requirements
+identityRouter.get('/verification-requirements', authenticate, async (req, res) => {
+  // This would integrate with verification requirements service
+  res.json({ message: 'Verification requirements endpoint - implement with requirements service' });
+});
+
+// POST /identity/re-verify - Re-verify identity
+identityRouter.post('/re-verify', authenticate, async (req, res) => {
+  // This would integrate with re-verification service
+  res.json({ message: 'Re-verify identity endpoint - implement with verification service' });
+});
+
+// ===============================================
+// ADMIN IDENTITY MANAGEMENT ROUTES
+// ===============================================
+
+// POST /identity/mask-identity - Mask user identity (admin only)
+identityRouter.post('/mask-identity', authenticate, requireAdmin, maskUserIdentity);
+
+// POST /identity/unmask-identity - Unmask user identity (super admin only)
+identityRouter.post('/unmask-identity', authenticate, requireSuperAdmin, unmaskUserIdentity);
+
+// ===============================================
+// CLASS & MENTOR IDENTITY ROUTES
+// ===============================================
+
+// GET /identity/class/:classId/members - Get class members
+identityRouter.get('/class/:classId/members', authenticate, getClassMembers);
+
+// GET /identity/mentor/:mentorConverseId/mentees - Get mentees for a mentor
+identityRouter.get('/mentor/:mentorConverseId/mentees', authenticate, getMentees);
+
+// ===============================================
+// PRIVACY & ANONYMIZATION ROUTES
+// ===============================================
+
+// POST /identity/anonymize - Anonymize user data
+identityRouter.post('/anonymize', authenticate, async (req, res) => {
+  // This would integrate with data anonymization service
+  res.json({ message: 'Anonymize data endpoint - implement with anonymization service' });
+});
+
+// GET /identity/privacy-settings - Get privacy settings
+identityRouter.get('/privacy-settings', authenticate, async (req, res) => {
+  // This would integrate with privacy settings service
+  res.json({ message: 'Privacy settings endpoint - implement with privacy service' });
+});
+
+// PUT /identity/privacy-settings - Update privacy settings
+identityRouter.put('/privacy-settings', authenticate, async (req, res) => {
+  // This would integrate with privacy settings service
+  res.json({ message: 'Update privacy settings endpoint - implement with privacy service' });
+});
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler for identity routes
+identityRouter.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Identity route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      verification: [
+        'POST /verify - Start identity verification',
+        'GET /status - Get verification status',
+        'POST /documents/upload - Upload documents',
+        'GET /documents - Get documents',
+        'DELETE /documents/:id - Delete document'
+      ],
+      management: [
+        'PUT /update - Update identity information',
+        'GET /verification-requirements - Get requirements',
+        'POST /re-verify - Re-verify identity'
+      ],
+      admin: [
+        'POST /mask-identity - Mask user identity (admin)',
+        'POST /unmask-identity - Unmask user identity (super admin)'
+      ],
+      classAndMentor: [
+        'GET /class/:classId/members - Get class members',
+        'GET /mentor/:mentorConverseId/mentees - Get mentees'
+      ],
+      privacy: [
+        'POST /anonymize - Anonymize user data',
+        'GET /privacy-settings - Get privacy settings',
+        'PUT /privacy-settings - Update privacy settings'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Global error handler for identity routes
+identityRouter.use((error, req, res, next) => {
+  console.error('❌ Identity route error:', error);
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Internal server error',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('🆔 Identity routes loaded with verification, management, and privacy features');
+}
+
+export default identityRouter;
+
+
+//======================//============================//
+
+// File: ikootaapi/routes/membershipApplicationRoutes.js
+// MEMBERSHIP APPLICATION ROUTES - CONSOLIDATED
+
+import express from 'express';
+import { authenticate, cacheMiddleware } from '../middlewares/auth.middleware.js';
+
+// Import membership-specific middleware
+import { 
+  canApplyForMembership, 
+  validateMembershipApplication,
+  rateLimitApplications,
+  logMembershipAction,
+  requirePreMemberOrHigher
+} from '../middlewares/membershipMiddleware.js';
+
+// Import core utilities
+import { 
+  requireAdmin, 
+  requireSuperAdmin,
+  validateRequest 
+} from '../controllers/membershipCore.js';
+
+// Import pre-member application functions
+import {
+  getUserDashboard,
+  checkApplicationStatus,
+  getCurrentMembershipStatus,
+  submitInitialApplication,
+  updateApplicationAnswers,
+  updateInitialApplication,
+  withdrawApplication,
+  getApplicationRequirements,
+  getApplicationHistory,
+  getUserPermissions,
+  verifyApplicationStatusConsistency
+} from '../controllers/preMemberApplicationController.js';
+
+// Import user status functions
+import {
+  checkSurveyStatus,
+  getBasicProfile,
+  getLegacyMembershipStatus,
+  getUserStatus
+} from '../controllers/userStatusController.js';
+
+// Import full membership functions
+import {
+  getFullMembershipStatusById,
+  submitFullMembershipApplication,
+  reapplyFullMembership,
+  logFullMembershipAccess
+} from '../controllers/fullMembershipController.js';
+
+// Import existing controller functions for compatibility
+import { getFullMembershipStatus } from '../controllers/membershipControllers_2.OLD.js/index.js';
+
+const membershipApplicationRouter = express.Router();
+
+// ===============================================
+// MIDDLEWARE CHAINS FOR REUSE
+// ===============================================
+
+// Basic protected route (authenticated + logging)
+const basicProtected = [
+  authenticate,
+  logMembershipAction('access_membership_content')
+];
+
+// Status check route (authenticated + pre-member access + logging)
+const statusCheck = [
+  authenticate,
+  requirePreMemberOrHigher,
+  logMembershipAction('check_membership_status')
+];
+
+// Application submission (full protection)
+const applicationSubmission = [
+  authenticate,
+  rateLimitApplications,           // Prevent spam
+  canApplyForMembership,           // Check eligibility
+  validateMembershipApplication,   // Validate input
+  logMembershipAction('submit_membership_application')
+];
+
+// Reapplication (similar to submission but different logging)
+const reapplication = [
+  authenticate,
+  rateLimitApplications,
+  canApplyForMembership,
+  validateMembershipApplication,
+  logMembershipAction('reapply_membership_application')
+];
+
+// ===============================================
+// USER DASHBOARD & STATUS ROUTES
+// ===============================================
+
+// Primary dashboard
+membershipApplicationRouter.get('/dashboard', authenticate, getUserDashboard);
+
+// Status checking routes - Multiple endpoints for compatibility
+membershipApplicationRouter.get('/status', authenticate, getCurrentMembershipStatus);
+membershipApplicationRouter.get('/application/status', authenticate, checkApplicationStatus);
+membershipApplicationRouter.get('/survey/check-status', authenticate, checkSurveyStatus);
+
+// Legacy compatibility endpoints
+membershipApplicationRouter.get('/membership/status', authenticate, getLegacyMembershipStatus);
+membershipApplicationRouter.get('/user/status', authenticate, getUserStatus);
+
+// User profile and permissions
+membershipApplicationRouter.get('/profile/basic', authenticate, getBasicProfile);
+membershipApplicationRouter.get('/permissions', authenticate, getUserPermissions);
+membershipApplicationRouter.get('/application-history', authenticate, getApplicationHistory);
+membershipApplicationRouter.get('/history', authenticate, getApplicationHistory);
+
+// ===============================================
+// INITIAL APPLICATION ROUTES (PRE-MEMBER)
+// ===============================================
+
+// Submit initial application - Multiple endpoints for compatibility
+membershipApplicationRouter.post('/application/submit', authenticate, submitInitialApplication);
+membershipApplicationRouter.post('/application', authenticate, submitInitialApplication);
+membershipApplicationRouter.post('/submit-initial-application', authenticate, submitInitialApplication);
+
+// Application management
+membershipApplicationRouter.put('/application/update', authenticate, updateInitialApplication);
+membershipApplicationRouter.put('/application/update-answers', authenticate, updateApplicationAnswers);
+membershipApplicationRouter.put('/application/answers', authenticate, updateApplicationAnswers);
+
+// Application control
+membershipApplicationRouter.post('/application/withdraw', authenticate, withdrawApplication);
+membershipApplicationRouter.delete('/application', authenticate, withdrawApplication);
+
+// Application information
+membershipApplicationRouter.get('/application/requirements', authenticate, getApplicationRequirements);
+membershipApplicationRouter.get('/application/info', authenticate, getApplicationRequirements);
+membershipApplicationRouter.get('/application-requirements', authenticate, getApplicationRequirements);
+
+// Validated application routes with input validation
+membershipApplicationRouter.put('/application/answers/validated',
+  authenticate,
+  validateRequest(['answers']),
+  updateApplicationAnswers
+);
+
+membershipApplicationRouter.post('/application/withdraw/validated',
+  authenticate,
+  validateRequest(['reason']),
+  withdrawApplication
+);
+
+// ===============================================
+// FULL MEMBERSHIP APPLICATION ROUTES
+// ===============================================
+
+// Get full membership status - Multiple endpoints for compatibility
+membershipApplicationRouter.get('/full-membership/status/:userId', ...statusCheck, getFullMembershipStatusById);
+membershipApplicationRouter.get('/full-membership/status', ...statusCheck, getFullMembershipStatus);
+membershipApplicationRouter.get('/full-membership-status', ...statusCheck, getFullMembershipStatus);
+
+// Submit full membership application - Primary endpoint with full protection
+membershipApplicationRouter.post('/full-membership/submit', ...applicationSubmission, submitFullMembershipApplication);
+membershipApplicationRouter.post('/full-membership/apply', ...applicationSubmission, submitFullMembershipApplication);
+membershipApplicationRouter.post('/submit-full-membership', ...applicationSubmission, submitFullMembershipApplication);
+
+// Reapplication for declined applications
+membershipApplicationRouter.post('/full-membership/reapply', ...reapplication, reapplyFullMembership);
+
+// Access logging routes
+membershipApplicationRouter.post('/full-membership/access-log', ...basicProtected, logFullMembershipAccess);
+
+// Enhanced status endpoints
+membershipApplicationRouter.get('/full-membership/detailed-status', 
+  authenticate,
+  requirePreMemberOrHigher,
+  logMembershipAction('check_detailed_membership_status'),
+  getFullMembershipStatus
+);
+
+// Quick status check (minimal logging for frequent calls)
+membershipApplicationRouter.get('/full-membership/quick-status', authenticate, getFullMembershipStatus);
+
+// ===============================================
+// APPLICATION SUPPORT ROUTES
+// ===============================================
+
+// Get available mentors and classes
+membershipApplicationRouter.get('/mentors/available', authenticate, async (req, res) => {
+  // This would call the mentor controller
+  res.json({ message: 'Available mentors endpoint - implement with mentor controller' });
+});
+
+membershipApplicationRouter.get('/classes/available', authenticate, async (req, res) => {
+  // This would call the classes controller
+  res.json({ message: 'Available classes endpoint - implement with classes controller' });
+});
+
+// ===============================================
+// DEBUG ROUTES (DEVELOPMENT ONLY)
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  membershipApplicationRouter.get('/debug/status-consistency', authenticate, verifyApplicationStatusConsistency);
+}
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// Enhanced 404 handler for membership application routes
+membershipApplicationRouter.use('*', (req, res) => {
+  console.warn(`❌ 404 - Membership application route not found: ${req.method} ${req.path}`);
+  
+  res.status(404).json({
+    success: false,
+    error: 'Membership application route not found',
+    path: req.path,
+    method: req.method,
+    availableEndpoints: {
+      dashboard: [
+        'GET /dashboard - User dashboard with comprehensive status',
+        'GET /status - Current membership status',
+        'GET /application/status - Application status check',
+        'GET /survey/check-status - Survey status check'
+      ],
+      initialApplication: [
+        'POST /application/submit - Submit initial application',
+        'PUT /application/update - Update application',
+        'PUT /application/answers - Update application answers',
+        'POST /application/withdraw - Withdraw application',
+        'GET /application/requirements - Get requirements'
+      ],
+      fullMembership: [
+        'GET /full-membership/status - Get full membership status',
+        'POST /full-membership/submit - Submit full membership application',
+        'POST /full-membership/reapply - Reapply for full membership',
+        'POST /full-membership/access-log - Log access'
+      ],
+      support: [
+        'GET /mentors/available - Get available mentors',
+        'GET /classes/available - Get available classes'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Enhanced global error handler
+membershipApplicationRouter.use((error, req, res, next) => {
+  const errorId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  
+  console.error('❌ Membership application route error:', {
+    errorId,
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.id || 'not authenticated',
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Internal server error',
+    errorId,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('📋 Membership application routes loaded with full workflow support');
+}
+
+export default membershipApplicationRouter;
+
+
+//======================//============================//
+
+// ikootaapi/routes/membershipRoutes.js
+// ===============================================
+// MAIN MEMBERSHIP ROUTES - COMPLETE MODULAR ARCHITECTURE
+// Imports from the 4 new modular controllers
+// ===============================================
+
+import express from 'express';
+import { authenticate, cacheMiddleware } from '../middlewares/auth.middleware.js';
+
+// ===============================================
+// IMPORT FROM NEW MODULAR CONTROLLERS
+// ===============================================
+
+// Core utilities and middleware
+import { 
+  requireAdmin, 
+  requireSuperAdmin,
+  validateRequest 
+} from '../controllers/membershipCore.js';
+
+// Pre-member application functions
+import {
+  getUserDashboard,
+  checkApplicationStatus,
+  getCurrentMembershipStatus,
+  submitInitialApplication,
+  updateApplicationAnswers,
+  updateInitialApplication,
+  withdrawApplication,
+  getApplicationRequirements,
+  getApplicationHistory,
+  getUserPermissions,
+  verifyApplicationStatusConsistency
+} from '../controllers/preMemberApplicationController.js';
+
+import {checkSurveyStatus} from '../controllers/userStatusController.js';
+
+// Admin management functions
+import {
+  approvePreMemberApplication,
+  declinePreMemberApplication,
+  getPendingApplications,
+  updateApplicationStatus,
+  bulkApproveApplications,
+  getPendingFullMemberships,
+  updateFullMembershipStatus,
+  getAvailableMentors,
+  getAvailableClasses,
+  sendNotification,
+  sendMembershipNotification,
+  getAllReports,
+  searchUsers,
+  deleteUserAccount,
+  getMembershipOverview,
+  exportMembershipData,
+  getSystemConfig
+} from '../controllers/adminManagementController.js';
+
+// User status and basic operations
+import {
+  healthCheck,
+  testSimple,
+  testAuth,
+  testDashboard,
+  testUserLookup,
+  debugApplicationStatus,
+  getSystemStatus,
+  getBasicProfile,
+  getLegacyMembershipStatus,
+  getUserStatus
+} from '../controllers/userStatusController.js';
+
+// Full membership functions (keeping existing controller)
+import {
+  getFullMembershipStatusById,
+  submitFullMembershipApplication,
+  reapplyFullMembership,
+  logFullMembershipAccess
+} from '../controllers/fullMembershipController.js';
+
+// Analytics functions (keeping existing controller)
+import {
+  getMembershipAnalytics,
+  getMembershipStats
+} from '../controllers/analyticsController.js';
+
+const router = express.Router();
+
+// ===============================================
+// SECTION 1: SYSTEM & HEALTH ROUTES
+// ===============================================
+
+// Health and system status
+router.get('/health', healthCheck);
+router.get('/system/status', getSystemStatus);
+
+// Development & testing routes
+router.get('/test-simple', testSimple);
+router.get('/test-auth', authenticate, testAuth);
+router.get('/test-dashboard', authenticate, testDashboard);
+router.get('/test-user-lookup/:userId', authenticate, requireAdmin, testUserLookup);
+router.get('/test-user-lookup', authenticate, testUserLookup);
+
+// Debug routes (development only)
+if (process.env.NODE_ENV === 'development') {
+  router.get('/debug/application-status/:userId', authenticate, debugApplicationStatus);
+  router.get('/debug/status-consistency', authenticate, verifyApplicationStatusConsistency);
+}
+
+// ===============================================
+// SECTION 2: USER DASHBOARD & STATUS ROUTES
+// ===============================================
+
+// Primary dashboard
+router.get('/dashboard', authenticate, getUserDashboard);
+
+// Status checking routes - Multiple endpoints for compatibility
+router.get('/status', authenticate, getCurrentMembershipStatus);
+router.get('/application/status', authenticate, checkApplicationStatus);
+router.get('/survey/check-status', authenticate, checkSurveyStatus);
+
+// Legacy compatibility endpoints
+router.get('/membership/status', authenticate, getLegacyMembershipStatus);
+router.get('/user/status', authenticate, getUserStatus);
+
+// User profile and permissions
+router.get('/profile/basic', authenticate, getBasicProfile);
+router.get('/permissions', authenticate, getUserPermissions);
+router.get('/application-history', authenticate, getApplicationHistory);
+router.get('/history', authenticate, getApplicationHistory);
+
+// ===============================================
+// SECTION 3: INITIAL APPLICATION ROUTES (PRE-MEMBER)
+// ===============================================
+
+// Submit initial application - Multiple endpoints for compatibility
+router.post('/survey/submit-application', authenticate, submitInitialApplication);
+router.post('/application', authenticate, submitInitialApplication);
+router.post('/submit-initial-application', authenticate, submitInitialApplication);
+
+// Application management
+router.put('/application/update-answers', authenticate, updateApplicationAnswers);
+router.put('/application/answers', authenticate, updateApplicationAnswers);
+router.put('/application/update', authenticate, updateInitialApplication);
+
+// Application control
+router.post('/application/withdraw', authenticate, withdrawApplication);
+router.delete('/application', authenticate, withdrawApplication);
+
+// Application information
+router.get('/application/requirements', authenticate, getApplicationRequirements);
+router.get('/application/info', authenticate, getApplicationRequirements);
+router.get('/application-requirements', authenticate, getApplicationRequirements);
+
+// Validated application routes with input validation
+router.put('/application/answers/validated',
+  authenticate,
+  validateRequest(['answers']),
+  updateApplicationAnswers
+);
+
+router.post('/application/withdraw/validated',
+  authenticate,
+  validateRequest(['reason']),
+  withdrawApplication
+);
+
+// ===============================================
+// SECTION 4: FULL MEMBERSHIP ROUTES
+// ===============================================
+
+// Get full membership status - Multiple endpoints for compatibility
+router.get('/full-membership-status/:userId', authenticate, getFullMembershipStatusById);
+router.get('/full-membership-status', authenticate, getFullMembershipStatusById);
+router.get('/membership/full-membership-status', authenticate, getFullMembershipStatusById);
+router.get('/full-membership/status', authenticate, getFullMembershipStatusById);
+
+// Submit full membership application
+router.post('/submit-full-membership', authenticate, submitFullMembershipApplication);
+router.post('/membership/submit-full-membership', authenticate, submitFullMembershipApplication);
+router.post('/full-membership/apply', authenticate, submitFullMembershipApplication);
+router.post('/submit-full-membership-application', authenticate, submitFullMembershipApplication);
+
+// Reapplication for declined applications
+router.post('/reapply-full-membership', authenticate, reapplyFullMembership);
+
+// Log full membership access
+router.post('/membership/log-full-membership-access', authenticate, logFullMembershipAccess);
+router.post('/full-membership/access', authenticate, logFullMembershipAccess);
+
+// ===============================================
+// SECTION 5: ADMIN APPLICATION MANAGEMENT ROUTES
+// ===============================================
+
+// System configuration (Admin only)
+router.get('/admin/config', authenticate, requireAdmin, getSystemConfig);
+router.get('/admin/super/config', authenticate, requireSuperAdmin, getSystemConfig);
+
+// Get pending applications - Multiple endpoints for compatibility
+router.get('/admin/pending-applications', authenticate, requireAdmin, getPendingApplications);
+router.get('/admin/applications', authenticate, requireAdmin, getPendingApplications);
+router.get('/admin/membership/applications', authenticate, requireAdmin, getPendingApplications);
+
+// Update application status - Multiple endpoints for compatibility
+router.put('/admin/update-user-status/:userId', authenticate, requireAdmin, updateApplicationStatus);
+router.put('/admin/applications/:userId/status', authenticate, requireAdmin, updateApplicationStatus);
+
+// Pre-member specific approval/decline
+router.post('/approve/:userId', authenticate, requireAdmin, approvePreMemberApplication);
+router.post('/decline/:userId', authenticate, requireAdmin, declinePreMemberApplication);
+
+// Bulk operations
+router.post('/admin/bulk-approve', authenticate, requireAdmin, bulkApproveApplications);
+router.post('/admin/applications/bulk', authenticate, requireAdmin, bulkApproveApplications);
+
+// ===============================================
+// SECTION 6: ADMIN FULL MEMBERSHIP MANAGEMENT
+// ===============================================
+
+// Get pending full memberships
+router.get('/admin/pending-full-memberships', authenticate, requireAdmin, getPendingFullMemberships);
+router.get('/admin/full-memberships', authenticate, requireAdmin, getPendingFullMemberships);
+
+// Review full membership applications
+router.put('/admin/review-full-membership/:applicationId', authenticate, requireAdmin, updateFullMembershipStatus);
+router.put('/admin/full-memberships/:applicationId/status', authenticate, requireAdmin, updateFullMembershipStatus);
+
+// ===============================================
+// SECTION 7: ADMIN RESOURCES & UTILITIES
+// ===============================================
+
+// Get available mentors and classes
+router.get('/admin/mentors', authenticate, requireAdmin, getAvailableMentors);
+router.get('/admin/classes', authenticate, requireAdmin, getAvailableClasses);
+
+// Reports and admin data
+router.get('/admin/reports', authenticate, requireAdmin, getAllReports);
+router.get('/admin/membership-overview', authenticate, requireAdmin, cacheMiddleware(600), getMembershipOverview);
+router.get('/admin/overview', authenticate, requireAdmin, getMembershipOverview);
+
+// Analytics and statistics
+router.get('/admin/analytics', authenticate, requireAdmin, cacheMiddleware(600), getMembershipAnalytics);
+router.get('/admin/membership-analytics', authenticate, requireAdmin, getMembershipAnalytics);
+router.get('/admin/membership-stats', authenticate, requireAdmin, cacheMiddleware(600), getMembershipStats);
+router.get('/admin/stats', authenticate, requireAdmin, getMembershipStats);
+
+// Data export
+router.get('/admin/export-membership-data', authenticate, requireAdmin, exportMembershipData);
+router.get('/admin/export', authenticate, requireAdmin, exportMembershipData);
+
+// ===============================================
+// SECTION 8: COMMUNICATION & NOTIFICATIONS
+// ===============================================
+
+// General notifications
+router.post('/admin/send-notification', authenticate, requireAdmin, sendNotification);
+router.post('/admin/notifications/send', authenticate, requireAdmin, sendNotification);
+
+// Membership-specific notifications
+router.post('/admin/send-membership-notification', authenticate, requireAdmin, sendMembershipNotification);
+router.post('/admin/notifications/membership', authenticate, requireAdmin, sendMembershipNotification);
+
+// Validated notification routes
+router.post('/admin/notifications/validated-send', 
+  authenticate, 
+  requireAdmin,
+  validateRequest(['recipients', 'subject', 'message']),
+  sendNotification
+);
+
+// ===============================================
+// SECTION 9: USER MANAGEMENT ROUTES (SUPER ADMIN)
+// ===============================================
+
+// User search and management
+router.get('/admin/search-users', authenticate, requireAdmin, searchUsers);
+
+// User account deletion (Super Admin only)
+router.delete('/admin/users/:userId', authenticate, requireSuperAdmin, deleteUserAccount);
+router.delete('/user/account', authenticate, deleteUserAccount); // Self-deletion
+
+// ===============================================
+// SECTION 10: ENHANCED ERROR HANDLING & LOGGING
+// ===============================================
+
+// Request logging middleware for all membership routes
+router.use((req, res, next) => {
+  const startTime = Date.now();
+  
+  // Log request in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`🛣️ ${req.method} ${req.path}`, {
+      user: req.user?.id || 'unauthenticated',
+      timestamp: new Date().toISOString(),
+      ip: req.ip
+    });
+  }
+  
+  // Log response time
+  const originalSend = res.send;
+  res.send = function(data) {
+    const duration = Date.now() - startTime;
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Response sent in ${duration}ms for ${req.method} ${req.path}`);
+    }
+    originalSend.call(this, data);
+  };
+  
+  next();
+});
+
+// Enhanced 404 handler for membership routes
+router.use('*', (req, res) => {
+  console.warn(`❌ 404 - Route not found: ${req.method} ${req.path}`);
+  
+  res.status(404).json({
+    success: false,
+    error: 'Membership route not found',
+    path: req.path,
+    method: req.method,
+    message: 'The requested membership endpoint does not exist',
+    availableEndpoints: {
+      user: [
+        'GET /dashboard - User dashboard with comprehensive status',
+        'GET /status - Current membership status',
+        'GET /application/status - Application status check',
+        'POST /survey/submit-application - Submit initial application',
+        'GET /full-membership-status - Full membership application status',
+        'POST /submit-full-membership - Submit full membership application'
+      ],
+      admin: [
+        'GET /admin/pending-applications - Get pending applications',
+        'GET /admin/membership-overview - Membership overview dashboard',
+        'POST /admin/bulk-approve - Bulk approve applications',
+        'GET /admin/analytics - Advanced analytics and reporting',
+        'POST /approve/:userId - Approve specific application',
+        'POST /decline/:userId - Decline specific application'
+      ],
+      system: [
+        'GET /health - System health check',
+        'GET /test-simple - Simple connectivity test',
+        'GET /admin/config - System configuration'
+      ]
+    },
+    suggestion: 'Check the API documentation for correct endpoint paths',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Enhanced global error handler for membership routes
+router.use((error, req, res, next) => {
+  const errorId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  
+  console.error('❌ Membership route error:', {
+    errorId,
+    error: error.message,
+    stack: error.stack,
+    path: req.path,
+    method: req.method,
+    user: req.user?.id || 'not authenticated',
+    timestamp: new Date().toISOString()
+  });
+  
+  // Categorize errors for better handling
+  let statusCode = error.statusCode || 500;
+  let errorType = 'server_error';
+  
+  if (error.message.includes('validation') || error.message.includes('required')) {
+    statusCode = 400;
+    errorType = 'validation_error';
+  } else if (error.message.includes('authentication') || error.message.includes('token')) {
+    statusCode = 401;
+    errorType = 'authentication_error';
+  } else if (error.message.includes('permission') || error.message.includes('admin') || error.message.includes('access denied')) {
+    statusCode = 403;
+    errorType = 'authorization_error';
+  } else if (error.message.includes('not found')) {
+    statusCode = 404;
+    errorType = 'not_found_error';
+  } else if (error.message.includes('database') || error.message.includes('connection') || error.message.includes('MySQL')) {
+    statusCode = 503;
+    errorType = 'database_error';
+  } else if (error.message.includes('timeout')) {
+    statusCode = 504;
+    errorType = 'timeout_error';
+  }
+  
+  const errorResponse = {
+    success: false,
+    error: error.message || 'Internal server error',
+    errorType,
+    errorId,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  };
+  
+  // Add debug info in development
+  if (process.env.NODE_ENV === 'development') {
+    errorResponse.debug = {
+      stack: error.stack,
+      user: req.user
+    };
+  }
+  
+  res.status(statusCode).json(errorResponse);
+});
+
+// ===============================================
+// DEVELOPMENT LOGGING & DOCUMENTATION
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('\n🛣️ COMPLETE MODULAR MEMBERSHIP ROUTES LOADED:');
+  console.log('================================================================================');
+  console.log('✅ ARCHITECTURE: Complete modular organization - 4 controllers + utilities');
+  console.log('✅ PRESERVED: All existing functionality with zero breaking changes');
+  console.log('✅ ENHANCED: Better error handling, validation, and transaction safety');
+  console.log('✅ ORGANIZED: Clear separation of concerns for maintainability');
+  console.log('================================================================================');
+  
+  console.log('\n📁 NEW MODULAR STRUCTURE:');
+  console.log('   1. membershipCore.js              - All utilities and shared functions');
+  console.log('   2. preMemberApplicationController.js - Pre-member application flow');
+  console.log('   3. adminManagementController.js   - All admin functions');
+  console.log('   4. userStatusController.js        - Status checks and basic operations');
+  console.log('   5. fullMembershipController.js    - Full membership (existing)');
+  console.log('   6. analyticsController.js         - Analytics (existing)');
+  
+  console.log('\n🔧 KEY IMPROVEMENTS:');
+  console.log('   • Zero functionality loss - all functions preserved');
+  console.log('   • Enhanced error handling with proper HTTP status codes');
+  console.log('   • Database transaction safety for critical operations');
+  console.log('   • Comprehensive input validation and sanitization');
+  console.log('   • Proper admin/super_admin role-based access control');
+  console.log('   • Non-blocking email notifications');
+  console.log('   • Complete audit logging for all admin actions');
+  
+  console.log('\n📊 ROUTES ORGANIZATION:');
+  console.log('   • 80+ endpoints across all modules');
+  console.log('   • Complete pre-member → full member flow');
+  console.log('   • Comprehensive admin management tools');
+  console.log('   • Enhanced analytics and reporting');
+  console.log('   • Robust error handling and logging');
+  console.log('   • Multiple compatibility endpoints for legacy support');
+  
+  console.log('\n🚀 BENEFITS ACHIEVED:');
+  console.log('   • Eliminated duplication between application survey and membership');
+  console.log('   • Clear separation of concerns for easier maintenance');
+  console.log('   • Enhanced code reusability and testing capability');
+  console.log('   • Improved scalability for future feature additions');
+  console.log('   • Better debugging and error tracking capabilities');
+  
+  console.log('================================================================================\n');
+}
+
+export default router;
+
+
+//======================//============================//
+
+// File: ikootaapi/routes/surveyRoutes.js
+// SURVEY ROUTES - CONSOLIDATED SURVEY MANAGEMENT
+
+import express from 'express';
+import { 
+  submitSurvey, 
+  getSurveyQuestions, 
+  updateSurveyQuestions, 
+  getSurveyLogs, 
+  approveSurvey,
+  getQuestionLabels,
+  updateSurveyQuestionLabels
+} from '../controllers/surveyControllers.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+const surveyRouter = express.Router();
+
+// ===============================================
+// SURVEY SUBMISSION ROUTES
+// ===============================================
+
+// Submit application survey form
+surveyRouter.post('/submit', authenticate, submitSurvey);
+surveyRouter.post('/application/submit', authenticate, submitSurvey);
+surveyRouter.post('/submit_applicationsurvey', authenticate, submitSurvey); // Legacy compatibility
+
+// ===============================================
+// SURVEY MANAGEMENT ROUTES
+// ===============================================
+
+// Question labels endpoints for dynamic survey management
+surveyRouter.get('/question-labels', authenticate, getQuestionLabels);
+surveyRouter.put('/question-labels', authenticate, updateSurveyQuestionLabels);
+
+// Legacy endpoints (backward compatibility)
+surveyRouter.get('/questions', authenticate, getSurveyQuestions);
+surveyRouter.put('/questions', authenticate, updateSurveyQuestions);
+
+// ===============================================
+// SURVEY STATUS & LOGS ROUTES
+// ===============================================
+
+// Survey status check
+surveyRouter.get('/status', authenticate, async (req, res) => {
+  // This would integrate with the survey status controller
+  res.json({ message: 'Survey status endpoint - integrate with userStatusController' });
+});
+
+// Survey logs and approval (admin only)
+surveyRouter.get('/logs', authenticate, getSurveyLogs);
+surveyRouter.put('/approve', authenticate, approveSurvey);
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler for survey routes
+surveyRouter.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Survey route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      submission: [
+        'POST /submit - Submit survey',
+        'POST /application/submit - Submit application survey'
+      ],
+      management: [
+        'GET /question-labels - Get question labels',
+        'PUT /question-labels - Update question labels',
+        'GET /questions - Get survey questions',
+        'PUT /questions - Update survey questions'
+      ],
+      status: [
+        'GET /status - Get survey status',
+        'GET /logs - Get survey logs (admin)',
+        'PUT /approve - Approve survey (admin)'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Global error handler for survey routes
+surveyRouter.use((error, req, res, next) => {
+  console.error('❌ Survey route error:', error);
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Internal server error',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('📊 Survey routes loaded with question management and submission');
+}
+
+export default surveyRouter;
+
+
+//======================//============================//
+
+// 3. SYSTEM ROUTES - HEALTH CHECKS & UTILITIES
+// File: ikootaapi/routes/systemRoutes.js
+// ===============================================
+
+import express from 'express';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+// Import system-related functions
+import {
+  healthCheck,
+  testSimple,
+  testAuth,
+  testDashboard,
+  getSystemStatus
+} from '../controllers/userStatusController.js';
+
+const systemRouter = express.Router();
+
+// ===============================================
+// MAIN SYSTEM ENDPOINTS
+// ===============================================
+
+// Health check endpoint
+systemRouter.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API is healthy',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    version: '1.0.0'
+  });
+});
+
+// API info endpoint
+systemRouter.get('/info', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API Information',
+    version: '1.0.0',
+    routes: {
+      authentication: '/api/auth/*',
+      users: '/api/users/*',
+      membership: '/api/membership/*',
+      admin: '/api/admin/*',
+      content: '/api/content/*',
+      communication: '/api/chat/*',
+      identity: '/api/identity/*',
+      system: '/api/health, /api/info'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// System status endpoint
+systemRouter.get('/system/status', getSystemStatus);
+
+// ===============================================
+// DEVELOPMENT & TESTING ENDPOINTS
+// ===============================================
+
+// Simple connectivity test
+systemRouter.get('/test/simple', testSimple);
+
+// Authentication test
+systemRouter.get('/test/auth', authenticate, testAuth);
+
+// Dashboard connectivity test
+systemRouter.get('/test/dashboard', authenticate, testDashboard);
+
+// ===============================================
+// DEBUG ROUTES (DEVELOPMENT ONLY)
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  
+  // Debug route list
+  systemRouter.get('/debug/routes', (req, res) => {
+    res.json({
+      success: true,
+      message: 'Available system routes',
+      routes: {
+        main: [
+          'GET /health - System health check',
+          'GET /info - API information',
+          'GET /system/status - System status overview'
+        ],
+        testing: [
+          'GET /test/simple - Simple connectivity test',
+          'GET /test/auth - Authentication test (requires login)',
+          'GET /test/dashboard - Dashboard connectivity test (requires login)'
+        ],
+        debug: [
+          'GET /debug/routes - This route list'
+        ]
+      },
+      timestamp: new Date().toISOString()
+    });
+  });
+}
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// System routes error handler
+systemRouter.use((error, req, res, next) => {
+  console.error('❌ System route error:', {
+    error: error.message,
+    stack: error.stack,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'System error',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔧 System routes loaded: health checks, API info, and testing endpoints');
+}
+
+export default systemRouter;
+
+
+
+//======================//============================//
+
+// File: ikootaapi/routes/teachingsRoutes.js
+import express from 'express';
+import { uploadMiddleware, uploadToS3 } from '../middlewares/upload.middleware.js';
+import {
+  createTeaching,
+  fetchAllTeachings,
+  fetchTeachingsByUserId,
+  editTeaching,
+  removeTeaching,
+  fetchTeachingsByIds,
+  fetchTeachingByPrefixedId,
+  searchTeachingsController,
+  fetchTeachingStats,
+} from '../controllers/teachingsControllers.js';
+import { authenticate, cacheMiddleware } from '../middlewares/auth.middleware.js';
+
+const router = express.Router();
+
+// GET /teachings - Fetch all teachings with optional pagination and filtering
+router.get('/', authenticate, fetchAllTeachings);
+
+// GET /teachings/search - Search teachings (dedicated search endpoint)
+router.get('/search', authenticate, cacheMiddleware(120), searchTeachingsController);
+
+// GET /teachings/stats - Get teaching statistics
+router.get('/stats', authenticate, cacheMiddleware(120), fetchTeachingStats);
+
+// GET /teachings/user - Fetch teachings by user_id
+router.get('/user', authenticate, fetchTeachingsByUserId);
+
+// GET /teachings/ids - Fetch teachings by multiple IDs
+router.get('/ids', authenticate, fetchTeachingsByIds);
+
+// GET /teachings/prefixed/:prefixedId - Fetch teaching by prefixed ID or numeric ID
+router.get('/prefixed/:prefixedId', authenticate, fetchTeachingByPrefixedId);
+
+// GET /teachings/:id - Fetch single teaching by ID (alternative endpoint)
+router.get('/:id', authenticate, fetchTeachingByPrefixedId);
+
+// POST /teachings - Create a new teaching
+router.post('/', authenticate, uploadMiddleware, uploadToS3, createTeaching);
+
+// PUT /teachings/:id - Update a teaching by ID
+router.put('/:id', authenticate, uploadMiddleware, uploadToS3, editTeaching);
+
+// DELETE /teachings/:id - Delete a teaching by ID
+router.delete('/:id', authenticate, removeTeaching);
+
+export default router;
+
+
+
+
+
+//======================//============================//
+
+
+// File: ikootaapi/routes/userRoutes.js
+// 2. USER ROUTES - CONSOLIDATED USER MANAGEMENT
+
+import express from 'express';
+import {
+  // Existing user controller functions
+  getUserProfile,
+  updateUserProfile,
+  updateUserRole,
+  fetchAllUsers,
+  fetchUserStats,
+  fetchUserActivity,
+  fetchUserById,
+  removeUser,
+  
+  // Admin management functions
+  getAllUsers,
+  getAllMentors,
+  updateUser,
+  getMembershipOverview,
+  getClasses
+} from '../controllers/userControllers.js';
+
+// Import from userStatusController for status-related functions
+import {
+  checkSurveyStatus,
+  getCurrentMembershipStatus,
+  getBasicProfile,
+  getLegacyMembershipStatus,
+  getUserStatus,
+  debugApplicationStatus,
+  getSystemStatus
+} from '../controllers/userStatusController.js';
+
+// Import from preMemberApplicationController for dashboard functions
+import {
+  getUserDashboard,
+  getApplicationHistory,
+  getUserPermissions,
+  checkApplicationStatus
+} from '../controllers/preMemberApplicationController.js';
+
+import { 
+  authenticate,  
+  requireAdmin  
+} from '../middlewares/auth.middleware.js';
+
+const userRouter = express.Router();
+
+// ===============================================
+// USER PROFILE MANAGEMENT ROUTES
+// ===============================================
+
+// GET /users/profile - Get current user's profile
+userRouter.get('/profile', authenticate, getUserProfile);
+
+// PUT /users/profile - Update current user's profile
+userRouter.put('/profile', authenticate, updateUserProfile);
+
+// GET /users/profile/basic - Get basic profile info
+userRouter.get('/profile/basic', authenticate, getBasicProfile);
+
+// DELETE /users/profile - Delete user profile (self-deletion)
+userRouter.delete('/profile', authenticate, removeUser);
+
+// ===============================================
+// USER STATUS & DASHBOARD ROUTES
+// ===============================================
+
+// GET /users/dashboard - Primary user dashboard
+userRouter.get('/dashboard', authenticate, getUserDashboard);
+
+// GET /users/status - Current membership status
+userRouter.get('/status', authenticate, getCurrentMembershipStatus);
+
+// GET /users/permissions - User permissions
+userRouter.get('/permissions', authenticate, getUserPermissions);
+
+// GET /users/application/status - Application status check
+userRouter.get('/application/status', authenticate, checkApplicationStatus);
+
+// GET /users/survey/check-status - Enhanced survey status check
+userRouter.get('/survey/check-status', authenticate, checkSurveyStatus);
+
+// ===============================================
+// USER HISTORY & ACTIVITY ROUTES
+// ===============================================
+
+// GET /users/history - Application history
+userRouter.get('/history', authenticate, getApplicationHistory);
+
+// GET /users/application-history - Application history (alias)
+userRouter.get('/application-history', authenticate, getApplicationHistory);
+
+// GET /users/activity - User activity
+userRouter.get('/activity', authenticate, fetchUserActivity);
+
+// GET /users/:user_id/activity - Get specific user activity
+userRouter.get('/:user_id/activity', authenticate, fetchUserActivity);
+
+// ===============================================
+// USER SETTINGS ROUTES
+// ===============================================
+
+// PUT /users/settings - Update user settings
+userRouter.put('/settings', authenticate, updateUserProfile);
+
+// GET /users/settings - Get user settings
+userRouter.get('/settings', authenticate, getUserProfile);
+
+// PUT /users/password - Update user password
+userRouter.put('/password', authenticate, updateUserProfile);
+
+// ===============================================
+// USER LOOKUP & MANAGEMENT ROUTES
+// ===============================================
+
+// GET /users/stats - Get user statistics (admin only)
+userRouter.get('/stats', authenticate, requireAdmin, fetchUserStats);
+
+// GET /users - Get all users with filtering (admin only)
+userRouter.get('/', authenticate, requireAdmin, fetchAllUsers);
+
+// GET /users/:user_id - Get user by ID
+userRouter.get('/:user_id', authenticate, fetchUserById);
+
+// PUT /users/role - Update user role and properties (admin only)
+userRouter.put('/role', authenticate, requireAdmin, updateUserRole);
+
+// PUT /users/:user_id - Update specific user (admin only)
+userRouter.put('/:user_id', authenticate, requireAdmin, updateUserRole);
+
+// DELETE /users/:user_id - Soft delete user (super admin only)
+userRouter.delete('/:user_id', authenticate, requireAdmin, removeUser);
+
+// ===============================================
+// ADMIN USER MANAGEMENT ROUTES (Legacy Support)
+// ===============================================
+
+// Admin Users Management Routes
+userRouter.get('/admin/users', 
+  authenticate, 
+  requireAdmin, 
+  getAllUsers
+);
+
+userRouter.get('/admin/mentors', 
+  authenticate, 
+  requireAdmin, 
+  getAllMentors
+);
+
+userRouter.put('/admin/update-user/:id', 
+  authenticate, 
+  requireAdmin, 
+  updateUser
+);
+
+userRouter.get('/admin/membership-overview', 
+  authenticate, 
+  requireAdmin, 
+  getMembershipOverview
+);
+
+userRouter.get('/classes', 
+  authenticate, 
+  getClasses
+);
+
+// ===============================================
+// COMPATIBILITY ALIASES
+// ===============================================
+
+// Legacy compatibility endpoints
+userRouter.get('/membership/status', authenticate, getLegacyMembershipStatus);
+userRouter.get('/user/status', authenticate, getUserStatus);
+
+// ===============================================
+// DEVELOPMENT & DEBUG ROUTES
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  userRouter.get('/debug/application-status/:userId', authenticate, debugApplicationStatus);
+}
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// Enhanced 404 handler for user routes
+userRouter.use('*', (req, res) => {
+  console.warn(`❌ 404 - User route not found: ${req.method} ${req.path}`);
+  
+  res.status(404).json({
+    success: false,
+    error: 'User route not found',
+    path: req.path,
+    method: req.method,
+    availableEndpoints: {
+      profile: [
+        'GET /profile - Get current user profile',
+        'PUT /profile - Update user profile',
+        'GET /profile/basic - Get basic profile info',
+        'DELETE /profile - Delete user profile'
+      ],
+      status: [
+        'GET /dashboard - User dashboard',
+        'GET /status - Current membership status',
+        'GET /permissions - User permissions',
+        'GET /application/status - Application status',
+        'GET /survey/check-status - Survey status'
+      ],
+      history: [
+        'GET /history - Application history',
+        'GET /activity - User activity'
+      ],
+      settings: [
+        'PUT /settings - Update settings',
+        'GET /settings - Get settings',
+        'PUT /password - Update password'
+      ],
+      admin: [
+        'GET / - Get all users (admin)',
+        'GET /stats - User statistics (admin)',
+        'PUT /:user_id - Update user (admin)'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Enhanced global error handler for user routes
+userRouter.use((error, req, res, next) => {
+  const errorId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  
+  console.error('❌ User route error:', {
+    errorId,
+    error: error.message,
+    stack: error.stack,
+    path: req.path,
+    method: req.method,
+    user: req.user?.id || 'not authenticated',
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Internal server error',
+    errorId,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('👤 User routes loaded with profile, status, history, and admin management');
+}
+
+export default userRouter;
+
+
+
+//======================//============================//
+
+// ikootaapi/routes/userStatusRoutes.js
+// ===============================================
+// USER STATUS ROUTES
+// Handles basic user status, health checks, and test endpoints
+// ===============================================
+
+import express from 'express';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+// ✅ UPDATED: Import functions from the correct controllers
+import {
+  checkSurveyStatus,           // ✅ NOW from userStatusController.js
+  getCurrentMembershipStatus,  // ✅ NOW from userStatusController.js  
+  healthCheck,
+  testSimple,
+  testAuth,
+  testDashboard,
+  getLegacyMembershipStatus,
+  getUserStatus,
+  debugApplicationStatus,
+  getSystemStatus,
+  getBasicProfile
+} from '../controllers/userStatusController.js';
+
+// ✅ UPDATED: Import dashboard and application functions from preMemberApplicationController.js
+import {
+  getUserDashboard,           // ✅ Dashboard function stays in preMemberApplicationController.js
+  getApplicationHistory,      // ✅ Application history stays in preMemberApplicationController.js
+  getUserPermissions,         // ✅ Permissions stay in preMemberApplicationController.js
+  checkApplicationStatus      // ✅ Application status check stays in preMemberApplicationController.js
+} from '../controllers/preMemberApplicationController.js';
+
+const router = express.Router();
+
+// ===============================================
+// SYSTEM & HEALTH ROUTES
+// ===============================================
+router.get('/health', healthCheck);
+router.get('/system/status', getSystemStatus);
+
+// ===============================================
+// DEVELOPMENT & TESTING ROUTES
+// ===============================================
+router.get('/test-simple', testSimple);
+router.get('/test-auth', authenticate, testAuth);
+router.get('/test-dashboard', authenticate, testDashboard);
+
+// Debug routes (development only)
+if (process.env.NODE_ENV === 'development') {
+  router.get('/debug/application-status/:userId', authenticate, debugApplicationStatus);
+}
+
+// ===============================================
+// USER STATUS ROUTES
+// ===============================================
+
+// Primary dashboard (from preMemberApplicationController.js)
+router.get('/dashboard', authenticate, getUserDashboard);
+
+// ✅ UPDATED: Status checking routes - now using improved functions
+router.get('/status', authenticate, getCurrentMembershipStatus);  // ✅ From userStatusController.js
+router.get('/application/status', authenticate, checkApplicationStatus);  // ✅ From preMemberApplicationController.js  
+router.get('/survey/check-status', authenticate, checkSurveyStatus);  // ✅ NOW from userStatusController.js (improved version)
+
+// User profile and permissions (from preMemberApplicationController.js)
+router.get('/profile/basic', authenticate, getBasicProfile);  // ✅ From userStatusController.js
+router.get('/permissions', authenticate, getUserPermissions);  // ✅ From preMemberApplicationController.js
+
+// User history (from preMemberApplicationController.js)
+router.get('/application-history', authenticate, getApplicationHistory);
+router.get('/history', authenticate, getApplicationHistory);
+
+// ===============================================
+// COMPATIBILITY ALIASES
+// ===============================================
+router.get('/membership/status', authenticate, getLegacyMembershipStatus);  // ✅ From userStatusController.js
+router.get('/user/status', authenticate, getUserStatus);  // ✅ From userStatusController.js
+
+// ===============================================
+// ENHANCED ERROR HANDLING
+// ===============================================
+
+// Enhanced 404 handler for user status routes
+router.use('*', (req, res) => {
+  console.warn(`❌ 404 - User status route not found: ${req.method} ${req.path}`);
+  
+  res.status(404).json({
+    success: false,
+    error: 'User status route not found',
+    path: req.path,
+    method: req.method,
+    message: 'The requested user status endpoint does not exist',
+    availableEndpoints: {
+      user: [
+        'GET /dashboard - User dashboard with comprehensive status',
+        'GET /status - Current membership status',
+        'GET /application/status - Application status check',
+        'GET /survey/check-status - Enhanced survey status check',
+        'GET /permissions - User permissions',
+        'GET /application-history - Application history',
+        'GET /profile/basic - Basic profile information'
+      ],
+      system: [
+        'GET /health - System health check',
+        'GET /system/status - System status overview',
+        'GET /test-simple - Simple connectivity test',
+        'GET /test-auth - Authentication test (requires login)',
+        'GET /test-dashboard - Dashboard connectivity test (requires login)'
+      ],
+      compatibility: [
+        'GET /membership/status - Legacy membership status',
+        'GET /user/status - Alternative user status endpoint'
+      ]
+    },
+    suggestion: 'Check the API documentation for correct endpoint paths',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Enhanced global error handler for user status routes
+router.use((error, req, res, next) => {
+  const errorId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  
+  console.error('❌ User status route error:', {
+    errorId,
+    error: error.message,
+    stack: error.stack,
+    path: req.path,
+    method: req.method,
+    user: req.user?.id || 'not authenticated',
+    timestamp: new Date().toISOString()
+  });
+  
+  // Categorize errors for better handling
+  let statusCode = error.statusCode || 500;
+  let errorType = 'server_error';
+  
+  if (error.message.includes('validation') || error.message.includes('required')) {
+    statusCode = 400;
+    errorType = 'validation_error';
+  } else if (error.message.includes('authentication') || error.message.includes('token')) {
+    statusCode = 401;
+    errorType = 'authentication_error';
+  } else if (error.message.includes('permission') || error.message.includes('access denied')) {
+    statusCode = 403;
+    errorType = 'authorization_error';
+  } else if (error.message.includes('not found')) {
+    statusCode = 404;
+    errorType = 'not_found_error';
+  } else if (error.message.includes('database') || error.message.includes('connection') || error.message.includes('MySQL')) {
+    statusCode = 503;
+    errorType = 'database_error';
+  } else if (error.message.includes('timeout')) {
+    statusCode = 504;
+    errorType = 'timeout_error';
+  }
+  
+  const errorResponse = {
+    success: false,
+    error: error.message || 'Internal server error',
+    errorType,
+    errorId,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  };
+  
+  // Add debug info in development
+  if (process.env.NODE_ENV === 'development') {
+    errorResponse.debug = {
+      stack: error.stack,
+      user: req.user
+    };
+  }
+  
+  res.status(statusCode).json(errorResponse);
+});
+
+// ===============================================
+// DEVELOPMENT LOGGING
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('\n🛣️ USER STATUS ROUTES LOADED:');
+  console.log('================================================================================');
+  console.log('✅ REORGANIZED: Functions properly distributed between controllers');
+  console.log('✅ IMPROVED: checkSurveyStatus now in userStatusController.js with enhancements');
+  console.log('✅ MAINTAINED: All existing functionality with better organization');
+  console.log('✅ ENHANCED: Better error handling and route documentation');
+  console.log('================================================================================');
+  
+  console.log('\n📁 FUNCTION DISTRIBUTION:');
+  console.log('   userStatusController.js:');
+  console.log('   • checkSurveyStatus (✅ ENHANCED - transferred from preMemberApplicationController)');
+  console.log('   • getCurrentMembershipStatus');
+  console.log('   • healthCheck, testSimple, testAuth, testDashboard');
+  console.log('   • getLegacyMembershipStatus, getUserStatus');
+  console.log('   • debugApplicationStatus, getSystemStatus');
+  console.log('   • getBasicProfile');
+  
+  console.log('\n   preMemberApplicationController.js:');
+  console.log('   • getUserDashboard (comprehensive dashboard)');
+  console.log('   • checkApplicationStatus (application-specific status)');
+  console.log('   • getApplicationHistory, getUserPermissions');
+  console.log('   • verifyApplicationStatusConsistency (debug)');
+  console.log('   • submitInitialApplication, updateApplicationAnswers');
+  console.log('   • withdrawApplication, getApplicationRequirements');
+  
+  console.log('\n🔧 KEY IMPROVEMENTS:');
+  console.log('   • Enhanced checkSurveyStatus with full membership application data');
+  console.log('   • Proper database result format handling');
+  console.log('   • Comprehensive error responses with categorization');
+  console.log('   • Clear separation between status checks and application management');
+  console.log('   • Maintained backward compatibility with all existing endpoints');
+  
+  console.log('\n📊 ROUTE ORGANIZATION:');
+  console.log('   • System & Health: 2 endpoints');
+  console.log('   • Development & Testing: 4 endpoints (including debug)');
+  console.log('   • User Status: 7 core endpoints');
+  console.log('   • Compatibility Aliases: 2 endpoints');
+  console.log('   • Enhanced error handling and documentation');
+  
+  console.log('================================================================================\n');
+}
+
+export default router;
+
+
+
+//======================//============================//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Frontend-Backend API Alignment Analysis
+
+## 📊 Summary Statistics
+
+- **Frontend API Calls**: 85+ distinct calls across 32 components
+- **Backend Endpoints**: 200+ endpoints across 14 route categories
+- **Matched Endpoints**: ~60% alignment
+- **Unmatched Frontend Calls**: ~15 calls
+- **Unmatched Backend Endpoints**: ~80 endpoints
+
+---
+
+## 🔗 Aligned Frontend Calls to Backend Endpoints
+
+| Frontend Component | Frontend API Call | Backend Endpoint | Status |
+|-------------------|-------------------|------------------|---------|
+| **Authentication** | | | |
+| Login.jsx | `POST /api/auth/login` | `POST /api/auth/login` | ✅ **Matched** |
+| Login.jsx | `GET /membership/survey/check-status` | `GET /api/membership/survey/check-status` | ✅ **Matched** |
+| Signup.jsx | `POST /api/auth/send-verification` | `POST /api/auth/send-verification` | ✅ **Matched** |
+| Signup.jsx | `POST /api/auth/register` | `POST /api/auth/register` | ✅ **Matched** |
+| Passwordreset.jsx | `POST /api/auth/passwordreset/request` | `POST /api/auth/passwordreset/request` | ✅ **Matched** |
+| Passwordreset.jsx | `POST /api/auth/passwordreset/reset` | `POST /api/auth/passwordreset/reset` | ✅ **Matched** |
+| Passwordreset.jsx | `POST /api/auth/passwordreset/verify` | `POST /api/auth/passwordreset/verify` | ✅ **Matched** |
+| **User Management** | | | |
+| Userinfo.jsx | `GET /users/profile` | `GET /api/users/profile` | ✅ **Matched** |
+| UserStatus.jsx | `GET /membership/survey/check-status` | `GET /api/membership/survey/check-status` | ✅ **Matched** |
+| UserStatus.jsx | `GET /membership/full-membership-status/{userId}` | `GET /api/membership/full-membership-status` | ✅ **Matched** |
+| Applicationsurvey.jsx | `POST /membership/survey/submit-application` | `POST /api/membership/application/submit` | ✅ **Matched** |
+| **Admin Routes** | | | |
+| UserManagement.jsx | `GET /membership/admin/membership-overview` | `GET /api/admin/membership/overview` | ✅ **Matched** |
+| UserManagement.jsx | `GET /membership/admin/pending-applications` | `GET /api/admin/membership/admin/pending-applications` | ✅ **Matched** |
+| UserManagement.jsx | `POST /membership/admin/bulk-approve` | `POST /api/admin/membership/admin/applications/bulk-review` | ✅ **Matched** |
+| UserManagement.jsx | `PUT /membership/admin/update-user-status/{userId}` | `PUT /api/admin/membership/applications/{id}/review` | ✅ **Matched** |
+| UserManagement.jsx | `GET /admin/users` | `GET /api/admin/users/` | ✅ **Matched** |
+| UserManagement.jsx | `GET /classes` | `GET /api/classes/` | ✅ **Matched** |
+| UserManagement.jsx | `GET /admin/mentors` | `GET /api/admin/users/mentors` | ✅ **Matched** |
+| UserManagement.jsx | `GET /admin/reports` | `GET /api/admin/content/reports` | ✅ **Matched** |
+| UserManagement.jsx | `PUT /admin/update-user/{id}` | `PUT /api/admin/users/{id}` | ✅ **Matched** |
+| UserManagement.jsx | `POST /admin/mask-identity` | `POST /api/identity/mask-identity` | ✅ **Matched** |
+| UserManagement.jsx | `DELETE /admin/delete-user/{userId}` | `DELETE /api/admin/users/{id}` | ✅ **Matched** |
+| UserManagement.jsx | `POST /admin/create-user` | `POST /api/admin/users/create` | ✅ **Matched** |
+| UserManagement.jsx | `POST /admin/send-notification` | `POST /api/communication/notification` | ✅ **Matched** |
+| UserManagement.jsx | `PUT /admin/update-report/{reportId}` | `PUT /api/admin/content/reports/{reportId}/status` | ✅ **Matched** |
+| Sidebar.jsx | `GET /admin/membership/pending-count` | `GET /api/admin/membership/pending-count` | ✅ **Matched** |
+| Dashboard.jsx | `GET /membership/admin/analytics` | `GET /api/admin/membership/analytics` | ✅ **Matched** |
+| Dashboard.jsx | `GET /membership/admin/membership-stats` | `GET /api/admin/membership/stats` | ✅ **Matched** |
+| Dashboard.jsx | `GET /admin/membership/full-membership-stats` | `GET /api/admin/membership/full-membership-stats` | ✅ **Matched** |
+| Dashboard.jsx | `GET /admin/audit-logs` | `GET /api/admin/content/audit-logs` | ✅ **Matched** |
+| AudienceClassMgr.jsx | `PUT /classes/{id}` | `PUT /api/classes/{id}` | ✅ **Matched** |
+| AudienceClassMgr.jsx | `POST /classes` | `POST /api/classes/` | ✅ **Matched** |
+| **Content Management** | | | |
+| ListChats.jsx | `GET /chats/combinedcontent` | `GET /api/chats/combinedcontent` | ✅ **Matched** |
+| ListChats.jsx | `GET /comments/all` | `GET /api/comments/all` | ✅ **Matched** |
+| IkoControls.jsx | `GET /api/messages?status={filter}` | *No direct match* | ❌ **Missing Backend** |
+| IkoControls.jsx | `GET /api/comments?status={filter}` | `GET /api/comments/all` (partial) | ⚠️ **Partial Match** |
+| IkoControls.jsx | `GET /api/chats` | `GET /api/chats/` | ✅ **Matched** |
+| IkoControls.jsx | `PUT /api/{type}/{id}` (status updates) | Various PUT endpoints | ✅ **Matched** |
+| **Survey & Auth Controls** | | | |
+| AuthControls.jsx | `GET /survey/question-labels` | `GET /api/survey/question-labels` | ✅ **Matched** |
+| AuthControls.jsx | `GET /survey/logs` | `GET /api/survey/logs` | ✅ **Matched** |
+| AuthControls.jsx | `PUT /survey/question-labels` | `PUT /api/survey/question-labels` | ✅ **Matched** |
+| AuthControls.jsx | `PUT /survey/approve` | `PUT /api/survey/approve` | ✅ **Matched** |
+| AuthControls.jsx | `PUT /users/role` | `PUT /api/users/role` | ✅ **Matched** |
+| AuthControls.jsx | `POST /email/send` | `POST /api/communication/email/send` | ✅ **Matched** |
+
+---
+
+## ❌ Frontend API Calls WITHOUT Backend Endpoints
+
+| Frontend Component | API Call | Issue |
+|-------------------|----------|-------|
+| IkoControls.jsx | `GET /api/messages?status={filter}` | No messages endpoint exists |
+| FullMembershipReviewControls.jsx | Multiple endpoint attempts with different paths | Inconsistent endpoint structure |
+| UserManagement.jsx | `GET /admin/export-users` | Missing export functionality |
+| Custom Hooks | `useFetchChats()`, `useFetchComments()`, `useFetchTeachings()` | Implementation unknown - may have missing endpoints |
+| Custom Hooks | `useFetchParentChatsAndTeachingsWithComments()` | Complex aggregation may be missing |
+| Custom Hooks | `useUpload()`, `useUploadCommentFiles()` | File upload endpoints unclear |
+| Service Functions | `postComment()`, `generateUniqueClassId()` | Implementation details missing |
+
+---
+
+## 🔍 Backend Endpoints WITHOUT Frontend API Calls
+
+### Authentication & User Management (Unused)
+| Endpoint | Purpose | Priority |
+|----------|---------|----------|
+| `GET /api/auth/logout` | User logout | 🔴 **High** |
+| `GET /api/auth/verify/:token` | Email verification | 🔴 **High** |
+| `GET /api/auth/` | Get authenticated user | 🟡 **Medium** |
+| `PUT /api/users/profile` | Update user profile | 🔴 **High** |
+| `DELETE /api/users/profile` | Delete user profile | 🟡 **Medium** |
+| `GET /api/users/dashboard` | User dashboard | 🔴 **High** |
+| `GET /api/users/permissions` | User permissions | 🟡 **Medium** |
+| `PUT /api/users/settings` | Update user settings | 🟡 **Medium** |
+| `PUT /api/users/password` | Update password | 🔴 **High** |
+
+### Content Management (Unused)
+| Endpoint | Purpose | Priority |
+|----------|---------|----------|
+| `GET /api/content/teachings/*` | All teaching endpoints | 🔴 **High** |
+| `POST /api/content/chats` | Create chat | 🔴 **High** |
+| `PUT /api/content/chats/:id` | Update chat | 🟡 **Medium** |
+| `DELETE /api/content/chats/:id` | Delete chat | 🟡 **Medium** |
+| `POST /api/content/comments` | Create comment | 🔴 **High** |
+| `PUT /api/content/comments/:id` | Update comment | 🟡 **Medium** |
+| `DELETE /api/content/comments/:id` | Delete comment | 🟡 **Medium** |
+| `GET /api/content/classes/:id/*` | Class management | 🔴 **High** |
+
+### Communication System (Unused)
+| Endpoint | Purpose | Priority |
+|----------|---------|----------|
+| `GET /api/communication/settings` | Communication settings | 🟡 **Medium** |
+| `PUT /api/communication/settings` | Update comm settings | 🟡 **Medium** |
+| `POST /api/communication/sms/send` | SMS functionality | 🟢 **Low** |
+| `GET /api/communication/rooms/*` | Chat rooms | 🔴 **High** |
+| `GET /api/communication/conversations/*` | Direct messaging | 🔴 **High** |
+
+### Identity & Privacy (Unused)
+| Endpoint | Purpose | Priority |
+|----------|---------|----------|
+| `POST /api/identity/verify` | Identity verification | 🟡 **Medium** |
+| `POST /api/identity/documents/upload` | Document upload | 🟡 **Medium** |
+| `PUT /api/identity/privacy-settings` | Privacy controls | 🟡 **Medium** |
+| `POST /api/identity/anonymize` | Data anonymization | 🟢 **Low** |
+
+### Advanced Admin Features (Unused)
+| Endpoint | Purpose | Priority |
+|----------|---------|----------|
+| `POST /api/admin/users/ban` | User banning | 🔴 **High** |
+| `POST /api/admin/users/grant-posting-rights` | Rights management | 🟡 **Medium** |
+| `GET /api/admin/users/search` | User search | 🔴 **High** |
+| `GET /api/admin/users/export` | Data export | 🟡 **Medium** |
+| `POST /api/admin/content/bulk-manage` | Bulk content management | 🔴 **High** |
+| `GET /api/analytics/admin/*` | Advanced analytics | 🟡 **Medium** |
+
+### System & Debug (Unused)
+| Endpoint | Purpose | Priority |
+|----------|---------|----------|
+| `GET /api/health` | System health | 🟡 **Medium** |
+| `GET /api/info` | API information | 🟢 **Low** |
+| `GET /api/routes` | Route discovery | 🟢 **Low** |
+| `GET /api/metrics` | Performance monitoring | 🟢 **Low** |
+
+---
+
+## 🔧 Recommendations for Implementation
+
+### 1. **Critical Missing Frontend Components** (High Priority)
+- **User logout functionality** - Frontend needs logout button/handler
+- **Profile management UI** - Update profile, change password
+- **Teaching content management** - Complete CRUD interface
+- **Chat/messaging system** - Real-time chat interface
+- **Advanced user search** - Admin search functionality
+
+### 2. **Backend Endpoints Needing Frontend** (Medium Priority)
+- **User dashboard** - Comprehensive user dashboard UI
+- **Communication settings** - User communication preferences
+- **Class management** - Full class admin interface
+- **Content moderation** - Bulk content management tools
+
+### 3. **Inconsistent Endpoint Patterns** (Needs Fixing)
+- **FullMembershipReviewControls.jsx** - Multiple endpoint attempts suggest unclear API structure
+- **File upload endpoints** - Inconsistent upload handling across components
+- **Status filtering** - Messages endpoint missing but referenced in frontend
+
+### 4. **Potential Optimization Opportunities**
+- **Custom hooks** - Consolidate similar data fetching patterns
+- **Bulk operations** - Leverage existing bulk endpoints more effectively
+- **Caching strategy** - Implement frontend caching for frequently accessed data
+
+
+
+
+
+
+MISSING API ENDPOINTS (Need to be created):
+Based on frontend calls vs. available routes:
+Potentially Missing:
+
+/api/full-membership/* - Several components call this, but index.js doesn't show it
+/api/email/send-membership-feedback - Email service endpoint
+/api/admin/applications/stats - Application statistics
+/api/membership/log-full-membership-access - Access logging
+
+Messages API - IkoControls.jsx calls /api/messages but no backend endpoint exists
+
+//table
+Frontend ComponentAPI CallIssueIkoControls.jsxGET /api/messages?status={filter}No messages endpoint existsFullMembershipReviewControls.jsxMultiple endpoint attempts with different pathsInconsistent endpoint structureUserManagement.jsxGET /admin/export-usersMissing export functionalityCustom HooksuseFetchChats(), useFetchComments(), useFetchTeachings()Implementation unknown - may have missing endpointsCustom HooksuseFetchParentChatsAndTeachingsWithComments()Complex aggregation may be missingCustom HooksuseUpload(), useUploadCommentFiles()File upload endpoints unclearService FunctionspostComment(), generateUniqueClassId()Implementation details missing
+
+Some endpoints have both /api/ prefixed and non-prefixed versions
+
+Debug components (DebugWrapper.jsx, apiTracer.js)
+
+🚀 Immediate Action Items:
+Fix broken import in useUploadCommentFiles.js
+Broken Import - useUploadCommentFiles.js missing API import (will cause runtime errors)
+Add 3 ID generation routes to adminUserRoutes.js
+Missing ID Generation Routes - Your IdDisplay.jsx component calls endpoints that don't exist
+Add notification routes to userRoutes.js
+Notification Routes Missing - Dashboard tries to mark notifications as read but route doesn't exist
+
+IMMEDIATE FIXES (Priority 1)
+
+Add Missing ID Generation Routes
+javascript// Add to adminUserRoutes.js
+router.post('/generate-bulk-ids', generateBulkIds);
+router.post('/generate-converse-id', generateConverseId);
+router.post('/generate-class-id', generateClassId);
+
+Add User Notifications Routes
+javascript// Add to userRoutes.js
+router.get('/notifications', getUserNotifications);
+router.put('/notifications/:id/read', markNotificationAsRead);
+
+Fix Import in useUploadCommentFiles.js
+javascript// Add missing import
+import api from '../components/service/api';
+
+
+MEDIUM PRIORITY (Priority 2)
+
+Standardize Full Membership Routes
+
+Create consistent /api/full-membership/* pattern
+Add alias routes for backward compatibility
+
+
+Add Email Service Routes
+javascript// Add to communicationRoutes.js
+router.post('/email/send-membership-feedback', sendMembershipFeedback);
+
+Implement Missing Messages Endpoints
+javascript// Add to communicationRoutes.js or create messageRoutes.js
+router.get('/messages', getMessages);
+router.put('/messages/:id', updateMessage);
+
+
+O

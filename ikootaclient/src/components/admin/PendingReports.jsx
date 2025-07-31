@@ -1,3 +1,4 @@
+//ikootaclient\src\components\admin\PendingReports.jsx
 import React from 'react'
 
 const PendingReports = () => {

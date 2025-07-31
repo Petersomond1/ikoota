@@ -6,7 +6,7 @@
 
 import express from 'express';
 import { authenticate, cacheMiddleware } from '../middlewares/auth.middleware.js';
-import { requireAdmin } from '../controllers/membershipControllers_1.OLD.js/index.js';
+import { requireAdmin } from '../controllers/membershipControllers_1.OLD.js';
 import {
   getMembershipAnalytics,
   getMembershipOverview,

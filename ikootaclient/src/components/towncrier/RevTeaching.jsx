@@ -1,3 +1,4 @@
+//ikootaclient\src\components\towncrier\RevTeaching.jsx
 import React from "react";
 import ReactPlayer from "react-player";
 import "./revteaching.css";

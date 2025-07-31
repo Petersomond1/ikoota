@@ -1,251 +1,251 @@
-// // ikootaapi/controllers/membershipControllers.js
-// // ==================================================
-// // MAIN MEMBERSHIP CONTROLLERS - UNIFIED EXPORTS
-// // ==================================================
+// ikootaapi/controllers/membershipControllers.js
+// ==================================================
+// MAIN MEMBERSHIP CONTROLLERS - UNIFIED EXPORTS
+// ==================================================
 
-// // Import all functions from the three modular files
-// import {
-//   // Utility functions
-//   generateApplicationTicket,
-//   getUserById,
-//   executeQuery,
-//   validateStageTransition,
-//   convertToCSV,
-//   successResponse,
-//   errorResponse,
+// Import all functions from the three modular files
+import {
+  // Utility functions
+  generateApplicationTicket,
+  getUserById,
+  executeQuery,
+  validateStageTransition,
+  convertToCSV,
+  successResponse,
+  errorResponse,
   
-//   // Authentication & Registration
-//   // enhancedLogin,
-//   // sendVerificationCode,
-//   // registerWithVerification,
+  // Authentication & Registration
+  // enhancedLogin,
+  // sendVerificationCode,
+  // registerWithVerification,
   
-//   // Middleware helpers
-//   validateRequest,
-//   requireAdmin,
-//   requireSuperAdmin
-// } from './membershipControllers_1.OLD.js/index.js';
+  // Middleware helpers
+  validateRequest,
+  requireAdmin,
+  requireSuperAdmin
+} from './membershipControllers_1.OLD.js';
 
-// import {
-//   // User Dashboard & Status
-//   getUserDashboard,
-//   checkApplicationStatus,
-//   getApplicationHistory,
-//   getUserPermissions,
+import {
+  // User Dashboard & Status
+  getUserDashboard,
+  checkApplicationStatus,
+  getApplicationHistory,
+  getUserPermissions,
   
-//   // Application Management
-//   submitInitialApplication,
-//   updateApplicationAnswers,
-//   withdrawApplication,
-//   getApplicationRequirements,
+  // Application Management
+  submitInitialApplication,
+  updateApplicationAnswers,
+  withdrawApplication,
+  getApplicationRequirements,
   
-//   // Full Membership
-//   getFullMembershipStatus,
-//   submitFullMembershipApplication,
-//   logFullMembershipAccess,
+  // Full Membership
+  getFullMembershipStatus,
+  submitFullMembershipApplication,
+  logFullMembershipAccess,
   
-//   // ✅ NEW: Debug and Testing Functions
-//   getUserByIdFixed,
-//   testUserLookup,
-//   getCurrentMembershipStatus
-// } from './membershipControllers_2.OLD.js/index.js';
+  // ✅ NEW: Debug and Testing Functions
+  getUserByIdFixed,
+  testUserLookup,
+  getCurrentMembershipStatus
+} from './membershipControllers_2.OLD.js';
 
-// import {
-//   // Admin Functions
-//   getPendingApplications,
-//   updateApplicationStatus,
-//   bulkApproveApplications,
-//   getPendingFullMemberships,
-//   updateFullMembershipStatus,
+import {
+  // Admin Functions
+  getPendingApplications,
+  updateApplicationStatus,
+  bulkApproveApplications,
+  getPendingFullMemberships,
+  updateFullMembershipStatus,
   
-//   // Analytics & Reporting
-//   getMembershipAnalytics,
-//   getMembershipOverview,
-//   getMembershipStats,
-//   exportMembershipData,
+  // Analytics & Reporting
+  getMembershipAnalytics,
+  getMembershipOverview,
+  getMembershipStats,
+  exportMembershipData,
   
-//   // Notifications
-//   sendNotification,
-//   sendMembershipNotification,
+  // Notifications
+  sendNotification,
+  sendMembershipNotification,
   
-//   // System Functions
-//   healthCheck,
-//   getSystemConfig,
-//   deleteUserAccount,
-//   searchUsers,
-//   getAllReports,
-//   approvePreMemberApplication,
-//   declinePreMemberApplication,
-//   getAvailableMentors,
-//   getAvailableClasses
-// } from './membershipControllers_3.OLD.js';
+  // System Functions
+  healthCheck,
+  getSystemConfig,
+  deleteUserAccount,
+  searchUsers,
+  getAllReports,
+  approvePreMemberApplication,
+  declinePreMemberApplication,
+  getAvailableMentors,
+  getAvailableClasses
+} from './membershipControllers_3.OLD.js';
 
-// // ==================================================
-// // RE-EXPORT ALL FUNCTIONS FOR ROUTES
-// // ==================================================
+// ==================================================
+// RE-EXPORT ALL FUNCTIONS FOR ROUTES
+// ==================================================
 
-// // Authentication & Registration
-// // export {
-// //   enhancedLogin,
-// //   sendVerificationCode,
-// //   registerWithVerification
-// // };
-
-// // User Dashboard & Status  
+// Authentication & Registration
 // export {
-//   getUserDashboard,
-//   checkApplicationStatus,
-//   getApplicationHistory,
-//   getUserPermissions
+//   enhancedLogin,
+//   sendVerificationCode,
+//   registerWithVerification
 // };
 
-// // Application Management
-// export {
-//   submitInitialApplication,
-//   updateApplicationAnswers,
-//   withdrawApplication,
-//   getApplicationRequirements
-// };
+// User Dashboard & Status  
+export {
+  getUserDashboard,
+  checkApplicationStatus,
+  getApplicationHistory,
+  getUserPermissions
+};
 
-// // Full Membership
-// export {
-//   getFullMembershipStatus,
-//   submitFullMembershipApplication,
-//   logFullMembershipAccess
-// };
+// Application Management
+export {
+  submitInitialApplication,
+  updateApplicationAnswers,
+  withdrawApplication,
+  getApplicationRequirements
+};
 
-// // ✅ NEW: Debug and Testing Functions
-// export {
-//   getUserByIdFixed,
-//   testUserLookup
-// };
+// Full Membership
+export {
+  getFullMembershipStatus,
+  submitFullMembershipApplication,
+  logFullMembershipAccess
+};
 
-// // Admin Functions
-// export {
-//   getPendingApplications,
-//   updateApplicationStatus,
-//   bulkApproveApplications,
-//   getPendingFullMemberships,
-//   updateFullMembershipStatus,
-//   getAllReports
-// };
+// ✅ NEW: Debug and Testing Functions
+export {
+  getUserByIdFixed,
+  testUserLookup
+};
 
-// // Analytics & Reporting
-// export {
-//   getMembershipAnalytics,
-//   getMembershipOverview,
-//   getMembershipStats,
-//   exportMembershipData
-// };
+// Admin Functions
+export {
+  getPendingApplications,
+  updateApplicationStatus,
+  bulkApproveApplications,
+  getPendingFullMemberships,
+  updateFullMembershipStatus,
+  getAllReports
+};
 
-// // Notifications
-// export {
-//   sendNotification,
-//   sendMembershipNotification
-// };
+// Analytics & Reporting
+export {
+  getMembershipAnalytics,
+  getMembershipOverview,
+  getMembershipStats,
+  exportMembershipData
+};
 
-// // System Functions
-// export {
-//   healthCheck,
-//   getSystemConfig,
-//   deleteUserAccount,
-//   searchUsers
-// };
+// Notifications
+export {
+  sendNotification,
+  sendMembershipNotification
+};
 
-// // Middleware helpers
-// export {
-//   validateRequest,
-//   requireAdmin,
-//   requireSuperAdmin
-// };
+// System Functions
+export {
+  healthCheck,
+  getSystemConfig,
+  deleteUserAccount,
+  searchUsers
+};
 
-// // Utility functions (for internal use)
-// export {
-//   generateApplicationTicket,
-//   getUserById,
-//   executeQuery,
-//   validateStageTransition,
-//   convertToCSV,
-//   successResponse,
-//   errorResponse
-// };
+// Middleware helpers
+export {
+  validateRequest,
+  requireAdmin,
+  requireSuperAdmin
+};
 
-// export {
-//   // ... existing exports
-//   getCurrentMembershipStatus,
-//   approvePreMemberApplication,
-//   declinePreMemberApplication,
-//   getAvailableMentors,
-//   getAvailableClasses
-// };
+// Utility functions (for internal use)
+export {
+  generateApplicationTicket,
+  getUserById,
+  executeQuery,
+  validateStageTransition,
+  convertToCSV,
+  successResponse,
+  errorResponse
+};
 
-// // ==================================================
-// // DEFAULT EXPORT FOR BACKWARD COMPATIBILITY
-// // ==================================================
+export {
+  // ... existing exports
+  getCurrentMembershipStatus,
+  approvePreMemberApplication,
+  declinePreMemberApplication,
+  getAvailableMentors,
+  getAvailableClasses
+};
 
-// export default {
-//   // // Authentication & Registration
-//   // enhancedLogin,
-//   // sendVerificationCode,
-//   // registerWithVerification,
+// ==================================================
+// DEFAULT EXPORT FOR BACKWARD COMPATIBILITY
+// ==================================================
+
+export default {
+  // // Authentication & Registration
+  // enhancedLogin,
+  // sendVerificationCode,
+  // registerWithVerification,
   
-//   // User Dashboard & Status
-//   getUserDashboard,
-//   checkApplicationStatus,
-//   getApplicationHistory,
-//   getUserPermissions,
+  // User Dashboard & Status
+  getUserDashboard,
+  checkApplicationStatus,
+  getApplicationHistory,
+  getUserPermissions,
   
-//   // Application Management
-//   submitInitialApplication,
-//   updateApplicationAnswers,
-//   withdrawApplication,
-//   getApplicationRequirements,
+  // Application Management
+  submitInitialApplication,
+  updateApplicationAnswers,
+  withdrawApplication,
+  getApplicationRequirements,
   
-//   // Full Membership
-//   getFullMembershipStatus,
-//   submitFullMembershipApplication,
-//   logFullMembershipAccess,
+  // Full Membership
+  getFullMembershipStatus,
+  submitFullMembershipApplication,
+  logFullMembershipAccess,
   
-//   // Debug and Testing Functions
-//   getUserByIdFixed,
-//   testUserLookup,
+  // Debug and Testing Functions
+  getUserByIdFixed,
+  testUserLookup,
   
-//   // Admin Functions
-//   getPendingApplications,
-//   updateApplicationStatus,
-//   bulkApproveApplications,
-//   getPendingFullMemberships,
-//   updateFullMembershipStatus,
-//   getAllReports,
+  // Admin Functions
+  getPendingApplications,
+  updateApplicationStatus,
+  bulkApproveApplications,
+  getPendingFullMemberships,
+  updateFullMembershipStatus,
+  getAllReports,
   
-//   // Analytics & Reporting
-//   getMembershipAnalytics,
-//   getMembershipOverview,
-//   getMembershipStats,
-//   exportMembershipData,
+  // Analytics & Reporting
+  getMembershipAnalytics,
+  getMembershipOverview,
+  getMembershipStats,
+  exportMembershipData,
   
-//   // Notifications
-//   sendNotification,
-//   sendMembershipNotification,
+  // Notifications
+  sendNotification,
+  sendMembershipNotification,
   
-//   // System Functions
-//   healthCheck,
-//   getSystemConfig,
-//   deleteUserAccount,
-//   searchUsers,
+  // System Functions
+  healthCheck,
+  getSystemConfig,
+  deleteUserAccount,
+  searchUsers,
   
-//   // Middleware helpers
-//   validateRequest,
-//   requireAdmin,
-//   requireSuperAdmin,
+  // Middleware helpers
+  validateRequest,
+  requireAdmin,
+  requireSuperAdmin,
   
-//   // Utility functions
-//   generateApplicationTicket,
-//   getUserById,
-//   executeQuery,
-//   validateStageTransition,
-//   convertToCSV,
-//   successResponse,
-//   errorResponse
-// };
+  // Utility functions
+  generateApplicationTicket,
+  getUserById,
+  executeQuery,
+  validateStageTransition,
+  convertToCSV,
+  successResponse,
+  errorResponse
+};
 
 

@@ -1,3 +1,4 @@
+//ikootaclient\src\components\admin\Reports.jsx
 import React from 'react'
 
 const Reports = () => {
