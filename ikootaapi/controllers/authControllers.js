@@ -895,20 +895,35 @@ export const enhancedLogin = async (req, res) => {
     }
     
     // ✅ FIXED: Proper database query result handling
-    const result = await db.query(`
-      SELECT u.*, 
-             COALESCE(sl.approval_status, 'not_submitted') as initial_application_status,
-             sl.createdAt as initial_application_date,
-             fma.first_accessedAt as full_membership_accessed,
-             CASE WHEN fma.user_id IS NOT NULL THEN 1 ELSE 0 END as has_accessed_full_membership
-      FROM users u
-      LEFT JOIN surveylog sl ON u.id = CAST(sl.user_id AS UNSIGNED) 
-        AND sl.application_type = 'initial_application'
-      LEFT JOIN full_membership_access fma ON u.id = fma.user_id
-      WHERE u.email = ?
-      GROUP BY u.id
-    `, [email]);
+    // const result = await db.query(`
+    //   SELECT u.*, 
+    //          COALESCE(sl.approval_status, 'not_submitted') as initial_application_status,
+    //          sl.createdAt as initial_application_date,
+    //          fma.first_accessedAt as full_membership_accessed,
+    //          CASE WHEN fma.user_id IS NOT NULL THEN 1 ELSE 0 END as has_accessed_full_membership
+    //   FROM users u
+    //   LEFT JOIN surveylog sl ON u.id = CAST(sl.user_id AS UNSIGNED) 
+    //     AND sl.application_type = 'initial_application'
+    //   LEFT JOIN full_membership_access fma ON u.id = fma.user_id
+    //   WHERE u.email = ?
+    //   GROUP BY u.id
+    // `, [email]);
     
+const result = await db.query(`
+  SELECT u.*, 
+         COALESCE(sl.approval_status, 'not_submitted') as initial_application_status,
+         sl.createdAt as initial_application_date,
+         fma.createdAt as full_membership_accessed,  -- ✅ Use existing createdAt instead
+         CASE WHEN fma.user_id IS NOT NULL THEN 1 ELSE 0 END as has_accessed_full_membership
+  FROM users u
+  LEFT JOIN surveylog sl ON u.id = CAST(sl.user_id AS UNSIGNED) 
+    AND sl.application_type = 'initial_application'
+  LEFT JOIN full_membership_access fma ON u.id = fma.user_id
+  WHERE u.email = ?
+  GROUP BY u.id
+`, [email]);
+
+
     // ✅ FIXED: Handle database result properly
     let users;
     if (Array.isArray(result) && result.length > 0) {

@@ -1,5 +1,5 @@
 // ikootaapi/app.js
-// CLEAN VERSION: No conflicting routes
+// ENHANCED VERSION: Integrating admin membership routes with existing functionality
 
 import express from 'express';
 import helmet from 'helmet';
@@ -11,18 +11,23 @@ import { errorHandler } from './utils/errorHandler.js';
 import morgan from 'morgan';
 import logger from './utils/logger.js';
 
+// ===== NEW IMPORTS FOR ADMIN MEMBERSHIP =====
+import adminMembershipRouter from './routes/adminMembershipRoutes.js';
+import membershipApplicationRouter from './routes/membershipApplicationRoutes.js';
+
 const app = express();
 
 // Middleware: Secure HTTP headers
 app.use(helmet());
 
-// Middleware: CORS
+// Middleware: CORS (Enhanced for admin routes)
 app.use(cors({
   origin: function (origin, callback) {
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000',
-      process.env.PUBLIC_CLIENT_URL
+      process.env.PUBLIC_CLIENT_URL,
+      process.env.CLIENT_URL || 'http://localhost:5173'  // Added for admin routes compatibility
     ].filter(Boolean);
     
     if (!origin || allowedOrigins.includes(origin)) {
@@ -36,7 +41,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with']
 }));
 
-// Middleware: Rate limiting
+// Middleware: Rate limiting (Enhanced for admin routes)
 const createRateLimit = (windowMs, max, message) => rateLimit({
   windowMs,
   max,
@@ -54,6 +59,8 @@ const createRateLimit = (windowMs, max, message) => rateLimit({
 });
 
 app.use('/api/auth', createRateLimit(15 * 60 * 1000, 10, 'Too many authentication attempts'));
+// ===== ENHANCED: Special rate limit for admin routes =====
+app.use('/api/admin', createRateLimit(15 * 60 * 1000, 50, 'Too many admin requests'));
 app.use('/api', createRateLimit(15 * 60 * 1000, 100, 'Too many API requests')); 
 
 // Middleware: Parsers
@@ -61,14 +68,29 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Middleware: Logging
+// Middleware: Logging (Enhanced for admin routes)
 app.use(morgan('dev'));
 
-// ===== MOUNT ALL API ROUTES (CLEAN) =====
-console.log('🚀 Mounting API routes at /api...');
+// ===== ENHANCED: Additional request logging for admin routes =====
+app.use('/api/admin', (req, res, next) => {
+  console.log(`🔐 ADMIN REQUEST: ${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log(`   User: ${req.user?.username || 'Not authenticated'}`);
+  console.log(`   Role: ${req.user?.role || 'Unknown'}`);
+  next();
+});
+
+// ===== ENHANCED: Mount admin routes BEFORE general routes =====
+console.log('🔐 Mounting admin membership routes...');
+app.use('/api/admin/membership', adminMembershipRouter);
+
+console.log('👤 Mounting membership application routes...');
+app.use('/api/membership', membershipApplicationRouter);
+
+// ===== MOUNT ALL OTHER API ROUTES (EXISTING) =====
+console.log('🚀 Mounting general API routes at /api...');
 app.use('/api', routes);
 
-// ===== ROOT HEALTH CHECK =====
+// ===== ROOT HEALTH CHECK (EXISTING) =====
 app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -78,7 +100,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ===== API DOCUMENTATION ENDPOINT =====
+// ===== ENHANCED API DOCUMENTATION ENDPOINT =====
 app.get('/api-docs', (req, res) => {
   if (process.env.NODE_ENV === 'development') {
     res.json({
@@ -89,12 +111,13 @@ app.get('/api-docs', (req, res) => {
         health: 'GET /health',
         admin: {
           membership: {
-            'GET /api/admin/membership/applications': 'Get membership applications',
+            'GET /api/admin/membership/test': 'Test admin endpoints connectivity',
+            'GET /api/admin/membership/applications': 'Get membership applications (with ?status=pending)',
             'GET /api/admin/membership/full-membership-stats': 'Get dashboard statistics',
-            'GET /api/admin/membership/pending-count': 'Get pending count',
-            'PUT /api/admin/membership/review/:id': 'Review individual application',
-            'POST /api/admin/membership/bulk-review': 'Bulk review applications',
-            'GET /api/admin/membership/application/:id': 'Get application details'
+            'GET /api/admin/membership/pending-count': 'Get pending applications count',
+            'PUT /api/admin/membership/applications/:id/review': 'Review individual application',
+            'POST /api/admin/membership/applications/bulk-review': 'Bulk review applications',
+            'GET /api/admin/membership/applications/:id': 'Get application details'
           },
           users: {
             'GET /api/admin/users': 'Get all users',
@@ -107,11 +130,22 @@ app.get('/api-docs', (req, res) => {
             'GET /api/admin/audit-logs': 'Get audit logs'
           }
         },
+        membership: {
+          'GET /api/membership/dashboard': 'User membership dashboard',
+          'GET /api/membership/status': 'Current membership status',
+          'POST /api/membership/application/submit': 'Submit membership application',
+          'GET /api/membership/full-membership/status': 'Full membership status',
+          'POST /api/membership/full-membership/submit': 'Submit full membership application'
+        },
         api: {
           auth: 'GET /api/auth/*',
-          membership: 'GET /api/membership/*',
-          survey: 'GET /api/survey/*'
+          survey: 'GET /api/survey/*',
+          general: 'All other /api/* routes'
         }
+      },
+      notes: {
+        authentication: 'Admin routes require Bearer token with admin/super_admin role',
+        rateLimit: 'Admin routes: 50 req/15min, General API: 100 req/15min, Auth: 10 req/15min'
       }
     });
   } else {
@@ -119,24 +153,247 @@ app.get('/api-docs', (req, res) => {
   }
 });
 
-// ===== 404 HANDLER =====
+// ===== ENHANCED: Admin-specific test endpoint =====
+app.get('/api/test', (req, res) => {
+  const isAdminPath = req.originalUrl.includes('/admin/');
+  
+  res.json({
+    success: true,
+    message: 'API server is running',
+    timestamp: new Date().toISOString(),
+    serverVersion: '2.0.0-admin-enhanced',
+    availableRoutes: {
+      admin: [
+        'GET /api/admin/membership/test',
+        'GET /api/admin/membership/applications?status=pending',
+        'GET /api/admin/membership/full-membership-stats',
+        'GET /api/admin/membership/pending-count',
+        'PUT /api/admin/membership/applications/:id/review',
+        'POST /api/admin/membership/applications/bulk-review'
+      ],
+      membership: [
+        'GET /api/membership/dashboard',
+        'GET /api/membership/status',
+        'POST /api/membership/application/submit',
+        'GET /api/membership/full-membership/status',
+        'POST /api/membership/full-membership/submit'
+      ],
+      general: [
+        'GET /health',
+        'GET /api-docs',
+        'All routes from routes/index.js'
+      ]
+    },
+    admin: {
+      enabled: true,
+      testEndpoint: '/api/admin/membership/test',
+      authRequired: 'Bearer token with admin/super_admin role'
+    }
+  });
+});
+
+// ===== 404 HANDLER (ENHANCED) =====
 app.use((req, res, next) => {
+  const isAdminRoute = req.originalUrl.startsWith('/api/admin/');
+  
   logger.warn(`404 - Route not found: ${req.method} ${req.originalUrl}`);
+  
   res.status(404).json({ 
     success: false,
     message: 'Resource not found',
     path: req.originalUrl,
     method: req.method,
-    suggestion: 'Check /api-docs for available endpoints'
+    suggestion: isAdminRoute 
+      ? 'Check admin routes - ensure authentication and correct endpoint' 
+      : 'Check /api-docs for available endpoints',
+    availableRoutes: isAdminRoute 
+      ? [
+          '/api/admin/membership/test',
+          '/api/admin/membership/applications',
+          '/api/admin/membership/full-membership-stats'
+        ]
+      : [
+          '/health',
+          '/api-docs',
+          '/api/test',
+          '/api/admin/membership/*',
+          '/api/membership/*'
+        ],
+    adminNote: isAdminRoute 
+      ? 'Admin routes require proper authentication and admin/super_admin role' 
+      : null
   });
 });
 
-// ===== ERROR HANDLER =====
-app.use(errorHandler);
+// ===== ERROR HANDLER (EXISTING - Enhanced for admin routes) =====
+app.use((error, req, res, next) => {
+  const isAdminRoute = req.originalUrl.startsWith('/api/admin/');
+  
+  // Enhanced logging for admin routes
+  if (isAdminRoute) {
+    logger.error('❌ ADMIN ROUTE ERROR:', {
+      error: error.message,
+      path: req.path,
+      method: req.method,
+      user: req.user?.username || 'Not authenticated',
+      role: req.user?.role || 'Unknown',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Use existing error handler
+  errorHandler(error, req, res, next);
+});
 
-console.log('✅ Clean app.js loaded - no route conflicts');
+console.log('✅ Enhanced app.js loaded with admin membership routes');
+console.log('🔐 Admin routes available at /api/admin/membership/*');
+console.log('👤 Membership routes available at /api/membership/*');
+console.log('📚 Documentation available at /api-docs');
 
 export default app;
+
+
+
+
+// // ikootaapi/app.js
+// // CLEAN VERSION: No conflicting routes
+
+// import express from 'express';
+// import helmet from 'helmet';
+// import rateLimit from 'express-rate-limit';
+// import cookieParser from 'cookie-parser';
+// import cors from 'cors';
+// import routes from './routes/index.js';
+// import { errorHandler } from './utils/errorHandler.js';
+// import morgan from 'morgan';
+// import logger from './utils/logger.js';
+
+// const app = express();
+
+// // Middleware: Secure HTTP headers
+// app.use(helmet());
+
+// // Middleware: CORS
+// app.use(cors({
+//   origin: function (origin, callback) {
+//     const allowedOrigins = [
+//       'http://localhost:5173',
+//       'http://localhost:3000',
+//       process.env.PUBLIC_CLIENT_URL
+//     ].filter(Boolean);
+    
+//     if (!origin || allowedOrigins.includes(origin)) {
+//       callback(null, true);
+//     } else {
+//       callback(new Error('Not allowed by CORS'));
+//     }
+//   },
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+//   credentials: true,
+//   allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with']
+// }));
+
+// // Middleware: Rate limiting
+// const createRateLimit = (windowMs, max, message) => rateLimit({
+//   windowMs,
+//   max,
+//   standardHeaders: true,
+//   legacyHeaders: false,
+//   handler: (req, res) => {
+//     logger.warn(`Rate limit exceeded for IP: ${req.ip}`);
+//     res.status(429).json({ 
+//       success: false,
+//       error: 'Too many requests',
+//       message,
+//       retryAfter: Math.ceil(windowMs / 1000)
+//     });
+//   }
+// });
+
+// app.use('/api/auth', createRateLimit(15 * 60 * 1000, 10, 'Too many authentication attempts'));
+// app.use('/api', createRateLimit(15 * 60 * 1000, 100, 'Too many API requests')); 
+
+// // Middleware: Parsers
+// app.use(cookieParser());
+// app.use(express.json({ limit: '10mb' }));
+// app.use(express.urlencoded({ extended: true }));
+
+// // Middleware: Logging
+// app.use(morgan('dev'));
+
+// // ===== MOUNT ALL API ROUTES (CLEAN) =====
+// console.log('🚀 Mounting API routes at /api...');
+// app.use('/api', routes);
+
+// // ===== ROOT HEALTH CHECK =====
+// app.get('/health', (req, res) => {
+//   res.status(200).json({
+//     success: true,
+//     message: 'Server is healthy',
+//     timestamp: new Date().toISOString(),
+//     environment: process.env.NODE_ENV || 'development'
+//   });
+// });
+
+// // ===== API DOCUMENTATION ENDPOINT =====
+// app.get('/api-docs', (req, res) => {
+//   if (process.env.NODE_ENV === 'development') {
+//     res.json({
+//       success: true,
+//       message: 'API Documentation',
+//       baseUrl: `http://localhost:${process.env.PORT || 3000}`,
+//       endpoints: {
+//         health: 'GET /health',
+//         admin: {
+//           membership: {
+//             'GET /api/admin/membership/applications': 'Get membership applications',
+//             'GET /api/admin/membership/full-membership-stats': 'Get dashboard statistics',
+//             'GET /api/admin/membership/pending-count': 'Get pending count',
+//             'PUT /api/admin/membership/review/:id': 'Review individual application',
+//             'POST /api/admin/membership/bulk-review': 'Bulk review applications',
+//             'GET /api/admin/membership/application/:id': 'Get application details'
+//           },
+//           users: {
+//             'GET /api/admin/users': 'Get all users',
+//             'PUT /api/admin/users/:id': 'Update user',
+//             'GET /api/admin/users/manage': 'User management'
+//           },
+//           system: {
+//             'GET /api/admin/reports': 'Get reports',
+//             'GET /api/admin/mentors': 'Get mentors',
+//             'GET /api/admin/audit-logs': 'Get audit logs'
+//           }
+//         },
+//         api: {
+//           auth: 'GET /api/auth/*',
+//           membership: 'GET /api/membership/*',
+//           survey: 'GET /api/survey/*'
+//         }
+//       }
+//     });
+//   } else {
+//     res.status(404).json({ message: 'Resource not found' });
+//   }
+// });
+
+// // ===== 404 HANDLER =====
+// app.use((req, res, next) => {
+//   logger.warn(`404 - Route not found: ${req.method} ${req.originalUrl}`);
+//   res.status(404).json({ 
+//     success: false,
+//     message: 'Resource not found',
+//     path: req.originalUrl,
+//     method: req.method,
+//     suggestion: 'Check /api-docs for available endpoints'
+//   });
+// });
+
+// // ===== ERROR HANDLER =====
+// app.use(errorHandler);
+
+// console.log('✅ Clean app.js loaded - no route conflicts');
+
+// export default app;
 
 
 
