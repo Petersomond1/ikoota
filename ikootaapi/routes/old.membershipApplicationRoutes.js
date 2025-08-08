@@ -43,7 +43,7 @@ import {
   getBasicProfile,
   getLegacyMembershipStatus,
   getUserStatus
-} from '../controllers/userStatusController.js';
+} from '../controllers/old.userStatusController.js';
 
 // Import full membership functions
 import {

@@ -12,7 +12,7 @@ import {
   successResponse, 
   errorResponse,
   executeQuery 
-} from './membershipControllers_1.OLD.js';
+} from './old.membershipControllers_1.OLD.js';
 import { sendEmailWithTemplate } from '../utils/email.js';
 import { generateUniqueConverseId } from '../utils/idGenerator.js';
 // import { successResponse, errorResponse } from './membershipControllers_1.js';

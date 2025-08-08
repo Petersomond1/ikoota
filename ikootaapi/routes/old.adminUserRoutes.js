@@ -37,7 +37,7 @@ import {
   getAvailableMentors,
   getAvailableClasses,
   testUserLookup
-} from '../controllers/membershipControllers.OLD.js';
+} from '../controllers/old.membershipControllers.OLD.js';
 
 // Import admin controllers
 import {
@@ -54,7 +54,7 @@ import {
   maskUserIdentity
 } from '../controllers/adminControllers.js';
 
-import { verifyApplicationStatusConsistency } from '../controllers/membershipControllers_2.OLD.js';
+import { verifyApplicationStatusConsistency } from '../controllers/old.membershipControllers_2.OLD.js';
 
 const adminUserRouter = express.Router();
 

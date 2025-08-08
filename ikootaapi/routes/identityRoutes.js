@@ -1,164 +1,198 @@
-// File: ikootaapi/routes/identityRoutes.js
-// 3. IDENTITY ROUTES - IDENTITY VERIFICATION & MANAGEMENT
+// ikootaapi/routes/identityRoutes.js
+// IDENTITY MANAGEMENT ROUTES
+// Converse ID and Mentor ID operations
 
 import express from 'express';
-import { 
-    maskUserIdentity, 
-    unmaskUserIdentity, 
-    getClassMembers, 
-    getMentees 
-} from '../controllers/identityController.js';
-import { authenticate, requireSuperAdmin, requireAdmin } from '../middlewares/auth.middleware.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
 
-const identityRouter = express.Router();
+// Import identity controllers (separated as requested)
+import {
+  // Converse ID operations
+  generateConverseId,
+  getConverseId,
+  updateConverseId,
+  deleteConverseId,
+  getClassMembers
+} from '../controllers/converseIdControllers.js';
+
+import {
+  // Mentor ID operations
+  generateMentorId,
+  getMentorId,
+  updateMentorId,
+  deleteMentorId,
+  getMentees,
+  assignMentee,
+  removeMentee
+} from '../controllers/mentorIdControllers.js';
+
+const router = express.Router();
 
 // ===============================================
-// IDENTITY VERIFICATION ROUTES
+// CONVERSE ID MANAGEMENT - /api/identity/converse/*
 // ===============================================
 
-// POST /identity/verify - Start identity verification process
-identityRouter.post('/verify', authenticate, async (req, res) => {
-  // This would integrate with identity verification service
-  res.json({ message: 'Identity verification endpoint - implement with verification service' });
+// GET /identity/converse - Get user's converse ID
+router.get('/converse', authenticate, getConverseId);
+
+// POST /identity/converse/generate - Generate new converse ID
+router.post('/converse/generate', authenticate, generateConverseId);
+
+// PUT /identity/converse - Update converse ID settings
+router.put('/converse', authenticate, updateConverseId);
+
+// DELETE /identity/converse - Delete/reset converse ID
+router.delete('/converse', authenticate, deleteConverseId);
+
+// GET /identity/converse/class/:classId/members - Get class members via converse ID
+router.get('/converse/class/:classId/members', authenticate, getClassMembers);
+
+// ===============================================
+// MENTOR ID MANAGEMENT - /api/identity/mentor/*
+// ===============================================
+
+// GET /identity/mentor - Get user's mentor ID
+router.get('/mentor', authenticate, getMentorId);
+
+// POST /identity/mentor/generate - Generate new mentor ID
+router.post('/mentor/generate', authenticate, generateMentorId);
+
+// PUT /identity/mentor - Update mentor ID settings
+router.put('/mentor', authenticate, updateMentorId);
+
+// DELETE /identity/mentor - Delete/reset mentor ID
+router.delete('/mentor', authenticate, deleteMentorId);
+
+// GET /identity/mentor/mentees - Get mentor's mentees
+router.get('/mentor/mentees', authenticate, getMentees);
+
+// POST /identity/mentor/mentees/assign - Assign mentee
+router.post('/mentor/mentees/assign', authenticate, assignMentee);
+
+// DELETE /identity/mentor/mentees/:menteeId - Remove mentee
+router.delete('/mentor/mentees/:menteeId', authenticate, removeMentee);
+
+// ===============================================
+// GENERAL IDENTITY OPERATIONS
+// ===============================================
+
+// GET /identity/status - Get identity status
+router.get('/status', authenticate, async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Identity status endpoint - implement with identity service',
+    timestamp: new Date().toISOString()
+  });
 });
 
-// GET /identity/status - Get identity verification status
-identityRouter.get('/status', authenticate, async (req, res) => {
-  // This would integrate with identity verification status
-  res.json({ message: 'Identity verification status endpoint - implement with verification service' });
-});
-
-// POST /identity/documents/upload - Upload identity documents
-identityRouter.post('/documents/upload', authenticate, async (req, res) => {
-  // This would integrate with document upload service
-  res.json({ message: 'Document upload endpoint - implement with document service' });
-});
-
-// GET /identity/documents - Get uploaded documents
-identityRouter.get('/documents', authenticate, async (req, res) => {
-  // This would integrate with document retrieval service
-  res.json({ message: 'Get documents endpoint - implement with document service' });
-});
-
-// DELETE /identity/documents/:id - Delete uploaded document
-identityRouter.delete('/documents/:id', authenticate, async (req, res) => {
-  // This would integrate with document deletion service
-  res.json({ message: 'Delete document endpoint - implement with document service' });
+// POST /identity/verify - Start identity verification
+router.post('/verify', authenticate, async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Identity verification endpoint - implement with verification service',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // ===============================================
-// IDENTITY MANAGEMENT ROUTES
+// PRIVACY SETTINGS
 // ===============================================
-
-// PUT /identity/update - Update identity information
-identityRouter.put('/update', authenticate, async (req, res) => {
-  // This would integrate with identity update service
-  res.json({ message: 'Update identity endpoint - implement with identity service' });
-});
-
-// GET /identity/verification-requirements - Get verification requirements
-identityRouter.get('/verification-requirements', authenticate, async (req, res) => {
-  // This would integrate with verification requirements service
-  res.json({ message: 'Verification requirements endpoint - implement with requirements service' });
-});
-
-// POST /identity/re-verify - Re-verify identity
-identityRouter.post('/re-verify', authenticate, async (req, res) => {
-  // This would integrate with re-verification service
-  res.json({ message: 'Re-verify identity endpoint - implement with verification service' });
-});
-
-// ===============================================
-// ADMIN IDENTITY MANAGEMENT ROUTES
-// ===============================================
-
-// POST /identity/mask-identity - Mask user identity (admin only)
-identityRouter.post('/mask-identity', authenticate, requireAdmin, maskUserIdentity);
-
-// POST /identity/unmask-identity - Unmask user identity (super admin only)
-identityRouter.post('/unmask-identity', authenticate, requireSuperAdmin, unmaskUserIdentity);
-
-// ===============================================
-// CLASS & MENTOR IDENTITY ROUTES
-// ===============================================
-
-// GET /identity/class/:classId/members - Get class members
-identityRouter.get('/class/:classId/members', authenticate, getClassMembers);
-
-// GET /identity/mentor/:mentorConverseId/mentees - Get mentees for a mentor
-identityRouter.get('/mentor/:mentorConverseId/mentees', authenticate, getMentees);
-
-// ===============================================
-// PRIVACY & ANONYMIZATION ROUTES
-// ===============================================
-
-// POST /identity/anonymize - Anonymize user data
-identityRouter.post('/anonymize', authenticate, async (req, res) => {
-  // This would integrate with data anonymization service
-  res.json({ message: 'Anonymize data endpoint - implement with anonymization service' });
-});
 
 // GET /identity/privacy-settings - Get privacy settings
-identityRouter.get('/privacy-settings', authenticate, async (req, res) => {
-  // This would integrate with privacy settings service
-  res.json({ message: 'Privacy settings endpoint - implement with privacy service' });
+router.get('/privacy-settings', authenticate, async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Privacy settings endpoint - implement with privacy service',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // PUT /identity/privacy-settings - Update privacy settings
-identityRouter.put('/privacy-settings', authenticate, async (req, res) => {
-  // This would integrate with privacy settings service
-  res.json({ message: 'Update privacy settings endpoint - implement with privacy service' });
+router.put('/privacy-settings', authenticate, async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Update privacy settings endpoint - implement with privacy service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// TESTING ENDPOINTS
+// ===============================================
+
+// Identity management test
+router.get('/test', authenticate, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Identity routes are working!',
+    timestamp: new Date().toISOString(),
+    user: {
+      id: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role
+    },
+    availableIdentityTypes: ['converse', 'mentor'],
+    endpoint: '/api/identity/test'
+  });
 });
 
 // ===============================================
 // ERROR HANDLING
 // ===============================================
 
-// 404 handler for identity routes
-identityRouter.use('*', (req, res) => {
+// 404 handler
+router.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     error: 'Identity route not found',
     path: req.path,
     method: req.method,
     availableRoutes: {
-      verification: [
-        'POST /verify - Start identity verification',
-        'GET /status - Get verification status',
-        'POST /documents/upload - Upload documents',
-        'GET /documents - Get documents',
-        'DELETE /documents/:id - Delete document'
+      converseId: [
+        'GET /converse - Get converse ID',
+        'POST /converse/generate - Generate converse ID',
+        'PUT /converse - Update converse ID',
+        'DELETE /converse - Delete converse ID',
+        'GET /converse/class/:classId/members - Get class members'
       ],
-      management: [
-        'PUT /update - Update identity information',
-        'GET /verification-requirements - Get requirements',
-        'POST /re-verify - Re-verify identity'
+      mentorId: [
+        'GET /mentor - Get mentor ID',
+        'POST /mentor/generate - Generate mentor ID',
+        'PUT /mentor - Update mentor ID',
+        'DELETE /mentor - Delete mentor ID',
+        'GET /mentor/mentees - Get mentees',
+        'POST /mentor/mentees/assign - Assign mentee',
+        'DELETE /mentor/mentees/:menteeId - Remove mentee'
       ],
-      admin: [
-        'POST /mask-identity - Mask user identity (admin)',
-        'POST /unmask-identity - Unmask user identity (super admin)'
-      ],
-      classAndMentor: [
-        'GET /class/:classId/members - Get class members',
-        'GET /mentor/:mentorConverseId/mentees - Get mentees'
+      general: [
+        'GET /status - Identity status',
+        'POST /verify - Start verification'
       ],
       privacy: [
-        'POST /anonymize - Anonymize user data',
         'GET /privacy-settings - Get privacy settings',
         'PUT /privacy-settings - Update privacy settings'
+      ],
+      testing: [
+        'GET /test - Identity routes test'
       ]
     },
     timestamp: new Date().toISOString()
   });
 });
 
-// Global error handler for identity routes
-identityRouter.use((error, req, res, next) => {
-  console.error('❌ Identity route error:', error);
+// Error handler
+router.use((error, req, res, next) => {
+  console.error('❌ Identity route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.username || 'unauthenticated',
+    timestamp: new Date().toISOString()
+  });
   
   res.status(error.statusCode || 500).json({
     success: false,
-    error: error.message || 'Internal server error',
+    error: error.message || 'Identity operation error',
     path: req.path,
     method: req.method,
     timestamp: new Date().toISOString()
@@ -166,9 +200,7 @@ identityRouter.use((error, req, res, next) => {
 });
 
 if (process.env.NODE_ENV === 'development') {
-  console.log('🆔 Identity routes loaded with verification, management, and privacy features');
+  console.log('🆔 Identity routes loaded: converse ID, mentor ID, privacy settings');
 }
 
-export default identityRouter;
-
-
+export default router;

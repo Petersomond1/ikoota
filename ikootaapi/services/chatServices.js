@@ -265,3 +265,48 @@ export const getCombinedContent = async () => {
     throw new CustomError(`Failed to get combined content: ${error.message}`);
   }
 };
+
+
+// Function to map converse_id to numeric user.id (helper for teachings)
+export const mapConverseIdToUserId = async (converse_id) => {
+  try {
+    if (!converse_id || typeof converse_id !== 'string' || converse_id.length !== 10) {
+      throw new CustomError('Valid converse_id required', 400);
+    }
+
+    const result = await db.query(`
+      SELECT id FROM users WHERE converse_id = ?
+    `, [converse_id]);
+
+    if (!result[0]) {
+      throw new CustomError('User not found with provided converse_id', 404);
+    }
+
+    return result[0].id;
+  } catch (error) {
+    console.error('Error in mapConverseIdToUserId:', error);
+    throw new CustomError(`Failed to map converse_id to user_id: ${error.message}`);
+  }
+};
+
+// Function to map numeric user.id to converse_id (helper for chats)
+export const mapUserIdToConverseId = async (user_id) => {
+  try {
+    if (!user_id || isNaN(user_id)) {
+      throw new CustomError('Valid numeric user_id required', 400);
+    }
+
+    const result = await db.query(`
+      SELECT converse_id FROM users WHERE id = ?
+    `, [parseInt(user_id)]);
+
+    if (!result[0] || !result[0].converse_id) {
+      throw new CustomError('Converse_id not found for provided user_id', 404);
+    }
+
+    return result[0].converse_id;
+  } catch (error) {
+    console.error('Error in mapUserIdToConverseId:', error);
+    throw new CustomError(`Failed to map user_id to converse_id: ${error.message}`);
+  }
+};

@@ -1,35 +1,44 @@
-import db from '../config/db.js';
+// ikootaapi/controllers/communicationControllers.js
+// REORGANIZED COMMUNICATION CONTROLLERS
+// Complete controller layer for email, SMS, notifications with enhanced features
+
 import {
-  sendEmail,
+  sendEmailService,
   sendSMSService,
   sendBulkEmailService,
   sendBulkSMSService,
-  sendNotification,
-  checkCommunicationHealth,
-  getCommunicationStats,
-  getAvailableTemplates
+  sendNotificationService,
+  checkCommunicationHealthService,
+  getCommunicationStatsService,
+  getAvailableTemplatesService,
+  getCommunicationSettingsService,
+  updateCommunicationSettingsService,
+  createCommunicationTemplateService,
+  sendMembershipFeedbackEmailService
 } from '../services/communicationServices.js';
 
-// Enhanced sendEmailHandler with validation and authorization
+// ===============================================
+// EMAIL CONTROLLERS
+// ===============================================
+
+// Send single email
 export const sendEmailHandler = async (req, res) => {
   try {
-    const requestingUser = req.user;
     const { 
       email, 
       subject, 
       content, 
       template, 
-      status, 
       customData = {},
       options = {}
     } = req.body;
 
-    // Basic validation
+    // Validation
     if (!email) {
       return res.status(400).json({
         success: false,
         error: 'Email recipient is required',
-        message: 'Please provide a valid email address'
+        field: 'email'
       });
     }
 
@@ -37,138 +46,61 @@ export const sendEmailHandler = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Email subject or template is required',
-        message: 'Please provide either a subject or a template'
+        fields: ['subject', 'template']
       });
     }
 
-    // Authorization check for bulk operations or admin templates
-    const adminTemplates = ['adminNotification', 'bulk'];
-    if (adminTemplates.some(t => template?.includes(t)) && !['admin', 'super_admin'].includes(requestingUser.role)) {
+    // Check authorization for admin templates
+    const adminTemplates = ['adminNotification', 'bulkAnnouncement', 'systemAlert'];
+    if (adminTemplates.includes(template) && !['admin', 'super_admin'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        error: 'Access denied',
-        message: 'Only administrators can send admin emails'
+        error: 'Insufficient permissions for admin email templates'
       });
     }
 
-    // Prepare email data
     const emailData = {
       to: email,
       subject,
       content,
       template,
-      status,
       customData: {
         ...customData,
-        senderName: requestingUser.username,
-        senderId: requestingUser.user_id
+        senderName: req.user.username,
+        senderId: req.user.id
       },
-      options
+      options,
+      requestingUser: req.user
     };
 
-    const result = await sendEmail(emailData);
+    const result = await sendEmailService(emailData);
 
     res.status(200).json({
       success: true,
       data: result,
-      message: 'Email sent successfully'
+      message: 'Email sent successfully',
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('Error in sendEmailHandler:', error);
+    console.error('❌ Error in sendEmailHandler:', error);
     
-    const statusCode = error.statusCode || 500;
-    res.status(statusCode).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
-      message: 'Failed to send email'
+      errorType: 'email_send_error'
     });
   }
 };
 
-// Enhanced sendSMSHandler
-export const sendSMSHandler = async (req, res) => {
-  try {
-    const requestingUser = req.user;
-    const { 
-      phone, 
-      message, 
-      template, 
-      customData = {},
-      options = {}
-    } = req.body;
-
-    // Basic validation
-    if (!phone) {
-      return res.status(400).json({
-        success: false,
-        error: 'Phone number is required',
-        message: 'Please provide a valid phone number'
-      });
-    }
-
-    if (!message && !template) {
-      return res.status(400).json({
-        success: false,
-        error: 'SMS message or template is required',
-        message: 'Please provide either a message or a template'
-      });
-    }
-
-    // Authorization check for admin SMS
-    const adminTemplates = ['adminAlert', 'maintenance'];
-    if (adminTemplates.includes(template) && !['admin', 'super_admin'].includes(requestingUser.role)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied',
-        message: 'Only administrators can send admin SMS'
-      });
-    }
-
-    // Prepare SMS data
-    const smsData = {
-      to: phone,
-      message,
-      template,
-      customData: {
-        ...customData,
-        senderName: requestingUser.username,
-        senderId: requestingUser.user_id
-      },
-      options
-    };
-
-    const result = await sendSMSService(smsData);
-
-    res.status(200).json({
-      success: true,
-      data: result,
-      message: 'SMS sent successfully'
-    });
-
-  } catch (error) {
-    console.error('Error in sendSMSHandler:', error);
-    
-    const statusCode = error.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: error.message,
-      message: 'Failed to send SMS'
-    });
-  }
-};
-
-// Bulk email handler
+// Send bulk emails (admin only)
 export const sendBulkEmailHandler = async (req, res) => {
   try {
-    const requestingUser = req.user;
-
-    // Authorization check - only admins can send bulk emails
-    if (!['admin', 'super_admin'].includes(requestingUser.role)) {
+    // Admin authorization check
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        error: 'Access denied',
-        message: 'Only administrators can send bulk emails'
+        error: 'Access denied - admin privileges required for bulk email operations'
       });
     }
 
@@ -181,19 +113,19 @@ export const sendBulkEmailHandler = async (req, res) => {
       options = {}
     } = req.body;
 
+    // Validation
     if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
       return res.status(400).json({
         success: false,
         error: 'Recipients array is required',
-        message: 'Please provide an array of email addresses'
+        field: 'recipients'
       });
     }
 
     if (recipients.length > 1000) {
       return res.status(400).json({
         success: false,
-        error: 'Too many recipients',
-        message: 'Maximum 1000 recipients allowed per bulk email'
+        error: 'Maximum 1000 recipients allowed per bulk email operation'
       });
     }
 
@@ -204,14 +136,15 @@ export const sendBulkEmailHandler = async (req, res) => {
       template,
       customData: {
         ...customData,
-        senderName: requestingUser.username,
-        senderId: requestingUser.user_id
+        senderName: req.user.username,
+        senderId: req.user.id
       },
       options: {
-        ...options,
-        batchSize: options.batchSize || 50,
-        delay: options.delay || 1000
-      }
+        batchSize: Math.min(options.batchSize || 50, 100),
+        delay: Math.max(options.delay || 1000, 500),
+        ...options
+      },
+      requestingUser: req.user
     };
 
     const result = await sendBulkEmailService(bulkEmailData);
@@ -219,32 +152,153 @@ export const sendBulkEmailHandler = async (req, res) => {
     res.status(200).json({
       success: true,
       data: result,
-      message: `Bulk email completed: ${result.successful} successful, ${result.failed} failed`
+      message: `Bulk email operation completed: ${result.successful}/${result.total} successful`,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('Error in sendBulkEmailHandler:', error);
+    console.error('❌ Error in sendBulkEmailHandler:', error);
     
-    const statusCode = error.statusCode || 500;
-    res.status(statusCode).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
-      message: 'Failed to send bulk emails'
+      errorType: 'bulk_email_error'
     });
   }
 };
 
-// Bulk SMS handler
-export const sendBulkSMSHandler = async (req, res) => {
+// Send membership feedback email (special endpoint)
+export const sendMembershipFeedbackEmail = async (req, res) => {
   try {
-    const requestingUser = req.user;
+    const { 
+      recipientEmail, 
+      applicantName, 
+      feedbackMessage, 
+      applicationStatus,
+      membershipTicket
+    } = req.body;
 
-    // Authorization check - only admins can send bulk SMS
-    if (!['admin', 'super_admin'].includes(requestingUser.role)) {
+    // Validation
+    if (!recipientEmail || !applicantName || !feedbackMessage) {
+      return res.status(400).json({
+        success: false,
+        error: 'Recipient email, applicant name, and feedback message are required',
+        fields: ['recipientEmail', 'applicantName', 'feedbackMessage']
+      });
+    }
+
+    const feedbackData = {
+      recipientEmail,
+      applicantName,
+      feedbackMessage,
+      applicationStatus: applicationStatus || 'reviewed',
+      membershipTicket,
+      senderName: req.user.username,
+      senderId: req.user.id
+    };
+
+    const result = await sendMembershipFeedbackEmailService(feedbackData);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: 'Membership feedback email sent successfully',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error in sendMembershipFeedbackEmail:', error);
+    
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message,
+      errorType: 'membership_feedback_error'
+    });
+  }
+};
+
+// ===============================================
+// SMS CONTROLLERS
+// ===============================================
+
+// Send single SMS
+export const sendSMSHandler = async (req, res) => {
+  try {
+    const { 
+      phone, 
+      message, 
+      template, 
+      customData = {},
+      options = {}
+    } = req.body;
+
+    // Validation
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number is required',
+        field: 'phone'
+      });
+    }
+
+    if (!message && !template) {
+      return res.status(400).json({
+        success: false,
+        error: 'SMS message or template is required',
+        fields: ['message', 'template']
+      });
+    }
+
+    // Check authorization for admin SMS
+    const adminTemplates = ['adminAlert', 'systemMaintenance', 'emergencyAlert'];
+    if (adminTemplates.includes(template) && !['admin', 'super_admin'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        error: 'Access denied',
-        message: 'Only administrators can send bulk SMS'
+        error: 'Insufficient permissions for admin SMS templates'
+      });
+    }
+
+    const smsData = {
+      to: phone,
+      message,
+      template,
+      customData: {
+        ...customData,
+        senderName: req.user.username,
+        senderId: req.user.id
+      },
+      options,
+      requestingUser: req.user
+    };
+
+    const result = await sendSMSService(smsData);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: 'SMS sent successfully',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error in sendSMSHandler:', error);
+    
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message,
+      errorType: 'sms_send_error'
+    });
+  }
+};
+
+// Send bulk SMS (admin only)
+export const sendBulkSMSHandler = async (req, res) => {
+  try {
+    // Admin authorization check
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied - admin privileges required for bulk SMS operations'
       });
     }
 
@@ -256,19 +310,19 @@ export const sendBulkSMSHandler = async (req, res) => {
       options = {}
     } = req.body;
 
+    // Validation
     if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
       return res.status(400).json({
         success: false,
         error: 'Recipients array is required',
-        message: 'Please provide an array of phone numbers'
+        field: 'recipients'
       });
     }
 
     if (recipients.length > 500) {
       return res.status(400).json({
         success: false,
-        error: 'Too many recipients',
-        message: 'Maximum 500 recipients allowed per bulk SMS'
+        error: 'Maximum 500 recipients allowed per bulk SMS operation'
       });
     }
 
@@ -278,14 +332,15 @@ export const sendBulkSMSHandler = async (req, res) => {
       template,
       customData: {
         ...customData,
-        senderName: requestingUser.username,
-        senderId: requestingUser.user_id
+        senderName: req.user.username,
+        senderId: req.user.id
       },
       options: {
-        ...options,
-        batchSize: options.batchSize || 20,
-        delay: options.delay || 2000
-      }
+        batchSize: Math.min(options.batchSize || 20, 50),
+        delay: Math.max(options.delay || 2000, 1000),
+        ...options
+      },
+      requestingUser: req.user
     };
 
     const result = await sendBulkSMSService(bulkSMSData);
@@ -293,204 +348,541 @@ export const sendBulkSMSHandler = async (req, res) => {
     res.status(200).json({
       success: true,
       data: result,
-      message: `Bulk SMS completed: ${result.successful} successful, ${result.failed} failed`
+      message: `Bulk SMS operation completed: ${result.successful}/${result.total} successful`,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('Error in sendBulkSMSHandler:', error);
+    console.error('❌ Error in sendBulkSMSHandler:', error);
     
-    const statusCode = error.statusCode || 500;
-    res.status(statusCode).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
-      message: 'Failed to send bulk SMS'
+      errorType: 'bulk_sms_error'
     });
   }
 };
 
-// Combined notification handler
+// ===============================================
+// NOTIFICATION CONTROLLERS
+// ===============================================
+
+// Send combined notification (email + SMS)
 export const sendNotificationHandler = async (req, res) => {
   try {
-    const requestingUser = req.user;
     const { 
       userId, 
       userEmail, 
       userPhone,
+      username,
       template, 
       customData = {},
       channels = ['email'],
       options = {}
     } = req.body;
 
-    // Get user data
-    let user;
-    if (userId) {
-      // Fetch user from database
-      const [users] = await db.query('SELECT username, email, phone FROM users WHERE id = ?', [userId]);
-      if (users.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'User not found',
-          message: 'No user found with the provided ID'
-        });
-      }
-      user = users[0];
-    } else if (userEmail || userPhone) {
-      // Use provided contact info
-      user = {
-        username: customData.username || 'User',
-        email: userEmail,
-        phone: userPhone
-      };
-    } else {
+    // Validation
+    if (!userId && !userEmail && !userPhone) {
       return res.status(400).json({
         success: false,
         error: 'User identification required',
-        message: 'Please provide userId, userEmail, or userPhone'
+        fields: ['userId', 'userEmail', 'userPhone']
       });
     }
 
     if (!template) {
       return res.status(400).json({
         success: false,
-        error: 'Template is required',
-        message: 'Please specify a notification template'
+        error: 'Notification template is required',
+        field: 'template'
       });
     }
 
-    // Authorization check for admin notifications
-    const adminTemplates = ['adminNotification', 'adminAlert', 'maintenance'];
-    if (adminTemplates.includes(template) && !['admin', 'super_admin'].includes(requestingUser.role)) {
+    // Check authorization for admin notifications
+    const adminTemplates = ['adminNotification', 'adminAlert', 'systemMaintenance', 'emergencyAlert'];
+    if (adminTemplates.includes(template) && !['admin', 'super_admin'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        error: 'Access denied',
-        message: 'Only administrators can send admin notifications'
+        error: 'Insufficient permissions for admin notification templates'
       });
     }
 
     const notificationData = {
-      user,
+      userId,
+      userEmail,
+      userPhone,
+      username,
       template,
       customData: {
         ...customData,
-        senderName: requestingUser.username,
-        senderId: requestingUser.user_id
+        senderName: req.user.username,
+        senderId: req.user.id
       },
       channels,
-      options
+      options,
+      requestingUser: req.user
     };
 
-    const result = await sendNotification(notificationData);
+    const result = await sendNotificationService(notificationData);
 
     res.status(200).json({
       success: true,
       data: result,
-      message: `Notification sent via ${result.channels.join(', ')}`
+      message: `Notification sent via ${result.channels?.join(', ') || 'specified channels'}`,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('Error in sendNotificationHandler:', error);
+    console.error('❌ Error in sendNotificationHandler:', error);
     
-    const statusCode = error.statusCode || 500;
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message,
+      errorType: 'notification_error'
+    });
+  }
+};
+
+// Send bulk notifications (admin only)
+export const sendBulkNotificationHandler = async (req, res) => {
+  try {
+    // Admin authorization check
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied - admin privileges required for bulk notification operations'
+      });
+    }
+
+    const { 
+      recipients, 
+      template, 
+      customData = {},
+      channels = ['email'],
+      options = {}
+    } = req.body;
+
+    // Validation
+    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Recipients array is required',
+        field: 'recipients'
+      });
+    }
+
+    if (recipients.length > 1000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Maximum 1000 recipients allowed per bulk notification operation'
+      });
+    }
+
+    const bulkNotificationData = {
+      recipients,
+      template,
+      customData: {
+        ...customData,
+        senderName: req.user.username,
+        senderId: req.user.id
+      },
+      channels,
+      options: {
+        batchSize: Math.min(options.batchSize || 25, 50),
+        delay: Math.max(options.delay || 1500, 1000),
+        ...options
+      },
+      requestingUser: req.user
+    };
+
+    const result = await sendBulkNotificationService(bulkNotificationData);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: `Bulk notification completed: ${result.successful}/${result.total} successful`,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error in sendBulkNotificationHandler:', error);
+    
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message,
+      errorType: 'bulk_notification_error'
+    });
+  }
+};
+
+// ===============================================
+// COMMUNICATION SETTINGS CONTROLLERS
+// ===============================================
+
+// Get user communication settings
+export const getCommunicationSettings = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const result = await getCommunicationSettingsService(userId);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: 'Communication settings retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error in getCommunicationSettings:', error);
+    
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message,
+      errorType: 'settings_retrieval_error'
+    });
+  }
+};
+
+// Update user communication settings
+export const updateCommunicationSettings = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const settingsData = req.body;
+
+    // Basic validation
+    const allowedFields = [
+      'email_notifications',
+      'sms_notifications', 
+      'marketing_emails',
+      'marketing_sms',
+      'survey_notifications',
+      'content_notifications',
+      'admin_notifications',
+      'preferred_language',
+      'timezone'
+    ];
+
+    const updateData = {};
+    Object.keys(settingsData).forEach(key => {
+      if (allowedFields.includes(key)) {
+        updateData[key] = settingsData[key];
+      }
+    });
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid settings provided',
+        allowedFields
+      });
+    }
+
+    const result = await updateCommunicationSettingsService(userId, updateData);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: 'Communication settings updated successfully',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error in updateCommunicationSettings:', error);
+    
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message,
+      errorType: 'settings_update_error'
+    });
+  }
+};
+
+// ===============================================
+// TEMPLATE MANAGEMENT CONTROLLERS
+// ===============================================
+
+// Get available communication templates
+export const getCommunicationTemplates = async (req, res) => {
+  try {
+    const { type } = req.query; // 'email', 'sms', or 'all'
+    
+    const result = await getAvailableTemplatesService(type);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: 'Communication templates retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error in getCommunicationTemplates:', error);
+    
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message,
+      errorType: 'template_retrieval_error'
+    });
+  }
+};
+
+// Create communication template (admin only)
+export const createCommunicationTemplate = async (req, res) => {
+  try {
+    // Admin authorization check
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied - admin privileges required for template management'
+      });
+    }
+
+    const { 
+      templateName, 
+      templateType, 
+      subject, 
+      emailBody, 
+      smsMessage,
+      variables = [],
+      isActive = true
+    } = req.body;
+
+    // Validation
+    if (!templateName || !templateType) {
+      return res.status(400).json({
+        success: false,
+        error: 'Template name and type are required',
+        fields: ['templateName', 'templateType']
+      });
+    }
+
+    if (templateType === 'email' && (!subject || !emailBody)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Subject and email body are required for email templates',
+        fields: ['subject', 'emailBody']
+      });
+    }
+
+    if (templateType === 'sms' && !smsMessage) {
+      return res.status(400).json({
+        success: false,
+        error: 'SMS message is required for SMS templates',
+        field: 'smsMessage'
+      });
+    }
+
+    const templateData = {
+      templateName,
+      templateType,
+      subject,
+      emailBody,
+      smsMessage,
+      variables,
+      isActive,
+      createdBy: req.user.id
+    };
+
+    const result = await createCommunicationTemplateService(templateData);
+
+    res.status(201).json({
+      success: true,
+      data: result,
+      message: 'Communication template created successfully',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error in createCommunicationTemplate:', error);
+    
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message,
+      errorType: 'template_creation_error'
+    });
+  }
+};
+
+// ===============================================
+// SYSTEM HEALTH & STATISTICS CONTROLLERS
+// ===============================================
+
+// Check communication system health (admin only)
+export const checkCommunicationHealth = async (req, res) => {
+  try {
+    // Admin authorization check
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied - admin privileges required for health checks'
+      });
+    }
+
+    const result = await checkCommunicationHealthService();
+
+    const statusCode = result.services.email?.success && result.services.sms?.success ? 200 : 206;
+
     res.status(statusCode).json({
+      success: true,
+      data: result,
+      overall_health: statusCode === 200 ? 'healthy' : 'partially_degraded',
+      message: 'Communication health check completed',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error in checkCommunicationHealth:', error);
+    
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
-      message: 'Failed to send notification'
+      errorType: 'health_check_error'
     });
   }
 };
 
-// Communication health check handler
-export const checkCommunicationHealthHandler = async (req, res) => {
+// Get communication statistics (admin only)
+export const getCommunicationStats = async (req, res) => {
   try {
-    const requestingUser = req.user;
-
-    // Authorization check - only admins can check health
-    if (!['admin', 'super_admin'].includes(requestingUser.role)) {
+    // Admin authorization check
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        error: 'Access denied',
-        message: 'Only administrators can check communication health'
+        error: 'Access denied - admin privileges required for communication statistics'
       });
     }
 
-    const result = await checkCommunicationHealth();
+    const { 
+      startDate, 
+      endDate, 
+      type, 
+      granularity = 'day' 
+    } = req.query;
 
-    const overallHealth = result.services.email?.success && result.services.sms?.success;
+    // Validate date range if provided
+    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Start date must be before end date'
+      });
+    }
+
+    const filters = {
+      startDate,
+      endDate,
+      type,
+      granularity
+    };
+
+    const result = await getCommunicationStatsService(filters);
 
     res.status(200).json({
       success: true,
       data: result,
-      overall_health: overallHealth ? 'healthy' : 'degraded',
-      message: 'Communication health check completed'
+      message: 'Communication statistics retrieved successfully',
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('Error in checkCommunicationHealthHandler:', error);
-    res.status(500).json({
+    console.error('❌ Error in getCommunicationStats:', error);
+    
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
-      message: 'Failed to check communication health'
+      errorType: 'stats_retrieval_error'
     });
   }
 };
 
-// Communication statistics handler
-export const getCommunicationStatsHandler = async (req, res) => {
-  try {
-    const requestingUser = req.user;
+// ===============================================
+// TESTING & DEBUGGING CONTROLLERS
+// ===============================================
 
-    // Authorization check - only admins can view stats
-    if (!['admin', 'super_admin'].includes(requestingUser.role)) {
+// Test communication services
+export const testCommunicationServices = async (req, res) => {
+  try {
+    // Admin authorization check for comprehensive testing
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        error: 'Access denied',
-        message: 'Only administrators can view communication statistics'
+        error: 'Access denied - admin privileges required for service testing'
       });
     }
 
-    const { startDate, endDate, type } = req.query;
+    const { services = ['email', 'sms'] } = req.body;
 
-    const filters = {};
-    if (startDate) filters.startDate = startDate;
-    if (endDate) filters.endDate = endDate;
-    if (type) filters.type = type;
+    const result = await checkCommunicationHealthService();
 
-    const result = await getCommunicationStats(filters);
+    // Add additional test information
+    const testResults = {
+      ...result,
+      requestedTests: services,
+      testTime: new Date().toISOString(),
+      tester: req.user.username
+    };
 
     res.status(200).json({
       success: true,
-      data: result,
-      message: 'Communication statistics retrieved successfully'
+      data: testResults,
+      message: 'Communication services tested successfully'
     });
 
   } catch (error) {
-    console.error('Error in getCommunicationStatsHandler:', error);
-    res.status(500).json({
+    console.error('❌ Error in testCommunicationServices:', error);
+    
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
-      message: 'Failed to get communication statistics'
+      errorType: 'service_test_error'
     });
   }
 };
 
-// Get available templates handler
-export const getAvailableTemplatesHandler = async (req, res) => {
+// Get communication configuration (admin only)
+export const getCommunicationConfig = async (req, res) => {
   try {
-    const templates = getAvailableTemplates();
+    // Admin authorization check
+    if (!['admin', 'super_admin'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied - admin privileges required for configuration access'
+      });
+    }
+
+    const { getEmailConfig } = await import('../utils/email.js');
+    const { getSMSConfig } = await import('../utils/sms.js');
+
+    const config = {
+      email: getEmailConfig(),
+      sms: getSMSConfig(),
+      features: {
+        bulkEmail: true,
+        bulkSMS: true,
+        templates: true,
+        userPreferences: true,
+        auditLogging: true
+      },
+      limits: {
+        bulkEmailMaxRecipients: 1000,
+        bulkSMSMaxRecipients: 500,
+        emailBatchSize: 50,
+        smsBatchSize: 20
+      }
+    };
 
     res.status(200).json({
       success: true,
-      data: templates,
-      message: 'Available templates retrieved successfully'
+      data: config,
+      message: 'Communication configuration retrieved successfully',
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('Error in getAvailableTemplatesHandler:', error);
-    res.status(500).json({
+    console.error('❌ Error in getCommunicationConfig:', error);
+    
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
-      message: 'Failed to get available templates'
+      errorType: 'config_retrieval_error'
     });
   }
 };

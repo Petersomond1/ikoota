@@ -1,25 +1,16 @@
-// 1. CONTENT ROUTES - COMMUNITY CONTENT MANAGEMENT
-// File: ikootaapi/routes/contentRoutes.js
-// ===============================================
+// ikootaapi/routes/contentRoutes.js - UPDATED
+// Integration with new contentAdminControllers.js
+// Unified content management with proper admin separation
 
 import express from 'express';
+import { authenticate, authorize } from '../middlewares/auth.middleware.js';
 import { uploadMiddleware, uploadToS3 } from '../middlewares/upload.middleware.js';
-import { authenticate, cacheMiddleware } from '../middlewares/auth.middleware.js';
 
-// Import teachings controllers
-import {
-  createTeaching,
-  fetchAllTeachings,
-  fetchTeachingsByUserId,
-  editTeaching,
-  removeTeaching,
-  fetchTeachingsByIds,
-  fetchTeachingByPrefixedId,
-  searchTeachingsController,
-  fetchTeachingStats,
-} from '../controllers/teachingsControllers.js';
+// ===============================================
+// IMPORT INDIVIDUAL CONTENT CONTROLLERS
+// ===============================================
 
-// Import chat controllers
+// Chat Controllers
 import {
   fetchAllChats,
   fetchChatsByUserId,
@@ -30,10 +21,23 @@ import {
   removeChat,
   fetchChatsByIds,
   fetchChatByPrefixedId,
-  fetchCombinedContent,
-} from '../controllers/chatControllers.js';
+  fetchCombinedContent
+} from '../controllers/chatsControllers.js';
 
-// Import comment controllers
+// Teaching Controllers
+import {
+  createTeaching,
+  fetchAllTeachings,
+  fetchTeachingsByUserId,
+  editTeaching,
+  removeTeaching,
+  fetchTeachingsByIds,
+  fetchTeachingByPrefixedId,
+  searchTeachingsController,
+  fetchTeachingStats
+} from '../controllers/teachingsControllers.js';
+
+// Comment Controllers
 import {
   createComment,
   uploadCommentFiles,
@@ -45,257 +49,375 @@ import {
   fetchCommentById,
   updateComment,
   deleteComment
-} from '../controllers/commentControllers.js';
+} from '../controllers/commentsControllers.js';
 
-// Import class controllers
+// ===============================================
+// IMPORT NEW CONTENT ADMIN CONTROLLERS
+// ===============================================
+
 import {
-  getClasses,
-  postClass,
-  putClass,
-  assignUserToClass,
-  getClassContent
-} from '../controllers/classControllers.js';
+  // Main content admin functions
+  getPendingContent,
+  manageContent,
+  approveContent,
+  rejectContent,
+  deleteContent,
+  
+  // Content type specific admin functions
+  getChatsForAdmin,
+  getTeachingsForAdmin,
+  getCommentsForAdmin,
+  updateContentStatus,
+  
+  // Reports and audit functions
+  getReports,
+  updateReportStatus,
+  getAuditLogs,
+  
+  // Utility functions
+  sendNotification,
+  getContentStats,
+  bulkManageContent
+} from '../controllers/contentAdminControllers.js';
 
-const contentRouter = express.Router();
-
-// ===============================================
-// TEACHINGS/CONTENT ROUTES
-// ===============================================
-
-// GET /content/teachings - Fetch all teachings with optional pagination and filtering
-contentRouter.get('/teachings', authenticate, fetchAllTeachings);
-
-// GET /content/teachings/search - Search teachings (dedicated search endpoint)
-contentRouter.get('/teachings/search', authenticate, cacheMiddleware(120), searchTeachingsController);
-
-// GET /content/teachings/stats - Get teaching statistics
-contentRouter.get('/teachings/stats', authenticate, cacheMiddleware(120), fetchTeachingStats);
-
-// GET /content/teachings/user - Fetch teachings by user_id
-contentRouter.get('/teachings/user', authenticate, fetchTeachingsByUserId);
-
-// GET /content/teachings/ids - Fetch teachings by multiple IDs
-contentRouter.get('/teachings/ids', authenticate, fetchTeachingsByIds);
-
-// GET /content/teachings/prefixed/:prefixedId - Fetch teaching by prefixed ID or numeric ID
-contentRouter.get('/teachings/prefixed/:prefixedId', authenticate, fetchTeachingByPrefixedId);
-
-// GET /content/teachings/:id - Fetch single teaching by ID (alternative endpoint)
-contentRouter.get('/teachings/:id', authenticate, fetchTeachingByPrefixedId);
-
-// POST /content/teachings - Create a new teaching
-contentRouter.post('/teachings', authenticate, uploadMiddleware, uploadToS3, createTeaching);
-
-// PUT /content/teachings/:id - Update a teaching by ID
-contentRouter.put('/teachings/:id', authenticate, uploadMiddleware, uploadToS3, editTeaching);
-
-// DELETE /content/teachings/:id - Delete a teaching by ID
-contentRouter.delete('/teachings/:id', authenticate, removeTeaching);
+const router = express.Router();
 
 // ===============================================
-// CHAT ROUTES
+// CHATS ENDPOINTS - /api/content/chats/*
 // ===============================================
 
 // GET /content/chats - Fetch all chats
-contentRouter.get('/chats', authenticate, fetchAllChats);
+router.get('/chats', fetchAllChats);
 
 // GET /content/chats/user - Fetch chats by user_id
-contentRouter.get('/chats/user', authenticate, fetchChatsByUserId);
+router.get('/chats/user', authenticate, fetchChatsByUserId);
 
-// GET /content/chats/ids - Fetch chats by IDs
-contentRouter.get('/chats/ids', authenticate, fetchChatsByIds);
+// GET /content/chats/ids - Fetch chats by multiple IDs
+router.get('/chats/ids', authenticate, fetchChatsByIds);
 
-// GET /content/chats/prefixed/:prefixedId - NEW routes for prefixed IDs
-contentRouter.get('/chats/prefixed/:prefixedId', authenticate, fetchChatByPrefixedId);
+// GET /content/chats/prefixed/:prefixedId - Fetch chat by prefixed ID
+router.get('/chats/prefixed/:prefixedId', authenticate, fetchChatByPrefixedId);
 
 // GET /content/chats/combinedcontent - Combined content endpoint
-contentRouter.get('/chats/combinedcontent', authenticate, fetchCombinedContent);
+router.get('/chats/combinedcontent', authenticate, fetchCombinedContent);
 
-// GET /content/chats/:userId1/:userId2 - Get chat history between two users
-contentRouter.get('/chats/:userId1/:userId2', authenticate, getChatHistory);
+// GET /content/chats/:userId1/:userId2 - Get chat history between users
+router.get('/chats/:userId1/:userId2', authenticate, getChatHistory);
 
 // POST /content/chats - Create new chat
-contentRouter.post('/chats', authenticate, uploadMiddleware, uploadToS3, createChat);
+router.post('/chats', authenticate, uploadMiddleware, uploadToS3, createChat);
 
-// POST /content/chats/:chatId/comments - Add comment to specific chat
-contentRouter.post('/chats/:chatId/comments', authenticate, uploadMiddleware, uploadToS3, addCommentToChat);
+// POST /content/chats/:chatId/comments - Add comment to chat
+router.post('/chats/:chatId/comments', authenticate, uploadMiddleware, uploadToS3, addCommentToChat);
 
-// PUT /content/chats/:id - Update a chat by ID
-contentRouter.put('/chats/:id', authenticate, editChat);
+// PUT /content/chats/:id - Update chat
+router.put('/chats/:id', authenticate, uploadMiddleware, uploadToS3, editChat);
 
-// DELETE /content/chats/:id - Delete a chat by ID
-contentRouter.delete('/chats/:id', authenticate, removeChat);
+// DELETE /content/chats/:id - Delete chat
+router.delete('/chats/:id', authenticate, removeChat);
 
 // ===============================================
-// COMMENTS ROUTES
+// TEACHINGS ENDPOINTS - /api/content/teachings/*
 // ===============================================
 
-// GET /content/comments/stats - Get comment statistics (admin only)
-contentRouter.get('/comments/stats', authenticate, fetchCommentStats);
+// GET /content/teachings - Fetch all teachings
+router.get('/teachings', fetchAllTeachings);
 
-// GET /content/comments/all - Fetch all comments (admin only)
-contentRouter.get('/comments/all', authenticate, fetchAllComments);
+// GET /content/teachings/search - Search teachings
+router.get('/teachings/search', authenticate, searchTeachingsController);
 
-// GET /content/comments/parent-comments - Fetch parent chats and teachings with comments
-contentRouter.get('/comments/parent-comments', authenticate, fetchParentChatsAndTeachingsWithComments);
+// GET /content/teachings/stats - Get teaching statistics
+router.get('/teachings/stats', authenticate, fetchTeachingStats);
 
-// GET /content/comments/comments - Fetch comments using parent IDs (legacy route)
-contentRouter.get('/comments/comments', authenticate, fetchCommentsByParentIds);
+// GET /content/teachings/user - Fetch teachings by user_id
+router.get('/teachings/user', authenticate, fetchTeachingsByUserId);
 
-// GET /content/comments/user/:user_id - Fetch comments by user_id
-contentRouter.get('/comments/user/:user_id', authenticate, fetchCommentsByUserId);
+// GET /content/teachings/ids - Fetch teachings by multiple IDs
+router.get('/teachings/ids', authenticate, fetchTeachingsByIds);
+
+// GET /content/teachings/prefixed/:prefixedId - Fetch teaching by prefixed ID
+router.get('/teachings/prefixed/:prefixedId', authenticate, fetchTeachingByPrefixedId);
+
+// GET /content/teachings/:id - Fetch single teaching by ID
+router.get('/teachings/:id', authenticate, fetchTeachingByPrefixedId);
+
+// POST /content/teachings - Create new teaching
+router.post('/teachings', authenticate, uploadMiddleware, uploadToS3, createTeaching);
+
+// PUT /content/teachings/:id - Update teaching
+router.put('/teachings/:id', authenticate, uploadMiddleware, uploadToS3, editTeaching);
+
+// DELETE /content/teachings/:id - Delete teaching
+router.delete('/teachings/:id', authenticate, removeTeaching);
+
+// ===============================================
+// COMMENTS ENDPOINTS - /api/content/comments/*
+// ===============================================
+
+// GET /content/comments/all - Fetch all comments
+router.get('/comments/all', authenticate, fetchAllComments);
+
+// GET /content/comments/stats - Get comment statistics
+router.get('/comments/stats', authenticate, fetchCommentStats);
+
+// GET /content/comments/parent-comments - Fetch parent content with comments
+router.get('/comments/parent-comments', authenticate, fetchParentChatsAndTeachingsWithComments);
+
+// GET /content/comments/user/:user_id - Fetch comments by user
+router.get('/comments/user/:user_id', authenticate, fetchCommentsByUserId);
 
 // POST /content/comments/upload - Upload files for comments
-contentRouter.post('/comments/upload', authenticate, uploadMiddleware, uploadToS3, uploadCommentFiles);
+router.post('/comments/upload', authenticate, uploadMiddleware, uploadToS3, uploadCommentFiles);
 
-// POST /content/comments - Create a new comment
-contentRouter.post('/comments', authenticate, uploadMiddleware, uploadToS3, createComment);
+// POST /content/comments - Create new comment
+router.post('/comments', authenticate, uploadMiddleware, uploadToS3, createComment);
 
-// GET /content/comments/:commentId - Get specific comment by ID (must be after other GET routes)
-contentRouter.get('/comments/:commentId', authenticate, fetchCommentById);
+// GET /content/comments/:commentId - Get specific comment
+router.get('/comments/:commentId', authenticate, fetchCommentById);
 
-// PUT /content/comments/:commentId - Update a comment
-contentRouter.put('/comments/:commentId', authenticate, uploadMiddleware, uploadToS3, updateComment);
+// PUT /content/comments/:commentId - Update comment
+router.put('/comments/:commentId', authenticate, uploadMiddleware, uploadToS3, updateComment);
 
-// DELETE /content/comments/:commentId - Delete a comment
-contentRouter.delete('/comments/:commentId', authenticate, deleteComment);
+// DELETE /content/comments/:commentId - Delete comment
+router.delete('/comments/:commentId', authenticate, deleteComment);
 
 // ===============================================
-// CLASSES ROUTES
+// ADMIN CONTENT ENDPOINTS - /api/content/admin/*
+// ✅ UPDATED TO USE NEW contentAdminControllers
 // ===============================================
 
-// GET /content/classes - Fetch all classes
-contentRouter.get('/classes', getClasses);
+// Apply admin authentication to all admin routes
+router.use('/admin/*', authenticate, authorize(['admin', 'super_admin']));
 
-// POST /content/classes - Create a new class
-contentRouter.post('/classes', postClass);
+// ===== MAIN ADMIN CONTENT MANAGEMENT =====
 
-// PUT /content/classes/:id - Update an existing class
-contentRouter.put('/classes/:id', putClass);
+// GET /content/admin/pending - Get pending content across all types
+router.get('/admin/pending', getPendingContent);
 
-// POST /content/classes/assign - Assign user to class
-contentRouter.post('/classes/assign', authenticate, assignUserToClass);
+// GET/POST /content/admin/manage - Manage content (bulk operations)
+router.get('/admin/manage', manageContent);
+router.post('/admin/manage', manageContent);
 
-// GET /content/classes/:classId/content - Get content for a specific class
-contentRouter.get('/classes/:classId/content', authenticate, getClassContent);
+// POST /content/admin/bulk-manage - Enhanced bulk operations
+router.post('/admin/bulk-manage', bulkManageContent);
 
-// GET /content/classes/:classId/participants - Get class participants
-contentRouter.get('/classes/:classId/participants', authenticate, async (req, res) => {
-  // This would integrate with class participant controller
-  res.json({ message: 'Class participants endpoint - implement with class controller' });
+// POST /content/admin/:id/approve - Approve content
+router.post('/admin/:id/approve', approveContent);
+
+// POST /content/admin/:id/reject - Reject content
+router.post('/admin/:id/reject', rejectContent);
+
+// DELETE /content/admin/:contentType/:id - Delete specific content
+router.delete('/admin/:contentType/:id', deleteContent);
+
+// ===== CONTENT TYPE SPECIFIC ADMIN ENDPOINTS =====
+
+// GET /content/admin/chats - Get all chats for admin management
+router.get('/admin/chats', getChatsForAdmin);
+
+// GET /content/admin/teachings - Get all teachings for admin management
+router.get('/admin/teachings', getTeachingsForAdmin);
+
+// GET /content/admin/comments - Get all comments for admin management
+router.get('/admin/comments', getCommentsForAdmin);
+
+// PUT /content/admin/:contentType/:id - Update content status
+router.put('/admin/:contentType/:id', updateContentStatus);
+
+// ===== REPORTS AND AUDIT =====
+
+// GET /content/admin/reports - Get content reports
+router.get('/admin/reports', getReports);
+
+// PUT /content/admin/reports/:reportId/status - Update report status
+router.put('/admin/reports/:reportId/status', updateReportStatus);
+
+// GET /content/admin/audit-logs - Get audit logs
+router.get('/admin/audit-logs', getAuditLogs);
+
+// ===== ADMIN UTILITIES =====
+
+// POST /content/admin/notifications/send - Send notification
+router.post('/admin/notifications/send', sendNotification);
+
+// GET /content/admin/stats - Get content statistics
+router.get('/admin/stats', getContentStats);
+
+// ===============================================
+// LEGACY COMPATIBILITY ROUTES
+// ✅ MAINTAINED FOR BACKWARD COMPATIBILITY
+// ===============================================
+
+// Legacy /chats routes
+router.use('/chats-legacy', (req, res, next) => {
+  console.log('🔄 Legacy /chats route accessed');
+  req.url = req.url.replace('/chats-legacy', '/chats');
+  next();
 });
 
-// POST /content/classes/:id/join - Join a class
-contentRouter.post('/classes/:id/join', authenticate, async (req, res) => {
-  // This would integrate with class joining controller
-  res.json({ message: 'Join class endpoint - implement with class controller' });
+// Legacy /teachings routes  
+router.use('/teachings-legacy', (req, res, next) => {
+  console.log('🔄 Legacy /teachings route accessed');
+  req.url = req.url.replace('/teachings-legacy', '/teachings');
+  next();
 });
 
-// POST /content/classes/:id/leave - Leave a class
-contentRouter.post('/classes/:id/leave', authenticate, async (req, res) => {
-  // This would integrate with class leaving controller
-  res.json({ message: 'Leave class endpoint - implement with class controller' });
+// Legacy /comments routes
+router.use('/comments-legacy', (req, res, next) => {
+  console.log('🔄 Legacy /comments route accessed');
+  req.url = req.url.replace('/comments-legacy', '/comments');
+  next();
 });
 
-// ===============================================
-// CONTENT CATEGORIES ROUTES
-// ===============================================
-
-// GET /content/categories - Get all content categories
-contentRouter.get('/categories', authenticate, async (req, res) => {
-  // This would integrate with categories controller
-  res.json({ message: 'Content categories endpoint - implement with categories controller' });
+// Legacy /messages route mapped to teachings
+router.get('/messages', (req, res, next) => {
+  console.log('🔄 Legacy /messages route accessed, mapping to teachings');
+  req.url = '/teachings';
+  req.query.legacy_messages = 'true';
+  fetchAllTeachings(req, res, next);
 });
 
-// GET /content/teachings/categories - Get teaching categories (alias)
-contentRouter.get('/teachings/categories', authenticate, async (req, res) => {
-  // This would integrate with categories controller
-  res.json({ message: 'Teaching categories endpoint - implement with categories controller' });
-});
+// ADD THIS AS A NEW ROUTE IN contentRoutes.js (in the legacy compatibility section)
 
-// ===============================================
-// CONTENT INTERACTION ROUTES
-// ===============================================
+// Legacy /messages route mapped to teachings
+router.get('/messages', async (req, res) => {
+  try {
+    console.log('Legacy /api/messages endpoint accessed, mapping to teachings');
+    
+    // Map query parameters
+    const { status, page = 1, limit = 50, user_id } = req.query;
+    
+    // Map status to approval_status
+    let approval_status;
+    if (status) {
+      switch (status.toLowerCase()) {
+        case 'pending':
+          approval_status = 'pending';
+          break;
+        case 'approved':
+          approval_status = 'approved';
+          break;
+        case 'rejected':
+          approval_status = 'rejected';
+          break;
+        default:
+          approval_status = status;
+      }
+    }
 
-// POST /content/comments/:id/like - Like a comment
-contentRouter.post('/comments/:id/like', authenticate, async (req, res) => {
-  // This would integrate with like/reaction controller
-  res.json({ message: 'Like comment endpoint - implement with reaction controller' });
+    const filters = {
+      approval_status,
+      user_id,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    };
+
+    // Import getAllTeachings at the top of the file if not already imported
+    const { getAllTeachings } = await import('../services/teachingsServices.js');
+    const teachings = await getAllTeachings(filters);
+    
+    // Return in format expected by frontend
+    res.status(200).json({
+      success: true,
+      data: teachings,
+      count: teachings.length,
+      message: 'Messages endpoint mapped to teachings',
+      filters
+    });
+
+  } catch (error) {
+    console.error('Error in legacy messages endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Failed to fetch messages (teachings)'
+    });
+  }
 });
 
 // ===============================================
 // ERROR HANDLING
 // ===============================================
 
-// Enhanced 404 handler for content routes
-contentRouter.use('*', (req, res) => {
-  console.warn(`❌ 404 - Content route not found: ${req.method} ${req.path}`);
+// 404 handler for content routes
+router.use('*', (req, res) => {
+  console.log(`❌ Content route not found: ${req.method} ${req.path}`);
   
   res.status(404).json({
     success: false,
     error: 'Content route not found',
     path: req.path,
     method: req.method,
-    availableEndpoints: {
-      teachings: [
-        'GET /teachings - Get all teachings',
-        'GET /teachings/search - Search teachings',
-        'GET /teachings/stats - Get teaching statistics',
-        'POST /teachings - Create new teaching',
-        'PUT /teachings/:id - Update teaching',
-        'DELETE /teachings/:id - Delete teaching'
-      ],
+    availableRoutes: {
       chats: [
         'GET /chats - Get all chats',
         'GET /chats/user - Get user chats',
-        'POST /chats - Create new chat',
+        'GET /chats/combinedcontent - Combined content',
+        'POST /chats - Create chat',
         'PUT /chats/:id - Update chat',
         'DELETE /chats/:id - Delete chat'
       ],
+      teachings: [
+        'GET /teachings - Get all teachings',
+        'GET /teachings/search - Search teachings',
+        'GET /teachings/stats - Teaching statistics',
+        'POST /teachings - Create teaching',
+        'PUT /teachings/:id - Update teaching',
+        'DELETE /teachings/:id - Delete teaching'
+      ],
       comments: [
         'GET /comments/all - Get all comments',
-        'GET /comments/stats - Get comment statistics',
-        'POST /comments - Create new comment',
+        'GET /comments/stats - Comment statistics',
+        'POST /comments - Create comment',
         'PUT /comments/:id - Update comment',
         'DELETE /comments/:id - Delete comment'
       ],
-      classes: [
-        'GET /classes - Get all classes',
-        'POST /classes - Create new class',
-        'PUT /classes/:id - Update class',
-        'POST /classes/assign - Assign user to class',
-        'POST /classes/:id/join - Join class'
+      admin: [
+        'GET /admin/pending - Pending content',
+        'GET /admin/chats - Admin chat management',
+        'GET /admin/teachings - Admin teaching management',
+        'GET /admin/comments - Admin comment management',
+        'GET /admin/reports - Content reports',
+        'GET /admin/audit-logs - Audit logs',
+        'GET /admin/stats - Content statistics',
+        'POST /admin/bulk-manage - Bulk operations'
       ]
     },
     timestamp: new Date().toISOString()
   });
 });
 
-// Enhanced global error handler for content routes
-contentRouter.use((error, req, res, next) => {
-  const errorId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-  
+// Global error handler
+router.use((error, req, res, next) => {
   console.error('❌ Content route error:', {
-    errorId,
     error: error.message,
     path: req.path,
     method: req.method,
-    user: req.user?.id || 'not authenticated',
+    user: req.user?.username || 'unauthenticated',
     timestamp: new Date().toISOString()
   });
   
   res.status(error.statusCode || 500).json({
     success: false,
-    error: error.message || 'Internal server error',
-    errorId,
+    error: error.message || 'Content management error',
     path: req.path,
     method: req.method,
     timestamp: new Date().toISOString()
   });
 });
 
+// ===============================================
+// DEVELOPMENT LOGGING
+// ===============================================
+
 if (process.env.NODE_ENV === 'development') {
-  console.log('📚 Content routes loaded with teachings, chats, comments, and classes');
+  console.log('📚 Content routes loaded with enhanced admin management:');
+  console.log('   ✅ Individual content controllers: chats, teachings, comments');
+  console.log('   ✅ Unified admin controllers: contentAdminControllers.js');
+  console.log('   ✅ Separated services: content services + contentAdminServices.js');
+  console.log('   ✅ Backward compatibility maintained');
+  console.log('   ✅ Enhanced admin bulk operations');
+  console.log('   ✅ Comprehensive error handling');
 }
 
-export default contentRouter;
+export default router;

@@ -11,7 +11,7 @@ import {
   successResponse, 
   errorResponse,
   testUserLookup 
-} from './membershipCore.js';
+} from './old.membershipCore.js';
 
 // =============================================================================
 // SYSTEM HEALTH & TESTING ENDPOINTS

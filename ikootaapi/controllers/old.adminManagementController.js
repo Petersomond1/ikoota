@@ -19,8 +19,8 @@ import {
   executeQuery,
   sendApprovalNotification,
   sendDeclineNotification
-} from './membershipCore.js';
-import * as membershipService from '../services/membershipServices_old.js';
+} from './old.membershipCore.js';
+import * as membershipService from '../services/old.membershipServices_old.js';
 
 // =============================================================================
 // PRE-MEMBER APPLICATION REVIEW FUNCTIONS

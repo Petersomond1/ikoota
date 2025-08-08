@@ -17,7 +17,7 @@ import {
   getAllReportsService,
   getMentorsService,
   getAuditLogsService
-} from '../services/adminServices.js';
+} from '../services/old.adminServices.js';
 import db from '../config/db.js';
 
 // ===== USER MANAGEMENT CONTROLLERS =====

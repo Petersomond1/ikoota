@@ -1,6 +1,6 @@
 // ikootaapi/controllers/identityController.js
 
-import identityMaskingService from '../services/identityMaskingService.js';
+import identityMaskingService from '../services/old.identityMaskingService.js';
 import CustomError from '../utils/CustomError.js';
 
 /**

@@ -11,7 +11,7 @@ import {
   exportMembershipDataCSV,
   convertToCSV,
   getAnalyticsHealthCheck
-} from '../services/analyticsService.js';
+} from '../services/old.analyticsService.js';
 
 /**
  * ✅ FIXED: Get membership analytics with comprehensive error handling

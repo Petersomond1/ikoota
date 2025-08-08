@@ -14,8 +14,8 @@ import {
   successResponse, 
   errorResponse,
   executeQuery
-} from './membershipControllers_1.OLD.js';
-import * as membershipService from '../services/membershipServices_old.js';
+} from './old.membershipControllers_1.OLD.js';
+import * as membershipService from '../services/old.membershipServices_old.js';
 
 
 export const getPendingApplications = async (req, res) => {

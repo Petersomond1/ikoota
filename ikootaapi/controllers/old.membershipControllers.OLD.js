@@ -47,7 +47,7 @@ import {
   getUserByIdFixed,
   testUserLookup,
   getCurrentMembershipStatus
-} from './membershipControllers_2.OLD.js';
+} from './old.membershipControllers_2.OLD.js';
 
 import {
   // Admin Functions
@@ -77,7 +77,7 @@ import {
   declinePreMemberApplication,
   getAvailableMentors,
   getAvailableClasses
-} from './membershipControllers_3.OLD.js';
+} from './old.membershipControllers_3.OLD.js';
 
 // ==================================================
 // RE-EXPORT ALL FUNCTIONS FOR ROUTES

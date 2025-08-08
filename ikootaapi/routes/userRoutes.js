@@ -1,253 +1,195 @@
-
-// File: ikootaapi/routes/userRoutes.js
-// 2. USER ROUTES - CONSOLIDATED USER MANAGEMENT
+// ikootaapi/routes/userRoutes.js
+// USER PROFILE & SETTINGS ROUTES
+// Basic user operations: profile management, settings, preferences
 
 import express from 'express';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+// Import user controllers
 import {
-  // Existing user controller functions
   getUserProfile,
   updateUserProfile,
-  updateUserRole,
-  fetchAllUsers,
-  fetchUserStats,
-  fetchUserActivity,
-  fetchUserById,
-  removeUser,
-  
-  // Admin management functions
-  getAllUsers,
-  getAllMentors,
-  updateUser,
-  getMembershipOverview,
-  getClasses
+  deleteUserProfile,
+  updateUserSettings,
+  updateUserPassword,
+  getUserPermissions,
+  getUserNotifications,
+  markNotificationAsRead,
+  getUserActivityHistory,
+  getUserContentHistory,
+  testUserRoutes
 } from '../controllers/userControllers.js';
 
-// Import from userStatusController for status-related functions
-import {
-  checkSurveyStatus,
-  getCurrentMembershipStatus,
-  getBasicProfile,
-  getLegacyMembershipStatus,
-  getUserStatus,
-  debugApplicationStatus,
-  getSystemStatus
-} from '../controllers/userStatusController.js';
-
-// Import from preMemberApplicationController for dashboard functions
-import {
-  getUserDashboard,
-  getApplicationHistory,
-  getUserPermissions,
-  checkApplicationStatus
-} from '../controllers/preMemberApplicationController.js';
-
-import { 
-  authenticate,  
-  requireAdmin  
-} from '../middlewares/auth.middleware.js';
-
-const userRouter = express.Router();
+const router = express.Router();
 
 // ===============================================
-// USER PROFILE MANAGEMENT ROUTES
+// PROFILE MANAGEMENT
 // ===============================================
 
 // GET /users/profile - Get current user's profile
-userRouter.get('/profile', authenticate, getUserProfile);
+router.get('/profile', authenticate, getUserProfile);
 
 // PUT /users/profile - Update current user's profile
-userRouter.put('/profile', authenticate, updateUserProfile);
-
-// GET /users/profile/basic - Get basic profile info
-userRouter.get('/profile/basic', authenticate, getBasicProfile);
+router.put('/profile', authenticate, updateUserProfile);
 
 // DELETE /users/profile - Delete user profile (self-deletion)
-userRouter.delete('/profile', authenticate, removeUser);
+router.delete('/profile', authenticate, deleteUserProfile);
 
 // ===============================================
-// USER STATUS & DASHBOARD ROUTES
+// USER SETTINGS
 // ===============================================
-
-// GET /users/dashboard - Primary user dashboard
-userRouter.get('/dashboard', authenticate, getUserDashboard);
-
-// GET /users/status - Current membership status
-userRouter.get('/status', authenticate, getCurrentMembershipStatus);
-
-// GET /users/permissions - User permissions
-userRouter.get('/permissions', authenticate, getUserPermissions);
-
-// GET /users/application/status - Application status check
-userRouter.get('/application/status', authenticate, checkApplicationStatus);
-
-// GET /users/survey/check-status - Enhanced survey status check
-userRouter.get('/survey/check-status', authenticate, checkSurveyStatus);
-
-// ===============================================
-// USER HISTORY & ACTIVITY ROUTES
-// ===============================================
-
-// GET /users/history - Application history
-userRouter.get('/history', authenticate, getApplicationHistory);
-
-// GET /users/application-history - Application history (alias)
-userRouter.get('/application-history', authenticate, getApplicationHistory);
-
-// GET /users/activity - User activity
-userRouter.get('/activity', authenticate, fetchUserActivity);
-
-// GET /users/:user_id/activity - Get specific user activity
-userRouter.get('/:user_id/activity', authenticate, fetchUserActivity);
-
-// ===============================================
-// USER SETTINGS ROUTES
-// ===============================================
-
-// PUT /users/settings - Update user settings
-userRouter.put('/settings', authenticate, updateUserProfile);
 
 // GET /users/settings - Get user settings
-userRouter.get('/settings', authenticate, getUserProfile);
+router.get('/settings', authenticate, (req, res, next) => {
+  req.settingsOnly = true;
+  getUserProfile(req, res, next);
+});
+
+// PUT /users/settings - Update user settings
+router.put('/settings', authenticate, updateUserSettings);
 
 // PUT /users/password - Update user password
-userRouter.put('/password', authenticate, updateUserProfile);
+router.put('/password', authenticate, updateUserPassword);
 
 // ===============================================
-// USER LOOKUP & MANAGEMENT ROUTES
+// USER PERMISSIONS & ACCESS
 // ===============================================
 
-// GET /users/stats - Get user statistics (admin only)
-userRouter.get('/stats', authenticate, requireAdmin, fetchUserStats);
-
-// GET /users - Get all users with filtering (admin only)
-userRouter.get('/', authenticate, requireAdmin, fetchAllUsers);
-
-// GET /users/:user_id - Get user by ID
-userRouter.get('/:user_id', authenticate, fetchUserById);
-
-// PUT /users/role - Update user role and properties (admin only)
-userRouter.put('/role', authenticate, requireAdmin, updateUserRole);
-
-// PUT /users/:user_id - Update specific user (admin only)
-userRouter.put('/:user_id', authenticate, requireAdmin, updateUserRole);
-
-// DELETE /users/:user_id - Soft delete user (super admin only)
-userRouter.delete('/:user_id', authenticate, requireAdmin, removeUser);
+// GET /users/permissions - Get user permissions
+router.get('/permissions', authenticate, getUserPermissions);
 
 // ===============================================
-// ADMIN USER MANAGEMENT ROUTES (Legacy Support)
+// NOTIFICATIONS MANAGEMENT
 // ===============================================
 
-// Admin Users Management Routes
-userRouter.get('/admin/users', 
-  authenticate, 
-  requireAdmin, 
-  getAllUsers
-);
+// GET /users/notifications - Get user notifications
+router.get('/notifications', authenticate, getUserNotifications);
 
-userRouter.get('/admin/mentors', 
-  authenticate, 
-  requireAdmin, 
-  getAllMentors
-);
+// PUT /users/notifications/:id/read - Mark notification as read
+router.put('/notifications/:id/read', authenticate, markNotificationAsRead);
 
-userRouter.put('/admin/update-user/:id', 
-  authenticate, 
-  requireAdmin, 
-  updateUser
-);
-
-userRouter.get('/admin/membership-overview', 
-  authenticate, 
-  requireAdmin, 
-  getMembershipOverview
-);
-
-userRouter.get('/classes', 
-  authenticate, 
-  getClasses
-);
+// PUT /users/notifications/mark-all-read - Mark all notifications as read
+router.put('/notifications/mark-all-read', authenticate, (req, res, next) => {
+  req.markAllAsRead = true;
+  markNotificationAsRead(req, res, next);
+});
 
 // ===============================================
-// COMPATIBILITY ALIASES
+// USER PREFERENCES
 // ===============================================
 
-// Legacy compatibility endpoints
-userRouter.get('/membership/status', authenticate, getLegacyMembershipStatus);
-userRouter.get('/user/status', authenticate, getUserStatus);
+// GET /users/preferences - Get user preferences
+router.get('/preferences', authenticate, (req, res, next) => {
+  req.preferencesOnly = true;
+  getUserProfile(req, res, next);
+});
+
+// PUT /users/preferences - Update user preferences
+router.put('/preferences', authenticate, (req, res, next) => {
+  req.preferencesOnly = true;
+  updateUserSettings(req, res, next);
+});
 
 // ===============================================
-// DEVELOPMENT & DEBUG ROUTES
+// USER ACTIVITY & HISTORY
 // ===============================================
 
-if (process.env.NODE_ENV === 'development') {
-  userRouter.get('/debug/application-status/:userId', authenticate, debugApplicationStatus);
-}
+// GET /users/activity - Get user activity history
+router.get('/activity', authenticate, async (req, res) => {
+  res.json({
+    success: true,
+    message: 'User activity endpoint - implement with user activity service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// GET /users/content-history - Get user's content creation history
+router.get('/content-history', authenticate, async (req, res) => {
+  res.json({
+    success: true,
+    message: 'User content history endpoint - implement with content service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// TESTING ENDPOINTS
+// ===============================================
+
+// User profile test
+router.get('/test', authenticate, (req, res) => {
+  res.json({
+    success: true,
+    message: 'User routes are working!',
+    user: {
+      id: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role
+    },
+    timestamp: new Date().toISOString(),
+    endpoint: '/api/users/test'
+  });
+});
 
 // ===============================================
 // ERROR HANDLING
 // ===============================================
 
-// Enhanced 404 handler for user routes
-userRouter.use('*', (req, res) => {
-  console.warn(`❌ 404 - User route not found: ${req.method} ${req.path}`);
-  
+// 404 handler
+router.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     error: 'User route not found',
     path: req.path,
     method: req.method,
-    availableEndpoints: {
+    availableRoutes: {
       profile: [
-        'GET /profile - Get current user profile',
+        'GET /profile - Get user profile',
         'PUT /profile - Update user profile',
-        'GET /profile/basic - Get basic profile info',
         'DELETE /profile - Delete user profile'
       ],
-      status: [
-        'GET /dashboard - User dashboard',
-        'GET /status - Current membership status',
-        'GET /permissions - User permissions',
-        'GET /application/status - Application status',
-        'GET /survey/check-status - Survey status'
-      ],
-      history: [
-        'GET /history - Application history',
-        'GET /activity - User activity'
-      ],
       settings: [
-        'PUT /settings - Update settings',
-        'GET /settings - Get settings',
+        'GET /settings - Get user settings',
+        'PUT /settings - Update user settings',
         'PUT /password - Update password'
       ],
-      admin: [
-        'GET / - Get all users (admin)',
-        'GET /stats - User statistics (admin)',
-        'PUT /:user_id - Update user (admin)'
+      permissions: [
+        'GET /permissions - Get user permissions'
+      ],
+      notifications: [
+        'GET /notifications - Get notifications',
+        'PUT /notifications/:id/read - Mark notification as read',
+        'PUT /notifications/mark-all-read - Mark all as read'
+      ],
+      preferences: [
+        'GET /preferences - Get user preferences',
+        'PUT /preferences - Update user preferences'
+      ],
+      activity: [
+        'GET /activity - Get user activity',
+        'GET /content-history - Get content history'
+      ],
+      testing: [
+        'GET /test - User routes test'
       ]
     },
     timestamp: new Date().toISOString()
   });
 });
 
-// Enhanced global error handler for user routes
-userRouter.use((error, req, res, next) => {
-  const errorId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-  
+// Error handler
+router.use((error, req, res, next) => {
   console.error('❌ User route error:', {
-    errorId,
     error: error.message,
-    stack: error.stack,
     path: req.path,
     method: req.method,
-    user: req.user?.id || 'not authenticated',
+    user: req.user?.username || 'unauthenticated',
     timestamp: new Date().toISOString()
   });
   
   res.status(error.statusCode || 500).json({
     success: false,
-    error: error.message || 'Internal server error',
-    errorId,
+    error: error.message || 'User operation error',
     path: req.path,
     method: req.method,
     timestamp: new Date().toISOString()
@@ -255,8 +197,7 @@ userRouter.use((error, req, res, next) => {
 });
 
 if (process.env.NODE_ENV === 'development') {
-  console.log('👤 User routes loaded with profile, status, history, and admin management');
+  console.log('👤 User routes loaded: profile, settings, notifications, preferences');
 }
 
-export default userRouter;
-
+export default router;

@@ -1,388 +1,889 @@
-//ikootaapi\services\surveyServices.js
+// ikootaapi/services/surveyServices.js
+// SURVEY SERVICES - Business logic for survey operations
+// Handles database operations, email notifications, and data processing
+
 import db from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
 import { sendEmail } from '../utils/email.js';
+import logger from '../utils/logger.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
-export const submitSurveyService = async (answers, email) => {
+// ===============================================
+// SURVEY SUBMISSION SERVICES
+// ===============================================
+
+/**
+ * Submit initial application survey
+ * Compatible with preMemberApplicationController
+ */
+export const submitInitialApplicationService = async ({
+  answers,
+  applicationTicket,
+  userId,
+  userEmail,
+  username
+}) => {
+  const connection = await db.getConnection();
+  
   try {
-    const sql = 'SELECT * FROM users WHERE email = ?';
-    const user = await db.query(sql, [email]);
-
-    if (user.length === 0) {
-      throw new CustomError('no user found issue!', 400);
+    console.log('🔍 Processing initial application submission');
+    await connection.beginTransaction();
+    
+    // Check if user has already submitted
+    const [existingCheck] = await connection.query(
+      'SELECT id FROM surveylog WHERE user_id = ? AND application_type = ? AND approval_status NOT IN (?, ?, ?)',
+      [userId, 'initial_application', 'declined', 'rejected', 'withdrawn']
+    );
+    
+    if (existingCheck.length > 0) {
+      throw new CustomError('Application already submitted', 400);
     }
-
-    const userId = user[0].id;
-
-    const insertSql = 'INSERT INTO surveylog (user_id, answers) VALUES (?, ?)';
-    const savedForm = await db.query(insertSql, [userId, JSON.stringify(answers)]);
-
-    if (savedForm.affectedRows === 0) {
-      throw new CustomError('data failed to be saved in db', 500);
-    }
-
-    await db.query('UPDATE users SET is_member = ? WHERE id = ?', ['pending', userId]);
-
-    const subject = 'Survey Submission Confirmation';
-    const text = `Hello ${user[0].username},\n\nThank you for submitting the survey. Your responses have been recorded. Just give us a little time for your account application to be activated.`;
-    await sendEmail(email, subject, text);
-
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const adminSubject = 'New Survey Submission Pending Approval';
-    const adminText = `A new survey submission has been received from ${user[0].username}. Please review and approve the submission.`;
-    await sendEmail(adminEmail, adminSubject, adminText);
-
-    return { success: true };
+    
+    // Insert survey log with all required fields for compatibility
+    const answersJson = typeof answers === 'string' ? answers : JSON.stringify(answers);
+    const [surveyResult] = await connection.query(
+      `INSERT INTO surveylog 
+       (user_id, answers, application_ticket, application_type, approval_status, 
+        verified_by, rating_remarks, createdAt, processedAt) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [userId, answersJson, applicationTicket, 'initial_application', 'pending', '', '', ]
+    );
+    
+    // Update user status to match membership controller expectations
+    await connection.query(
+      `UPDATE users 
+       SET is_member = ?, 
+           membership_stage = ?,
+           application_status = ?, 
+           application_ticket = ?, 
+           applicationSubmittedAt = NOW(),
+           updatedAt = NOW()
+       WHERE id = ?`,
+      ['pending', 'applicant', 'submitted', applicationTicket, userId]
+    );
+    
+    await connection.commit();
+    
+    // Send confirmation emails (non-blocking)
+    sendApplicationEmails(userEmail, username, 'initial').catch(err => {
+      console.error('Email sending failed (non-critical):', err);
+    });
+    
+    console.log('✅ Initial application submitted successfully');
+    return { 
+      success: true, 
+      applicationTicket,
+      surveyId: surveyResult.insertId,
+      userId,
+      username
+    };
+    
   } catch (error) {
-    console.log("the issue", error);
-    throw new CustomError('Form submission failed', 500, error.message);
+    await connection.rollback();
+    console.error('❌ Error submitting initial application:', error);
+    throw error;
+  } finally {
+    connection.release();
   }
 };
 
-// Fetch questions from the database
+/**
+ * Submit full membership application survey
+ */
+export const submitFullMembershipApplicationService = async ({
+  answers,
+  membershipTicket,
+  userId,
+  userEmail,
+  username
+}) => {
+  const connection = await db.getConnection();
+  
+  try {
+    console.log('🔍 Processing full membership application submission');
+    await connection.beginTransaction();
+    
+    // Check user eligibility
+    const [userCheck] = await connection.query(
+      'SELECT membership_stage, is_member FROM users WHERE id = ?',
+      [userId]
+    );
+    
+    if (!userCheck.length || userCheck[0].membership_stage !== 'pre_member') {
+      throw new CustomError('User not eligible for full membership', 403);
+    }
+    
+    // Check for existing full membership application
+    const [existingCheck] = await connection.query(
+      'SELECT id FROM full_membership_applications WHERE user_id = ? AND status != ?',
+      [userId, 'declined']
+    );
+    
+    if (existingCheck.length > 0) {
+      throw new CustomError('Full membership application already exists', 400);
+    }
+    
+    // Insert full membership application
+    const answersJson = typeof answers === 'string' ? answers : JSON.stringify(answers);
+    const [result] = await connection.query(
+      `INSERT INTO full_membership_applications 
+       (user_id, membership_ticket, answers, status) 
+       VALUES (?, ?, ?, ?)`,
+      [userId, membershipTicket, answersJson, 'pending']
+    );
+    
+    // Update user status
+    await connection.query(
+      `UPDATE users 
+       SET full_membership_status = ?, full_membership_ticket = ?, fullMembershipAppliedAt = NOW() 
+       WHERE id = ?`,
+      ['applied', membershipTicket, userId]
+    );
+    
+    // Also log in surveylog for consistency
+    await connection.query(
+      `INSERT INTO surveylog 
+       (user_id, answers, application_ticket, application_type, approval_status) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [userId, answersJson, membershipTicket, 'full_membership', 'pending']
+    );
+    
+    await connection.commit();
+    
+    // Send confirmation emails
+    await sendApplicationEmails(userEmail, username, 'full');
+    
+    console.log('✅ Full membership application submitted successfully');
+    return { 
+      success: true, 
+      membershipTicket,
+      applicationId: result.insertId 
+    };
+    
+  } catch (error) {
+    await connection.rollback();
+    console.error('❌ Error submitting full membership application:', error);
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+// ===============================================
+// SURVEY RETRIEVAL SERVICES
+// ===============================================
+
+/**
+ * Fetch survey questions from database
+ */
 export const fetchSurveyQuestions = async () => {
   try {
-    const query = 'SELECT id, question FROM survey_questions ORDER BY id ASC';
-    const rows = await db.query(query);
+    const [rows] = await db.query(
+      'SELECT id, question FROM survey_questions WHERE is_active = 1 ORDER BY question_order ASC'
+    );
     
-    // ✅ Handle different database result formats
-    let questions;
-    if (Array.isArray(rows) && rows.length > 0) {
-      // Check if it's MySQL2 format [rows, fields] or direct array
-      if (Array.isArray(rows[0]) && typeof rows[0][0] === 'object') {
-        questions = rows[0]; // MySQL2 format
-      } else if (typeof rows[0] === 'object' && (rows[0].id || rows[0].question)) {
-        questions = rows; // Direct array format
-      } else {
-        questions = [];
-      }
-    } else {
-      questions = [];
-    }
-    
-    // Extract just the question text for the frontend
-    return questions.map(row => row.question || row);
+    return rows.map(row => row.question);
   } catch (error) {
     console.error('❌ Error fetching survey questions:', error);
-    throw new CustomError(`Failed to fetch survey questions: ${error.message}`, 500);
+    throw new CustomError('Failed to fetch survey questions', 500);
   }
 };
 
-// ✅ FIXED: Update questions in the database with proper SQL syntax
-export const modifySurveyQuestions = async (questions) => {
+/**
+ * Check user's survey status
+ * Compatible with membership controllers
+ */
+export const checkUserSurveyStatus = async (userId) => {
   try {
-    console.log('🔍 Updating survey questions:', questions);
+    // Check initial application with proper user_id handling
+    const [surveyCheck] = await db.query(
+      `SELECT id, approval_status, createdAt, reviewedAt, application_ticket,
+              admin_notes, verified_by, rating_remarks
+       FROM surveylog 
+       WHERE user_id = ? AND application_type = ? 
+       ORDER BY createdAt DESC LIMIT 1`,
+      [userId, 'initial_application']
+    );
     
-    if (!Array.isArray(questions) || questions.length === 0) {
-      throw new CustomError('Questions array is required and cannot be empty', 400);
-    }
+    // Check full membership application
+    const [fullMemberCheck] = await db.query(
+      `SELECT id, status, submittedAt, reviewedAt, membership_ticket
+       FROM full_membership_applications 
+       WHERE user_id = ? 
+       ORDER BY submittedAt DESC LIMIT 1`,
+      [userId]
+    );
     
-    // Start a transaction for atomic operation
-    await db.query('START TRANSACTION');
+    // Get user's current status with all required fields
+    const [userStatus] = await db.query(
+      `SELECT membership_stage, is_member, full_membership_status, 
+              application_status, converse_id, mentor_id, primary_class_id
+       FROM users WHERE id = ?`,
+      [userId]
+    );
     
-    try {
-      // Clear existing questions
-      const deleteQuery = 'DELETE FROM survey_questions';
-      await db.query(deleteQuery);
-      console.log('✅ Cleared existing questions');
-      
-      // ✅ FIXED: Insert new questions one by one (safer approach)
-      const insertQuery = 'INSERT INTO survey_questions (question) VALUES (?)';
-      
-      for (let i = 0; i < questions.length; i++) {
-        const question = questions[i];
-        if (question && question.trim()) {
-          await db.query(insertQuery, [question.trim()]);
-          console.log(`✅ Inserted question ${i + 1}: ${question.trim()}`);
-        }
-      }
-      
-      // Commit the transaction
-      await db.query('COMMIT');
-      console.log('✅ Survey questions updated successfully');
-      
-    } catch (insertError) {
-      // Rollback on error
-      await db.query('ROLLBACK');
-      throw insertError;
-    }
+    const latestSurvey = surveyCheck[0] || null;
+    const hasSurvey = latestSurvey !== null;
+    const surveyCompleted = hasSurvey && 
+                           latestSurvey.answers && 
+                           latestSurvey.answers.trim() !== '' &&
+                           latestSurvey.approval_status === 'approved';
+    
+    return {
+      hasInitialApplication: surveyCheck.length > 0,
+      initialApplicationStatus: surveyCheck[0]?.approval_status || null,
+      hasFullMembershipApplication: fullMemberCheck.length > 0,
+      fullMembershipStatus: fullMemberCheck[0]?.status || null,
+      currentMembershipStage: userStatus[0]?.membership_stage || 'none',
+      currentMemberStatus: userStatus[0]?.is_member || 'pending',
+      survey_completed: surveyCompleted,
+      survey_data: latestSurvey,
+      needs_survey: !hasSurvey || !surveyCompleted,
+      user_details: userStatus[0] || {}
+    };
     
   } catch (error) {
-    console.error('❌ Error in modifySurveyQuestions:', error);
-    throw new CustomError(`Failed to update survey questions: ${error.message}`, 500);
+    console.error('❌ Error checking survey status:', error);
+    throw new CustomError('Failed to check survey status', 500);
   }
 };
 
-export const fetchSurveyLogs = async () => {
+/**
+ * Get user's survey history
+ */
+export const getUserSurveyHistory = async (userId) => {
   try {
-    console.log('🔍 Fetching survey logs with user information...');
+    const [history] = await db.query(
+      `SELECT 
+        id,
+        application_type,
+        approval_status,
+        createdAt,
+        reviewedAt,
+        admin_notes,
+        application_ticket
+       FROM surveylog 
+       WHERE user_id = ? 
+       ORDER BY createdAt DESC`,
+      [userId]
+    );
     
+    return history;
+  } catch (error) {
+    console.error('❌ Error fetching survey history:', error);
+    throw new CustomError('Failed to fetch survey history', 500);
+  }
+};
+
+// ===============================================
+// SURVEY MANAGEMENT SERVICES
+// ===============================================
+
+/**
+ * Update user survey response
+ */
+export const updateUserSurveyResponse = async (surveyId, userId, answers) => {
+  try {
+    const answersJson = typeof answers === 'string' ? answers : JSON.stringify(answers);
+    
+    const [result] = await db.query(
+      `UPDATE surveylog 
+       SET answers = ?, updatedAt = NOW() 
+       WHERE id = ? AND user_id = ? AND approval_status = ?`,
+      [answersJson, surveyId, userId, 'pending']
+    );
+    
+    if (result.affectedRows === 0) {
+      throw new CustomError('Survey not found or cannot be updated', 404);
+    }
+    
+    return { affectedRows: result.affectedRows };
+  } catch (error) {
+    console.error('❌ Error updating survey response:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete user survey response
+ */
+export const deleteUserSurveyResponse = async (surveyId, userId) => {
+  try {
+    const [result] = await db.query(
+      `DELETE FROM surveylog 
+       WHERE id = ? AND user_id = ? AND approval_status = ?`,
+      [surveyId, userId, 'pending']
+    );
+    
+    if (result.affectedRows === 0) {
+      throw new CustomError('Survey not found or cannot be deleted', 404);
+    }
+    
+    return { affectedRows: result.affectedRows };
+  } catch (error) {
+    console.error('❌ Error deleting survey response:', error);
+    throw error;
+  }
+};
+
+// ===============================================
+// ADMIN SURVEY SERVICES
+// ===============================================
+
+/**
+ * Fetch all survey logs with filters
+ * Enhanced for membership admin compatibility
+ */
+export const fetchAllSurveyLogs = async (filters = {}, pagination = {}) => {
+  try {
+    const { page = 1, limit = 50 } = pagination;
+    const offset = (page - 1) * limit;
+    
+    let whereClause = 'WHERE 1=1';
+    const params = [];
+    
+    if (filters.approval_status) {
+      whereClause += ' AND sl.approval_status = ?';
+      params.push(filters.approval_status);
+    }
+    
+    if (filters.application_type) {
+      whereClause += ' AND sl.application_type = ?';
+      params.push(filters.application_type);
+    }
+    
+    if (filters.membership_stage) {
+      whereClause += ' AND u.membership_stage = ?';
+      params.push(filters.membership_stage);
+    }
+    
+    if (filters.search) {
+      whereClause += ' AND (u.username LIKE ? OR u.email LIKE ? OR sl.application_ticket LIKE ?)';
+      const searchTerm = `%${filters.search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+    
+    if (filters.startDate) {
+      whereClause += ' AND sl.createdAt >= ?';
+      params.push(filters.startDate);
+    }
+    
+    if (filters.endDate) {
+      whereClause += ' AND sl.createdAt <= ?';
+      params.push(filters.endDate);
+    }
+    
+    // Get total count
+    const [countResult] = await db.query(
+      `SELECT COUNT(*) as total FROM surveylog sl 
+       INNER JOIN users u ON sl.user_id = u.id
+       ${whereClause}`,
+      params
+    );
+    
+    // Get paginated results with all necessary fields for membership admin
     const query = `
       SELECT 
-        sl.id,
-        sl.user_id,
-        sl.answers,
-        sl.approval_status,
-        sl.createdAt,
-        sl.updatedAt,
-        sl.admin_notes,
-        sl.application_type,
-        sl.reviewedAt,
-        sl.reviewed_by,
-        sl.application_ticket,
+        sl.*,
         u.username,
         u.email as user_email,
         u.membership_stage,
-        u.is_member
+        u.is_member,
+        u.converse_id,
+        u.mentor_id,
+        u.primary_class_id,
+        u.application_status,
+        u.applicationSubmittedAt,
+        u.applicationReviewedAt,
+        reviewer.username as reviewed_by_name
       FROM surveylog sl
       INNER JOIN users u ON sl.user_id = u.id
+      LEFT JOIN users reviewer ON sl.reviewed_by = reviewer.id
+      ${whereClause}
       ORDER BY sl.createdAt DESC
+      LIMIT ? OFFSET ?
     `;
     
-    const result = await db.query(query);
-    console.log('🔍 Raw survey logs result:', result);
+    const [logs] = await db.query(query, [...params, parseInt(limit), parseInt(offset)]);
     
-    // ✅ Handle different database result formats
-    let rows;
-    if (Array.isArray(result) && result.length > 0) {
-      // Check if it's MySQL2 format [rows, fields] or direct array
-      if (Array.isArray(result[0]) && typeof result[0][0] === 'object') {
-        rows = result[0]; // MySQL2 format
-        console.log('✅ Using MySQL2 format for survey logs');
-      } else if (typeof result[0] === 'object' && result[0].id) {
-        rows = result; // Direct array format
-        console.log('✅ Using direct array format for survey logs');
-      } else {
-        rows = [];
-        console.log('✅ Empty survey logs result');
-      }
-    } else {
-      rows = [];
-      console.log('✅ No survey logs found');
-    }
+    // Parse answers if JSON string
+    const processedLogs = logs.map(log => ({
+      ...log,
+      answers: log.answers ? (typeof log.answers === 'string' ? 
+        (() => { try { return JSON.parse(log.answers); } catch(e) { return log.answers; } })() 
+        : log.answers) : null
+    }));
     
-    console.log(`✅ Successfully fetched ${rows.length} survey logs`);
-    return rows;
+    return {
+      data: processedLogs,
+      count: countResult[0].total,
+      page: parseInt(page),
+      totalPages: Math.ceil(countResult[0].total / limit)
+    };
     
   } catch (error) {
     console.error('❌ Error fetching survey logs:', error);
-    throw new CustomError(`Failed to fetch survey logs: ${error.message}`, 500);
+    throw new CustomError('Failed to fetch survey logs', 500);
   }
 };
 
-// Update survey approval status in the database
-// export const approveUserSurvey = async (surveyId, userId, status) => {
-//   try {
-//     console.log('🔍 Approving survey:', { surveyId, userId, status });
-    
-//     const query = `
-//       UPDATE surveylog 
-//       SET approval_status = ?, verified_by = ?, updatedAt = NOW() 
-//       WHERE id = ? AND user_id = ?
-//     `;
-    
-//     const result = await db.query(query, [status, 'admin', surveyId, userId]);
-    
-//     // ✅ Handle different result formats
-//     let affectedRows;
-//     if (Array.isArray(result) && result[0] && typeof result[0] === 'object') {
-//       affectedRows = result[0].affectedRows || result.affectedRows;
-//     } else if (result && typeof result === 'object') {
-//       affectedRows = result.affectedRows;
-//     } else {
-//       affectedRows = 0;
-//     }
-    
-//     if (affectedRows === 0) {
-//       throw new CustomError('Survey not found or already processed', 404);
-//     }
-    
-//     console.log('✅ Survey approval status updated successfully');
-//     return { success: true, affectedRows };
-    
-//   } catch (error) {
-//     console.error('❌ Error approving survey:', error);
-//     throw new CustomError(`Failed to approve survey: ${error.message}`, 500);
-//   }
-// };
-
-
-export const approveUserSurvey = async (surveyId, userId, status) => {
+/**
+ * Approve survey submission with full database sync
+ * Enhanced to work with membership controllers
+ */
+export const approveSurveySubmission = async ({
+  surveyId,
+  userId,
+  status,
+  adminNotes,
+  reviewedBy,
+  reviewerName,
+  mentorId,
+  classId,
+  converseId
+}) => {
+  const connection = await db.getConnection();
+  
   try {
-    console.log('🔍 Approving survey with full database sync:', { surveyId, userId, status });
+    await connection.beginTransaction();
     
-    // Start database transaction for consistency
-    await db.query('START TRANSACTION');
+    // Update surveylog with all required fields
+    await connection.query(
+      `UPDATE surveylog 
+       SET approval_status = ?, 
+           admin_notes = ?,
+           reviewedAt = NOW(),
+           reviewed_by = ?,
+           verified_by = ?,
+           rating_remarks = ?,
+           mentor_assigned = ?,
+           class_assigned = ?,
+           converse_id_generated = ?,
+           updatedAt = NOW()
+       WHERE id = ? AND user_id = ?`,
+      [
+        status, 
+        adminNotes, 
+        reviewedBy, 
+        reviewerName || 'admin',
+        status === 'approved' ? 'Approved by admin' : 'Reviewed by admin',
+        mentorId || null,
+        classId || null,
+        converseId || null,
+        surveyId, 
+        userId
+      ]
+    );
     
-    try {
-      // ✅ STEP 1: Update surveylog table (existing functionality)
-      const updateSurveyQuery = `
-        UPDATE surveylog 
-        SET approval_status = ?, 
-            verified_by = 'admin',
-            processedAt = NOW(),
-            reviewedAt = NOW(),
-            admin_notes = CASE 
-              WHEN ? = 'approved' THEN 'Application approved - user granted pre-member access'
-              WHEN ? = 'granted' THEN 'Application granted - user granted pre-member access'  
-              WHEN ? = 'declined' THEN 'Application declined by admin'
-              ELSE 'Status updated by admin'
-            END
-        WHERE id = ? AND user_id = ?
-      `;
+    // Update user status based on approval with proper stage transitions
+    if (status === 'approved' || status === 'granted') {
+      // For initial application approval
+      await connection.query(
+        `UPDATE users 
+         SET is_member = 'pre_member',
+             membership_stage = 'pre_member',
+             application_status = 'approved',
+             applicationReviewedAt = NOW(),
+             reviewed_by = ?,
+             converse_id = COALESCE(?, converse_id),
+             mentor_id = COALESCE(?, mentor_id),
+             primary_class_id = COALESCE(?, primary_class_id),
+             updatedAt = NOW()
+         WHERE id = ?`,
+        [reviewedBy, converseId, mentorId, classId, userId]
+      );
       
-      const surveyResult = await db.query(updateSurveyQuery, [
-        status, status, status, status, surveyId, userId
-      ]);
-      
-      console.log('✅ Survey log updated:', surveyResult);
-      
-      // ✅ STEP 2: NEW - Update users table based on approval status
-      let userUpdateQuery;
-      let userUpdateParams;
-      
-      if (status === 'approved' || status === 'granted') {
-        // ✅ CRITICAL: Update user to pre-member status when approved
-        userUpdateQuery = `
-          UPDATE users 
-          SET is_member = 'approved',
-              membership_stage = 'pre',
-              application_status = 'approved',
-              application_reviewedAt = NOW(),
-              updatedAt = NOW()
-          WHERE id = ?
-        `;
-        userUpdateParams = [userId];
-        
-      } else if (status === 'declined' || status === 'denied') {
-        // Update user to denied status
-        userUpdateQuery = `
-          UPDATE users 
-          SET is_member = 'denied',
-              membership_stage = 'none',
-              application_status = 'declined',
-              application_reviewedAt = NOW(),
-              decline_reason = 'Application declined by admin',
-              updatedAt = NOW()
-          WHERE id = ?
-        `;
-        userUpdateParams = [userId];
-        
-      } else {
-        // For pending or other statuses, keep current state but update timestamp
-        userUpdateQuery = `
-          UPDATE users 
-          SET application_status = ?,
-              updatedAt = NOW()
-          WHERE id = ?
-        `;
-        userUpdateParams = [status, userId];
+      // Add to class membership if classId provided
+      if (classId && classId !== '000000') {
+        await connection.query(
+          `INSERT INTO user_class_memberships 
+           (user_id, class_id, membership_status, joinedAt)
+           VALUES (?, ?, 'active', NOW())
+           ON DUPLICATE KEY UPDATE membership_status = 'active'`,
+          [userId, classId]
+        );
       }
-      
-      const userUpdateResult = await db.query(userUpdateQuery, userUpdateParams);
-      console.log('✅ User table updated:', userUpdateResult);
-      
-      // ✅ STEP 3: NEW - Update all_applications_status table for tracking
-      const statusUpdateQuery = `
-        INSERT INTO all_applications_status 
-        (application_type, user_id, username, email, ticket, status, submittedAt, reviewedAt, admin_notes, reviewer_name)
-        SELECT 
-          'initial' as application_type,
-          u.id as user_id,
-          u.username,
-          u.email,
-          u.application_ticket as ticket,
-          ? as status,
-          u.application_submittedAt as submittedAt,
-          NOW() as reviewedAt,
-          CASE 
-            WHEN ? = 'approved' THEN 'Application approved - user granted pre-member access'
-            WHEN ? = 'granted' THEN 'Application granted - user granted pre-member access'  
-            WHEN ? = 'declined' THEN 'Application declined by admin'
-            ELSE 'Status updated by admin'
-          END as admin_notes,
-          'admin' as reviewer_name
-        FROM users u 
-        WHERE u.id = ?
-        ON DUPLICATE KEY UPDATE
-          status = VALUES(status),
-          reviewedAt = VALUES(reviewedAt),
-          admin_notes = VALUES(admin_notes)
-      `;
-      
-      await db.query(statusUpdateQuery, [
-        status, status, status, status, userId
-      ]);
-      
-      // ✅ STEP 4: Commit transaction
-      await db.query('COMMIT');
-      console.log('✅ Transaction committed successfully');
-      
-      // ✅ STEP 5: Send email notification (non-blocking)
-      if (status === 'approved' || status === 'granted') {
-        try {
-          await sendApprovalNotificationEmail(userId, status);
-        } catch (emailError) {
-          console.error('❌ Email notification failed (non-critical):', emailError);
-        }
-      }
-      
-    } catch (transactionError) {
-      // Rollback transaction on error
-      await db.query('ROLLBACK');
-      console.error('❌ Transaction rolled back due to error:', transactionError);
-      throw transactionError;
+    } else if (status === 'declined' || status === 'rejected') {
+      await connection.query(
+        `UPDATE users 
+         SET is_member = 'rejected',
+             membership_stage = 'applicant',
+             application_status = 'declined',
+             applicationReviewedAt = NOW(),
+             decline_reason = ?,
+             reviewed_by = ?,
+             updatedAt = NOW()
+         WHERE id = ?`,
+        [adminNotes || 'Application declined by admin', reviewedBy, userId]
+      );
     }
     
-    console.log('✅ Survey approval process completed successfully');
+    // Log in membership review history for audit trail
+    await connection.query(
+      `INSERT INTO membership_review_history 
+       (user_id, application_type, application_id, reviewer_id, 
+        previous_status, new_status, review_notes, action_taken, reviewedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        userId, 
+        'initial_application', 
+        surveyId, 
+        reviewedBy, 
+        'pending', 
+        status, 
+        adminNotes,
+        status === 'approved' ? 'approve' : 'decline'
+      ]
+    );
+    
+    // Create audit log
+    await connection.query(
+      `INSERT INTO audit_logs (user_id, action, details, createdAt)
+       VALUES (?, ?, ?, NOW())`,
+      [reviewedBy, 'survey_approval', JSON.stringify({
+        surveyId,
+        userId,
+        decision: status,
+        adminNotes,
+        mentorId,
+        classId,
+        converseId,
+        timestamp: new Date().toISOString()
+      })]
+    );
+    
+    await connection.commit();
+    
+    // Send notification email (non-blocking)
+    if (status === 'approved' || status === 'granted') {
+      sendApprovalEmail(userId).catch(err => {
+        console.error('Email notification failed (non-critical):', err);
+      });
+    }
+    
     return { 
       success: true, 
-      affectedRows: 1,
       userStatusUpdated: true,
-      status: status
+      status,
+      membershipStage: status === 'approved' ? 'pre_member' : 'applicant'
     };
     
   } catch (error) {
-    console.error('❌ Error in enhanced approveUserSurvey:', error);
-    throw new CustomError(`Failed to approve survey: ${error.message}`, 500);
+    await connection.rollback();
+    console.error('❌ Error approving survey:', error);
+    throw error;
+  } finally {
+    connection.release();
   }
 };
 
-// ✅ NEW HELPER: Email notification function
-const sendApprovalNotificationEmail = async (userId, status) => {
+/**
+ * Bulk approve survey submissions
+ */
+export const bulkApproveSurveySubmissions = async ({
+  surveyIds,
+  status,
+  adminNotes,
+  reviewedBy,
+  reviewerName
+}) => {
+  const connection = await db.getConnection();
+  
   try {
-    // Get user details
-    const userQuery = 'SELECT email, username FROM users WHERE id = ?';
-    const userResult = await db.query(userQuery, [userId]);
+    await connection.beginTransaction();
     
-    if (!userResult || userResult.length === 0) {
-      console.log('⚠️ User not found for email notification');
-      return;
+    let processed = 0;
+    const errors = [];
+    
+    for (const surveyId of surveyIds) {
+      try {
+        // Get user ID for this survey
+        const [surveyData] = await connection.query(
+          'SELECT user_id FROM surveylog WHERE id = ?',
+          [surveyId]
+        );
+        
+        if (surveyData.length > 0) {
+          await approveSurveySubmission({
+            surveyId,
+            userId: surveyData[0].user_id,
+            status,
+            adminNotes,
+            reviewedBy,
+            reviewerName
+          });
+          processed++;
+        }
+      } catch (error) {
+        errors.push({ surveyId, error: error.message });
+      }
     }
     
-    const user = userResult[0];
+    await connection.commit();
     
-    const emailContent = {
-      approved: {
-        subject: 'Welcome to Ikoota - Application Approved! 🎉',
-        text: `Hello ${user.username},\n\nCongratulations! Your application to join Ikoota has been approved.\n\nYou now have access to:\n- Towncrier community discussions\n- Pre-member features and content\n- Educational resources\n\nYou can log in to your account and start exploring: ${process.env.FRONTEND_URL}/towncrier\n\nWelcome to the Ikoota community!`
-      },
-      granted: {
-        subject: 'Ikoota Access Granted - Welcome! 🎉',
-        text: `Hello ${user.username},\n\nYour access to Ikoota has been granted!\n\nYou can now explore the community at: ${process.env.FRONTEND_URL}/towncrier\n\nWelcome aboard!`
+    return {
+      processed,
+      failed: errors.length,
+      errors: errors.length > 0 ? errors : undefined
+    };
+    
+  } catch (error) {
+    await connection.rollback();
+    console.error('❌ Error in bulk approval:', error);
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * Get survey analytics data
+ */
+export const getSurveyAnalyticsData = async ({ startDate, endDate, groupBy }) => {
+  try {
+    const params = [];
+    let dateFilter = '';
+    
+    if (startDate) {
+      dateFilter += ' AND createdAt >= ?';
+      params.push(startDate);
+    }
+    
+    if (endDate) {
+      dateFilter += ' AND createdAt <= ?';
+      params.push(endDate);
+    }
+    
+    // Get status breakdown
+    const [statusBreakdown] = await db.query(
+      `SELECT 
+        approval_status,
+        application_type,
+        COUNT(*) as count
+       FROM surveylog
+       WHERE 1=1 ${dateFilter}
+       GROUP BY approval_status, application_type`,
+      params
+    );
+    
+    // Get daily/weekly/monthly trends
+    let timeGrouping = 'DATE(createdAt)';
+    if (groupBy === 'week') {
+      timeGrouping = 'YEARWEEK(createdAt)';
+    } else if (groupBy === 'month') {
+      timeGrouping = 'DATE_FORMAT(createdAt, "%Y-%m")';
+    }
+    
+    const [trends] = await db.query(
+      `SELECT 
+        ${timeGrouping} as period,
+        COUNT(*) as total,
+        SUM(CASE WHEN approval_status = 'approved' THEN 1 ELSE 0 END) as approved,
+        SUM(CASE WHEN approval_status = 'declined' THEN 1 ELSE 0 END) as declined,
+        SUM(CASE WHEN approval_status = 'pending' THEN 1 ELSE 0 END) as pending
+       FROM surveylog
+       WHERE 1=1 ${dateFilter}
+       GROUP BY period
+       ORDER BY period DESC`,
+      params
+    );
+    
+    return {
+      statusBreakdown,
+      trends,
+      summary: {
+        total: statusBreakdown.reduce((sum, item) => sum + item.count, 0),
+        pending: statusBreakdown.filter(s => s.approval_status === 'pending').reduce((sum, item) => sum + item.count, 0),
+        approved: statusBreakdown.filter(s => s.approval_status === 'approved').reduce((sum, item) => sum + item.count, 0),
+        declined: statusBreakdown.filter(s => s.approval_status === 'declined').reduce((sum, item) => sum + item.count, 0)
       }
     };
     
-    const template = emailContent[status];
-    if (template && user.email) {
-      await sendEmail(user.email, template.subject, template.text);
-      console.log('✅ Approval email sent to:', user.email);
+  } catch (error) {
+    console.error('❌ Error fetching survey analytics:', error);
+    throw new CustomError('Failed to fetch survey analytics', 500);
+  }
+};
+
+/**
+ * Export survey data to CSV
+ */
+export const exportSurveyDataToCSV = async (filters = {}) => {
+  try {
+    const { data } = await fetchAllSurveyLogs(filters, { page: 1, limit: 10000 });
+    
+    if (data.length === 0) {
+      return 'No data to export';
+    }
+    
+    // Create CSV header
+    const headers = [
+      'ID',
+      'User ID',
+      'Username',
+      'Email',
+      'Application Type',
+      'Status',
+      'Submitted At',
+      'Reviewed At',
+      'Admin Notes'
+    ];
+    
+    // Create CSV rows
+    const rows = data.map(survey => [
+      survey.id,
+      survey.user_id,
+      survey.username,
+      survey.user_email,
+      survey.application_type,
+      survey.approval_status,
+      survey.createdAt,
+      survey.reviewedAt || '',
+      survey.admin_notes || ''
+    ]);
+    
+    // Convert to CSV format
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    return csvContent;
+    
+  } catch (error) {
+    console.error('❌ Error exporting survey data:', error);
+    throw new CustomError('Failed to export survey data', 500);
+  }
+};
+
+/**
+ * Get specific survey details
+ */
+export const getSurveyDetailsById = async (surveyId) => {
+  try {
+    const [survey] = await db.query(
+      `SELECT 
+        sl.*,
+        u.username,
+        u.email as user_email,
+        u.membership_stage,
+        u.is_member,
+        u.phone,
+        u.createdAt as user_created_at
+       FROM surveylog sl
+       INNER JOIN users u ON sl.user_id = u.id
+       WHERE sl.id = ?`,
+      [surveyId]
+    );
+    
+    if (survey.length === 0) {
+      return null;
+    }
+    
+    // Parse answers if JSON
+    try {
+      survey[0].answers = JSON.parse(survey[0].answers);
+    } catch (e) {
+      // Keep as is if not valid JSON
+    }
+    
+    return survey[0];
+    
+  } catch (error) {
+    console.error('❌ Error fetching survey details:', error);
+    throw new CustomError('Failed to fetch survey details', 500);
+  }
+};
+
+/**
+ * Delete survey log by ID
+ */
+export const deleteSurveyLogById = async (surveyId) => {
+  try {
+    const [result] = await db.query(
+      'DELETE FROM surveylog WHERE id = ?',
+      [surveyId]
+    );
+    
+    if (result.affectedRows === 0) {
+      throw new CustomError('Survey not found', 404);
+    }
+    
+    return { affectedRows: result.affectedRows };
+    
+  } catch (error) {
+    console.error('❌ Error deleting survey log:', error);
+    throw error;
+  }
+};
+
+// ===============================================
+// HELPER FUNCTIONS
+// ===============================================
+
+/**
+ * Send application confirmation emails
+ */
+async function sendApplicationEmails(userEmail, username, type) {
+  try {
+    // User confirmation email
+    const userSubject = type === 'full' 
+      ? 'Full Membership Application Received'
+      : 'Application Submission Confirmation';
+      
+    const userText = `Hello ${username},\n\nThank you for submitting your ${type === 'full' ? 'full membership' : ''} application. We have received your submission and it is currently under review.\n\nYou will be notified once a decision has been made.\n\nBest regards,\nIkoota Team`;
+    
+    await sendEmail(userEmail, userSubject, userText);
+    
+    // Admin notification email
+    if (process.env.ADMIN_EMAIL) {
+      const adminSubject = `New ${type === 'full' ? 'Full Membership' : 'Initial'} Application`;
+      const adminText = `A new ${type === 'full' ? 'full membership' : 'initial'} application has been submitted by ${username} (${userEmail}).\n\nPlease review the application in the admin panel.`;
+      
+      await sendEmail(process.env.ADMIN_EMAIL, adminSubject, adminText);
     }
     
   } catch (error) {
-    console.error('❌ Error sending approval email:', error);
-    // Don't throw error - email failure shouldn't break approval process
+    console.error('❌ Error sending application emails:', error);
+    // Don't throw - email failure shouldn't break submission
   }
+}
+
+/**
+ * Send approval notification email
+ */
+async function sendApprovalEmail(userId) {
+  try {
+    const [user] = await db.query(
+      'SELECT email, username FROM users WHERE id = ?',
+      [userId]
+    );
+    
+    if (user.length > 0 && user[0].email) {
+      const subject = 'Welcome to Ikoota - Application Approved! 🎉';
+      const text = `Hello ${user[0].username},\n\nCongratulations! Your application has been approved.\n\nYou now have access to the Ikoota community features.\n\nWelcome aboard!\n\nBest regards,\nIkoota Team`;
+      
+      await sendEmail(user[0].email, subject, text);
+    }
+  } catch (error) {
+    console.error('❌ Error sending approval email:', error);
+  }
+}
+
+export default {
+  submitInitialApplicationService,
+  submitFullMembershipApplicationService,
+  fetchSurveyQuestions,
+  checkUserSurveyStatus,
+  getUserSurveyHistory,
+  updateUserSurveyResponse,
+  deleteUserSurveyResponse,
+  fetchAllSurveyLogs,
+  approveSurveySubmission,
+  bulkApproveSurveySubmissions,
+  getSurveyAnalyticsData,
+  exportSurveyDataToCSV,
+  getSurveyDetailsById,
+  deleteSurveyLogById
 };

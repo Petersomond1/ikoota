@@ -228,3 +228,138 @@ export const generateMultipleUniqueIds = async (type, count) => {
     
     return ids;
 };
+
+
+
+
+//new file below but incomplete
+
+// // ikootaapi/utils/idGenerator.js
+// // ENHANCED ID GENERATION with collision detection and proper formatting
+// // Based on your existing OTO# and OTU# prefix system
+
+// import crypto from 'crypto';
+// import db from '../config/db.js';
+
+// // ===============================================
+// // CORE ID GENERATION FUNCTIONS
+// // ===============================================
+
+// /**
+//  * Generates a cryptographically secure 6-character alphanumeric ID
+//  * @returns {string} A random 6-character alphanumeric ID
+//  */
+// export const generateSecureRandomId = () => {
+//   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+//   let result = '';
+  
+//   // Use crypto.randomBytes for better security
+//   const bytes = crypto.randomBytes(6);
+  
+//   for (let i = 0; i < 6; i++) {
+//     result += chars[bytes[i] % chars.length];
+//   }
+  
+//   return result;
+// };
+
+// /**
+//  * Generates a cryptographically secure 4-character alphanumeric ID (legacy support)
+//  * @returns {string} A random 4-character alphanumeric ID
+//  */
+// export const generateSecureRandomId4 = () => {
+//   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+//   let result = '';
+  
+//   const bytes = crypto.randomBytes(4);
+  
+//   for (let i = 0; i < 4; i++) {
+//     result += chars[bytes[i] % chars.length];
+//   }
+  
+//   return result;
+// };
+
+// // ===============================================
+// // USER CONVERSE ID GENERATION (OTO# PREFIX)
+// // ===============================================
+
+// /**
+//  * Generates a unique converse ID for users with OTO# prefix
+//  * Format: OTO#XXXXXX (where XXXXXX is 6 alphanumeric characters)
+//  * Total length: 10 characters
+//  * @returns {Promise<string>} A unique converse ID like "OTO#123ABC"
+//  */
+// export const generateUniqueConverseId = async () => {
+//   let attempts = 0;
+//   const maxAttempts = 10;
+  
+//   while (attempts < maxAttempts) {
+//     const randomPart = generateSecureRandomId();
+//     const converseId = `OTO#${randomPart}`;
+    
+//     console.log(`🆔 Attempting to generate converse ID: ${converseId} (attempt ${attempts + 1})`);
+    
+//     // Check if this ID already exists in users table
+//     try {
+//       const [existing] = await db.query(
+//         'SELECT converse_id FROM users WHERE converse_id = ?', 
+//         [converseId]
+//       );
+      
+//       if (existing.length === 0) {
+//         console.log(`✅ Unique converse ID generated: ${
+
+//             (incomplete yet to be completed)
+
+
+
+
+
+// // ikootaapi/utils/idGenerator.js
+// // ID Generation utilities
+
+// export const generateUniqueConverseId = async () => {
+//   try {
+//     // Generate a unique 10-character converse ID
+//     const timestamp = Date.now().toString(36);
+//     const random = Math.random().toString(36).substring(2, 8);
+//     const converseId = (timestamp + random).substring(0, 10).toUpperCase();
+    
+//     console.log('🆔 Generated converse ID:', converseId);
+//     return converseId;
+//   } catch (error) {
+//     console.error('❌ Converse ID generation failed:', error);
+//     throw error;
+//   }
+// };
+
+// export const generateClassId = async () => {
+//   try {
+//     // Generate a unique class ID
+//     const timestamp = Date.now().toString(36);
+//     const random = Math.random().toString(36).substring(2, 6);
+//     const classId = `CLS_${timestamp}_${random}`.substring(0, 12).toUpperCase();
+    
+//     console.log('🆔 Generated class ID:', classId);
+//     return classId;
+//   } catch (error) {
+//     console.error('❌ Class ID generation failed:', error);
+//     throw error;
+//   }
+// };
+
+// export const generateApplicationTicket = async () => {
+//   try {
+//     // Generate a unique application ticket
+//     const timestamp = Date.now().toString(36);
+//     const random = Math.random().toString(36).substring(2, 8);
+//     const ticket = `TKT_${timestamp}_${random}`.substring(0, 20).toUpperCase();
+    
+//     console.log('🎫 Generated application ticket:', ticket);
+//     return ticket;
+//   } catch (error) {
+//     console.error('❌ Application ticket generation failed:', error);
+//     throw error;
+//   }
+// };

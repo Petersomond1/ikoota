@@ -1,4 +1,4 @@
-// ikootaapi/controllers/commentControllers.js
+// ikootaapi/controllers/commentsControllers.js - Enhanced version
 import {
   createCommentService,
   uploadCommentService,
@@ -12,23 +12,45 @@ import {
   updateCommentById,
   deleteCommentById
 } from "../services/commentServices.js";
-import dotenv from 'dotenv';
 
-dotenv.config();
+import { validateChatData } from '../utils/contentValidation.js';
+import { formatErrorResponse } from '../utils/errorHelpers.js';
+import { normalizeContentItem } from '../utils/contentHelpers.js';
 
-// Fixed createComment - enhanced response but backwards compatible
+// ✅ FIXED: Enhanced createComment with proper user_id handling
 export const createComment = async (req, res) => {
   try {
     const { chat_id, teaching_id, comment } = req.body;
-    const { user_id } = req.user;
+    const requestingUser = req.user;
 
-    console.log('createcomment req body:', req.body);
-    console.log('createcomment req user:', req.user);
+    console.log('createComment req body:', req.body);
+    console.log('createComment req user:', requestingUser);
 
-    if ((!chat_id && !teaching_id) || !comment || !user_id) {
+    if ((!chat_id && !teaching_id) || !comment) {
       return res.status(400).json({ 
         success: false,
-        error: "User ID, Chat ID or Teaching ID, and Comment are required." 
+        error: "Chat ID or Teaching ID, and Comment are required.",
+        message: "Please provide either a chat_id or teaching_id, and comment text"
+      });
+    }
+
+    if (!requestingUser?.user_id && !requestingUser?.id && !requestingUser?.converse_id) {
+      return res.status(401).json({ 
+        success: false,
+        error: "Authentication required",
+        message: "User authentication is required"
+      });
+    }
+
+    // Use converse_id (char(10)) for comments as per database schema
+    const user_id = requestingUser.converse_id || requestingUser.user_id || requestingUser.id;
+
+    // Validate user_id format for comments (char(10))
+    if (!user_id || (typeof user_id === 'string' && user_id.length !== 10)) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Invalid user ID format",
+        message: "Comments require a valid 10-character converse_id"
       });
     }
 
@@ -45,24 +67,26 @@ export const createComment = async (req, res) => {
       user_id,
       chat_id: chat_id || null,
       teaching_id: teaching_id || null,
-      comment,
+      comment: comment.trim(),
       media,
     });
 
-    // Keep backwards compatibility
     res.status(201).json({
-      id: newComment.id,
-      message: "Comment created successfully.",
-      success: true
+      success: true,
+      data: newComment,
+      message: "Comment created successfully."
     });
   } catch (error) {
-    console.log('createComment error:', error);
+    console.error('createComment error:', error);
     res.status(500).json({ 
       success: false,
-      error: error.message 
+      error: error.message,
+      message: 'Failed to create comment'
     });
   }
 };
+
+
 
 // Fixed uploadCommentFiles - backwards compatible
 export const uploadCommentFiles = async (req, res) => {
