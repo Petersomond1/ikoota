@@ -36662,66 +36662,21142 @@ export default router;
 
 
 
-MISSING API ENDPOINTS (Need to be created):
-Based on frontend calls vs. available routes:
-Potentially Missing:
 
-/api/full-membership/* - Several components call this, but index.js doesn't show it
-/api/email/send-membership-feedback - Email service endpoint
-/api/admin/applications/stats - Application statistics
-/api/membership/log-full-membership-access - Access logging
 
-Messages API - IkoControls.jsx calls /api/messages but no backend endpoint exists
 
-//table
-Frontend ComponentAPI CallIssueIkoControls.jsxGET /api/messages?status={filter}No messages endpoint existsFullMembershipReviewControls.jsxMultiple endpoint attempts with different pathsInconsistent endpoint structureUserManagement.jsxGET /admin/export-usersMissing export functionalityCustom HooksuseFetchChats(), useFetchComments(), useFetchTeachings()Implementation unknown - may have missing endpointsCustom HooksuseFetchParentChatsAndTeachingsWithComments()Complex aggregation may be missingCustom HooksuseUpload(), useUploadCommentFiles()File upload endpoints unclearService FunctionspostComment(), generateUniqueClassId()Implementation details missing
 
-Some endpoints have both /api/ prefixed and non-prefixed versions
 
-Debug components (DebugWrapper.jsx, apiTracer.js)
 
-🚀 Immediate Action Items:
-Fix broken import in useUploadCommentFiles.js
-Broken Import - useUploadCommentFiles.js missing API import (will cause runtime errors)
-Add 3 ID generation routes to adminUserRoutes.js
-Missing ID Generation Routes - Your IdDisplay.jsx component calls endpoints that don't exist
-Add notification routes to userRoutes.js
-Notification Routes Missing - Dashboard tries to mark notifications as read but route doesn't exist
 
-IMMEDIATE FIXES (Priority 1)
 
-Add Missing ID Generation Routes
-javascript// Add to adminUserRoutes.js
+// ikootaapi/socket.js
+// ENHANCED SOCKET.IO - Combines your existing simplicity with security and features
+// Supports both authenticated and guest users
+
+import { Server } from 'socket.io';
+import jwt from 'jsonwebtoken';
+import logger from './utils/logger.js';
+
+const setupSocket = (server) => {
+    const io = new Server(server, {
+        cors: {
+            // ✅ ENHANCED: Support both development and production
+            origin: process.env.NODE_ENV === 'production' 
+                ? (process.env.ALLOWED_ORIGINS?.split(',') || [process.env.PUBLIC_CLIENT_URL])
+                : true,
+            credentials: true,
+            methods: ['GET', 'POST']
+        },
+        transports: ['websocket', 'polling']
+    });
+
+    // ✅ ENHANCED: Optional authentication middleware
+    // Unlike the strict version, this allows both authenticated and guest users
+    io.use((socket, next) => {
+        try {
+            // Try to get token from multiple sources
+            const token = socket.handshake.auth?.token || 
+                         socket.handshake.headers?.authorization?.split(' ')[1] ||
+                         socket.handshake.query?.token;
+            
+            if (token) {
+                // If token provided, validate it
+                try {
+                    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                    socket.userId = decoded.user_id;
+                    socket.userRole = decoded.role;
+                    socket.username = decoded.username || decoded.email;
+                    socket.email = decoded.email;
+                    socket.isAuthenticated = true;
+
+                    logger.info('Authenticated user connected to socket', {
+                        socketId: socket.id,
+                        userId: decoded.user_id,
+                        username: socket.username,
+                        role: decoded.role
+                    });
+                } catch (tokenError) {
+                    // Invalid token, treat as guest
+                    logger.warn('Invalid token provided, treating as guest', {
+                        socketId: socket.id,
+                        error: tokenError.message
+                    });
+                    socket.isAuthenticated = false;
+                    socket.userId = null;
+                    socket.username = 'Guest';
+                    socket.userRole = 'guest';
+                }
+            } else {
+                // No token provided, treat as guest
+                socket.isAuthenticated = false;
+                socket.userId = null;
+                socket.username = 'Guest';
+                socket.userRole = 'guest';
+                
+                logger.debug('Guest user connected to socket', {
+                    socketId: socket.id
+                });
+            }
+
+            next();
+        } catch (error) {
+            logger.error('Socket authentication middleware error', error);
+            // Don't block connection, just treat as guest
+            socket.isAuthenticated = false;
+            socket.userId = null;
+            socket.username = 'Guest';
+            socket.userRole = 'guest';
+            next();
+        }
+    });
+
+    io.on('connection', (socket) => {
+        const connectionInfo = {
+            socketId: socket.id,
+            userId: socket.userId,
+            username: socket.username,
+            role: socket.userRole,
+            isAuthenticated: socket.isAuthenticated,
+            timestamp: new Date().toISOString()
+        };
+
+        logger.info('Socket connection established', connectionInfo);
+
+        // ✅ ENHANCED: Smart room management
+        // Join user to appropriate rooms based on authentication status
+        if (socket.isAuthenticated) {
+            // Authenticated users get personal rooms
+            socket.join(`user_${socket.userId}`);
+            socket.join('authenticated_users');
+            
+            // Admin users get admin room
+            if (socket.userRole === 'admin' || socket.userRole === 'super_admin') {
+                socket.join('admin_room');
+                logger.adminActivity('Admin joined socket admin room', socket.userId);
+            }
+            
+            // Member users get member room
+            if (socket.userRole === 'member' || socket.userRole === 'pre_member') {
+                socket.join('members_room');
+            }
+        } else {
+            // Guest users join public room
+            socket.join('public_room');
+        }
+
+        // Join everyone to general room (for global announcements)
+        socket.join('general');
+
+        // ✅ PRESERVED: Your existing sendMessage functionality (enhanced)
+        socket.on('sendMessage', async (data) => {
+            try {
+                // ✅ ENHANCED: Add user info and validation
+                const messageData = {
+                    ...data,
+                    from: socket.userId || 'guest',
+                    fromUsername: socket.username,
+                    fromRole: socket.userRole,
+                    isAuthenticated: socket.isAuthenticated,
+                    socketId: socket.id,
+                    timestamp: new Date().toISOString()
+                };
+
+                // ✅ ENHANCED: Smart message routing
+                if (data.room) {
+                    // Send to specific room
+                    socket.to(data.room).emit('receiveMessage', messageData);
+                    logger.debug('Message sent to room', {
+                        from: socket.username,
+                        room: data.room,
+                        messageId: data.id || 'unknown'
+                    });
+                } else {
+                    // ✅ PRESERVED: Your original broadcast behavior
+                    io.emit('receiveMessage', messageData);
+                    logger.debug('Message broadcast to all users', {
+                        from: socket.username,
+                        messageId: data.id || 'unknown'
+                    });
+                }
+
+            } catch (err) {
+                logger.error('Error processing sendMessage', err, {
+                    socketId: socket.id,
+                    userId: socket.userId,
+                    data
+                });
+                
+                // Send error back to sender
+                socket.emit('messageError', {
+                    error: 'Failed to process message',
+                    originalData: data,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        });
+
+        // ✅ NEW: Enhanced messaging with different types
+        socket.on('sendChatMessage', async (data) => {
+            try {
+                if (!socket.isAuthenticated) {
+                    socket.emit('error', { message: 'Authentication required for chat messages' });
+                    return;
+                }
+
+                const chatMessage = {
+                    id: data.id || Date.now().toString(),
+                    from: socket.userId,
+                    fromUsername: socket.username,
+                    to: data.to,
+                    message: data.message,
+                    type: 'chat',
+                    timestamp: new Date().toISOString()
+                };
+
+                if (data.to) {
+                    // Private message
+                    socket.to(`user_${data.to}`).emit('receiveChatMessage', chatMessage);
+                    socket.emit('receiveChatMessage', { ...chatMessage, sent: true });
+                } else {
+                    // Public chat
+                    socket.to('authenticated_users').emit('receiveChatMessage', chatMessage);
+                }
+
+                logger.userAction('Chat message sent', socket.userId, {
+                    to: data.to || 'public',
+                    messageLength: data.message?.length || 0
+                });
+
+            } catch (err) {
+                logger.error('Error processing chat message', err);
+                socket.emit('chatError', { error: 'Failed to send chat message' });
+            }
+        });
+
+        // ✅ NEW: Admin messaging
+        socket.on('adminMessage', (data) => {
+            if (socket.userRole === 'admin' || socket.userRole === 'super_admin') {
+                const adminMessage = {
+                    from: socket.username,
+                    message: data.message,
+                    type: data.type || 'announcement',
+                    priority: data.priority || 'normal',
+                    timestamp: new Date().toISOString()
+                };
+
+                // Send to specified room or all users
+                const targetRoom = data.room || 'general';
+                socket.to(targetRoom).emit('adminMessage', adminMessage);
+
+                logger.adminActivity('Admin message sent', socket.userId, null, {
+                    room: targetRoom,
+                    type: data.type,
+                    priority: data.priority
+                });
+            } else {
+                socket.emit('error', { message: 'Admin privileges required' });
+            }
+        });
+
+        // ✅ NEW: User status updates
+        socket.on('updateStatus', (data) => {
+            if (socket.isAuthenticated) {
+                const statusUpdate = {
+                    userId: socket.userId,
+                    username: socket.username,
+                    status: data.status,
+                    message: data.message,
+                    timestamp: new Date().toISOString()
+                };
+
+                socket.broadcast.emit('userStatusUpdate', statusUpdate);
+                
+                logger.userAction('Status updated', socket.userId, { status: data.status });
+            }
+        });
+
+        // ✅ NEW: Typing indicators
+        socket.on('typing', (data) => {
+            if (socket.isAuthenticated) {
+                if (data.to) {
+                    socket.to(`user_${data.to}`).emit('userTyping', {
+                        from: socket.userId,
+                        fromUsername: socket.username,
+                        isTyping: data.isTyping
+                    });
+                } else {
+                    socket.broadcast.emit('userTyping', {
+                        from: socket.userId,
+                        fromUsername: socket.username,
+                        isTyping: data.isTyping
+                    });
+                }
+            }
+        });
+
+        // ✅ NEW: Join/leave rooms dynamically
+        socket.on('joinRoom', (roomName) => {
+            if (socket.isAuthenticated) {
+                socket.join(roomName);
+                socket.emit('roomJoined', { room: roomName });
+                logger.userAction('Joined room', socket.userId, { room: roomName });
+            }
+        });
+
+        socket.on('leaveRoom', (roomName) => {
+            socket.leave(roomName);
+            socket.emit('roomLeft', { room: roomName });
+            if (socket.isAuthenticated) {
+                logger.userAction('Left room', socket.userId, { room: roomName });
+            }
+        });
+
+        // ✅ PRESERVED: Your existing disconnect handling (enhanced)
+        socket.on('disconnect', (reason) => {
+            const disconnectInfo = {
+                socketId: socket.id,
+                userId: socket.userId,
+                username: socket.username,
+                reason,
+                duration: Date.now() - (socket.connectedAt || Date.now()),
+                timestamp: new Date().toISOString()
+            };
+
+            logger.info('Socket disconnected', disconnectInfo);
+
+            // Notify others if it was an authenticated user
+            if (socket.isAuthenticated) {
+                socket.broadcast.emit('userDisconnected', {
+                    userId: socket.userId,
+                    username: socket.username,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        });
+
+        // ✅ ENHANCED: Better error handling
+        socket.on('error', (error) => {
+            logger.error('Socket error', error, {
+                socketId: socket.id,
+                userId: socket.userId,
+                username: socket.username
+            });
+        });
+
+        // ✅ NEW: Ping/pong for connection health
+        socket.on('ping', () => {
+            socket.emit('pong', { timestamp: new Date().toISOString() });
+        });
+
+        // Store connection time for duration calculation
+        socket.connectedAt = Date.now();
+
+        // Send welcome message
+        socket.emit('connected', {
+            message: 'Connected to Ikoota Socket Server',
+            socketId: socket.id,
+            isAuthenticated: socket.isAuthenticated,
+            username: socket.username,
+            role: socket.userRole,
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    // ✅ ENHANCED: Global error handling
+    io.engine.on('connection_error', (error) => {
+        logger.error('Socket.IO connection error', error, {
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    // ✅ NEW: Monitor connection count
+    setInterval(() => {
+        const socketCount = io.engine.clientsCount;
+        if (socketCount > 0) {
+            logger.debug('Active socket connections', { count: socketCount });
+        }
+    }, 60000); // Every minute
+
+    logger.startup('Socket.IO server initialized successfully', null, {
+        corsOrigin: process.env.NODE_ENV === 'production' 
+            ? process.env.ALLOWED_ORIGINS 
+            : 'development (all origins)',
+        transports: ['websocket', 'polling'],
+        authenticationMode: 'optional'
+    });
+    
+    return io;
+};
+
+export default setupSocket;
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaapi/app.js
+// FIXED APPLICATION ENTRY POINT - Complete route mounting with authentication fix
+
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import db from './config/db.js';
+
+// Import reorganized route modules
+import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/old.userRoutes.js';
+import userStatusRoutes from './routes/old.userStatusRoutes.js';
+import userAdminRoutes from './routes/userAdminRoutes.js';
+import membershipRoutes from './routes/old.membershipRoutes.js';
+import membershipAdminRoutes from './routes/membershipAdminRoutes.js';
+import surveyRoutes from './routes/old.surveyRoutes.js';
+import surveyAdminRoutes from './routes/surveyAdminRoutes.js';
+import contentRoutes from './routes/old.contentRoutes.js';
+import classRoutes from './routes/old.classRoutes.js';
+import classAdminRoutes from './routes/classAdminRoutes.js';
+import identityRoutes from './routes/old.identityRoutes.js';
+import identityAdminRoutes from './routes/identityAdminRoutes.js';
+import communicationRoutes from './routes/old.communicationRoutes.js';
+import systemRoutes from './routes/systemRoutes.js';
+
+const app = express();
+
+// ===============================================
+// GLOBAL MIDDLEWARE SETUP
+// ===============================================
+
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
+
+// ✅ FIXED: Enhanced CORS configuration
+app.use(cors({
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      process.env.FRONTEND_URL
+    ].filter(Boolean);
+    
+    // Allow requests with no origin (mobile apps, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn('⚠️ CORS blocked origin:', origin);
+      callback(new Error('CORS policy violation'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// Compression and parsing
+app.use(compression());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ===============================================
+// RATE LIMITING
+// ===============================================
+
+// Authentication rate limiting (most restrictive)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 20 : 100,
+  message: {
+    success: false,
+    error: 'Too many authentication attempts, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Admin-specific rate limiting
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 50 : 500,
+  message: {
+    success: false,
+    error: 'Too many admin requests from this IP, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// General rate limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000,
+  message: {
+    success: false,
+    error: 'Too many requests from this IP, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Apply general rate limiting to all routes
+app.use(generalLimiter);
+
+// ===============================================
+// REQUEST/RESPONSE LOGGING MIDDLEWARE
+// ===============================================
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`📥 ${new Date().toISOString()} - ${req.method} ${req.path}`, { 
+    ip: req.ip,
+    userAgent: req.get('User-Agent')?.substring(0, 30) + '...'
+  });
+  next();
+});
+
+// Response logging middleware
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  res.send = function(body) {
+    console.log(`📤 ${res.statusCode === 200 ? '✅' : '❌'} ${res.statusCode} - ${req.method} ${req.path} (${Date.now() - req.startTime}ms)`);
+    originalSend.call(this, body);
+  };
+  req.startTime = Date.now();
+  next();
+});
+
+// Enhanced logging for admin routes
+app.use((req, res, next) => {
+  if (req.originalUrl.startsWith('/api/admin/')) {
+    console.log(`🔐 ADMIN REQUEST: ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`, {
+      ip: req.ip,
+      userAgent: req.get('User-Agent')?.substring(0, 50) + '...',
+      auth: req.headers.authorization ? 'Bearer token present' : 'No auth header'
+    });
+  }
+  next();
+});
+
+// ===============================================
+// ROUTE MOUNTING - FIXED ORDER
+// ===============================================
+
+console.log('🔧 Mounting API routes...');
+
+// ✅ CRITICAL: Mount auth routes FIRST with rate limiting
+app.use('/api/auth', authLimiter, authRoutes);
+console.log('✅ Auth routes mounted at /api/auth');
+
+// ===== SYSTEM ROUTES (Health, Info, Testing) =====
+app.use('/api', systemRoutes);
+
+// ===== USER MANAGEMENT =====
+app.use('/api/users', userRoutes);
+app.use('/api/user-status', userStatusRoutes);
+app.use('/api/admin/users', adminLimiter, userAdminRoutes);
+
+// ===== MEMBERSHIP SYSTEM =====
+app.use('/api/membership', membershipRoutes);
+app.use('/api/admin/membership', adminLimiter, membershipAdminRoutes);
+
+// ===== SURVEY SYSTEM =====
+app.use('/api/survey', surveyRoutes);
+app.use('/api/admin/survey', adminLimiter, surveyAdminRoutes);
+
+// ===== CONTENT MANAGEMENT =====
+app.use('/api/content', contentRoutes);
+
+// ===== CLASS MANAGEMENT =====
+app.use('/api/classes', classRoutes);
+app.use('/api/admin/classes', adminLimiter, classAdminRoutes);
+
+// ===== IDENTITY MANAGEMENT =====
+app.use('/api/identity', identityRoutes);
+app.use('/api/admin/identity', adminLimiter, identityAdminRoutes);
+
+// ===== COMMUNICATION =====
+app.use('/api/communication', communicationRoutes);
+
+// ===============================================
+// TEST ENDPOINTS FOR DEBUGGING
+// ===============================================
+
+// Test the auth route mounting
+app.get('/api/auth-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Auth route mounting test successful',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Test database connection
+app.get('/api/db-test', async (req, res) => {
+  try {
+    const result = await db.query('SELECT COUNT(*) as user_count FROM users');
+    res.json({
+      success: true,
+      message: 'Database connection test successful',
+      userCount: result[0]?.user_count || 0,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'Database connection test failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// ===============================================
+// BACKWARD COMPATIBILITY ROUTES
+// ===============================================
+console.log('🔄 Mounting backward compatibility routes...');
+
+// Legacy routes for existing frontend compatibility
+app.use('/api/chats', (req, res, next) => {
+  req.url = '/chats' + req.url;
+  contentRoutes(req, res, next);
+});
+
+app.use('/api/teachings', (req, res, next) => {
+  req.url = '/teachings' + req.url;
+  contentRoutes(req, res, next);
+});
+
+app.use('/api/comments', (req, res, next) => {
+  req.url = '/comments' + req.url;
+  contentRoutes(req, res, next);
+});
+
+app.use('/api/messages', (req, res, next) => {
+  req.url = '/teachings' + req.url;
+  contentRoutes(req, res, next);
+});
+
+// ===============================================
+// API INFORMATION & DISCOVERY
+// ===============================================
+
+app.get('/api/info', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Ikoota API - Reorganized Architecture',
+    version: '3.0.0',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    architecture: {
+      description: 'Functionally grouped routes with clean separation of concerns',
+      principles: [
+        'Domain-driven organization',
+        'Consistent naming conventions', 
+        'Clear admin/user separation',
+        'Service layer architecture',
+        'Zero functionality loss'
+      ]
+    },
+    routes: {
+      authentication: '/api/auth/*',
+      users: {
+        general: '/api/users/*',
+        status: '/api/user-status/*', 
+        admin: '/api/admin/users/*'
+      },
+      membership: {
+        general: '/api/membership/*',
+        admin: '/api/admin/membership/*'
+      },
+      surveys: {
+        general: '/api/survey/*',
+        admin: '/api/admin/survey/*'
+      },
+      content: '/api/content/* (chats, teachings, comments)',
+      classes: {
+        general: '/api/classes/*',
+        admin: '/api/admin/classes/*'
+      },
+      identity: {
+        general: '/api/identity/*',
+        admin: '/api/admin/identity/*'
+      },
+      communication: '/api/communication/*',
+      system: '/api/health, /api/info, /api/metrics'
+    },
+    compatibility: {
+      note: 'Legacy routes preserved for zero-downtime migration',
+      routes: '/api/chats/*, /api/teachings/*, /api/comments/*, /api/messages/*'
+    }
+  });
+});
+
+app.get('/api/routes', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Complete API Route Discovery - Reorganized',
+    totalRouteGroups: 13,
+    organization: {
+      core: ['auth', 'users', 'user-status'],
+      membership: ['membership', 'admin/membership'],
+      content: ['content', 'classes', 'admin/classes'],
+      identity: ['identity', 'admin/identity'],
+      communication: ['communication'],
+      system: ['health', 'info', 'metrics']
+    },
+    adminSeparation: {
+      note: 'All admin routes have /admin/ prefix for clear separation',
+      rateLimiting: 'Admin routes have stricter rate limits',
+      logging: 'Enhanced logging for admin operations'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// HEALTH CHECK ENDPOINT
+// ===============================================
+
+app.get('/api/health', async (req, res) => {
+  try {
+    // Test database connection
+    const result = await db.query('SELECT 1 as test');
+    
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      services: {
+        database: result ? 'connected' : 'disconnected',
+        auth: 'operational',
+        api: 'operational'
+      }
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
+});
+
+// ===============================================
+// GLOBAL ERROR HANDLER
+// ===============================================
+
+app.use((error, req, res, next) => {
+  const errorId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  const isAdminRoute = req.originalUrl.startsWith('/api/admin/');
+  
+  console.error('🚨 Global API Error:', {
+    errorId,
+    error: error.message,
+    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    path: req.originalUrl,
+    method: req.method,
+    ip: req.ip,
+    isAdminRoute,
+    timestamp: new Date().toISOString()
+  });
+  
+  let statusCode = error.statusCode || error.status || 500;
+  let errorType = 'server_error';
+  
+  // Error categorization
+  if (error.message.includes('validation') || error.message.includes('required')) {
+    statusCode = 400;
+    errorType = 'validation_error';
+  } else if (error.message.includes('authentication') || error.message.includes('token')) {
+    statusCode = 401;
+    errorType = 'authentication_error';
+  } else if (error.message.includes('permission') || error.message.includes('access denied')) {
+    statusCode = 403;
+    errorType = 'authorization_error';
+  } else if (error.message.includes('not found')) {
+    statusCode = 404;
+    errorType = 'not_found_error';
+  } else if (error.message.includes('database') || error.message.includes('connection')) {
+    statusCode = 503;
+    errorType = 'database_error';
+  }
+  
+  const errorResponse = {
+    success: false,
+    error: error.message || 'Internal server error',
+    errorType,
+    errorId,
+    path: req.originalUrl,
+    method: req.method,
+    isAdminRoute,
+    timestamp: new Date().toISOString()
+  };
+  
+  if (process.env.NODE_ENV === 'development') {
+    errorResponse.debug = {
+      stack: error.stack,
+      details: error
+    };
+  }
+  
+  // Add helpful suggestions based on error type
+  if (statusCode === 401) {
+    errorResponse.help = {
+      message: 'Authentication required',
+      endpoint: '/api/auth/login',
+      adminNote: isAdminRoute ? 'Admin routes require Bearer token with admin/super_admin role' : undefined
+    };
+  } else if (statusCode === 403) {
+    errorResponse.help = {
+      message: 'Insufficient permissions',
+      adminNote: isAdminRoute ? 'Admin routes require admin or super_admin role' : undefined
+    };
+  } else if (statusCode === 404) {
+    errorResponse.help = {
+      message: 'Endpoint not found',
+      documentation: '/api/info',
+      routeDiscovery: '/api/routes'
+    };
+  }
+  
+  res.status(statusCode).json(errorResponse);
+});
+
+// ===============================================
+// 404 HANDLER FOR API ROUTES
+// ===============================================
+
+app.use('/api/*', (req, res) => {
+  console.log(`❌ 404 - API route not found: ${req.method} ${req.originalUrl}`);
+  
+  const requestedPath = req.originalUrl.toLowerCase();
+  const suggestions = [];
+  
+  // Smart suggestions based on request path
+  if (requestedPath.includes('user')) {
+    suggestions.push('/api/users', '/api/user-status', '/api/admin/users');
+  }
+  if (requestedPath.includes('member')) {
+    suggestions.push('/api/membership', '/api/admin/membership');
+  }
+  if (requestedPath.includes('admin')) {
+    suggestions.push('/api/admin/users', '/api/admin/membership', '/api/admin/classes');
+  }
+  if (requestedPath.includes('chat') || requestedPath.includes('message')) {
+    suggestions.push('/api/content/chats', '/api/communication');
+  }
+  if (requestedPath.includes('teaching')) {
+    suggestions.push('/api/content/teachings');
+  }
+  if (requestedPath.includes('comment')) {
+    suggestions.push('/api/content/comments');
+  }
+  if (requestedPath.includes('class')) {
+    suggestions.push('/api/classes', '/api/admin/classes');
+  }
+  
+  res.status(404).json({
+    success: false,
+    message: 'API endpoint not found',
+    path: req.originalUrl,
+    method: req.method,
+    suggestions: suggestions.length > 0 ? suggestions : undefined,
+    availableRoutes: {
+      core: {
+        authentication: '/api/auth/*',
+        users: '/api/users/*',
+        userStatus: '/api/user-status/*',
+        system: '/api/health, /api/info'
+      },
+      membership: {
+        general: '/api/membership/*',
+        admin: '/api/admin/membership/*'
+      },
+      content: {
+        unified: '/api/content/* (chats, teachings, comments)',
+        classes: '/api/classes/*',
+        adminClasses: '/api/admin/classes/*'
+      },
+      identity: {
+        general: '/api/identity/*',
+        admin: '/api/admin/identity/*'
+      },
+      communication: '/api/communication/*',
+      surveys: {
+        general: '/api/survey/*',
+        admin: '/api/admin/survey/*'
+      },
+      admin: {
+        users: '/api/admin/users/*',
+        membership: '/api/admin/membership/*',
+        classes: '/api/admin/classes/*',
+        identity: '/api/admin/identity/*',
+        surveys: '/api/admin/survey/*'
+      }
+    },
+    help: {
+      documentation: '/api/info',
+      routeDiscovery: '/api/routes',
+      healthCheck: '/api/health'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// CATCH-ALL 404 HANDLER
+// ===============================================
+
+app.use('*', (req, res) => {
+  console.log(`❌ 404: ${req.method} ${req.originalUrl}`);
+  
+  res.status(404).json({
+    success: false,
+    message: 'Route not found',
+    path: req.originalUrl,
+    method: req.method,
+    help: {
+      documentation: '/api/info',
+      routeDiscovery: '/api/routes',
+      healthCheck: '/api/health'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// DEVELOPMENT LOGGING
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('\n🚀 IKOOTA API - REORGANIZED ARCHITECTURE');
+  console.log('================================================================================');
+  console.log('✅ FUNCTIONALLY GROUPED: Routes organized by business domain');
+  console.log('✅ CONSISTENT NAMING: Standardized file and endpoint naming');
+  console.log('✅ ADMIN SEPARATION: Clear admin/user route separation');
+  console.log('✅ SERVICE ARCHITECTURE: Routes → Controllers → Services pattern');
+  console.log('✅ ZERO DOWNTIME: Backward compatibility maintained');
+  console.log('================================================================================');
+  
+  console.log('\n📊 REORGANIZED ROUTE STRUCTURE:');
+  console.log('   🔐 Authentication: /api/auth/*');
+  console.log('   👤 Users: /api/users/*, /api/user-status/*, /api/admin/users/*');
+  console.log('   📋 Membership: /api/membership/*, /api/admin/membership/*');
+  console.log('   📊 Surveys: /api/survey/*, /api/admin/survey/*');
+  console.log('   📚 Content: /api/content/* (chats, teachings, comments)');
+  console.log('   🎓 Classes: /api/classes/*, /api/admin/classes/*');
+  console.log('   🆔 Identity: /api/identity/*, /api/admin/identity/*');
+  console.log('   💬 Communication: /api/communication/*');
+  console.log('   🔧 System: /api/health, /api/info, /api/metrics');
+  
+  console.log('\n🛡️ ENHANCED FEATURES:');
+  console.log('   • Rate limiting: Auth (20), Admin (50), General (100) per 15min');
+  console.log('   • Security: Helmet protection, CORS configured');
+  console.log('   • Performance: Compression, request caching');
+  console.log('   • Monitoring: Enhanced logging, error tracking');
+  console.log('   • Compatibility: Legacy routes preserved');
+  
+  console.log('================================================================================\n');
+}
+
+export default app;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+// ikootaapi/utils/logger.js
+// UNIFIED LOGGER - Combines best features from all three versions
+// Features: Winston robustness + Custom methods + Visual indicators + File logging
+
+import winston from 'winston';
+import fs from 'fs';
+import path from 'path';
+
+const LOG_LEVELS = {
+    ERROR: 0,
+    WARN: 1,
+    INFO: 2,
+    DEBUG: 3
+};
+
+const LOG_EMOJIS = {
+    ERROR: '❌',
+    WARN: '⚠️',
+    INFO: 'ℹ️',
+    DEBUG: '🐛',
+    SUCCESS: '✅',
+    REQUEST: '🌐',
+    AUTH: '🔐',
+    DB: '🗄️',
+    ADMIN: '👑',
+    SECURITY: '🛡️'
+};
+
+class UnifiedLogger {
+    constructor() {
+        this.isDevelopment = process.env.NODE_ENV === 'development';
+        this.currentLevel = process.env.LOG_LEVEL 
+            ? LOG_LEVELS[process.env.LOG_LEVEL.toUpperCase()] 
+            : LOG_LEVELS.INFO;
+        
+        this.logDir = path.join(process.cwd(), 'logs');
+        this.ensureLogDirectory();
+        
+        // Initialize Winston for robust file logging
+        this.winstonLogger = this.createWinstonLogger();
+    }
+
+    ensureLogDirectory() {
+        try {
+            if (!fs.existsSync(this.logDir)) {
+                fs.mkdirSync(this.logDir, { recursive: true });
+            }
+        } catch (error) {
+            console.error('Failed to create log directory:', error);
+        }
+    }
+
+    createWinstonLogger() {
+        const logFormat = winston.format.combine(
+            winston.format.timestamp(),
+            winston.format.errors({ stack: true }),
+            winston.format.json()
+        );
+
+        const consoleFormat = winston.format.combine(
+            winston.format.timestamp(),
+            winston.format.colorize(),
+            winston.format.printf(({ timestamp, level, message, ...meta }) => {
+                const metaStr = Object.keys(meta).length ? JSON.stringify(meta, null, 2) : '';
+                return `${timestamp} ${level}: ${message} ${metaStr}`;
+            })
+        );
+
+        return winston.createLogger({
+            level: process.env.LOG_LEVEL?.toLowerCase() || 'info',
+            format: logFormat,
+            transports: [
+                // File transports
+                new winston.transports.File({ 
+                    filename: path.join(this.logDir, 'error.log'), 
+                    level: 'error' 
+                }),
+                new winston.transports.File({ 
+                    filename: path.join(this.logDir, 'combined.log') 
+                }),
+                new winston.transports.File({
+                    filename: path.join(this.logDir, `${new Date().toISOString().split('T')[0]}.log`)
+                })
+            ]
+        });
+
+        // Add console transport in development
+        if (this.isDevelopment) {
+            this.winstonLogger.add(new winston.transports.Console({
+                format: consoleFormat
+            }));
+        }
+    }
+
+    formatConsoleMessage(level, emoji, message, data = null) {
+        const timestamp = new Date().toISOString();
+        const dataStr = data ? (typeof data === 'object' ? JSON.stringify(data, null, 2) : data) : '';
+        return `${emoji} ${timestamp} - ${message} ${dataStr}`;
+    }
+
+    log(level, emoji, message, data = null, useWinston = true) {
+        // Console logging with emojis (always in development)
+        if (this.isDevelopment) {
+            const formatted = this.formatConsoleMessage(level, emoji, message, data);
+            
+            switch (level.toUpperCase()) {
+                case 'ERROR':
+                    console.error(formatted);
+                    break;
+                case 'WARN':
+                    console.warn(formatted);
+                    break;
+                default:
+                    console.log(formatted);
+            }
+        }
+
+        // Winston logging for files and production
+        if (useWinston && (process.env.NODE_ENV === 'production' || process.env.ENABLE_FILE_LOGGING === 'true')) {
+            const logData = typeof data === 'object' ? data : { data };
+            this.winstonLogger.log(level.toLowerCase(), message, logData);
+        }
+    }
+
+    // ===============================================
+    // BASIC LOGGING METHODS (From all three loggers)
+    // ===============================================
+
+    error(message, error = null, context = {}) {
+        const errorData = {
+            error: error?.message,
+            stack: error?.stack,
+            context,
+            timestamp: new Date().toISOString()
+        };
+        this.log('ERROR', LOG_EMOJIS.ERROR, message, errorData);
+    }
+
+    warn(message, data = null) {
+        this.log('WARN', LOG_EMOJIS.WARN, message, data);
+    }
+
+    info(message, data = null) {
+        this.log('INFO', LOG_EMOJIS.INFO, message, data);
+    }
+
+    debug(message, data = null) {
+        if (LOG_LEVELS.DEBUG <= this.currentLevel) {
+            this.log('DEBUG', LOG_EMOJIS.DEBUG, message, data);
+        }
+    }
+
+    success(message, data = null) {
+        this.log('INFO', LOG_EMOJIS.SUCCESS, message, data);
+    }
+
+    // ===============================================
+    // REQUEST LOGGING (From simple logger)
+    // ===============================================
+
+    request(req, res = null) {
+        if (this.isDevelopment) {
+            const logData = {
+                method: req.method,
+                path: req.path || req.originalUrl,
+                user: req.user?.username || req.user?.email || 'anonymous',
+                ip: req.ip || req.connection?.remoteAddress,
+                userAgent: req.get('User-Agent')?.substring(0, 50) + '...',
+                timestamp: new Date().toISOString()
+            };
+
+            if (res) {
+                logData.status = res.statusCode;
+                logData.duration = Date.now() - (req.startTime || Date.now());
+            }
+
+            this.log('INFO', LOG_EMOJIS.REQUEST, `${req.method} ${req.path || req.originalUrl}`, logData);
+        }
+    }
+
+    // ===============================================
+    // AUTHENTICATION LOGGING (From comprehensive logger)
+    // ===============================================
+
+    authSuccess(message, userId, email, context = {}) {
+        this.log('INFO', LOG_EMOJIS.AUTH, `AUTH SUCCESS: ${message}`, { 
+            userId, 
+            email, 
+            context,
+            timestamp: new Date().toISOString() 
+        });
+    }
+
+    authFailure(message, email, ip, error, context = {}) {
+        this.log('WARN', LOG_EMOJIS.AUTH, `AUTH FAILURE: ${message}`, { 
+            email, 
+            ip, 
+            error: error?.message,
+            context,
+            timestamp: new Date().toISOString() 
+        });
+    }
+
+    authError(message, error, context = {}) {
+        this.log('ERROR', LOG_EMOJIS.AUTH, `AUTH ERROR: ${message}`, { 
+            error: error?.message, 
+            stack: error?.stack,
+            context,
+            timestamp: new Date().toISOString() 
+        });
+    }
+
+    // ===============================================
+    // DATABASE LOGGING
+    // ===============================================
+
+    dbQuery(query, duration, success = true, context = {}) {
+        const level = success ? 'DEBUG' : 'WARN';
+        const emoji = success ? LOG_EMOJIS.DB : LOG_EMOJIS.ERROR;
+        const message = success ? `DB QUERY: ${query}` : `DB QUERY FAILED: ${query}`;
+        
+        this.log(level, emoji, message, { 
+            duration: `${duration}ms`, 
+            success,
+            context,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    dbError(message, error, query = null, context = {}) {
+        this.log('ERROR', LOG_EMOJIS.DB, `DB ERROR: ${message}`, {
+            error: error?.message,
+            stack: error?.stack,
+            query,
+            context,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    dbConnection(status, details = {}) {
+        const emoji = status === 'connected' ? LOG_EMOJIS.SUCCESS : LOG_EMOJIS.ERROR;
+        const level = status === 'connected' ? 'INFO' : 'ERROR';
+        this.log(level, emoji, `DATABASE ${status.toUpperCase()}`, details);
+    }
+
+    // ===============================================
+    // ADMIN ACTIVITY LOGGING
+    // ===============================================
+
+    adminActivity(action, adminId, targetId = null, details = {}) {
+        this.log('INFO', LOG_EMOJIS.ADMIN, `ADMIN ACTIVITY: ${action}`, {
+            adminId,
+            targetId,
+            details,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    // ===============================================
+    // SECURITY EVENT LOGGING
+    // ===============================================
+
+    securityEvent(event, details = {}, level = 'WARN') {
+        this.log(level, LOG_EMOJIS.SECURITY, `SECURITY EVENT: ${event}`, {
+            details,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    // ===============================================
+    // PERFORMANCE MONITORING
+    // ===============================================
+
+    performance(operation, duration, context = {}) {
+        const level = duration > 1000 ? 'WARN' : 'DEBUG'; // Warn if > 1 second
+        const emoji = duration > 1000 ? LOG_EMOJIS.WARN : LOG_EMOJIS.SUCCESS;
+        
+        this.log(level, emoji, `PERFORMANCE: ${operation}`, {
+            duration: `${duration}ms`,
+            context,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    // ===============================================
+    // BUSINESS LOGIC LOGGING
+    // ===============================================
+
+    userAction(action, userId, details = {}) {
+        this.log('INFO', '👤', `USER ACTION: ${action}`, {
+            userId,
+            details,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    apiCall(endpoint, method, status, duration, userId = null) {
+        const emoji = status < 400 ? LOG_EMOJIS.SUCCESS : LOG_EMOJIS.ERROR;
+        const level = status < 400 ? 'INFO' : 'WARN';
+        
+        this.log(level, emoji, `API: ${method} ${endpoint}`, {
+            status,
+            duration: `${duration}ms`,
+            userId,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    // ===============================================
+    // SYSTEM EVENTS
+    // ===============================================
+
+    systemEvent(event, details = {}, level = 'INFO') {
+        this.log(level, '🔧', `SYSTEM: ${event}`, {
+            details,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    startup(service, port = null, details = {}) {
+        this.log('INFO', '🚀', `STARTUP: ${service}`, {
+            port,
+            details,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    shutdown(service, reason = null) {
+        this.log('INFO', '🛑', `SHUTDOWN: ${service}`, {
+            reason,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    // ===============================================
+    // UTILITY METHODS
+    // ===============================================
+
+    // Get current log level
+    getLogLevel() {
+        return Object.keys(LOG_LEVELS).find(key => LOG_LEVELS[key] === this.currentLevel);
+    }
+
+    // Set log level dynamically
+    setLogLevel(level) {
+        if (LOG_LEVELS[level.toUpperCase()] !== undefined) {
+            this.currentLevel = LOG_LEVELS[level.toUpperCase()];
+            this.winstonLogger.level = level.toLowerCase();
+        }
+    }
+
+    // Health check for logging system
+    healthCheck() {
+        try {
+            this.info('Logger health check', { 
+                level: this.getLogLevel(),
+                isDevelopment: this.isDevelopment,
+                logDir: this.logDir,
+                fileLoggingEnabled: process.env.ENABLE_FILE_LOGGING === 'true'
+            });
+            return { status: 'healthy', timestamp: new Date().toISOString() };
+        } catch (error) {
+            this.error('Logger health check failed', error);
+            return { status: 'unhealthy', error: error.message, timestamp: new Date().toISOString() };
+        }
+    }
+}
+
+// Create singleton instance
+const logger = new UnifiedLogger();
+
+// Export the instance as default
+export default logger;
+
+// Also export individual methods for convenience
+export const { 
+    error, 
+    warn, 
+    info, 
+    debug, 
+    success,
+    request,
+    authSuccess, 
+    authFailure, 
+    authError,
+    dbQuery,
+    dbError,
+    dbConnection,
+    adminActivity,
+    securityEvent,
+    performance,
+    userAction,
+    apiCall,
+    systemEvent,
+    startup,
+    shutdown
+} = logger;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+// ikootaapi/routes/userStatusRoutes.js
+// USER STATUS & DASHBOARD ROUTES
+// User dashboard, status checks, and system health endpoints
+
+import express from 'express';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+// Import user status controllers
+import {
+  getUserDashboard,
+  getCurrentMembershipStatus,
+  checkApplicationStatus,
+  getApplicationHistory,
+  getUserPermissions
+} from '../controllers/preMemberApplicationController.js';
+
+import {
+  checkSurveyStatus,
+  getBasicProfile,
+  getLegacyMembershipStatus,
+  getUserStatus,
+  healthCheck,
+  testSimple,
+  testAuth,
+  testDashboard,
+  debugApplicationStatus,
+  getSystemStatus
+} from '../controllers/userStatusControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// SYSTEM HEALTH & TESTING
+// ===============================================
+
+// System health check
+router.get('/health', healthCheck);
+
+// System status overview
+router.get('/system/status', getSystemStatus);
+
+// Simple connectivity test
+router.get('/test-simple', testSimple);
+
+// Authentication test
+router.get('/test-auth', authenticate, testAuth);
+
+// Dashboard connectivity test
+router.get('/test-dashboard', authenticate, testDashboard);
+
+// ===============================================
+// USER DASHBOARD
+// ===============================================
+
+// Primary user dashboard with comprehensive status
+router.get('/dashboard', authenticate, getUserDashboard);
+
+// ===============================================
+// STATUS CHECKING ENDPOINTS
+// ===============================================
+
+// Current membership status
+router.get('/status', authenticate, getCurrentMembershipStatus);
+
+// Application status check
+router.get('/application/status', authenticate, checkApplicationStatus);
+
+// Survey status check (enhanced)
+router.get('/survey/check-status', authenticate, checkSurveyStatus);
+
+// Legacy compatibility endpoints
+router.get('/membership/status', authenticate, getLegacyMembershipStatus);
+router.get('/user/status', authenticate, getUserStatus);
+
+// ===============================================
+// USER PROFILE & PERMISSIONS
+// ===============================================
+
+// Basic profile information
+router.get('/profile/basic', authenticate, getBasicProfile);
+
+// User permissions
+router.get('/permissions', authenticate, getUserPermissions);
+
+// ===============================================
+// USER HISTORY & ACTIVITY
+// ===============================================
+
+// Application history
+router.get('/application-history', authenticate, getApplicationHistory);
+router.get('/history', authenticate, getApplicationHistory);
+
+// ===============================================
+// DEBUG ROUTES (DEVELOPMENT)
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  // Debug application status
+  router.get('/debug/application-status/:userId', authenticate, debugApplicationStatus);
+  
+  // Debug user status consistency
+  router.get('/debug/status-consistency', authenticate, async (req, res) => {
+    res.json({
+      success: true,
+      message: 'Status consistency check endpoint - implement with status service',
+      timestamp: new Date().toISOString()
+    });
+  });
+}
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler
+router.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'User status route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      system: [
+        'GET /health - System health check',
+        'GET /system/status - System status overview',
+        'GET /test-simple - Simple connectivity test',
+        'GET /test-auth - Authentication test',
+        'GET /test-dashboard - Dashboard connectivity test'
+      ],
+      dashboard: [
+        'GET /dashboard - User dashboard with comprehensive status'
+      ],
+      status: [
+        'GET /status - Current membership status',
+        'GET /application/status - Application status check',
+        'GET /survey/check-status - Enhanced survey status check',
+        'GET /membership/status - Legacy membership status',
+        'GET /user/status - Alternative user status'
+      ],
+      profile: [
+        'GET /profile/basic - Basic profile information',
+        'GET /permissions - User permissions'
+      ],
+      history: [
+        'GET /application-history - Application history',
+        'GET /history - Application history (alias)'
+      ],
+      debug: process.env.NODE_ENV === 'development' ? [
+        'GET /debug/application-status/:userId - Debug application status',
+        'GET /debug/status-consistency - Status consistency check'
+      ] : 'Available in development mode only'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handler
+router.use((error, req, res, next) => {
+  console.error('❌ User status route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.username || 'unauthenticated',
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'User status operation error',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('📊 User status routes loaded: dashboard, status checks, system health');
+}
+
+export default router;
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+// ikootaapi/routes/userAdminRoutes.js  
+// ADMIN USER MANAGEMENT ROUTES
+// Administrative control over user accounts and permissions
+
+import express from 'express';
+import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+
+// Import admin user controllers
+import {
+  // User management
+  getAllUsers,
+  getUserById,
+  createUser,
+  updateUser,
+  deleteUser,
+  searchUsers,
+  exportUserData,
+  
+  // User permissions
+  updateUserRole,
+  grantPostingRights,
+  banUser,
+  unbanUser,
+  
+  // ID generation (missing endpoints from analysis)
+  generateBulkIds,
+  generateConverseId,
+ // generateClassId,
+  
+  // System operations
+  maskUserIdentity,
+  getUserStats,
+  getMentors,
+  assignMentorRole,
+  generateClassIdForAdmin,
+  removeMentorRole,
+  testAdminUserRoutes
+} from '../controllers/userAdminControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// APPLY ADMIN AUTHENTICATION TO ALL ROUTES
+// ===============================================
+router.use(authenticate);
+router.use(authorize(['admin', 'super_admin']));
+
+// ===============================================
+// USER MANAGEMENT
+// ===============================================
+
+// GET /admin/users - Get all users
+router.get('/', getAllUsers);
+
+// GET /admin/users/search - Search users
+router.get('/search', searchUsers);
+
+// GET /admin/users/stats - Get user statistics
+router.get('/stats', getUserStats);
+
+// GET /admin/users/:id - Get specific user
+router.get('/:id', getUserById);
+
+// POST /admin/users/create - Create new user
+router.post('/create', createUser);
+
+// PUT /admin/users/:id - Update user
+router.put('/:id', updateUser);
+
+// DELETE /admin/users/:id - Delete user (super admin only)
+router.delete('/:id', authorize(['super_admin']), deleteUser);
+
+// ===============================================
+// USER PERMISSIONS & ROLES
+// ===============================================
+
+// PUT /admin/users/role - Update user role
+router.put('/role', updateUserRole);
+
+// POST /admin/users/grant-posting-rights - Grant posting rights
+router.post('/grant-posting-rights', grantPostingRights);
+
+// POST /admin/users/ban - Ban user
+router.post('/ban', banUser);
+
+// POST /admin/users/unban - Unban user  
+router.post('/unban', unbanUser);
+
+// ===============================================
+// ID GENERATION (MISSING ENDPOINTS FROM ANALYSIS)
+// ===============================================
+
+// POST /admin/users/generate-bulk-ids - Generate bulk IDs
 router.post('/generate-bulk-ids', generateBulkIds);
+
+// POST /admin/users/generate-converse-id - Generate converse ID
 router.post('/generate-converse-id', generateConverseId);
-router.post('/generate-class-id', generateClassId);
 
-Add User Notifications Routes
-javascript// Add to userRoutes.js
-router.get('/notifications', getUserNotifications);
-router.put('/notifications/:id/read', markNotificationAsRead);
+// POST /admin/users/generate-class-id - Generate class ID
+//router.post('/generate-class-id', generateClassId);
+//we already have this in classServices.js
 
-Fix Import in useUploadCommentFiles.js
-javascript// Add missing import
+// ===============================================
+// IDENTITY MANAGEMENT
+// ===============================================
+
+// POST /admin/users/mask-identity - Mask user identity
+router.post('/mask-identity', maskUserIdentity);
+
+// ===============================================
+// DATA EXPORT
+// ===============================================
+
+// GET /admin/users/export - Export user data
+router.get('/export', authorize(['super_admin']), exportUserData);
+
+// GET /admin/users/export/csv - Export users as CSV
+router.get('/export/csv', authorize(['super_admin']), (req, res, next) => {
+  req.exportFormat = 'csv';
+  exportUserData(req, res, next);
+});
+
+// GET /admin/users/export/json - Export users as JSON
+router.get('/export/json', authorize(['super_admin']), (req, res, next) => {
+  req.exportFormat = 'json';
+  exportUserData(req, res, next);
+});
+
+// ===============================================
+// MENTORS MANAGEMENT
+// ===============================================
+
+// GET /admin/users/mentors - Get all mentors
+router.get('/mentors', async (req, res) => {
+  req.query.role = 'mentor';
+  getAllUsers(req, res);
+});
+
+// POST /admin/users/mentors/assign - Assign mentor role
+router.post('/mentors/assign', (req, res, next) => {
+  req.body.role = 'mentor';
+  updateUserRole(req, res, next);
+});
+
+// DELETE /admin/users/mentors/:id/remove - Remove mentor role
+router.delete('/mentors/:id/remove', (req, res, next) => {
+  req.params.id = req.params.id;
+  req.body.role = 'user';
+  updateUserRole(req, res, next);
+});
+
+// ===============================================
+// TESTING ENDPOINTS
+// ===============================================
+
+// Admin user management test
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Admin user routes are working!',
+    timestamp: new Date().toISOString(),
+    user: {
+      id: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role
+    },
+    availableEndpoints: {
+      management: 'GET /, POST /create, PUT /:id, DELETE /:id',
+      permissions: 'PUT /role, POST /ban, POST /unban',
+      idGeneration: 'POST /generate-*-id',
+      export: 'GET /export'
+    }
+  });
+});
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler
+router.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Admin user route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      userManagement: [
+        'GET / - Get all users',
+        'GET /search - Search users',
+        'GET /stats - User statistics',
+        'GET /:id - Get specific user',
+        'POST /create - Create new user',
+        'PUT /:id - Update user',
+        'DELETE /:id - Delete user (super admin)'
+      ],
+      permissions: [
+        'PUT /role - Update user role',
+        'POST /grant-posting-rights - Grant posting rights',
+        'POST /ban - Ban user',
+        'POST /unban - Unban user'
+      ],
+      idGeneration: [
+        'POST /generate-bulk-ids - Generate bulk IDs',
+        'POST /generate-converse-id - Generate converse ID',
+        'POST /generate-class-id - Generate class ID'
+      ],
+      identity: [
+        'POST /mask-identity - Mask user identity'
+      ],
+      dataExport: [
+        'GET /export - Export user data (super admin)',
+        'GET /export/csv - Export as CSV (super admin)',
+        'GET /export/json - Export as JSON (super admin)'
+      ],
+      mentors: [
+        'GET /mentors - Get all mentors',
+        'POST /mentors/assign - Assign mentor role',
+        'DELETE /mentors/:id/remove - Remove mentor role'
+      ],
+      testing: [
+        'GET /test - Admin user routes test'
+      ]
+    },
+    adminNote: 'All routes require admin or super_admin role',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handler
+router.use((error, req, res, next) => {
+  console.error('❌ Admin user route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.username || 'unauthenticated',
+    userRole: req.user?.role,
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Admin user operation error',
+    path: req.path,
+    method: req.method,
+    userRole: req.user?.role,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔐 Admin user routes loaded: user management, permissions, ID generation, export');
+}
+
+export default router;
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+// ikootaapi/routes/systemRoutes.js
+// SYSTEM HEALTH & METRICS ROUTES
+// Health checks, API information, testing, and performance monitoring
+
+import express from 'express';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+// Import system controllers
+import {
+  healthCheck,
+  getSystemStatus,
+  getPerformanceMetrics,
+  getDatabaseHealth,
+  getAPIInformation,
+  testConnectivity
+} from '../controllers/systemControllers.js';
+
+import db from '../config/db.js';
+
+const router = express.Router();
+
+// ===============================================
+// MAIN SYSTEM ENDPOINTS
+// ===============================================
+
+// GET /health - System health check
+router.get('/health', async (req, res) => {
+  try {
+    // Quick database test
+    await db.query('SELECT 1');
+    
+    res.json({
+      success: true,
+      message: 'API is healthy',
+      status: 'operational',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      uptime: process.uptime(),
+      memory: {
+        used: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB',
+        heap: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB'
+      },
+      database: 'connected',
+      version: '3.0.0'
+    });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'API is unhealthy',
+      status: 'degraded',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// GET /info - Comprehensive API information
+router.get('/info', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Ikoota API - Reorganized Architecture v3.0.0',
+    version: '3.0.0',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    
+    architecture: {
+      description: 'Functionally grouped routes with enhanced maintainability',
+      version: '3.0.0',
+      principles: [
+        'Domain-driven route organization',
+        'Clear admin/user separation', 
+        'Service layer architecture',
+        'Zero functionality loss',
+        'Enhanced security and monitoring'
+      ]
+    },
+    
+    routeStructure: {
+      core: {
+        authentication: '/api/auth/* - Login, registration, password reset',
+        system: '/api/health, /api/info, /api/metrics - System monitoring'
+      },
+      userManagement: {
+        profile: '/api/users/* - Profile, settings, preferences',
+        status: '/api/user-status/* - Dashboard, status checks',
+        admin: '/api/admin/users/* - Admin user management'
+      },
+      membershipSystem: {
+        applications: '/api/membership/* - Applications, status, workflow',
+        admin: '/api/admin/membership/* - Application reviews, analytics'
+      },
+      contentSystem: {
+        unified: '/api/content/* - Chats, teachings, comments unified',
+        breakdown: {
+          chats: '/api/content/chats/*',
+          teachings: '/api/content/teachings/*',
+          comments: '/api/content/comments/*',
+          admin: '/api/content/admin/*'
+        }
+      },
+      surveySystem: {
+        submissions: '/api/survey/* - Survey submissions, questions',
+        admin: '/api/admin/survey/* - Question management, approval'
+      },
+      classSystem: {
+        enrollment: '/api/classes/* - Class enrollment, content access',
+        admin: '/api/admin/classes/* - Class creation, management'
+      },
+      identitySystem: {
+        management: '/api/identity/* - Converse/mentor ID operations',
+        admin: '/api/admin/identity/* - Identity administration'
+      },
+      communication: '/api/communication/* - Email, SMS, notifications, future video/audio'
+    },
+    
+    features: {
+      security: [
+        'Enhanced rate limiting (auth: 20, admin: 50, general: 100 per 15min)',
+        'Admin route isolation with special logging',
+        'Comprehensive error handling and categorization',
+        'JWT-based authentication with role-based access'
+      ],
+      performance: [
+        'Response compression enabled',
+        'Request caching for expensive operations',
+        'Database connection pooling',
+        'Memory usage monitoring'
+      ],
+      monitoring: [
+        'Enhanced request/response logging',
+        'Admin operation tracking',
+        'Performance metrics collection',
+        'Database health monitoring'
+      ],
+      compatibility: [
+        'Zero-downtime migration support',
+        'Legacy route preservation',
+        'Gradual migration capability',
+        'Frontend compatibility maintained'
+      ]
+    },
+    
+    improvements: {
+      organization: [
+        'Reduced route files from 15+ to 13 focused modules',
+        'Clear separation of admin and user operations',
+        'Unified content management structure',
+        'Consistent naming conventions'
+      ],
+      functionality: [
+        'Added missing ID generation endpoints',
+        'Enhanced notification system',
+        'Improved error handling and responses',
+        'Better request validation and sanitization'
+      ]
+    }
+  });
+});
+
+// GET /metrics - Performance metrics
+router.get('/metrics', async (req, res) => {
+  try {
+    const metrics = {
+      success: true,
+      message: 'System performance metrics',
+      timestamp: new Date().toISOString(),
+      system: {
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        cpuUsage: process.cpuUsage(),
+        platform: process.platform,
+        nodeVersion: process.version
+      },
+      database: {
+        status: 'connected'
+      }
+    };
+    
+    // Test database performance
+    const start = Date.now();
+    await db.query('SELECT 1');
+    const dbResponseTime = Date.now() - start;
+    
+    metrics.database.responseTime = `${dbResponseTime}ms`;
+    metrics.database.performance = dbResponseTime < 100 ? 'excellent' : dbResponseTime < 500 ? 'good' : 'slow';
+    
+    res.json(metrics);
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      error: 'Failed to collect metrics',
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// GET /routes - Route discovery
+router.get('/routes', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API Route Discovery - Reorganized Architecture',
+    totalModules: 13,
+    organizationPattern: 'Domain-driven with admin separation',
+    
+    routeModules: {
+      core: [
+        'systemRoutes.js - Health, metrics, testing',
+        'authRoutes.js - Authentication only'
+      ],
+      userManagement: [
+        'userRoutes.js - Profile, settings, preferences',
+        'userStatusRoutes.js - Dashboard, status checks',
+        'userAdminRoutes.js - Admin user management'
+      ],
+      membershipSystem: [
+        'membershipRoutes.js - Applications, status workflow',
+        'membershipAdminRoutes.js - Admin reviews, analytics'
+      ],
+      surveySystem: [
+        'surveyRoutes.js - Submissions, questions',
+        'surveyAdminRoutes.js - Admin survey management'
+      ],
+      contentSystem: [
+        'contentRoutes.js - Unified chats, teachings, comments'
+      ],
+      classSystem: [
+        'classRoutes.js - Enrollment, content access',
+        'classAdminRoutes.js - Admin class management'
+      ],
+      identitySystem: [
+        'identityRoutes.js - Converse/mentor ID operations',
+        'identityAdminRoutes.js - Admin identity control'
+      ],
+      communication: [
+        'communicationRoutes.js - Email, SMS, notifications, future video/audio'
+      ]
+    },
+    
+    adminSeparation: {
+      pattern: 'All admin routes use /api/admin/ prefix',
+      security: 'Enhanced rate limiting and logging',
+      modules: [
+        '/api/admin/users/*',
+        '/api/admin/membership/*',
+        '/api/admin/survey/*', 
+        '/api/admin/classes/*',
+        '/api/admin/identity/*'
+      ]
+    },
+    
+    backwardCompatibility: {
+      enabled: true,
+      legacyMappings: [
+        '/api/chats → /api/content/chats',
+        '/api/teachings → /api/content/teachings',
+        '/api/comments → /api/content/comments',
+        '/api/messages → /api/content/teachings'
+      ]
+    },
+    
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// TESTING ENDPOINTS
+// ===============================================
+
+// GET /test - Simple connectivity test
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API connectivity test passed',
+    timestamp: new Date().toISOString(),
+    server: 'operational',
+    endpoint: '/api/test'
+  });
+});
+
+// GET /test/auth - Authentication test
+router.get('/test/auth', authenticate, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Authentication test passed',
+    timestamp: new Date().toISOString(),
+    user: {
+      id: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role
+    },
+    endpoint: '/api/test/auth'
+  });
+});
+
+// GET /test/database - Database connectivity test
+router.get('/test/database', async (req, res) => {
+  try {
+    const start = Date.now();
+    const [result] = await db.query('SELECT 1 as test, NOW() as current_time');
+    const responseTime = Date.now() - start;
+    
+    res.json({
+      success: true,
+      message: 'Database connectivity test passed',
+      timestamp: new Date().toISOString(),
+      database: {
+        connected: true,
+        responseTime: `${responseTime}ms`,
+        performance: responseTime < 100 ? 'excellent' : responseTime < 500 ? 'good' : 'slow',
+        result: result[0]
+      },
+      endpoint: '/api/test/database'
+    });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'Database connectivity test failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// ===============================================
+// DEVELOPMENT ENDPOINTS
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  // GET /debug/environment - Environment information
+  router.get('/debug/environment', (req, res) => {
+    res.json({
+      success: true,
+      message: 'Environment debug information',
+      environment: {
+        nodeEnv: process.env.NODE_ENV,
+        nodeVersion: process.version,
+        platform: process.platform,
+        architecture: process.arch,
+        uptime: process.uptime(),
+        cwd: process.cwd(),
+        pid: process.pid
+      },
+      memory: process.memoryUsage(),
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  // GET /debug/routes-detailed - Detailed route information
+  router.get('/debug/routes-detailed', (req, res) => {
+    res.json({
+      success: true,
+      message: 'Detailed route information for debugging',
+      architecture: 'v3.0.0 - Reorganized',
+      implementationStatus: {
+        phase1: '✅ Core infrastructure (app.js, server.js, index.js)',
+        phase2: '✅ Route reorganization (13 modules)',
+        phase3: '⏳ Controller consolidation',
+        phase4: '⏳ Service layer implementation'
+      },
+      routeFiles: {
+        completed: [
+          'systemRoutes.js',
+          'authRoutes.js',
+          'userRoutes.js',
+          'userStatusRoutes.js',
+          'userAdminRoutes.js',
+          'membershipRoutes.js',
+          'membershipAdminRoutes.js',
+          'surveyRoutes.js',
+          'surveyAdminRoutes.js',
+          'contentRoutes.js',
+          'classRoutes.js',
+          'classAdminRoutes.js',
+          'identityRoutes.js',
+          'identityAdminRoutes.js',
+          'communicationRoutes.js'
+        ],
+        nextPhase: 'Controller and service reorganization'
+      },
+      timestamp: new Date().toISOString()
+    });
+  });
+}
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// System routes 404 handler
+router.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'System route not found',
+    path: req.originalUrl,
+    method: req.method,
+    availableRoutes: {
+      main: [
+        'GET /health - System health check',
+        'GET /info - Comprehensive API information',
+        'GET /metrics - Performance metrics',
+        'GET /routes - Route discovery'
+      ],
+      testing: [
+        'GET /test - Simple connectivity test',
+        'GET /test/auth - Authentication test',
+        'GET /test/database - Database connectivity test'
+      ],
+      debug: process.env.NODE_ENV === 'development' ? [
+        'GET /debug/environment - Environment information',
+        'GET /debug/routes-detailed - Detailed route information'
+      ] : 'Available in development mode only'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// System routes error handler
+router.use((error, req, res, next) => {
+  console.error('❌ System route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'System operation error',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔧 System routes loaded: health checks, metrics, API information, testing');
+}
+
+export default router;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+// ikootaapi/routes/surveyRoutes.js
+// SURVEY MANAGEMENT ROUTES
+// Survey submissions and question management
+
+import express from 'express';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+// Import survey controllers
+import {
+  submitSurvey,
+  getSurveyQuestions,
+  getQuestionLabels,
+  getSurveyStatus,
+  getSurveyHistory,
+  updateSurveyResponse,
+  deleteSurveyResponse
+} from '../controllers/surveyControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// SURVEY SUBMISSION
+// ===============================================
+
+// POST /survey/submit - Submit survey/application
+router.post('/submit', authenticate, submitSurvey);
+
+// POST /survey/application/submit - Submit application survey (alias)
+router.post('/application/submit', authenticate, submitSurvey);
+
+// Legacy compatibility
+router.post('/submit_applicationsurvey', authenticate, submitSurvey);
+
+// ===============================================
+// SURVEY QUESTIONS & LABELS
+// ===============================================
+
+// GET /survey/questions - Get survey questions
+router.get('/questions', authenticate, getSurveyQuestions);
+
+// GET /survey/question-labels - Get question labels for dynamic surveys
+router.get('/question-labels', authenticate, getQuestionLabels);
+
+// ===============================================
+// SURVEY STATUS & HISTORY
+// ===============================================
+
+// GET /survey/status - Get survey status
+router.get('/status', authenticate, getSurveyStatus);
+
+// GET /survey/check-status - Enhanced status check (compatibility)
+router.get('/check-status', authenticate, getSurveyStatus);
+
+// GET /survey/history - Get user's survey history
+router.get('/history', authenticate, getSurveyHistory);
+
+// ===============================================
+// SURVEY RESPONSE MANAGEMENT
+// ===============================================
+
+// PUT /survey/response/update - Update survey response
+router.put('/response/update', authenticate, updateSurveyResponse);
+
+// DELETE /survey/response - Delete survey response
+router.delete('/response', authenticate, deleteSurveyResponse);
+
+// ===============================================
+// SURVEY REQUIREMENTS
+// ===============================================
+
+// GET /survey/requirements - Get survey requirements
+router.get('/requirements', authenticate, async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Survey requirements endpoint - implement with survey service',
+    requirements: {
+      membershipStage: 'Must be pre_member or higher',
+      questions: 'Dynamic questions from question_labels table',
+      validation: 'All required fields must be completed'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// TESTING ENDPOINTS
+// ===============================================
+
+// Survey system test
+router.get('/test', authenticate, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Survey routes are working!',
+    timestamp: new Date().toISOString(),
+    user: {
+      id: req.user?.id,
+      username: req.user?.username,
+      membershipStage: req.user?.membership_stage
+    },
+    availableOperations: ['submit', 'view questions', 'check status'],
+    endpoint: '/api/survey/test'
+  });
+});
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler
+router.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Survey route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      submission: [
+        'POST /submit - Submit survey/application',
+        'POST /application/submit - Submit application survey'
+      ],
+      questions: [
+        'GET /questions - Get survey questions',
+        'GET /question-labels - Get question labels'
+      ],
+      status: [
+        'GET /status - Get survey status',
+        'GET /check-status - Enhanced status check',
+        'GET /history - Get survey history'
+      ],
+      management: [
+        'PUT /response/update - Update survey response',
+        'DELETE /response - Delete survey response'
+      ],
+      information: [
+        'GET /requirements - Get survey requirements'
+      ],
+      testing: [
+        'GET /test - Survey routes test'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handler
+router.use((error, req, res, next) => {
+  console.error('❌ Survey route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.username || 'unauthenticated',
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Survey operation error',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('📊 Survey routes loaded: submissions, questions, status checks');
+}
+
+export default router;
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaapi/routes/surveyAdminRoutes.js
+// ADMIN SURVEY MANAGEMENT ROUTES
+// Administrative control over surveys and question labels
+
+import express from 'express';
+import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+
+// Import survey admin controllers
+import {
+  // Question management
+  updateSurveyQuestions,
+  updateSurveyQuestionLabels,
+  createSurveyQuestion,
+  deleteSurveyQuestion,
+  
+  // Survey review and approval
+  getSurveyLogs,
+  approveSurvey,
+  rejectSurvey,
+  getPendingSurveys,
+  
+  // Analytics and reporting
+  getSurveyAnalytics,
+  getSurveyStats,
+  exportSurveyData
+} from '../controllers/surveyAdminControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// APPLY ADMIN AUTHENTICATION TO ALL ROUTES
+// ===============================================
+router.use(authenticate);
+router.use(authorize(['admin', 'super_admin']));
+
+// ===============================================
+// QUESTION MANAGEMENT
+// ===============================================
+
+// GET /admin/survey/questions - Get all survey questions
+router.get('/questions', async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Get survey questions endpoint - implement with survey admin service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// POST /admin/survey/questions - Create new survey question
+router.post('/questions', createSurveyQuestion);
+
+// PUT /admin/survey/questions - Update survey questions
+router.put('/questions', updateSurveyQuestions);
+
+// DELETE /admin/survey/questions/:id - Delete survey question
+router.delete('/questions/:id', deleteSurveyQuestion);
+
+// ===============================================
+// QUESTION LABELS MANAGEMENT
+// ===============================================
+
+// GET /admin/survey/question-labels - Get question labels
+router.get('/question-labels', async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Get question labels endpoint - implement with question labels service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// PUT /admin/survey/question-labels - Update question labels
+router.put('/question-labels', updateSurveyQuestionLabels);
+
+// POST /admin/survey/question-labels - Create new question label
+router.post('/question-labels', async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Create question label endpoint - implement with question labels service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// SURVEY REVIEW & APPROVAL
+// ===============================================
+
+// GET /admin/survey/pending - Get pending surveys
+router.get('/pending', getPendingSurveys);
+
+// GET /admin/survey/logs - Get survey logs
+router.get('/logs', getSurveyLogs);
+
+// PUT /admin/survey/approve - Approve survey
+router.put('/approve', approveSurvey);
+
+// PUT /admin/survey/reject - Reject survey
+router.put('/reject', rejectSurvey);
+
+// PUT /admin/survey/:id/status - Update survey status
+router.put('/:id/status', async (req, res) => {
+  const { status } = req.body;
+  
+  if (status === 'approved') {
+    req.surveyId = req.params.id;
+    return approveSurvey(req, res);
+  } else if (status === 'rejected') {
+    req.surveyId = req.params.id;
+    return rejectSurvey(req, res);
+  }
+  
+  res.status(400).json({
+    success: false,
+    error: 'Invalid status. Must be "approved" or "rejected"',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// ANALYTICS & REPORTING
+// ===============================================
+
+// GET /admin/survey/analytics - Get survey analytics
+router.get('/analytics', getSurveyAnalytics);
+
+// GET /admin/survey/stats - Get survey statistics
+router.get('/stats', getSurveyStats);
+
+// GET /admin/survey/completion-rates - Get completion rates
+router.get('/completion-rates', async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Survey completion rates endpoint - implement with analytics service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// DATA EXPORT
+// ===============================================
+
+// GET /admin/survey/export - Export survey data (super admin only)
+router.get('/export', authorize(['super_admin']), exportSurveyData);
+
+// GET /admin/survey/export/responses - Export survey responses
+router.get('/export/responses', authorize(['super_admin']), (req, res, next) => {
+  req.exportType = 'responses';
+  exportSurveyData(req, res, next);
+});
+
+// GET /admin/survey/export/analytics - Export survey analytics
+router.get('/export/analytics', authorize(['super_admin']), (req, res, next) => {
+  req.exportType = 'analytics';
+  exportSurveyData(req, res, next);
+});
+
+// ===============================================
+// SURVEY CONFIGURATION
+// ===============================================
+
+// GET /admin/survey/config - Get survey configuration
+router.get('/config', async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Survey configuration endpoint - implement with survey admin service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// PUT /admin/survey/config - Update survey configuration
+router.put('/config', async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Update survey configuration endpoint - implement with survey admin service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// TESTING ENDPOINTS
+// ===============================================
+
+// Survey admin test
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Admin survey routes are working!',
+    timestamp: new Date().toISOString(),
+    user: {
+      id: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role
+    },
+    availableOperations: [
+      'question management',
+      'survey approval',
+      'analytics',
+      'data export'
+    ],
+    endpoint: '/api/admin/survey/test'
+  });
+});
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler
+router.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Admin survey route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      questionManagement: [
+        'GET /questions - Get all survey questions',
+        'POST /questions - Create new question',
+        'PUT /questions - Update questions',
+        'DELETE /questions/:id - Delete question'
+      ],
+      questionLabels: [
+        'GET /question-labels - Get question labels',
+        'PUT /question-labels - Update question labels',
+        'POST /question-labels - Create question label'
+      ],
+      surveyReview: [
+        'GET /pending - Get pending surveys',
+        'GET /logs - Get survey logs',
+        'PUT /approve - Approve survey',
+        'PUT /reject - Reject survey',
+        'PUT /:id/status - Update survey status'
+      ],
+      analytics: [
+        'GET /analytics - Survey analytics',
+        'GET /stats - Survey statistics',
+        'GET /completion-rates - Completion rates'
+      ],
+      dataExport: [
+        'GET /export - Export survey data (super admin)',
+        'GET /export/responses - Export responses (super admin)',
+        'GET /export/analytics - Export analytics (super admin)'
+      ],
+      configuration: [
+        'GET /config - Get survey configuration',
+        'PUT /config - Update survey configuration'
+      ],
+      testing: [
+        'GET /test - Admin survey routes test'
+      ]
+    },
+    adminNote: 'All routes require admin or super_admin role',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handler
+router.use((error, req, res, next) => {
+  console.error('❌ Admin survey route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.username || 'unauthenticated',
+    userRole: req.user?.role,
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Admin survey operation error',
+    path: req.path,
+    method: req.method,
+    userRole: req.user?.role,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔐 Admin survey routes loaded: question management, approval, analytics');
+}
+
+export default router;
+
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaapi/routes/membershipRoutes.js
+// GENERAL MEMBERSHIP OPERATIONS
+// User-facing membership application and status endpoints
+
+import express from 'express';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+// Import membership middleware
+import { 
+  canApplyForMembership,
+  validateMembershipApplication,
+  rateLimitApplications,
+  logMembershipAction,
+  requirePreMemberOrHigher
+} from '../middlewares/membershipMiddleware.js';
+
+// Import controllers
+import {
+  // Pre-member application functions
+  getUserDashboard,
+  checkApplicationStatus,
+  getCurrentMembershipStatus,
+  submitInitialApplication,
+  updateApplicationAnswers,
+  updateInitialApplication,
+  withdrawApplication,
+  getApplicationRequirements,
+  getApplicationHistory,
+  getUserPermissions
+} from '../controllers/preMemberApplicationController.js';
+
+import {
+  // Full membership functions
+  getFullMembershipStatusById,
+  submitFullMembershipApplication,
+  reapplyFullMembership,
+  logFullMembershipAccess
+} from '../controllers/fullMemberApplicationController.js';
+
+import {
+  // User status functions
+  checkSurveyStatus,
+  getBasicProfile,
+  getLegacyMembershipStatus,
+  getUserStatus
+} from '../controllers/userStatusControllers.js';
+
+import {
+  // General membership functions
+  getMembershipAnalytics,
+  getMembershipStats
+} from '../controllers/membershipControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// MIDDLEWARE CHAINS FOR REUSE
+// ===============================================
+
+// Basic protected route
+const basicProtected = [
+  authenticate,
+  logMembershipAction('access_membership_content')
+];
+
+// Status check route
+const statusCheck = [
+  authenticate,
+  requirePreMemberOrHigher,
+  logMembershipAction('check_membership_status')
+];
+
+// Application submission
+const applicationSubmission = [
+  authenticate,
+  rateLimitApplications,
+  canApplyForMembership,
+  validateMembershipApplication,
+  logMembershipAction('submit_membership_application')
+];
+
+// ===============================================
+// USER DASHBOARD & STATUS
+// ===============================================
+
+// Primary dashboard
+router.get('/dashboard', authenticate, getUserDashboard);
+
+// Status checking routes
+router.get('/status', authenticate, getCurrentMembershipStatus);
+router.get('/application/status', authenticate, checkApplicationStatus);
+router.get('/survey/check-status', authenticate, checkSurveyStatus);
+
+// Legacy compatibility
+router.get('/membership/status', authenticate, getLegacyMembershipStatus);
+router.get('/user/status', authenticate, getUserStatus);
+
+// User profile and permissions
+router.get('/profile/basic', authenticate, getBasicProfile);
+router.get('/permissions', authenticate, getUserPermissions);
+router.get('/application-history', authenticate, getApplicationHistory);
+
+// ===============================================
+// INITIAL APPLICATION (PRE-MEMBER TO MEMBER)
+// ===============================================
+
+// Submit initial application
+router.post('/application/submit', ...applicationSubmission, submitInitialApplication);
+router.post('/survey/submit-application', ...applicationSubmission, submitInitialApplication);
+
+// Application management
+router.put('/application/update', authenticate, updateInitialApplication);
+router.put('/application/update-answers', authenticate, updateApplicationAnswers);
+router.post('/application/withdraw', authenticate, withdrawApplication);
+
+// Application information
+router.get('/application/requirements', authenticate, getApplicationRequirements);
+
+// ===============================================
+// FULL MEMBERSHIP APPLICATION (MEMBER TO FULL_MEMBER)
+// ===============================================
+
+// Get full membership status
+router.get('/full-membership-status/:userId', ...statusCheck, getFullMembershipStatusById);
+router.get('/full-membership-status', ...statusCheck, getFullMembershipStatusById);
+router.get('/full-membership/status', ...statusCheck, getFullMembershipStatusById);
+
+// Submit full membership application
+router.post('/full-membership/submit', ...applicationSubmission, submitFullMembershipApplication);
+router.post('/submit-full-membership', ...applicationSubmission, submitFullMembershipApplication);
+
+// Reapplication for declined applications
+router.post('/full-membership/reapply', ...applicationSubmission, reapplyFullMembership);
+
+// Access logging
+router.post('/full-membership/access-log', ...basicProtected, logFullMembershipAccess);
+
+// ===============================================
+// MEMBERSHIP ANALYTICS (USER VIEW)
+// ===============================================
+
+// Public membership statistics
+router.get('/analytics', authenticate, getMembershipAnalytics);
+router.get('/stats', authenticate, getMembershipStats);
+
+// ===============================================
+// SUPPORT ROUTES
+// ===============================================
+
+// Available resources
+router.get('/mentors/available', authenticate, async (req, res) => {
+  res.json({ 
+    success: true,
+    message: 'Available mentors endpoint - implement with mentor service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+router.get('/classes/available', authenticate, async (req, res) => {
+  res.json({ 
+    success: true,
+    message: 'Available classes endpoint - implement with class service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler
+router.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Membership route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      dashboard: [
+        'GET /dashboard - User dashboard',
+        'GET /status - Current membership status',
+        'GET /application/status - Application status',
+        'GET /survey/check-status - Survey status',
+        'GET /permissions - User permissions'
+      ],
+      initialApplication: [
+        'POST /application/submit - Submit initial application',
+        'PUT /application/update - Update application',
+        'PUT /application/update-answers - Update answers',
+        'POST /application/withdraw - Withdraw application',
+        'GET /application/requirements - Get requirements'
+      ],
+      fullMembership: [
+        'GET /full-membership-status - Get full membership status',
+        'POST /full-membership/submit - Submit full membership application',
+        'POST /full-membership/reapply - Reapply for full membership',
+        'POST /full-membership/access-log - Log access'
+      ],
+      analytics: [
+        'GET /analytics - Membership analytics',
+        'GET /stats - Membership statistics'
+      ],
+      support: [
+        'GET /mentors/available - Available mentors',
+        'GET /classes/available - Available classes'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handler
+router.use((error, req, res, next) => {
+  console.error('❌ Membership route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.username || 'unauthenticated',
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Membership operation error',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('📋 Membership routes loaded: applications, status, full membership workflow');
+}
+
+export default router;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaapi/routes/membershipAdminRoutes.js
+// ADMIN MEMBERSHIP MANAGEMENT ROUTES
+// Administrative review and management of membership applications
+
+import express from 'express';
+import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+
+// Import membership middleware
+import { 
+  canReviewApplications,
+  validateApplicationReview,
+  logMembershipAction 
+} from '../middlewares/membershipMiddleware.js';
+
+// Import admin controllers
+import {
+  // Application review functions
+  getAllPendingMembershipApplications,
+  reviewMembershipApplication,
+  getApplicationStats,
+  bulkReviewApplications,
+  
+  // Full membership management
+  getPendingFullMemberships,
+  reviewFullMembershipApplication,
+  getFullMembershipStats,
+  
+  // Analytics and reporting
+  getMembershipOverview,
+  getMembershipAnalytics,
+  exportMembershipData,
+  
+  // System management
+  getSystemConfig,
+  updateSystemConfig
+} from '../controllers/membershipAdminControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// APPLY ADMIN AUTHENTICATION TO ALL ROUTES
+// ===============================================
+router.use(authenticate);
+router.use(authorize(['admin', 'super_admin']));
+
+// ===============================================
+// CONNECTIVITY & STATUS
+// ===============================================
+
+// Admin membership test endpoint
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Admin membership routes are working!',
+    timestamp: new Date().toISOString(),
+    user: {
+      id: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role
+    },
+    availableEndpoints: {
+      applications: 'GET /applications?status=pending',
+      stats: 'GET /full-membership-stats',
+      pendingCount: 'GET /pending-count',
+      review: 'PUT /applications/:id/review'
+    }
+  });
+});
+
+// ===============================================
+// APPLICATION MANAGEMENT
+// ===============================================
+
+// Get applications with filtering
+router.get('/applications', 
+  canReviewApplications,
+  logMembershipAction('view_applications'),
+  getAllPendingMembershipApplications
+);
+
+// Get specific application details
+router.get('/applications/:id',
+  canReviewApplications,
+  logMembershipAction('view_application_details'),
+  (req, res, next) => {
+    req.applicationId = req.params.id;
+    getAllPendingMembershipApplications(req, res, next);
+  }
+);
+
+// Review application
+router.put('/applications/:id/review',
+  canReviewApplications,
+  validateApplicationReview,
+  logMembershipAction('review_application'),
+  reviewMembershipApplication
+);
+
+// Bulk application actions
+router.post('/applications/bulk-review',
+  canReviewApplications,
+  logMembershipAction('bulk_review_applications'),
+  bulkReviewApplications
+);
+
+// Legacy compatibility
+router.post('/bulk-approve', 
+  canReviewApplications,
+  logMembershipAction('bulk_approve_applications'),
+  bulkReviewApplications
+);
+
+// ===============================================
+// STATISTICS & ANALYTICS
+// ===============================================
+
+// Application statistics
+router.get('/stats',
+  canReviewApplications,
+  logMembershipAction('view_membership_stats'),
+  getApplicationStats
+);
+
+// Full membership statistics
+router.get('/full-membership-stats',
+  canReviewApplications,
+  logMembershipAction('view_full_membership_stats'),
+  getFullMembershipStats
+);
+
+// Pending count
+router.get('/pending-count',
+  canReviewApplications,
+  logMembershipAction('view_pending_count'),
+  (req, res, next) => {
+    req.query.status = 'pending';
+    getApplicationStats(req, res, next);
+  }
+);
+
+// Comprehensive analytics
+router.get('/analytics',
+  canReviewApplications,
+  logMembershipAction('view_membership_analytics'),
+  getMembershipAnalytics
+);
+
+// Membership overview dashboard
+router.get('/overview',
+  canReviewApplications,
+  logMembershipAction('view_membership_overview'),
+  getMembershipOverview
+);
+
+// ===============================================
+// FULL MEMBERSHIP MANAGEMENT
+// ===============================================
+
+// Get pending full membership applications
+router.get('/full-membership/pending',
+  canReviewApplications,
+  logMembershipAction('view_pending_full_memberships'),
+  getPendingFullMemberships
+);
+
+// Review full membership application
+router.put('/full-membership/:id/review',
+  canReviewApplications,
+  validateApplicationReview,
+  logMembershipAction('review_full_membership'),
+  reviewFullMembershipApplication
+);
+
+// ===============================================
+// DATA EXPORT & REPORTING
+// ===============================================
+
+// Export membership data
+router.get('/export',
+  authorize(['super_admin']), // Restrict to super admin
+  logMembershipAction('export_membership_data'),
+  exportMembershipData
+);
+
+// Export applications
+router.get('/export/applications',
+  authorize(['super_admin']),
+  logMembershipAction('export_applications'),
+  (req, res, next) => {
+    req.exportType = 'applications';
+    exportMembershipData(req, res, next);
+  }
+);
+
+// Export statistics
+router.get('/export/stats',
+  authorize(['super_admin']),
+  logMembershipAction('export_statistics'),
+  (req, res, next) => {
+    req.exportType = 'statistics';
+    exportMembershipData(req, res, next);
+  }
+);
+
+// ===============================================
+// SYSTEM CONFIGURATION
+// ===============================================
+
+// Get system configuration
+router.get('/config',
+  authorize(['super_admin']),
+  logMembershipAction('view_system_config'),
+  getSystemConfig
+);
+
+// Update system configuration
+router.put('/config',
+  authorize(['super_admin']),
+  logMembershipAction('update_system_config'),
+  updateSystemConfig
+);
+
+// ===============================================
+// LEGACY COMPATIBILITY ENDPOINTS
+// ===============================================
+
+// Support existing frontend calls
+router.get('/admin/membership-overview', getMembershipOverview);
+router.get('/admin/pending-applications', getAllPendingMembershipApplications);
+router.get('/admin/membership-stats', getFullMembershipStats);
+router.get('/admin/analytics', getMembershipAnalytics);
+router.post('/admin/bulk-approve', bulkReviewApplications);
+router.put('/admin/update-user-status/:userId', reviewMembershipApplication);
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler
+router.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Admin membership route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      applications: [
+        'GET /applications?status=pending - Get applications by status',
+        'GET /applications/:id - Get specific application',
+        'PUT /applications/:id/review - Review application',
+        'POST /applications/bulk-review - Bulk review applications'
+      ],
+      statistics: [
+        'GET /stats - Application statistics',
+        'GET /full-membership-stats - Full membership statistics',
+        'GET /pending-count - Count of pending applications',
+        'GET /analytics - Comprehensive analytics',
+        'GET /overview - Membership overview dashboard'
+      ],
+      fullMembership: [
+        'GET /full-membership/pending - Pending full memberships',
+        'PUT /full-membership/:id/review - Review full membership'
+      ],
+      dataExport: [
+        'GET /export - Export all membership data (super admin)',
+        'GET /export/applications - Export applications (super admin)',
+        'GET /export/stats - Export statistics (super admin)'
+      ],
+      system: [
+        'GET /config - Get system configuration (super admin)',
+        'PUT /config - Update system configuration (super admin)',
+        'GET /test - Connectivity test'
+      ]
+    },
+    adminNote: 'All routes require admin or super_admin role',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handler
+router.use((error, req, res, next) => {
+  console.error('❌ Admin membership route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.username || 'unauthenticated',
+    userRole: req.user?.role,
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Admin membership operation error',
+    path: req.path,
+    method: req.method,
+    userRole: req.user?.role,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔐 Admin membership routes loaded: application review, analytics, full membership management');
+}
+
+export default router;
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+// ikootaapi/routes/index.js
+// REORGANIZED ROUTE COORDINATOR
+// Central hub for all reorganized route modules with enhanced architecture
+
+import express from 'express';
+import { validateIdFormat } from '../utils/idGenerator.js';
+
+
+
+const validateClassId = (req, res, next) => {
+  const { id } = req.params;
+  if (id && !validateIdFormat(id, 'class')) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid class ID format. Expected OTU#XXXXXX format',
+      provided: id,
+      expected_format: 'OTU#XXXXXX'
+    });
+  }
+  next();
+};
+// ===============================================
+// IMPORT REORGANIZED ROUTE MODULES
+// ===============================================
+
+// Core System Routes
+import systemRoutes from './systemRoutes.js';
+import authRoutes from './authRoutes.js';
+
+// User Management Routes (3-tier structure)
+import userRoutes from './userRoutes.js';
+import userStatusRoutes from './userStatusRoutes.js';
+import userAdminRoutes from './userAdminRoutes.js';
+
+// Membership Management Routes (2-tier structure)
+import membershipRoutes from './membershipRoutes.js';
+import membershipAdminRoutes from './membershipAdminRoutes.js';
+
+// Survey Management Routes (2-tier structure)
+import surveyRoutes from './surveyRoutes.js';
+import surveyAdminRoutes from './surveyAdminRoutes.js';
+
+// Content Management Routes (unified)
+import contentRoutes from './contentRoutes.js';
+
+// Class Management Routes (2-tier structure)
+import classRoutes from './classRoutes.js';
+import classAdminRoutes from './classAdminRoutes.js';
+
+// Identity Management Routes (2-tier structure)
+import identityRoutes from './identityRoutes.js';
+import identityAdminRoutes from './identityAdminRoutes.js';
+
+// Communication Routes
+import communicationRoutes from './communicationRoutes.js';
+
+const router = express.Router();
+
+// ===============================================
+// ROUTE MOUNTING WITH ENHANCED ORGANIZATION
+// ===============================================
+
+console.log('🔧 Mounting reorganized API routes with enhanced architecture...');
+
+// ===== PHASE 1: CORE SYSTEM ROUTES =====
+console.log('📊 Phase 1: Core system routes...');
+router.use('/', systemRoutes);                    // /api/health, /api/info, /api/metrics
+router.use('/auth', authRoutes);                  // /api/auth/*
+
+// ===== PHASE 2: USER MANAGEMENT (3-TIER) =====
+console.log('👤 Phase 2: User management (3-tier structure)...');
+router.use('/users', userRoutes);                 // /api/users/* - Profile, settings, basic ops
+router.use('/user-status', userStatusRoutes);     // /api/user-status/* - Status, dashboard
+router.use('/admin/users', userAdminRoutes);      // /api/admin/users/* - Admin user management
+
+// ===== PHASE 3: MEMBERSHIP MANAGEMENT (2-TIER) =====  
+console.log('📋 Phase 3: Membership management (2-tier structure)...');
+router.use('/membership', membershipRoutes);      // /api/membership/* - Applications, status
+router.use('/admin/membership', membershipAdminRoutes); // /api/admin/membership/* - Admin reviews
+
+// ===== PHASE 4: SURVEY MANAGEMENT (2-TIER) =====
+console.log('📊 Phase 4: Survey management (2-tier structure)...');
+router.use('/survey', surveyRoutes);              // /api/survey/* - Submit, questions
+router.use('/admin/survey', surveyAdminRoutes);   // /api/admin/survey/* - Admin survey management
+
+// ===== PHASE 5: CONTENT MANAGEMENT (UNIFIED) =====
+console.log('📚 Phase 5: Content management (unified structure)...');
+router.use('/content', contentRoutes);            // /api/content/* - Chats, teachings, comments
+
+// ===== PHASE 6: CLASS MANAGEMENT (2-TIER) =====
+console.log('🎓 Phase 6: Class management (2-tier structure)...');
+router.use('/classes', classRoutes);              // /api/classes/* - General class operations  
+router.use('/admin/classes', classAdminRoutes);   // /api/admin/classes/* - Admin class management
+
+// ===== PHASE 7: IDENTITY MANAGEMENT (2-TIER) =====
+console.log('🆔 Phase 7: Identity management (2-tier structure)...');
+router.use('/identity', identityRoutes);          // /api/identity/* - Converse/mentor ID management
+router.use('/admin/identity', identityAdminRoutes); // /api/admin/identity/* - Admin identity control
+
+// ===== PHASE 8: COMMUNICATION =====
+console.log('💬 Phase 8: Communication infrastructure...');
+router.use('/communication', communicationRoutes); // /api/communication/* - Email, SMS, notifications
+
+// ===============================================
+// BACKWARD COMPATIBILITY LAYER
+// ===============================================
+console.log('🔄 Setting up backward compatibility layer...');
+
+// Legacy route mappings for zero-downtime migration
+const legacyRoutes = {
+  '/chats': '/content/chats',
+  '/teachings': '/content/teachings', 
+  '/comments': '/content/comments',
+  '/messages': '/content/teachings', // Messages mapped to teachings
+  '/membership-complete': '/membership',
+  '/admin-users': '/admin/users',
+  '/admin-membership': '/admin/membership',
+  '/admin-content': '/content/admin'
+};
+
+// Mount legacy compatibility routes
+Object.entries(legacyRoutes).forEach(([oldPath, newPath]) => {
+  router.use(oldPath, (req, res, next) => {
+    console.log(`🔄 Legacy route accessed: ${oldPath} → ${newPath}`);
+    req.url = newPath.replace('/content', '') + req.url;
+    
+    // Route to appropriate handler based on new path
+    if (newPath.startsWith('/content')) {
+      contentRoutes(req, res, next);
+    } else if (newPath.startsWith('/admin/users')) {
+      userAdminRoutes(req, res, next);
+    } else if (newPath.startsWith('/admin/membership')) {
+      membershipAdminRoutes(req, res, next);
+    } else if (newPath.startsWith('/membership')) {
+      membershipRoutes(req, res, next);
+    } else {
+      next();
+    }
+  });
+});
+
+// ===============================================
+// API DISCOVERY & DOCUMENTATION
+// ===============================================
+
+router.get('/info', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Ikoota API - Reorganized Architecture v3.0.0',
+    version: '3.0.0',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    
+    architecture: {
+      description: 'Functionally grouped routes with clean separation of concerns',
+      principles: [
+        'Domain-driven route organization',
+        'Consistent admin/user separation',
+        'Service layer architecture ready',
+        'Zero functionality loss',
+        'Enhanced maintainability'
+      ],
+      improvements: [
+        'Reduced route file count from 15+ to 13 focused modules',
+        'Clear naming conventions (userAdminRoutes not adminUserRoutes)',
+        'Unified content management (/api/content/*)',
+        'Enhanced admin route security and logging',
+        'Comprehensive backward compatibility'
+      ]
+    },
+    
+    routeOrganization: {
+      coreSystem: {
+        authentication: '/api/auth/*',
+        systemHealth: '/api/health, /api/info, /api/metrics'
+      },
+      userManagement: {
+        general: '/api/users/* - Profile, settings, basic operations',
+        status: '/api/user-status/* - Dashboard, status checks',
+        admin: '/api/admin/users/* - Admin user management'
+      },
+      membershipSystem: {
+        general: '/api/membership/* - Applications, status, surveys',
+        admin: '/api/admin/membership/* - Application reviews, analytics'
+      },
+      surveySystem: {
+        general: '/api/survey/* - Submit surveys, get questions',
+        admin: '/api/admin/survey/* - Manage questions, review submissions'
+      },
+      contentManagement: {
+        unified: '/api/content/* - All content types (chats, teachings, comments)',
+        structure: {
+          chats: '/api/content/chats/*',
+          teachings: '/api/content/teachings/*',
+          comments: '/api/content/comments/*',
+          admin: '/api/content/admin/*'
+        }
+      },
+      classManagement: {
+        general: '/api/classes/* - Class enrollment, content access',
+        admin: '/api/admin/classes/* - Class creation, management'
+      },
+      identityManagement: {
+        general: '/api/identity/* - Converse ID, mentor ID operations',
+        admin: '/api/admin/identity/* - Identity administration'
+      },
+      communication: '/api/communication/* - Email, SMS, notifications, future video/audio'
+    },
+    
+    adminSeparation: {
+      pattern: 'All admin routes prefixed with /admin/ for clear separation',
+      security: 'Enhanced rate limiting and logging for admin operations',
+      routes: [
+        '/api/admin/users/*',
+        '/api/admin/membership/*', 
+        '/api/admin/survey/*',
+        '/api/admin/classes/*',
+        '/api/admin/identity/*'
+      ]
+    },
+    
+    backwardCompatibility: {
+      enabled: true,
+      legacyRoutes: [
+        '/api/chats → /api/content/chats',
+        '/api/teachings → /api/content/teachings',
+        '/api/comments → /api/content/comments', 
+        '/api/messages → /api/content/teachings'
+      ],
+      migration: 'Zero-downtime migration supported'
+    },
+    
+    serviceLayerReady: {
+      status: 'Architecture prepared for service layer implementation',
+      pattern: 'Routes → Controllers → Services',
+      benefits: [
+        'Business logic separation',
+        'Enhanced testability',
+        'Code reusability',
+        'Transaction management'
+      ]
+    }
+  });
+});
+
+router.get('/routes', (req, res) => {
+  const routeInfo = {
+    success: true,
+    message: 'Complete Route Discovery - Reorganized Architecture',
+    totalRouteModules: 13,
+    organizationPattern: 'Domain-driven with admin separation',
+    
+    routeModules: {
+      core: [
+        'systemRoutes.js - Health, info, metrics',
+        'authRoutes.js - Authentication only'
+      ],
+      userManagement: [
+        'userRoutes.js - Profile, settings, basic operations',
+        'userStatusRoutes.js - Dashboard, status checks', 
+        'userAdminRoutes.js - Admin user management'
+      ],
+      membershipSystem: [
+        'membershipRoutes.js - Applications, status',
+        'membershipAdminRoutes.js - Admin reviews, analytics'
+      ],
+      surveySystem: [
+        'surveyRoutes.js - Submit, questions',
+        'surveyAdminRoutes.js - Admin survey management'
+      ],
+      content: [
+        'contentRoutes.js - Unified content management (chats, teachings, comments)'
+      ],
+      classSystem: [
+        'classRoutes.js - General class operations',
+        'classAdminRoutes.js - Admin class management'
+      ],
+      identitySystem: [
+        'identityRoutes.js - Converse/mentor ID operations',
+        'identityAdminRoutes.js - Admin identity control'
+      ],
+      communication: [
+        'communicationRoutes.js - Email, SMS, notifications, future video/audio'
+      ]
+    },
+    
+    endpointStructure: {
+      '/api/auth/*': 'Authentication endpoints',
+      '/api/users/*': 'User profile and settings',
+      '/api/user-status/*': 'User dashboard and status',
+      '/api/membership/*': 'Membership applications and status',
+      '/api/survey/*': 'Survey submissions and questions',
+      '/api/content/*': 'Unified content (chats, teachings, comments)',
+      '/api/classes/*': 'Class enrollment and access',
+      '/api/identity/*': 'Identity management (converse/mentor)',
+      '/api/communication/*': 'Email, SMS, notifications',
+      '/api/admin/users/*': 'Admin user management',
+      '/api/admin/membership/*': 'Admin membership reviews',
+      '/api/admin/survey/*': 'Admin survey management',
+      '/api/admin/classes/*': 'Admin class management',
+      '/api/admin/identity/*': 'Admin identity control'
+    },
+    
+    implementationStatus: {
+      phase1: '✅ Core infrastructure (app.js, server.js, index.js)',
+      phase2: '🔄 Route modules (in progress)',
+      phase3: '⏳ Controllers reorganization',
+      phase4: '⏳ Services implementation',
+      phase5: '⏳ Middleware consolidation'
+    },
+    
+    timestamp: new Date().toISOString()
+  };
+  
+  res.json(routeInfo);
+});
+
+// ===============================================
+// ENHANCED 404 HANDLER
+// ===============================================
+
+router.use('*', (req, res) => {
+  console.log(`❌ API route not found: ${req.method} ${req.originalUrl}`);
+  
+  const requestedPath = req.originalUrl.toLowerCase();
+  const suggestions = [];
+  
+  // Smart path suggestions
+  if (requestedPath.includes('user')) {
+    suggestions.push('/api/users', '/api/user-status', '/api/admin/users');
+  }
+  if (requestedPath.includes('member')) {
+    suggestions.push('/api/membership', '/api/admin/membership');
+  }
+  if (requestedPath.includes('admin')) {
+    suggestions.push('/api/admin/users', '/api/admin/membership', '/api/admin/classes');
+  }
+  if (requestedPath.includes('content') || requestedPath.includes('chat') || requestedPath.includes('teaching')) {
+    suggestions.push('/api/content/chats', '/api/content/teachings', '/api/content/comments');
+  }
+  if (requestedPath.includes('class')) {
+    suggestions.push('/api/classes', '/api/admin/classes');
+  }
+  if (requestedPath.includes('survey')) {
+    suggestions.push('/api/survey', '/api/admin/survey');
+  }
+  if (requestedPath.includes('identity')) {
+    suggestions.push('/api/identity', '/api/admin/identity');
+  }
+  
+  res.status(404).json({
+    success: false,
+    message: 'API endpoint not found',
+    path: req.originalUrl,
+    method: req.method,
+    suggestions: suggestions.length > 0 ? suggestions : undefined,
+    
+    availableRouteGroups: {
+      core: {
+        authentication: '/api/auth/*',
+        system: '/api/health, /api/info, /api/routes, /api/metrics'
+      },
+      userManagement: {
+        general: '/api/users/* - Profile, settings, basic operations',
+        status: '/api/user-status/* - Dashboard, status checks',
+        admin: '/api/admin/users/* - Admin user management'
+      },
+      membershipSystem: {
+        general: '/api/membership/* - Applications, status',
+        admin: '/api/admin/membership/* - Reviews, analytics'
+      },
+      surveySystem: {
+        general: '/api/survey/* - Submit, questions',
+        admin: '/api/admin/survey/* - Management'
+      },
+      contentManagement: {
+        unified: '/api/content/* - All content types',
+        breakdown: {
+          chats: '/api/content/chats/*',
+          teachings: '/api/content/teachings/*',
+          comments: '/api/content/comments/*',
+          admin: '/api/content/admin/*'
+        }
+      },
+      classManagement: {
+        general: '/api/classes/* - Enrollment, access',
+        admin: '/api/admin/classes/* - Creation, management'
+      },
+      identityManagement: {
+        general: '/api/identity/* - Converse/mentor operations',
+        admin: '/api/admin/identity/* - Administration'
+      },
+      communication: '/api/communication/* - Email, SMS, notifications'
+    },
+    
+    legacyCompatibility: {
+      note: 'Legacy routes automatically redirected',
+      examples: [
+        '/api/chats → /api/content/chats',
+        '/api/teachings → /api/content/teachings',
+        '/api/messages → /api/content/teachings'
+      ]
+    },
+    
+    help: {
+      documentation: '/api/info',
+      routeDiscovery: '/api/routes', 
+      healthCheck: '/api/health',
+      performanceMetrics: '/api/metrics'
+    },
+    
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// GLOBAL ERROR HANDLER FOR ROUTES
+// ===============================================
+
+router.use((error, req, res, next) => {
+  const errorId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  const isAdminRoute = req.originalUrl.startsWith('/api/admin/');
+  
+  console.error('🚨 Global Route Error:', {
+    errorId,
+    error: error.message,
+    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    path: req.originalUrl,
+    method: req.method,
+    ip: req.ip,
+    isAdminRoute,
+    timestamp: new Date().toISOString()
+  });
+  
+  let statusCode = error.statusCode || error.status || 500;
+  let errorType = 'server_error';
+  
+  // Enhanced error categorization
+  if (error.message.includes('validation') || error.message.includes('required')) {
+    statusCode = 400;
+    errorType = 'validation_error';
+  } else if (error.message.includes('authentication') || error.message.includes('token')) {
+    statusCode = 401;
+    errorType = 'authentication_error';
+  } else if (error.message.includes('permission') || error.message.includes('access denied')) {
+    statusCode = 403;
+    errorType = 'authorization_error';
+  } else if (error.message.includes('not found')) {
+    statusCode = 404;
+    errorType = 'not_found_error';
+  } else if (error.message.includes('database') || error.message.includes('connection')) {
+    statusCode = 503;
+    errorType = 'database_error';
+  } else if (error.message.includes('timeout')) {
+    statusCode = 504;
+    errorType = 'timeout_error';
+  }
+  
+  const errorResponse = {
+    success: false,
+    error: error.message || 'Internal server error',
+    errorType,
+    errorId,
+    path: req.originalUrl,
+    method: req.method,
+    isAdminRoute,
+    timestamp: new Date().toISOString()
+  };
+  
+  // Add debug info in development
+  if (process.env.NODE_ENV === 'development') {
+    errorResponse.debug = {
+      stack: error.stack,
+      details: error
+    };
+  }
+  
+  if (process.env.NODE_ENV === 'development') {
+  router.get('/test/classes', (req, res) => {
+    res.json({
+      success: true,
+      message: 'Class routes test endpoint',
+      available_routes: {
+        general: '/api/classes/*',
+        admin: '/api/admin/classes/*'
+      },
+      test_endpoints: {
+        get_all_classes: 'GET /api/classes',
+        get_available_classes: 'GET /api/classes/available',
+        get_user_classes: 'GET /api/classes/my-classes',
+        admin_get_management: 'GET /api/admin/classes',
+        admin_create_class: 'POST /api/admin/classes'
+      },
+      timestamp: new Date().toISOString()
+    });
+  });
+}
+
+
+  // Add contextual help based on error type and route
+  if (statusCode === 401) {
+    errorResponse.help = {
+      message: 'Authentication required',
+      endpoint: '/api/auth/login',
+      adminNote: isAdminRoute ? 'Admin routes require Bearer token with admin/super_admin role' : undefined
+    };
+  } else if (statusCode === 403) {
+    errorResponse.help = {
+      message: 'Insufficient permissions',
+      adminNote: isAdminRoute ? 'Admin routes require admin or super_admin role' : undefined
+    };
+  } else if (statusCode === 404) {
+    errorResponse.help = {
+      message: 'Endpoint not found',
+      routeDiscovery: '/api/routes',
+      documentation: '/api/info'
+    };
+  }
+  
+  res.status(statusCode).json(errorResponse);
+});
+
+// ===============================================
+// DEVELOPMENT LOGGING & STARTUP INFO
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('\n🚀 IKOOTA API ROUTES - REORGANIZED ARCHITECTURE v3.0.0');
+  console.log('================================================================================');
+  console.log('✅ DOMAIN-DRIVEN ORGANIZATION: Routes grouped by business function');
+  console.log('✅ ADMIN SEPARATION: Clear /admin/ prefix for all administrative routes');
+  console.log('✅ SERVICE READY: Architecture prepared for service layer implementation');
+  console.log('✅ CONSISTENT NAMING: Standardized file and endpoint naming conventions');
+  console.log('✅ ZERO DOWNTIME: Complete backward compatibility with legacy routes');
+  console.log('================================================================================');
+  
+  console.log('\n📊 REORGANIZATION SUMMARY:');
+  console.log('   📁 Route Modules: 13 functionally grouped files');
+  console.log('   🎯 Admin Routes: 6 dedicated admin modules with enhanced security');
+  console.log('   🔄 Legacy Support: 8 backward compatibility mappings');
+  console.log('   🛡️ Security: Enhanced rate limiting and error handling');
+  console.log('   📈 Scalability: Structure supports future features (video calls, etc.)');
+  
+  console.log('\n🗂️ NEW FILE STRUCTURE:');
+  console.log('   Core System:');
+  console.log('   • systemRoutes.js - Health, info, metrics');
+  console.log('   • authRoutes.js - Authentication only');
+  console.log('');
+  console.log('   User Management (3-tier):');
+  console.log('   • userRoutes.js - Profile, settings, basic ops');
+  console.log('   • userStatusRoutes.js - Dashboard, status checks');
+  console.log('   • userAdminRoutes.js - Admin user management');
+  console.log('');
+  console.log('   Domain-Specific (2-tier each):');
+  console.log('   • membershipRoutes.js + membershipAdminRoutes.js');
+  console.log('   • surveyRoutes.js + surveyAdminRoutes.js');
+  console.log('   • classRoutes.js + classAdminRoutes.js');
+  console.log('   • identityRoutes.js + identityAdminRoutes.js');
+  console.log('');
+  console.log('   Unified Systems:');
+  console.log('   • contentRoutes.js - Chats, teachings, comments unified');
+  console.log('   • communicationRoutes.js - Email, SMS, future video/audio');
+  
+  console.log('\n🎯 IMPLEMENTATION BENEFITS:');
+  console.log('   • Easier maintenance: Related functions grouped together');
+  console.log('   • Clear responsibility: Each file has focused purpose');
+  console.log('   • Scalable architecture: Easy to add new features');
+  console.log('   • Enhanced security: Admin routes properly isolated');
+  console.log('   • Better testing: Modular structure supports unit testing');
+  console.log('   • Code reusability: Service layer architecture ready');
+  
+  console.log('\n🔄 MIGRATION STRATEGY:');
+  console.log('   1. ✅ Core infrastructure (app.js, server.js, index.js)');
+  console.log('   2. 🔄 Route reorganization (current phase)');
+  console.log('   3. ⏳ Controller consolidation'); 
+  console.log('   4. ⏳ Service layer implementation');
+  console.log('   5. ⏳ Legacy cleanup');
+  
+  console.log('================================================================================');
+  console.log('🌟 REORGANIZED ROUTE ARCHITECTURE READY');
+  console.log('🔗 API Info: http://localhost:3000/api/info');
+  console.log('📋 Route Discovery: http://localhost:3000/api/routes');
+  console.log('❤️ Health Check: http://localhost:3000/api/health');
+  console.log('================================================================================\n');
+}
+
+export default router;
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaapi/routes/identityRoutes.js
+// IDENTITY MANAGEMENT ROUTES
+// Converse ID and Mentor ID operations
+
+import express from 'express';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+// Import identity controllers (separated as requested)
+import {
+  // Converse ID operations
+  generateConverseId,
+  getConverseId,
+  updateConverseId,
+  deleteConverseId,
+  getClassMembers
+} from '../controllers/converseIdControllers.js';
+
+import {
+  // Mentor ID operations
+  generateMentorId,
+  getMentorId,
+  updateMentorId,
+  deleteMentorId,
+  getMentees,
+  assignMentee,
+  removeMentee
+} from '../controllers/mentorIdControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// CONVERSE ID MANAGEMENT - /api/identity/converse/*
+// ===============================================
+
+// GET /identity/converse - Get user's converse ID
+router.get('/converse', authenticate, getConverseId);
+
+// POST /identity/converse/generate - Generate new converse ID
+router.post('/converse/generate', authenticate, generateConverseId);
+
+// PUT /identity/converse - Update converse ID settings
+router.put('/converse', authenticate, updateConverseId);
+
+// DELETE /identity/converse - Delete/reset converse ID
+router.delete('/converse', authenticate, deleteConverseId);
+
+// GET /identity/converse/class/:classId/members - Get class members via converse ID
+router.get('/converse/class/:classId/members', authenticate, getClassMembers);
+
+// ===============================================
+// MENTOR ID MANAGEMENT - /api/identity/mentor/*
+// ===============================================
+
+// GET /identity/mentor - Get user's mentor ID
+router.get('/mentor', authenticate, getMentorId);
+
+// POST /identity/mentor/generate - Generate new mentor ID
+router.post('/mentor/generate', authenticate, generateMentorId);
+
+// PUT /identity/mentor - Update mentor ID settings
+router.put('/mentor', authenticate, updateMentorId);
+
+// DELETE /identity/mentor - Delete/reset mentor ID
+router.delete('/mentor', authenticate, deleteMentorId);
+
+// GET /identity/mentor/mentees - Get mentor's mentees
+router.get('/mentor/mentees', authenticate, getMentees);
+
+// POST /identity/mentor/mentees/assign - Assign mentee
+router.post('/mentor/mentees/assign', authenticate, assignMentee);
+
+// DELETE /identity/mentor/mentees/:menteeId - Remove mentee
+router.delete('/mentor/mentees/:menteeId', authenticate, removeMentee);
+
+// ===============================================
+// GENERAL IDENTITY OPERATIONS
+// ===============================================
+
+// GET /identity/status - Get identity status
+router.get('/status', authenticate, async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Identity status endpoint - implement with identity service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// POST /identity/verify - Start identity verification
+router.post('/verify', authenticate, async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Identity verification endpoint - implement with verification service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// PRIVACY SETTINGS
+// ===============================================
+
+// GET /identity/privacy-settings - Get privacy settings
+router.get('/privacy-settings', authenticate, async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Privacy settings endpoint - implement with privacy service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// PUT /identity/privacy-settings - Update privacy settings
+router.put('/privacy-settings', authenticate, async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Update privacy settings endpoint - implement with privacy service',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// TESTING ENDPOINTS
+// ===============================================
+
+// Identity management test
+router.get('/test', authenticate, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Identity routes are working!',
+    timestamp: new Date().toISOString(),
+    user: {
+      id: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role
+    },
+    availableIdentityTypes: ['converse', 'mentor'],
+    endpoint: '/api/identity/test'
+  });
+});
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler
+router.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Identity route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      converseId: [
+        'GET /converse - Get converse ID',
+        'POST /converse/generate - Generate converse ID',
+        'PUT /converse - Update converse ID',
+        'DELETE /converse - Delete converse ID',
+        'GET /converse/class/:classId/members - Get class members'
+      ],
+      mentorId: [
+        'GET /mentor - Get mentor ID',
+        'POST /mentor/generate - Generate mentor ID',
+        'PUT /mentor - Update mentor ID',
+        'DELETE /mentor - Delete mentor ID',
+        'GET /mentor/mentees - Get mentees',
+        'POST /mentor/mentees/assign - Assign mentee',
+        'DELETE /mentor/mentees/:menteeId - Remove mentee'
+      ],
+      general: [
+        'GET /status - Identity status',
+        'POST /verify - Start verification'
+      ],
+      privacy: [
+        'GET /privacy-settings - Get privacy settings',
+        'PUT /privacy-settings - Update privacy settings'
+      ],
+      testing: [
+        'GET /test - Identity routes test'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handler
+router.use((error, req, res, next) => {
+  console.error('❌ Identity route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.username || 'unauthenticated',
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Identity operation error',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('🆔 Identity routes loaded: converse ID, mentor ID, privacy settings');
+}
+
+export default router;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaapi/routes/identityAdminRoutes.js
+// IDENTITY ADMIN ROUTES - Super Admin Identity Management
+// Handles identity masking, unmasking, and comprehensive identity administration
+
+import express from 'express';
+import { authenticate, requireAdmin, requireSuperAdmin } from '../middlewares/auth.middleware.js';
+
+// Import identity admin controllers
+import {
+  maskUserIdentity,
+  unmaskUserIdentity,
+  getIdentityAuditTrail,
+  getIdentityOverview,
+  searchMaskedIdentities,
+  generateBulkConverseIds,
+  verifyIdentityIntegrity,
+  getMentorAnalytics,
+  bulkAssignMentors,
+  getIdentityDashboard,
+  exportIdentityData,
+  manageMentorAssignment,
+  generateUniqueConverseId,
+  getCompleteUserIdentity,
+  updateMaskingSettings
+} from '../controllers/identityAdminControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// CORE IDENTITY MASKING OPERATIONS (Admin Only)
+// ===============================================
+
+// POST /admin/identity/mask-identity - Mask user identity when granting membership
+router.post('/mask-identity', authenticate, requireAdmin, maskUserIdentity);
+
+// POST /admin/identity/unmask - Unmask user identity (Super Admin only)
+router.post('/unmask', authenticate, requireSuperAdmin, unmaskUserIdentity);
+
+// ===============================================
+// IDENTITY AUDIT & MONITORING (Super Admin Only)
+// ===============================================
+
+// GET /admin/identity/audit-trail - Get identity masking audit trail
+router.get('/audit-trail', authenticate, requireSuperAdmin, getIdentityAuditTrail);
+
+// GET /admin/identity/overview - Get identity system overview
+router.get('/overview', authenticate, requireSuperAdmin, getIdentityOverview);
+
+// GET /admin/identity/verify-integrity - Verify identity system integrity
+router.get('/verify-integrity', authenticate, requireSuperAdmin, verifyIdentityIntegrity);
+
+// GET /admin/identity/dashboard - Get identity management dashboard
+router.get('/dashboard', authenticate, requireAdmin, getIdentityDashboard);
+
+// ===============================================
+// IDENTITY SEARCH & LOOKUP (Super Admin Only)
+// ===============================================
+
+// GET /admin/identity/search - Search masked identities
+router.get('/search', authenticate, requireSuperAdmin, searchMaskedIdentities);
+
+// GET /admin/identity/user/:userId/complete - Get complete user identity
+router.get('/user/:userId/complete', authenticate, requireSuperAdmin, getCompleteUserIdentity);
+
+// ===============================================
+// CONVERSE ID GENERATION (Admin Only)
+// ===============================================
+
+// POST /admin/identity/generate-converse-id - Generate unique converse ID
+router.post('/generate-converse-id', authenticate, requireAdmin, generateUniqueConverseId);
+
+// POST /admin/identity/generate-bulk-ids - Generate bulk converse IDs
+router.post('/generate-bulk-ids', authenticate, requireAdmin, generateBulkConverseIds);
+
+// ===============================================
+// MENTOR ASSIGNMENT MANAGEMENT (Admin Only)
+// ===============================================
+
+// GET /admin/identity/mentor-analytics - Get mentor assignment analytics
+router.get('/mentor-analytics', authenticate, requireAdmin, getMentorAnalytics);
+
+// POST /admin/identity/bulk-assign-mentors - Bulk assign mentors to mentees
+router.post('/bulk-assign-mentors', authenticate, requireAdmin, bulkAssignMentors);
+
+// PUT /admin/identity/mentor-assignments/:menteeConverseId - Manage mentor assignments
+router.put('/mentor-assignments/:menteeConverseId', authenticate, requireAdmin, manageMentorAssignment);
+
+// ===============================================
+// SYSTEM CONFIGURATION (Super Admin Only)
+// ===============================================
+
+// PUT /admin/identity/masking-settings - Update identity masking settings
+router.put('/masking-settings', authenticate, requireSuperAdmin, updateMaskingSettings);
+
+// GET /admin/identity/export - Export identity data
+router.get('/export', authenticate, requireSuperAdmin, exportIdentityData);
+
+// ===============================================
+// LEGACY COMPATIBILITY ROUTES
+// ===============================================
+
+// POST /admin/mask-identity - Legacy route (maps to new structure)
+router.post('/mask-identity-legacy', authenticate, requireAdmin, (req, res, next) => {
+  console.log('🔄 Legacy identity masking route accessed - redirecting to new structure');
+  maskUserIdentity(req, res, next);
+});
+
+// ===============================================
+// UTILITY & TESTING ENDPOINTS
+// ===============================================
+
+// GET /admin/identity/health - Identity system health check
+router.get('/health', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const healthMetrics = {
+      encryptionStatus: process.env.IDENTITY_ENCRYPTION_KEY ? 'active' : 'missing',
+      databaseConnection: 'checking...',
+      timestamp: new Date().toISOString()
+    };
+    
+    // Test database connection
+    try {
+      await db.query('SELECT 1');
+      healthMetrics.databaseConnection = 'healthy';
+    } catch (dbError) {
+      healthMetrics.databaseConnection = 'error';
+      healthMetrics.dbError = dbError.message;
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Identity system health check',
+      health: healthMetrics,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Health check failed',
+      details: error.message
+    });
+  }
+});
+
+// GET /admin/identity/stats - Quick identity statistics
+router.get('/stats', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const maskedCount = await db.query('SELECT COUNT(*) as count FROM users WHERE is_identity_masked = 1');
+    const mentorCount = await db.query('SELECT COUNT(DISTINCT mentor_converse_id) as count FROM mentors WHERE is_active = 1');
+    const unassignedCount = await db.query('SELECT COUNT(*) as count FROM users WHERE is_member = "granted" AND mentor_id IS NULL');
+    
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalMaskedUsers: maskedCount[0]?.count || 0,
+        totalMentors: mentorCount[0]?.count || 0,
+        unassignedMembers: unassignedCount[0]?.count || 0,
+        lastUpdated: new Date().toISOString()
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get identity stats',
+      details: error.message
+    });
+  }
+});
+
+// ===============================================
+// TESTING ENDPOINTS (Development Only)
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  // Test identity admin functionality
+  router.get('/test', authenticate, requireAdmin, (req, res) => {
+    res.json({
+      success: true,
+      message: 'Identity admin routes are working!',
+      timestamp: new Date().toISOString(),
+      admin: {
+        id: req.user?.id,
+        username: req.user?.username,
+        role: req.user?.role,
+        converseId: req.user?.converse_id
+      },
+      availableOperations: [
+        'POST /mask-identity - Mask user identity',
+        'POST /unmask - Unmask user identity (Super Admin)',
+        'GET /audit-trail - View audit trail (Super Admin)',
+        'GET /overview - System overview (Super Admin)',
+        'GET /search - Search identities (Super Admin)',
+        'POST /generate-converse-id - Generate converse ID',
+        'POST /bulk-assign-mentors - Bulk mentor assignment',
+        'GET /mentor-analytics - Mentor analytics',
+        'GET /dashboard - Identity dashboard',
+        'GET /export - Export identity data (Super Admin)'
+      ],
+      endpoint: '/api/admin/identity/test'
+    });
+  });
+}
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler for identity admin routes
+router.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Identity admin route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      coreOperations: [
+        'POST /mask-identity - Mask user identity (Admin)',
+        'POST /unmask - Unmask user identity (Super Admin)',
+        'GET /overview - System overview (Super Admin)',
+        'GET /dashboard - Management dashboard (Admin)'
+      ],
+      auditAndMonitoring: [
+        'GET /audit-trail - Identity audit trail (Super Admin)',
+        'GET /verify-integrity - System integrity check (Super Admin)',
+        'GET /health - System health check (Admin)',
+        'GET /stats - Quick statistics (Admin)'
+      ],
+      searchAndLookup: [
+        'GET /search - Search masked identities (Super Admin)',
+        'GET /user/:userId/complete - Complete user identity (Super Admin)'
+      ],
+      idGeneration: [
+        'POST /generate-converse-id - Generate converse ID (Admin)',
+        'POST /generate-bulk-ids - Generate bulk IDs (Admin)'
+      ],
+      mentorManagement: [
+        'GET /mentor-analytics - Mentor analytics (Admin)',
+        'POST /bulk-assign-mentors - Bulk mentor assignment (Admin)',
+        'PUT /mentor-assignments/:menteeConverseId - Manage assignments (Admin)'
+      ],
+      systemConfig: [
+        'PUT /masking-settings - Update masking settings (Super Admin)',
+        'GET /export - Export identity data (Super Admin)'
+      ]
+    },
+    accessLevels: {
+      admin: 'Can mask identities, generate IDs, manage mentors',
+      super_admin: 'Can unmask identities, view audit trails, export data'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handler for identity admin routes
+router.use((error, req, res, next) => {
+  console.error('❌ Identity admin route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    admin: req.user?.username || 'unknown',
+    role: req.user?.role || 'unknown',
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Identity admin operation error',
+    path: req.path,
+    method: req.method,
+    errorType: 'identity_admin_error',
+    timestamp: new Date().toISOString(),
+    help: {
+      documentation: '/api/info',
+      adminRoutes: '/api/admin/identity/',
+      support: 'Contact system administrator'
+    }
+  });
+});
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔐 Identity admin routes loaded: masking, unmasking, mentor management, audit trails');
+}
+
+export default router;
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaapi/routes/contentRoutes.js - UPDATED
+// Integration with new contentAdminControllers.js
+// Unified content management with proper admin separation
+
+import express from 'express';
+import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+import { uploadMiddleware, uploadToS3 } from '../middlewares/upload.middleware.js';
+
+// ===============================================
+// IMPORT INDIVIDUAL CONTENT CONTROLLERS
+// ===============================================
+
+// Chat Controllers
+import {
+  fetchAllChats,
+  fetchChatsByUserId,
+  createChat,
+  addCommentToChat,
+  getChatHistory,
+  editChat,
+  removeChat,
+  fetchChatsByIds,
+  fetchChatByPrefixedId,
+  fetchCombinedContent
+} from '../controllers/chatsControllers.js';
+
+// Teaching Controllers
+import {
+  createTeaching,
+  fetchAllTeachings,
+  fetchTeachingsByUserId,
+  editTeaching,
+  removeTeaching,
+  fetchTeachingsByIds,
+  fetchTeachingByPrefixedId,
+  searchTeachingsController,
+  fetchTeachingStats
+} from '../controllers/teachingsControllers.js';
+
+// Comment Controllers
+import {
+  createComment,
+  uploadCommentFiles,
+  fetchParentChatsAndTeachingsWithComments,
+  fetchCommentsByParentIds,
+  fetchCommentsByUserId,
+  fetchAllComments,
+  fetchCommentStats,
+  fetchCommentById,
+  updateComment,
+  deleteComment
+} from '../controllers/commentsControllers.js';
+
+// ===============================================
+// IMPORT NEW CONTENT ADMIN CONTROLLERS
+// ===============================================
+
+import {
+  // Main content admin functions
+  getPendingContent,
+  manageContent,
+  approveContent,
+  rejectContent,
+  deleteContent,
+  
+  // Content type specific admin functions
+  getChatsForAdmin,
+  getTeachingsForAdmin,
+  getCommentsForAdmin,
+  updateContentStatus,
+  
+  // Reports and audit functions
+  getReports,
+  updateReportStatus,
+  getAuditLogs,
+  
+  // Utility functions
+  sendNotification,
+  getContentStats,
+  bulkManageContent
+} from '../controllers/contentAdminControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// CHATS ENDPOINTS - /api/content/chats/*
+// ===============================================
+
+// GET /content/chats - Fetch all chats
+router.get('/chats', fetchAllChats);
+
+// GET /content/chats/user - Fetch chats by user_id
+router.get('/chats/user', authenticate, fetchChatsByUserId);
+
+// GET /content/chats/ids - Fetch chats by multiple IDs
+router.get('/chats/ids', authenticate, fetchChatsByIds);
+
+// GET /content/chats/prefixed/:prefixedId - Fetch chat by prefixed ID
+router.get('/chats/prefixed/:prefixedId', authenticate, fetchChatByPrefixedId);
+
+// GET /content/chats/combinedcontent - Combined content endpoint
+router.get('/chats/combinedcontent', authenticate, fetchCombinedContent);
+
+// GET /content/chats/:userId1/:userId2 - Get chat history between users
+router.get('/chats/:userId1/:userId2', authenticate, getChatHistory);
+
+// POST /content/chats - Create new chat
+router.post('/chats', authenticate, uploadMiddleware, uploadToS3, createChat);
+
+// POST /content/chats/:chatId/comments - Add comment to chat
+router.post('/chats/:chatId/comments', authenticate, uploadMiddleware, uploadToS3, addCommentToChat);
+
+// PUT /content/chats/:id - Update chat
+router.put('/chats/:id', authenticate, uploadMiddleware, uploadToS3, editChat);
+
+// DELETE /content/chats/:id - Delete chat
+router.delete('/chats/:id', authenticate, removeChat);
+
+// ===============================================
+// TEACHINGS ENDPOINTS - /api/content/teachings/*
+// ===============================================
+
+// GET /content/teachings - Fetch all teachings
+router.get('/teachings', fetchAllTeachings);
+
+// GET /content/teachings/search - Search teachings
+router.get('/teachings/search', authenticate, searchTeachingsController);
+
+// GET /content/teachings/stats - Get teaching statistics
+router.get('/teachings/stats', authenticate, fetchTeachingStats);
+
+// GET /content/teachings/user - Fetch teachings by user_id
+router.get('/teachings/user', authenticate, fetchTeachingsByUserId);
+
+// GET /content/teachings/ids - Fetch teachings by multiple IDs
+router.get('/teachings/ids', authenticate, fetchTeachingsByIds);
+
+// GET /content/teachings/prefixed/:prefixedId - Fetch teaching by prefixed ID
+router.get('/teachings/prefixed/:prefixedId', authenticate, fetchTeachingByPrefixedId);
+
+// GET /content/teachings/:id - Fetch single teaching by ID
+router.get('/teachings/:id', authenticate, fetchTeachingByPrefixedId);
+
+// POST /content/teachings - Create new teaching
+router.post('/teachings', authenticate, uploadMiddleware, uploadToS3, createTeaching);
+
+// PUT /content/teachings/:id - Update teaching
+router.put('/teachings/:id', authenticate, uploadMiddleware, uploadToS3, editTeaching);
+
+// DELETE /content/teachings/:id - Delete teaching
+router.delete('/teachings/:id', authenticate, removeTeaching);
+
+// ===============================================
+// COMMENTS ENDPOINTS - /api/content/comments/*
+// ===============================================
+
+// GET /content/comments/all - Fetch all comments
+router.get('/comments/all', authenticate, fetchAllComments);
+
+// GET /content/comments/stats - Get comment statistics
+router.get('/comments/stats', authenticate, fetchCommentStats);
+
+// GET /content/comments/parent-comments - Fetch parent content with comments
+router.get('/comments/parent-comments', authenticate, fetchParentChatsAndTeachingsWithComments);
+
+// GET /content/comments/user/:user_id - Fetch comments by user
+router.get('/comments/user/:user_id', authenticate, fetchCommentsByUserId);
+
+// POST /content/comments/upload - Upload files for comments
+router.post('/comments/upload', authenticate, uploadMiddleware, uploadToS3, uploadCommentFiles);
+
+// POST /content/comments - Create new comment
+router.post('/comments', authenticate, uploadMiddleware, uploadToS3, createComment);
+
+// GET /content/comments/:commentId - Get specific comment
+router.get('/comments/:commentId', authenticate, fetchCommentById);
+
+// PUT /content/comments/:commentId - Update comment
+router.put('/comments/:commentId', authenticate, uploadMiddleware, uploadToS3, updateComment);
+
+// DELETE /content/comments/:commentId - Delete comment
+router.delete('/comments/:commentId', authenticate, deleteComment);
+
+// ===============================================
+// ADMIN CONTENT ENDPOINTS - /api/content/admin/*
+// ✅ UPDATED TO USE NEW contentAdminControllers
+// ===============================================
+
+// Apply admin authentication to all admin routes
+router.use('/admin/*', authenticate, authorize(['admin', 'super_admin']));
+
+// ===== MAIN ADMIN CONTENT MANAGEMENT =====
+
+// GET /content/admin/pending - Get pending content across all types
+router.get('/admin/pending', getPendingContent);
+
+// GET/POST /content/admin/manage - Manage content (bulk operations)
+router.get('/admin/manage', manageContent);
+router.post('/admin/manage', manageContent);
+
+// POST /content/admin/bulk-manage - Enhanced bulk operations
+router.post('/admin/bulk-manage', bulkManageContent);
+
+// POST /content/admin/:id/approve - Approve content
+router.post('/admin/:id/approve', approveContent);
+
+// POST /content/admin/:id/reject - Reject content
+router.post('/admin/:id/reject', rejectContent);
+
+// DELETE /content/admin/:contentType/:id - Delete specific content
+router.delete('/admin/:contentType/:id', deleteContent);
+
+// ===== CONTENT TYPE SPECIFIC ADMIN ENDPOINTS =====
+
+// GET /content/admin/chats - Get all chats for admin management
+router.get('/admin/chats', getChatsForAdmin);
+
+// GET /content/admin/teachings - Get all teachings for admin management
+router.get('/admin/teachings', getTeachingsForAdmin);
+
+// GET /content/admin/comments - Get all comments for admin management
+router.get('/admin/comments', getCommentsForAdmin);
+
+// PUT /content/admin/:contentType/:id - Update content status
+router.put('/admin/:contentType/:id', updateContentStatus);
+
+// ===== REPORTS AND AUDIT =====
+
+// GET /content/admin/reports - Get content reports
+router.get('/admin/reports', getReports);
+
+// PUT /content/admin/reports/:reportId/status - Update report status
+router.put('/admin/reports/:reportId/status', updateReportStatus);
+
+// GET /content/admin/audit-logs - Get audit logs
+router.get('/admin/audit-logs', getAuditLogs);
+
+// ===== ADMIN UTILITIES =====
+
+// POST /content/admin/notifications/send - Send notification
+router.post('/admin/notifications/send', sendNotification);
+
+// GET /content/admin/stats - Get content statistics
+router.get('/admin/stats', getContentStats);
+
+// ===============================================
+// LEGACY COMPATIBILITY ROUTES
+// ✅ MAINTAINED FOR BACKWARD COMPATIBILITY
+// ===============================================
+
+// Legacy /chats routes
+router.use('/chats-legacy', (req, res, next) => {
+  console.log('🔄 Legacy /chats route accessed');
+  req.url = req.url.replace('/chats-legacy', '/chats');
+  next();
+});
+
+// Legacy /teachings routes  
+router.use('/teachings-legacy', (req, res, next) => {
+  console.log('🔄 Legacy /teachings route accessed');
+  req.url = req.url.replace('/teachings-legacy', '/teachings');
+  next();
+});
+
+// Legacy /comments routes
+router.use('/comments-legacy', (req, res, next) => {
+  console.log('🔄 Legacy /comments route accessed');
+  req.url = req.url.replace('/comments-legacy', '/comments');
+  next();
+});
+
+// Legacy /messages route mapped to teachings
+router.get('/messages', (req, res, next) => {
+  console.log('🔄 Legacy /messages route accessed, mapping to teachings');
+  req.url = '/teachings';
+  req.query.legacy_messages = 'true';
+  fetchAllTeachings(req, res, next);
+});
+
+// ADD THIS AS A NEW ROUTE IN contentRoutes.js (in the legacy compatibility section)
+
+// Legacy /messages route mapped to teachings
+router.get('/messages', async (req, res) => {
+  try {
+    console.log('Legacy /api/messages endpoint accessed, mapping to teachings');
+    
+    // Map query parameters
+    const { status, page = 1, limit = 50, user_id } = req.query;
+    
+    // Map status to approval_status
+    let approval_status;
+    if (status) {
+      switch (status.toLowerCase()) {
+        case 'pending':
+          approval_status = 'pending';
+          break;
+        case 'approved':
+          approval_status = 'approved';
+          break;
+        case 'rejected':
+          approval_status = 'rejected';
+          break;
+        default:
+          approval_status = status;
+      }
+    }
+
+    const filters = {
+      approval_status,
+      user_id,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    };
+
+    // Import getAllTeachings at the top of the file if not already imported
+    const { getAllTeachings } = await import('../services/teachingsServices.js');
+    const teachings = await getAllTeachings(filters);
+    
+    // Return in format expected by frontend
+    res.status(200).json({
+      success: true,
+      data: teachings,
+      count: teachings.length,
+      message: 'Messages endpoint mapped to teachings',
+      filters
+    });
+
+  } catch (error) {
+    console.error('Error in legacy messages endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Failed to fetch messages (teachings)'
+    });
+  }
+});
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+// 404 handler for content routes
+router.use('*', (req, res) => {
+  console.log(`❌ Content route not found: ${req.method} ${req.path}`);
+  
+  res.status(404).json({
+    success: false,
+    error: 'Content route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      chats: [
+        'GET /chats - Get all chats',
+        'GET /chats/user - Get user chats',
+        'GET /chats/combinedcontent - Combined content',
+        'POST /chats - Create chat',
+        'PUT /chats/:id - Update chat',
+        'DELETE /chats/:id - Delete chat'
+      ],
+      teachings: [
+        'GET /teachings - Get all teachings',
+        'GET /teachings/search - Search teachings',
+        'GET /teachings/stats - Teaching statistics',
+        'POST /teachings - Create teaching',
+        'PUT /teachings/:id - Update teaching',
+        'DELETE /teachings/:id - Delete teaching'
+      ],
+      comments: [
+        'GET /comments/all - Get all comments',
+        'GET /comments/stats - Comment statistics',
+        'POST /comments - Create comment',
+        'PUT /comments/:id - Update comment',
+        'DELETE /comments/:id - Delete comment'
+      ],
+      admin: [
+        'GET /admin/pending - Pending content',
+        'GET /admin/chats - Admin chat management',
+        'GET /admin/teachings - Admin teaching management',
+        'GET /admin/comments - Admin comment management',
+        'GET /admin/reports - Content reports',
+        'GET /admin/audit-logs - Audit logs',
+        'GET /admin/stats - Content statistics',
+        'POST /admin/bulk-manage - Bulk operations'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Global error handler
+router.use((error, req, res, next) => {
+  console.error('❌ Content route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.username || 'unauthenticated',
+    timestamp: new Date().toISOString()
+  });
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Content management error',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// DEVELOPMENT LOGGING
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('📚 Content routes loaded with enhanced admin management:');
+  console.log('   ✅ Individual content controllers: chats, teachings, comments');
+  console.log('   ✅ Unified admin controllers: contentAdminControllers.js');
+  console.log('   ✅ Separated services: content services + contentAdminServices.js');
+  console.log('   ✅ Backward compatibility maintained');
+  console.log('   ✅ Enhanced admin bulk operations');
+  console.log('   ✅ Comprehensive error handling');
+}
+
+export default router;
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+// ikootaapi/routes/communicationRoutes.js
+// ENHANCED COMMUNICATION ROUTES
+// Complete route structure for email, SMS, notifications with proper controller integration
+
+import express from 'express';
+import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+import rateLimit from 'express-rate-limit';
+import db from '../config/db.js'; // Added missing db import
+
+// Import reorganized communication controllers
+import {
+  // Email controllers
+  sendEmailHandler,
+  sendBulkEmailHandler,
+  sendMembershipFeedbackEmail,
+  
+  // SMS controllers
+  sendSMSHandler,
+  sendBulkSMSHandler,
+  
+  // Notification controllers
+  sendNotificationHandler,
+  sendBulkNotificationHandler,
+  
+  // Settings controllers
+  getCommunicationSettings,
+  updateCommunicationSettings,
+  
+  // Template controllers
+  getCommunicationTemplates,
+  createCommunicationTemplate,
+  
+  // System controllers
+  checkCommunicationHealth,
+  getCommunicationStats,
+  testCommunicationServices,
+  getCommunicationConfig
+} from '../controllers/communicationControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// RATE LIMITING FOR COMMUNICATION ROUTES
+// ===============================================
+
+// General communication rate limiting
+const communicationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per 15 minutes
+  message: {
+    success: false,
+    error: 'Too many communication requests',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Bulk operation rate limiting (stricter)
+const bulkOperationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 bulk operations per hour
+  message: {
+    success: false,
+    error: 'Too many bulk communication operations',
+    retryAfter: '1 hour'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// SMS rate limiting (stricter due to cost)
+const smsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50, // 50 SMS per 15 minutes
+  message: {
+    success: false,
+    error: 'Too many SMS requests',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Apply general rate limiting to all communication routes
+router.use(communicationLimiter);
+
+// ===============================================
+// EMAIL ROUTES
+// ===============================================
+
+// POST /communication/email/send - Send single email
+router.post('/email/send', 
+  authenticate, 
+  sendEmailHandler
+);
+
+// POST /communication/email/bulk - Send bulk emails (admin only)
+router.post('/email/bulk', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  bulkOperationLimiter,
+  sendBulkEmailHandler
+);
+
+// POST /communication/email/send-membership-feedback - Send membership feedback email
+router.post('/email/send-membership-feedback', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  sendMembershipFeedbackEmail
+);
+
+// ===============================================
+// SMS ROUTES
+// ===============================================
+
+// POST /communication/sms/send - Send single SMS
+router.post('/sms/send', 
+  authenticate, 
+  smsLimiter,
+  sendSMSHandler
+);
+
+// POST /communication/sms/bulk - Send bulk SMS (admin only)
+router.post('/sms/bulk', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  bulkOperationLimiter,
+  smsLimiter,
+  sendBulkSMSHandler
+);
+
+// ===============================================
+// NOTIFICATION ROUTES
+// ===============================================
+
+// POST /communication/notification - Send combined notification (email + SMS)
+router.post('/notification', 
+  authenticate, 
+  sendNotificationHandler
+);
+
+// POST /communication/notifications/bulk - Send bulk notifications (admin only)
+router.post('/notifications/bulk', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  bulkOperationLimiter,
+  sendBulkNotificationHandler
+);
+
+// ===============================================
+// USER COMMUNICATION SETTINGS ROUTES
+// ===============================================
+
+// GET /communication/settings - Get user communication preferences
+router.get('/settings', 
+  authenticate, 
+  getCommunicationSettings
+);
+
+// PUT /communication/settings - Update user communication preferences
+router.put('/settings', 
+  authenticate, 
+  updateCommunicationSettings
+);
+
+// ===============================================
+// TEMPLATE MANAGEMENT ROUTES
+// ===============================================
+
+// GET /communication/templates - Get available communication templates
+router.get('/templates', 
+  authenticate, 
+  getCommunicationTemplates
+);
+
+// POST /communication/templates - Create new communication template (admin only)
+router.post('/templates', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  createCommunicationTemplate
+);
+
+// PUT /communication/templates/:id - Update communication template (admin only)
+router.put('/templates/:id', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  async (req, res) => {
+    try {
+      const templateId = req.params.id;
+      const { templateType, subject, emailBody, smsMessage, variables, isActive } = req.body;
+
+      if (!templateType || !['email', 'sms'].includes(templateType)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Template type (email or sms) is required'
+        });
+      }
+
+      let updateQuery, updateParams;
+
+      if (templateType === 'email') {
+        updateQuery = `
+          UPDATE email_templates 
+          SET subject = ?, body_text = ?, body_html = ?, variables = ?, is_active = ?, updatedAt = NOW()
+          WHERE id = ?
+        `;
+        updateParams = [subject, emailBody, emailBody, JSON.stringify(variables || []), isActive, templateId];
+      } else {
+        updateQuery = `
+          UPDATE sms_templates 
+          SET message = ?, variables = ?, is_active = ?, updatedAt = NOW()
+          WHERE id = ?
+        `;
+        updateParams = [smsMessage, JSON.stringify(variables || []), isActive, templateId];
+      }
+
+      const [result] = await db.query(updateQuery, updateParams);
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Template not found'
+        });
+      }
+
+      // Log template update in audit logs
+      await db.query(`
+        INSERT INTO audit_logs (user_id, action, resource, details, createdAt)
+        VALUES (?, ?, ?, ?, NOW())
+      `, [
+        req.user.id,
+        'TEMPLATE_UPDATED',
+        `${templateType}_template`,
+        JSON.stringify({ templateId: parseInt(templateId), templateType })
+      ]);
+
+      res.status(200).json({
+        success: true,
+        message: 'Template updated successfully',
+        templateId: parseInt(templateId),
+        type: templateType,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('❌ Error updating template:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'template_update_error'
+      });
+    }
+  }
+);
+
+// DELETE /communication/templates/:id - Delete communication template (admin only)
+router.delete('/templates/:id', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  async (req, res) => {
+    try {
+      const templateId = req.params.id;
+      const { templateType } = req.query;
+
+      if (!templateType || !['email', 'sms'].includes(templateType)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Template type (email or sms) is required in query parameters'
+        });
+      }
+
+      const tableName = templateType === 'email' ? 'email_templates' : 'sms_templates';
+      
+      // Soft delete by setting is_active to false
+      const [result] = await db.query(`
+        UPDATE ${tableName} 
+        SET is_active = FALSE, updatedAt = NOW()
+        WHERE id = ?
+      `, [templateId]);
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Template not found'
+        });
+      }
+
+      // Log template deletion in audit logs
+      await db.query(`
+        INSERT INTO audit_logs (user_id, action, resource, details, createdAt)
+        VALUES (?, ?, ?, ?, NOW())
+      `, [
+        req.user.id,
+        'TEMPLATE_DELETED',
+        `${templateType}_template`,
+        JSON.stringify({ templateId: parseInt(templateId), templateType })
+      ]);
+
+      res.status(200).json({
+        success: true,
+        message: 'Template deleted successfully',
+        templateId: parseInt(templateId),
+        type: templateType,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('❌ Error deleting template:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'template_deletion_error'
+      });
+    }
+  }
+);
+
+// GET /communication/templates/:id - Get specific template (admin only)
+router.get('/templates/:id', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  async (req, res) => {
+    try {
+      const templateId = req.params.id;
+      const { templateType } = req.query;
+
+      if (!templateType || !['email', 'sms'].includes(templateType)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Template type (email or sms) is required in query parameters'
+        });
+      }
+
+      const tableName = templateType === 'email' ? 'email_templates' : 'sms_templates';
+      const [templates] = await db.query(`SELECT * FROM ${tableName} WHERE id = ?`, [templateId]);
+
+      if (templates.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Template not found'
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: templates[0],
+        message: 'Template retrieved successfully'
+      });
+
+    } catch (error) {
+      console.error('❌ Error getting template:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'template_retrieval_error'
+      });
+    }
+  }
+);
+
+// ===============================================
+// CHAT ROOMS & MESSAGING (FUTURE EXPANSION)
+// ===============================================
+
+// GET /communication/rooms - Get chat rooms
+router.get('/rooms', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      // TODO: Implement with chat room service
+      const { limit = 20, offset = 0, type = 'all' } = req.query;
+
+      res.status(200).json({
+        success: true,
+        message: 'Chat rooms endpoint - ready for implementation',
+        data: {
+          rooms: [],
+          total: 0,
+          pagination: { limit: parseInt(limit), offset: parseInt(offset) }
+        },
+        implementation_ready: true,
+        endpoint: '/api/communication/rooms',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'chat_rooms_error'
+      });
+    }
+  }
+);
+
+// POST /communication/rooms - Create chat room
+router.post('/rooms', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const { roomName, description, isPublic = false, maxMembers = 50 } = req.body;
+
+      if (!roomName) {
+        return res.status(400).json({
+          success: false,
+          error: 'Room name is required',
+          field: 'roomName'
+        });
+      }
+
+      // TODO: Implement with chat room service
+      res.status(201).json({
+        success: true,
+        message: 'Create chat room endpoint - ready for implementation',
+        data: {
+          roomId: 'temp_' + Date.now(),
+          roomName,
+          description,
+          isPublic,
+          maxMembers,
+          createdBy: req.user.id,
+          createdAt: new Date().toISOString()
+        },
+        implementation_ready: true,
+        endpoint: '/api/communication/rooms',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'room_creation_error'
+      });
+    }
+  }
+);
+
+// GET /communication/rooms/:id/messages - Get room messages
+router.get('/rooms/:id/messages', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const roomId = req.params.id;
+      const { limit = 50, offset = 0, since } = req.query;
+
+      // TODO: Implement with chat room service
+      res.status(200).json({
+        success: true,
+        message: 'Room messages endpoint - ready for implementation',
+        data: {
+          messages: [],
+          total: 0,
+          roomId,
+          pagination: { limit: parseInt(limit), offset: parseInt(offset) }
+        },
+        implementation_ready: true,
+        endpoint: `/api/communication/rooms/${roomId}/messages`,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'room_messages_error'
+      });
+    }
+  }
+);
+
+// POST /communication/rooms/:id/messages - Send message to room
+router.post('/rooms/:id/messages', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const roomId = req.params.id;
+      const { message, mediaUrls = [] } = req.body;
+
+      if (!message) {
+        return res.status(400).json({
+          success: false,
+          error: 'Message content is required',
+          field: 'message'
+        });
+      }
+
+      // TODO: Implement with chat room service
+      res.status(201).json({
+        success: true,
+        message: 'Send room message endpoint - ready for implementation',
+        data: {
+          messageId: 'temp_' + Date.now(),
+          roomId,
+          message,
+          mediaUrls,
+          senderId: req.user.id,
+          senderUsername: req.user.username,
+          sentAt: new Date().toISOString()
+        },
+        implementation_ready: true,
+        endpoint: `/api/communication/rooms/${roomId}/messages`,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'send_room_message_error'
+      });
+    }
+  }
+);
+
+// ===============================================
+// DIRECT MESSAGING (FUTURE EXPANSION)
+// ===============================================
+
+// GET /communication/conversations - Get user conversations
+router.get('/conversations', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const { limit = 20, offset = 0, unreadOnly = false } = req.query;
+
+      // TODO: Implement with direct messaging service
+      res.status(200).json({
+        success: true,
+        message: 'Conversations endpoint - ready for implementation',
+        data: {
+          conversations: [],
+          total: 0,
+          unreadCount: 0,
+          pagination: { limit: parseInt(limit), offset: parseInt(offset) }
+        },
+        implementation_ready: true,
+        endpoint: '/api/communication/conversations',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'conversations_error'
+      });
+    }
+  }
+);
+
+// POST /communication/conversations - Create/start conversation
+router.post('/conversations', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const { participantIds, initialMessage } = req.body;
+
+      if (!participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Participant IDs array is required',
+          field: 'participantIds'
+        });
+      }
+
+      // TODO: Implement with direct messaging service
+      res.status(201).json({
+        success: true,
+        message: 'Create conversation endpoint - ready for implementation',
+        data: {
+          conversationId: 'temp_' + Date.now(),
+          participantIds: [req.user.id, ...participantIds],
+          createdBy: req.user.id,
+          initialMessage,
+          createdAt: new Date().toISOString()
+        },
+        implementation_ready: true,
+        endpoint: '/api/communication/conversations',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'conversation_creation_error'
+      });
+    }
+  }
+);
+
+// GET /communication/conversations/:id - Get specific conversation
+router.get('/conversations/:id', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const conversationId = req.params.id;
+      const { limit = 50, offset = 0 } = req.query;
+
+      // TODO: Implement with direct messaging service
+      res.status(200).json({
+        success: true,
+        message: 'Get conversation endpoint - ready for implementation',
+        data: {
+          conversationId,
+          participants: [],
+          messages: [],
+          total: 0,
+          pagination: { limit: parseInt(limit), offset: parseInt(offset) }
+        },
+        implementation_ready: true,
+        endpoint: `/api/communication/conversations/${conversationId}`,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'get_conversation_error'
+      });
+    }
+  }
+);
+
+// POST /communication/conversations/:id/messages - Send message in conversation
+router.post('/conversations/:id/messages', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const conversationId = req.params.id;
+      const { message, mediaUrls = [] } = req.body;
+
+      if (!message) {
+        return res.status(400).json({
+          success: false,
+          error: 'Message content is required',
+          field: 'message'
+        });
+      }
+
+      // TODO: Implement with direct messaging service
+      res.status(201).json({
+        success: true,
+        message: 'Send conversation message endpoint - ready for implementation',
+        data: {
+          messageId: 'temp_' + Date.now(),
+          conversationId,
+          message,
+          mediaUrls,
+          senderId: req.user.id,
+          senderUsername: req.user.username,
+          sentAt: new Date().toISOString()
+        },
+        implementation_ready: true,
+        endpoint: `/api/communication/conversations/${conversationId}/messages`,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'send_conversation_message_error'
+      });
+    }
+  }
+);
+
+// ===============================================
+// VIDEO/AUDIO CALLING (FUTURE EXPANSION)
+// ===============================================
+
+// POST /communication/video/initiate - Initiate video call
+router.post('/video/initiate', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const { recipientIds, roomType = 'private' } = req.body;
+
+      if (!recipientIds || !Array.isArray(recipientIds) || recipientIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Recipient IDs array is required',
+          field: 'recipientIds'
+        });
+      }
+
+      // TODO: Implement with video calling service (WebRTC, Jitsi, etc.)
+      res.status(201).json({
+        success: true,
+        message: 'Video call initiation endpoint - ready for WebRTC implementation',
+        data: {
+          callId: 'video_' + Date.now(),
+          roomUrl: `https://meet.ikoota.com/room/video_${Date.now()}`,
+          initiator: req.user.id,
+          participants: [req.user.id, ...recipientIds],
+          roomType,
+          createdAt: new Date().toISOString()
+        },
+        implementation_ready: true,
+        nextSteps: [
+          'Integrate WebRTC or video calling service',
+          'Create call invitation notifications',
+          'Implement call history tracking',
+          'Add call quality metrics'
+        ],
+        endpoint: '/api/communication/video/initiate',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'video_call_error'
+      });
+    }
+  }
+);
+
+// POST /communication/audio/initiate - Initiate audio call
+router.post('/audio/initiate', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const { recipientIds, roomType = 'private' } = req.body;
+
+      if (!recipientIds || !Array.isArray(recipientIds) || recipientIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Recipient IDs array is required',
+          field: 'recipientIds'
+        });
+      }
+
+      // TODO: Implement with audio calling service
+      res.status(201).json({
+        success: true,
+        message: 'Audio call initiation endpoint - ready for implementation',
+        data: {
+          callId: 'audio_' + Date.now(),
+          roomUrl: `https://meet.ikoota.com/room/audio_${Date.now()}`,
+          initiator: req.user.id,
+          participants: [req.user.id, ...recipientIds],
+          roomType,
+          createdAt: new Date().toISOString()
+        },
+        implementation_ready: true,
+        endpoint: '/api/communication/audio/initiate',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'audio_call_error'
+      });
+    }
+  }
+);
+
+// GET /communication/calls/history - Get call history
+router.get('/calls/history', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const { limit = 20, offset = 0, type = 'all' } = req.query;
+
+      // TODO: Implement with call history service
+      res.status(200).json({
+        success: true,
+        message: 'Call history endpoint - ready for implementation',
+        data: {
+          calls: [],
+          total: 0,
+          pagination: { limit: parseInt(limit), offset: parseInt(offset) }
+        },
+        implementation_ready: true,
+        endpoint: '/api/communication/calls/history',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'call_history_error'
+      });
+    }
+  }
+);
+
+// ===============================================
+// SYSTEM HEALTH & ANALYTICS (ADMIN ROUTES)
+// ===============================================
+
+// GET /communication/health - Check communication services health (admin only)
+router.get('/health', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  checkCommunicationHealth
+);
+
+// GET /communication/stats - Get communication statistics (admin only)
+router.get('/stats', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  getCommunicationStats
+);
+
+// GET /communication/config - Get communication configuration (admin only)
+router.get('/config', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  getCommunicationConfig
+);
+
+// POST /communication/test - Test communication services (admin only)
+router.post('/test', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  testCommunicationServices
+);
+
+// ===============================================
+// COMMUNICATION LOGS & AUDIT (ADMIN ROUTES)
+// ===============================================
+
+// GET /communication/logs/email - Get email logs (admin only)
+router.get('/logs/email', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  async (req, res) => {
+    try {
+      const { 
+        limit = 100, 
+        offset = 0, 
+        status, 
+        template, 
+        startDate, 
+        endDate,
+        recipient 
+      } = req.query;
+
+      let whereClause = '';
+      const whereParams = [];
+
+      // Build dynamic WHERE clause
+      const conditions = [];
+      
+      if (status) {
+        conditions.push('status = ?');
+        whereParams.push(status);
+      }
+      
+      if (template) {
+        conditions.push('template = ?');
+        whereParams.push(template);
+      }
+      
+      if (recipient) {
+        conditions.push('recipient LIKE ?');
+        whereParams.push(`%${recipient}%`);
+      }
+      
+      if (startDate && endDate) {
+        conditions.push('createdAt BETWEEN ? AND ?');
+        whereParams.push(startDate, endDate);
+      }
+      
+      if (conditions.length > 0) {
+        whereClause = 'WHERE ' + conditions.join(' AND ');
+      }
+
+      const [logs] = await db.query(`
+        SELECT 
+          id, recipient, subject, template, status, message_id,
+          error_message, sender_id, createdAt, processedAt
+        FROM email_logs
+        ${whereClause}
+        ORDER BY createdAt DESC
+        LIMIT ? OFFSET ?
+      `, [...whereParams, parseInt(limit), parseInt(offset)]);
+
+      // Get total count
+      const [countResult] = await db.query(`
+        SELECT COUNT(*) as total FROM email_logs ${whereClause}
+      `, whereParams);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          logs,
+          total: countResult[0].total,
+          pagination: {
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            hasMore: countResult[0].total > parseInt(offset) + parseInt(limit)
+          }
+        },
+        filters: { status, template, startDate, endDate, recipient },
+        message: 'Email logs retrieved successfully',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('❌ Error getting email logs:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'email_logs_error'
+      });
+    }
+  }
+);
+
+// GET /communication/logs/sms - Get SMS logs (admin only)
+router.get('/logs/sms', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  async (req, res) => {
+    try {
+      const { 
+        limit = 100, 
+        offset = 0, 
+        status, 
+        template, 
+        startDate, 
+        endDate,
+        recipient 
+      } = req.query;
+
+      let whereClause = '';
+      const whereParams = [];
+
+      // Build dynamic WHERE clause
+      const conditions = [];
+      
+      if (status) {
+        conditions.push('status = ?');
+        whereParams.push(status);
+      }
+      
+      if (template) {
+        conditions.push('template = ?');
+        whereParams.push(template);
+      }
+      
+      if (recipient) {
+        conditions.push('recipient LIKE ?');
+        whereParams.push(`%${recipient}%`);
+      }
+      
+      if (startDate && endDate) {
+        conditions.push('createdAt BETWEEN ? AND ?');
+        whereParams.push(startDate, endDate);
+      }
+      
+      if (conditions.length > 0) {
+        whereClause = 'WHERE ' + conditions.join(' AND ');
+      }
+
+      const [logs] = await db.query(`
+        SELECT 
+          id, recipient, message, template, status, sid,
+          error_message, sender_id, createdAt, processedAt
+        FROM sms_logs
+        ${whereClause}
+        ORDER BY createdAt DESC
+        LIMIT ? OFFSET ?
+      `, [...whereParams, parseInt(limit), parseInt(offset)]);
+
+      // Get total count
+      const [countResult] = await db.query(`
+        SELECT COUNT(*) as total FROM sms_logs ${whereClause}
+      `, whereParams);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          logs,
+          total: countResult[0].total,
+          pagination: {
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            hasMore: countResult[0].total > parseInt(offset) + parseInt(limit)
+          }
+        },
+        filters: { status, template, startDate, endDate, recipient },
+        message: 'SMS logs retrieved successfully',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('❌ Error getting SMS logs:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'sms_logs_error'
+      });
+    }
+  }
+);
+
+// GET /communication/logs/bulk - Get bulk operation logs (admin only)
+router.get('/logs/bulk', 
+  authenticate, 
+  authorize(['admin', 'super_admin']), 
+  async (req, res) => {
+    try {
+      const { 
+        limit = 50, 
+        offset = 0, 
+        type = 'all', 
+        startDate, 
+        endDate 
+      } = req.query;
+
+      const logs = {};
+
+      // Get bulk email logs
+      if (type === 'all' || type === 'email') {
+        let emailWhereClause = '';
+        const emailParams = [];
+
+        if (startDate && endDate) {
+          emailWhereClause = 'WHERE createdAt BETWEEN ? AND ?';
+          emailParams.push(startDate, endDate);
+        }
+
+        const [emailLogs] = await db.query(`
+          SELECT * FROM bulk_email_logs
+          ${emailWhereClause}
+          ORDER BY createdAt DESC
+          LIMIT ? OFFSET ?
+        `, [...emailParams, parseInt(limit), parseInt(offset)]);
+
+        logs.email = emailLogs;
+      }
+
+      // Get bulk SMS logs
+      if (type === 'all' || type === 'sms') {
+        let smsWhereClause = '';
+        const smsParams = [];
+
+        if (startDate && endDate) {
+          smsWhereClause = 'WHERE createdAt BETWEEN ? AND ?';
+          smsParams.push(startDate, endDate);
+        }
+
+        const [smsLogs] = await db.query(`
+          SELECT * FROM bulk_sms_logs
+          ${smsWhereClause}
+          ORDER BY createdAt DESC
+          LIMIT ? OFFSET ?
+        `, [...smsParams, parseInt(limit), parseInt(offset)]);
+
+        logs.sms = smsLogs;
+      }
+
+      res.status(200).json({
+        success: true,
+        data: logs,
+        filters: { type, startDate, endDate },
+        pagination: { limit: parseInt(limit), offset: parseInt(offset) },
+        message: 'Bulk operation logs retrieved successfully',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('❌ Error getting bulk logs:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        errorType: 'bulk_logs_error'
+      });
+    }
+  }
+);
+
+// ===============================================
+// TESTING & DEBUGGING ROUTES
+// ===============================================
+
+// GET /communication/test - Test communication system functionality
+router.get('/test', 
+  authenticate, 
+  (req, res) => {
+    res.status(200).json({
+      success: true,
+      message: 'Communication routes are working!',
+      timestamp: new Date().toISOString(),
+      user: {
+        id: req.user?.id,
+        username: req.user?.username,
+        role: req.user?.role
+      },
+      availableServices: {
+        implemented: [
+          'Single email sending',
+          'Bulk email operations (admin)',
+          'Single SMS sending',
+          'Bulk SMS operations (admin)',
+          'Combined notifications',
+          'User communication settings',
+          'Template management (admin)',
+          'Health monitoring (admin)',
+          'Communication analytics (admin)',
+          'Activity logging'
+        ],
+        futureExpansion: [
+          'Real-time chat rooms',
+          'Direct messaging',
+          'Video calling',
+          'Audio calling',
+          'Call history tracking',
+          'Advanced notification scheduling'
+        ]
+      },
+      routeStructure: {
+        email: '/api/communication/email/*',
+        sms: '/api/communication/sms/*',
+        notifications: '/api/communication/notification*',
+        settings: '/api/communication/settings',
+        templates: '/api/communication/templates/*',
+        chatRooms: '/api/communication/rooms/*',
+        directMessaging: '/api/communication/conversations/*',
+        videoCalling: '/api/communication/video/*',
+        audioCalling: '/api/communication/audio/*',
+        systemHealth: '/api/communication/health',
+        analytics: '/api/communication/stats',
+        logs: '/api/communication/logs/*'
+      },
+      endpoint: '/api/communication/test'
+    });
+  }
+);
+
+// ===============================================
+// ENHANCED ERROR HANDLING
+// ===============================================
+
+// Communication-specific 404 handler
+router.use('*', (req, res) => {
+  console.log(`❌ Communication route not found: ${req.method} ${req.originalUrl}`);
+  
+  const requestedPath = req.originalUrl.toLowerCase();
+  const suggestions = [];
+  
+  // Smart path suggestions for communication routes
+  if (requestedPath.includes('email')) {
+    suggestions.push(
+      'POST /api/communication/email/send',
+      'POST /api/communication/email/bulk',
+      'POST /api/communication/email/send-membership-feedback'
+    );
+  }
+  if (requestedPath.includes('sms')) {
+    suggestions.push(
+      'POST /api/communication/sms/send',
+      'POST /api/communication/sms/bulk'
+    );
+  }
+  if (requestedPath.includes('notification')) {
+    suggestions.push(
+      'POST /api/communication/notification',
+      'POST /api/communication/notifications/bulk'
+    );
+  }
+  if (requestedPath.includes('template')) {
+    suggestions.push(
+      'GET /api/communication/templates',
+      'POST /api/communication/templates',
+      'PUT /api/communication/templates/:id'
+    );
+  }
+  if (requestedPath.includes('room') || requestedPath.includes('chat')) {
+    suggestions.push(
+      'GET /api/communication/rooms',
+      'POST /api/communication/rooms',
+      'GET /api/communication/conversations'
+    );
+  }
+  if (requestedPath.includes('video') || requestedPath.includes('audio') || requestedPath.includes('call')) {
+    suggestions.push(
+      'POST /api/communication/video/initiate',
+      'POST /api/communication/audio/initiate',
+      'GET /api/communication/calls/history'
+    );
+  }
+  if (requestedPath.includes('health') || requestedPath.includes('stat') || requestedPath.includes('config')) {
+    suggestions.push(
+      'GET /api/communication/health',
+      'GET /api/communication/stats',
+      'GET /api/communication/config'
+    );
+  }
+
+  res.status(404).json({
+    success: false,
+    error: 'Communication route not found',
+    path: req.originalUrl,
+    method: req.method,
+    suggestions: suggestions.length > 0 ? suggestions : undefined,
+    
+    availableRoutes: {
+      email: {
+        send: 'POST /email/send - Send single email',
+        bulk: 'POST /email/bulk - Send bulk emails (admin)',
+        membershipFeedback: 'POST /email/send-membership-feedback - Send membership feedback'
+      },
+      sms: {
+        send: 'POST /sms/send - Send single SMS',
+        bulk: 'POST /sms/bulk - Send bulk SMS (admin)'
+      },
+      notifications: {
+        single: 'POST /notification - Send combined notification',
+        bulk: 'POST /notifications/bulk - Send bulk notifications (admin)'
+      },
+      settings: {
+        get: 'GET /settings - Get communication preferences',
+        update: 'PUT /settings - Update communication preferences'
+      },
+      templates: {
+        list: 'GET /templates - Get available templates',
+        create: 'POST /templates - Create template (admin)',
+        update: 'PUT /templates/:id - Update template (admin)',
+        delete: 'DELETE /templates/:id - Delete template (admin)',
+        get: 'GET /templates/:id - Get specific template (admin)'
+      },
+      chatRooms: {
+        list: 'GET /rooms - Get chat rooms',
+        create: 'POST /rooms - Create chat room',
+        messages: 'GET /rooms/:id/messages - Get room messages',
+        sendMessage: 'POST /rooms/:id/messages - Send room message'
+      },
+      directMessaging: {
+        conversations: 'GET /conversations - Get conversations',
+        createConversation: 'POST /conversations - Create conversation',
+        getConversation: 'GET /conversations/:id - Get conversation',
+        sendMessage: 'POST /conversations/:id/messages - Send message'
+      },
+      calling: {
+        videoCall: 'POST /video/initiate - Initiate video call',
+        audioCall: 'POST /audio/initiate - Initiate audio call',
+        callHistory: 'GET /calls/history - Get call history'
+      },
+      admin: {
+        health: 'GET /health - Check service health (admin)',
+        stats: 'GET /stats - Get statistics (admin)',
+        config: 'GET /config - Get configuration (admin)',
+        test: 'POST /test - Test services (admin)',
+        emailLogs: 'GET /logs/email - Get email logs (admin)',
+        smsLogs: 'GET /logs/sms - Get SMS logs (admin)',
+        bulkLogs: 'GET /logs/bulk - Get bulk operation logs (admin)'
+      },
+      testing: {
+        test: 'GET /test - Communication system test'
+      }
+    },
+    
+    architecture: {
+      structure: 'Routes → Controllers → Services',
+      database: 'Comprehensive logging in email_logs, sms_logs, bulk_*_logs',
+      templates: 'Database-driven with fallback to predefined templates',
+      futureReady: 'Architecture prepared for video/audio calling, chat rooms'
+    },
+    
+    help: {
+      documentation: '/api/info',
+      testEndpoint: '/api/communication/test',
+      healthCheck: '/api/communication/health (admin)',
+      configInfo: '/api/communication/config (admin)'
+    },
+    
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Communication-specific error handler
+router.use((error, req, res, next) => {
+  const errorId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  const isAdminRoute = req.originalUrl.includes('/admin/') || 
+                      req.originalUrl.includes('/health') || 
+                      req.originalUrl.includes('/stats') ||
+                      req.originalUrl.includes('/config') ||
+                      req.originalUrl.includes('/logs/');
+  
+  console.error('🚨 Communication Route Error:', {
+    errorId,
+    error: error.message,
+    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    path: req.originalUrl,
+    method: req.method,
+    user: req.user?.username || 'unauthenticated',
+    isAdminRoute,
+    timestamp: new Date().toISOString()
+  });
+  
+  let statusCode = error.statusCode || error.status || 500;
+  let errorType = 'communication_error';
+  
+  // Enhanced error categorization for communication
+  if (error.message.includes('email') || error.message.includes('SMTP')) {
+    errorType = 'email_service_error';
+  } else if (error.message.includes('SMS') || error.message.includes('Twilio')) {
+    errorType = 'sms_service_error';
+  } else if (error.message.includes('template')) {
+    errorType = 'template_error';
+  } else if (error.message.includes('notification')) {
+    errorType = 'notification_error';
+  } else if (error.message.includes('bulk')) {
+    errorType = 'bulk_operation_error';
+  } else if (error.message.includes('rate limit')) {
+    statusCode = 429;
+    errorType = 'rate_limit_error';
+  } else if (error.message.includes('validation') || error.message.includes('required')) {
+    statusCode = 400;
+    errorType = 'validation_error';
+  } else if (error.message.includes('authentication') || error.message.includes('token')) {
+    statusCode = 401;
+    errorType = 'authentication_error';
+  } else if (error.message.includes('permission') || error.message.includes('access denied')) {
+    statusCode = 403;
+    errorType = 'authorization_error';
+  }
+  
+  const errorResponse = {
+    success: false,
+    error: error.message || 'Communication operation failed',
+    errorType,
+    errorId,
+    path: req.originalUrl,
+    method: req.method,
+    service: 'communication',
+    isAdminRoute,
+    timestamp: new Date().toISOString()
+  };
+  
+  // Add debug info in development
+  if (process.env.NODE_ENV === 'development') {
+    errorResponse.debug = {
+      stack: error.stack,
+      details: error
+    };
+  }
+  
+  // Add contextual help based on error type
+  if (statusCode === 401) {
+    errorResponse.help = {
+      message: 'Authentication required for communication operations',
+      endpoint: '/api/auth/login'
+    };
+  } else if (statusCode === 403) {
+    errorResponse.help = {
+      message: isAdminRoute ? 
+        'Admin privileges required for this communication operation' : 
+        'Insufficient permissions for this communication operation'
+    };
+  } else if (statusCode === 429) {
+    errorResponse.help = {
+      message: 'Rate limit exceeded for communication operations',
+      suggestion: 'Please wait before making more requests',
+      limits: {
+        general: '100 requests per 15 minutes',
+        sms: '50 SMS per 15 minutes',
+        bulk: '10 bulk operations per hour'
+      }
+    };
+  } else if (errorType === 'email_service_error') {
+    errorResponse.help = {
+      message: 'Email service configuration issue',
+      adminAction: 'Check email service health at /api/communication/health',
+      commonCauses: [
+        'Invalid email credentials',
+        'SMTP connection blocked',
+        'Network connectivity issues'
+      ]
+    };
+  } else if (errorType === 'sms_service_error') {
+    errorResponse.help = {
+      message: 'SMS service configuration issue',
+      adminAction: 'Check SMS service health at /api/communication/health',
+      commonCauses: [
+        'Invalid Twilio credentials',
+        'Insufficient Twilio balance',
+        'Network connectivity issues'
+      ]
+    };
+  } else if (errorType === 'template_error') {
+    errorResponse.help = {
+      message: 'Template operation failed',
+      availableTemplates: '/api/communication/templates',
+      suggestion: 'Verify template name and required variables'
+    };
+  }
+  
+  res.status(statusCode).json(errorResponse);
+});
+
+// ===============================================
+// DEVELOPMENT LOGGING & STARTUP INFO
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('\n💬 COMMUNICATION ROUTES - ENHANCED ARCHITECTURE');
+  console.log('================================================================================');
+  console.log('✅ COMPLETE IMPLEMENTATION: Email, SMS, notifications with database integration');
+  console.log('✅ TEMPLATE SYSTEM: Database-driven templates with predefined fallbacks');
+  console.log('✅ BULK OPERATIONS: Admin bulk email/SMS with rate limiting and logging');
+  console.log('✅ USER PREFERENCES: Communication settings management');
+  console.log('✅ COMPREHENSIVE LOGGING: All operations logged with detailed tracking');
+  console.log('✅ FUTURE READY: Architecture prepared for video/audio, chat rooms');
+  console.log('================================================================================');
+  
+  console.log('\n📧 EMAIL CAPABILITIES:');
+  console.log('   • Single email sending with template support');
+  console.log('   • Bulk email operations (admin only, max 1000 recipients)');
+  console.log('   • Membership feedback emails');
+  console.log('   • Template-based emails with variable substitution');
+  console.log('   • HTML and text email formats');
+  console.log('   • Comprehensive email logging');
+  
+  console.log('\n📱 SMS CAPABILITIES:');
+  console.log('   • Single SMS sending with template support');
+  console.log('   • Bulk SMS operations (admin only, max 500 recipients)');
+  console.log('   • Phone number validation and formatting');
+  console.log('   • Template-based SMS with variable substitution');
+  console.log('   • Twilio integration with error handling');
+  console.log('   • Comprehensive SMS logging');
+  
+  console.log('\n🔔 NOTIFICATION SYSTEM:');
+  console.log('   • Combined email + SMS notifications');
+  console.log('   • User preference-based channel selection');
+  console.log('   • Bulk notification operations (admin)');
+  console.log('   • Template-driven notification content');
+  console.log('   • Critical notification override (admin alerts)');
+  
+  console.log('\n📋 TEMPLATE MANAGEMENT:');
+  console.log('   • Database-driven template system');
+  console.log('   • Predefined template fallbacks');
+  console.log('   • Variable substitution support');
+  console.log('   • Admin template CRUD operations');
+  console.log('   • Template usage analytics');
+  
+  console.log('\n🛡️ SECURITY & RATE LIMITING:');
+  console.log('   • General: 100 requests per 15 minutes');
+  console.log('   • SMS: 50 requests per 15 minutes');
+  console.log('   • Bulk operations: 10 per hour');
+  console.log('   • Admin-only bulk operations');
+  console.log('   • Comprehensive audit logging');
+  
+  console.log('\n🚀 FUTURE EXPANSION READY:');
+  console.log('   • Real-time chat rooms with Socket.IO');
+  console.log('   • Direct messaging system');
+  console.log('   • Video calling (WebRTC integration)');
+  console.log('   • Audio calling capabilities');
+  console.log('   • Call history and quality metrics');
+  console.log('   • Advanced notification scheduling');
+  
+  console.log('\n📊 ADMIN CAPABILITIES:');
+  console.log('   • Communication service health monitoring');
+  console.log('   • Detailed analytics and statistics');
+  console.log('   • Email and SMS log viewing');
+  console.log('   • Bulk operation tracking');
+  console.log('   • Service configuration monitoring');
+  console.log('   • Template management and analytics');
+  
+  console.log('================================================================================');
+  console.log('🌟 COMMUNICATION SYSTEM FULLY OPERATIONAL');
+  console.log('🔗 Test Endpoint: http://localhost:3000/api/communication/test');
+  console.log('🔧 Health Check: http://localhost:3000/api/communication/health (admin)');
+  console.log('📊 Statistics: http://localhost:3000/api/communication/stats (admin)');
+  console.log('================================================================================\n');
+}
+
+export default router;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+
+// ikootaapi/routes/classRoutes.js
+// CLASS MANAGEMENT ROUTES - COMPLETE USER-FACING IMPLEMENTATION
+// All user-facing class operations with comprehensive validation and error handling
+
+import express from 'express';
+import { authenticate } from '../middlewares/auth.middleware.js';
+import {
+  validateClassId,
+  validateUserId,
+  validatePagination,
+  validateSorting,
+  validateClassData,
+  validateFeedback,
+  validateAttendance,
+  validateDateRange,
+  validateRequestSize,
+  validateClassRoute,
+  validateClassCreation
+} from '../middleware/classValidation.js';
+
+// Import class controllers
+import {
+  getAllClasses,
+  getAvailableClasses,
+  getUserClasses,
+  getClassById,
+  joinClass,
+  leaveClass,
+  assignUserToClass,
+  getClassContent,
+  getClassParticipants,
+  getClassSchedule,
+  markClassAttendance,
+  getClassProgress,
+  submitClassFeedback,
+  getClassFeedback,
+  searchClasses,
+  getClassQuickInfo,
+  testClassRoutes,
+  // Legacy functions
+  getClasses,
+  postClass,
+  putClass
+} from '../controllers/classControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// MIDDLEWARE SETUP
+// ===============================================
+
+// Request size validation for all routes
+router.use(validateRequestSize);
+
+// Rate limiting middleware (if available)
+if (process.env.ENABLE_RATE_LIMITING === 'true') {
+  try {
+    const rateLimit = (await import('express-rate-limit')).default;
+    const classRateLimit = rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 100, // limit each IP to 100 requests per windowMs
+      message: {
+        success: false,
+        error: 'Too many class requests from this IP, please try again later.',
+        retry_after: '15 minutes'
+      },
+      standardHeaders: true,
+      legacyHeaders: false
+    });
+    router.use(classRateLimit);
+  } catch (error) {
+    console.warn('Rate limiting not available:', error.message);
+  }
+}
+
+// ===============================================
+// CLASS DISCOVERY & ACCESS
+// ===============================================
+
+/**
+ * GET /classes - Get all available classes with comprehensive filtering
+ * Public endpoint with optional authentication for personalized results
+ */
+router.get('/', 
+  validatePagination, 
+  validateSorting, 
+  validateDateRange,
+  getAllClasses
+);
+
+/**
+ * GET /classes/search - Advanced class search
+ * Public endpoint with enhanced search capabilities
+ */
+router.get('/search',
+  validatePagination,
+  validateSorting,
+  searchClasses
+);
+
+/**
+ * GET /classes/available - Get classes available to user for joining
+ * Requires authentication
+ */
+router.get('/available', 
+  authenticate, 
+  validatePagination, 
+  validateSorting,
+  getAvailableClasses
+);
+
+/**
+ * GET /classes/my-classes - Get user's enrolled classes
+ * Requires authentication
+ */
+router.get('/my-classes', 
+  authenticate, 
+  validatePagination, 
+  validateSorting,
+  getUserClasses
+);
+
+/**
+ * GET /classes/:id - Get specific class details
+ * Public endpoint but shows different details based on authentication/membership
+ */
+router.get('/:id', 
+  validateClassId, 
+  getClassById
+);
+
+/**
+ * GET /classes/:id/quick-info - Get essential class info for quick display
+ * Lightweight endpoint for cards, previews, etc.
+ */
+router.get('/:id/quick-info',
+  validateClassId,
+  getClassQuickInfo
+);
+
+// ===============================================
+// CLASS CONTENT ACCESS
+// ===============================================
+
+/**
+ * GET /classes/:id/content - Get class content
+ * Requires authentication and class membership
+ */
+router.get('/:id/content', 
+  authenticate, 
+  validateClassId, 
+  validatePagination,
+  validateSorting,
+  getClassContent
+);
+
+/**
+ * GET /classes/:id/participants - Get class participants
+ * Requires authentication and class membership, returns privacy-filtered results
+ */
+router.get('/:id/participants', 
+  authenticate, 
+  validateClassId, 
+  validatePagination,
+  validateSorting,
+  getClassParticipants
+);
+
+/**
+ * GET /classes/:id/schedule - Get class schedule
+ * Requires authentication and class membership
+ */
+router.get('/:id/schedule', 
+  authenticate, 
+  validateClassId,
+  validateDateRange,
+  getClassSchedule
+);
+
+// ===============================================
+// CLASS ENROLLMENT
+// ===============================================
+
+/**
+ * POST /classes/:id/join - Join a class
+ * Requires authentication
+ */
+router.post('/:id/join', 
+  authenticate, 
+  validateClassId,
+  validateRequestSize,
+  joinClass
+);
+
+/**
+ * POST /classes/:id/leave - Leave a class
+ * Requires authentication
+ */
+router.post('/:id/leave', 
+  authenticate, 
+  validateClassId,
+  validateRequestSize,
+  leaveClass
+);
+
+/**
+ * POST /classes/assign - Assign user to class (admin/moderator function)
+ * Requires authentication and appropriate permissions
+ */
+router.post('/assign', 
+  authenticate,
+  validateUserId,
+  validateRequestSize,
+  assignUserToClass
+);
+
+// ===============================================
+// CLASS INTERACTION
+// ===============================================
+
+/**
+ * POST /classes/:id/attendance - Mark attendance for a class session
+ * Requires authentication and class membership
+ */
+router.post('/:id/attendance', 
+  authenticate, 
+  validateClassId,
+  validateAttendance,
+  validateRequestSize,
+  markClassAttendance
+);
+
+/**
+ * GET /classes/:id/progress - Get user's progress in class
+ * Requires authentication and class membership
+ */
+router.get('/:id/progress', 
+  authenticate, 
+  validateClassId,
+  getClassProgress
+);
+
+// ===============================================
+// CLASS FEEDBACK
+// ===============================================
+
+/**
+ * POST /classes/:id/feedback - Submit class feedback
+ * Requires authentication and class membership
+ */
+router.post('/:id/feedback', 
+  authenticate, 
+  validateClassId,
+  validateFeedback,
+  validateRequestSize,
+  submitClassFeedback
+);
+
+/**
+ * GET /classes/:id/feedback - Get class feedback (for instructors/moderators)
+ * Requires authentication and appropriate permissions
+ */
+router.get('/:id/feedback', 
+  authenticate, 
+  validateClassId, 
+  validatePagination,
+  validateDateRange,
+  getClassFeedback
+);
+
+// ===============================================
+// LEGACY SUPPORT ROUTES
+// ===============================================
+
+/**
+ * @deprecated Use GET /classes instead
+ * Legacy compatibility route
+ */
+router.get('/legacy/all', 
+  validatePagination,
+  (req, res, next) => {
+    console.warn('⚠️ Legacy route /classes/legacy/all accessed. Use GET /classes instead.');
+    next();
+  },
+  getClasses
+);
+
+/**
+ * Legacy POST class creation - redirects to admin routes
+ * @deprecated Use admin routes for class creation
+ */
+/**
+ * Legacy POST class creation - redirects to admin routes
+ * @deprecated Use admin routes for class creation
+ */
+router.post('/', 
+  authenticate,
+  (req, res, next) => {
+    console.warn('⚠️ Legacy route POST /classes accessed. Use POST /admin/classes instead.');
+    next();
+  },
+  postClass
+);
+
+/**
+ * Legacy PUT class update - redirects to admin routes
+ * @deprecated Use admin routes for class updates
+ */
+router.put('/:id',
+  authenticate,
+  validateClassId,
+  (req, res, next) => {
+    console.warn('⚠️ Legacy route PUT /classes/:id accessed. Use PUT /admin/classes/:id instead.');
+    next();
+  },
+  putClass
+);
+
+// ===============================================
+// TESTING & DEBUG ENDPOINTS
+// ===============================================
+
+/**
+ * GET /classes/test - Test endpoint for class routes
+ * Development and monitoring endpoint
+ */
+router.get('/test', 
+  authenticate, 
+  testClassRoutes
+);
+
+/**
+ * GET /classes/test/validation/:id - Test ID validation (development only)
+ */
+if (process.env.NODE_ENV === 'development') {
+  router.get('/test/validation/:id', (req, res) => {
+    const { validateIdFormat } = require('../utils/idGenerator.js');
+    const { id } = req.params;
+    
+    const isValid = validateIdFormat(id, 'class');
+    
+    res.json({
+      success: true,
+      message: 'Class ID validation test',
+      test_id: id,
+      is_valid: isValid,
+      expected_format: 'OTU#XXXXXX',
+      examples: ['OTU#001234', 'OTU#Public', 'OTU#987654'],
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  /**
+   * GET /classes/test/routes - List all available routes (development only)
+   */
+  router.get('/test/routes', (req, res) => {
+    res.json({
+      success: true,
+      message: 'Class routes listing',
+      routes: {
+        discovery: {
+          'GET /': 'Get all classes',
+          'GET /search': 'Advanced search',
+          'GET /available': 'Get available classes (auth required)',
+          'GET /my-classes': 'Get user classes (auth required)',
+          'GET /:id': 'Get specific class',
+          'GET /:id/quick-info': 'Get quick class info'
+        },
+        content: {
+          'GET /:id/content': 'Get class content (auth + membership required)',
+          'GET /:id/participants': 'Get participants (auth + membership required)',
+          'GET /:id/schedule': 'Get class schedule (auth + membership required)'
+        },
+        enrollment: {
+          'POST /:id/join': 'Join class (auth required)',
+          'POST /:id/leave': 'Leave class (auth required)',
+          'POST /assign': 'Assign user to class (admin/moderator required)'
+        },
+        interaction: {
+          'POST /:id/attendance': 'Mark attendance (auth + membership required)',
+          'GET /:id/progress': 'Get progress (auth + membership required)'
+        },
+        feedback: {
+          'POST /:id/feedback': 'Submit feedback (auth + membership required)',
+          'GET /:id/feedback': 'Get feedback (instructor/moderator required)'
+        },
+        legacy: {
+          'GET /legacy/all': 'Legacy get all classes (deprecated)',
+          'POST /': 'Legacy create class (deprecated - use admin routes)',
+          'PUT /:id': 'Legacy update class (deprecated - use admin routes)'
+        },
+        testing: {
+          'GET /test': 'Test routes (auth required)',
+          'GET /test/validation/:id': 'Test ID validation (dev only)',
+          'GET /test/routes': 'List routes (dev only)'
+        }
+      },
+      authentication_notes: {
+        public_endpoints: ['GET /', 'GET /search', 'GET /:id', 'GET /:id/quick-info'],
+        auth_required: ['All other endpoints'],
+        membership_required: ['Content access', 'Participants', 'Schedule', 'Attendance', 'Progress', 'Feedback submission'],
+        admin_required: ['POST /assign', 'Class creation/updates (use admin routes)']
+      },
+      timestamp: new Date().toISOString()
+    });
+  });
+}
+
+// ===============================================
+// HEALTH CHECK ENDPOINT
+// ===============================================
+
+/**
+ * GET /classes/health - Health check for class routes
+ * Public endpoint for monitoring
+ */
+router.get('/health', (req, res) => {
+  const healthStatus = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    service: 'class-routes',
+    version: '2.0.0',
+    checks: {
+      routes_loaded: true,
+      middleware_active: true,
+      validation_available: true
+    }
+  };
+
+  // Test database connection if available
+  try {
+    // Simple async database test
+    import('../config/db.js').then(({ default: db }) => {
+      db.query('SELECT 1').then(() => {
+        healthStatus.checks.database_connection = 'healthy';
+      }).catch(() => {
+        healthStatus.checks.database_connection = 'unhealthy';
+      });
+    }).catch(() => {
+      healthStatus.checks.database_connection = 'unavailable';
+    });
+  } catch (error) {
+    healthStatus.checks.database_connection = 'error';
+  }
+
+  res.json({
+    success: true,
+    data: healthStatus
+  });
+});
+
+// ===============================================
+// METRICS ENDPOINT (if monitoring enabled)
+// ===============================================
+
+if (process.env.ENABLE_METRICS === 'true') {
+  /**
+   * GET /classes/metrics - Basic metrics for monitoring
+   * Requires authentication
+   */
+  router.get('/metrics', authenticate, async (req, res) => {
+    try {
+      const db = (await import('../config/db.js')).default;
+      
+      const metrics = {
+        timestamp: new Date().toISOString(),
+        class_counts: {
+          total: 0,
+          active: 0,
+          public: 0,
+          private: 0
+        },
+        user_engagement: {
+          total_enrollments: 0,
+          active_memberships: 0
+        },
+        system_health: {
+          database_responsive: false,
+          routes_operational: true
+        }
+      };
+
+      // Get basic class statistics
+      const [classStats] = await db.query(`
+        SELECT 
+          COUNT(*) as total_classes,
+          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_classes,
+          SUM(CASE WHEN is_public = 1 THEN 1 ELSE 0 END) as public_classes
+        FROM classes 
+        WHERE class_id LIKE "OTU#%"
+      `);
+
+      metrics.class_counts.total = classStats.total_classes;
+      metrics.class_counts.active = classStats.active_classes;
+      metrics.class_counts.public = classStats.public_classes;
+      metrics.class_counts.private = classStats.total_classes - classStats.public_classes;
+
+      // Get enrollment statistics
+      const [enrollmentStats] = await db.query(`
+        SELECT 
+          COUNT(*) as total_enrollments,
+          SUM(CASE WHEN membership_status = 'active' THEN 1 ELSE 0 END) as active_memberships
+        FROM user_class_memberships ucm
+        INNER JOIN classes c ON ucm.class_id = c.class_id
+        WHERE c.class_id LIKE "OTU#%"
+      `);
+
+      metrics.user_engagement.total_enrollments = enrollmentStats.total_enrollments;
+      metrics.user_engagement.active_memberships = enrollmentStats.active_memberships;
+      metrics.system_health.database_responsive = true;
+
+      res.json({
+        success: true,
+        message: 'Class metrics retrieved successfully',
+        data: metrics,
+        collected_by: req.user.username
+      });
+
+    } catch (error) {
+      res.json({
+        success: false,
+        message: 'Error collecting metrics',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+}
+
+// ===============================================
+// WEBHOOK ENDPOINTS (if webhooks enabled)
+// ===============================================
+
+if (process.env.ENABLE_WEBHOOKS === 'true') {
+  /**
+   * POST /classes/webhook/enrollment - Webhook for enrollment events
+   * Internal endpoint for system integrations
+   */
+  router.post('/webhook/enrollment', express.json(), (req, res) => {
+    const { event_type, class_id, user_id, timestamp } = req.body;
+    
+    // Log webhook event
+    console.log(`📢 Class enrollment webhook: ${event_type} for user ${user_id} in class ${class_id}`);
+    
+    // Process webhook (implement based on requirements)
+    // This could trigger notifications, analytics updates, etc.
+    
+    res.json({
+      success: true,
+      message: 'Webhook processed successfully',
+      event: {
+        type: event_type,
+        class_id,
+        user_id,
+        processed_at: new Date().toISOString(),
+        original_timestamp: timestamp
+      }
+    });
+  });
+}
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+/**
+ * 404 handler for class routes
+ */
+router.use('*', (req, res) => {
+  const suggestions = [];
+  const path = req.path.toLowerCase();
+  
+  // Suggest similar routes based on path
+  if (path.includes('class')) {
+    suggestions.push('/api/classes', '/api/classes/available', '/api/classes/my-classes');
+  }
+  if (path.includes('join')) {
+    suggestions.push('/api/classes/:id/join');
+  }
+  if (path.includes('content')) {
+    suggestions.push('/api/classes/:id/content');
+  }
+  if (path.includes('feedback')) {
+    suggestions.push('/api/classes/:id/feedback');
+  }
+  if (path.includes('admin')) {
+    suggestions.push('/api/admin/classes');
+  }
+
+  res.status(404).json({
+    success: false,
+    error: 'Class route not found',
+    requested_path: req.path,
+    method: req.method,
+    available_routes: {
+      discovery: [
+        'GET / - Get all available classes',
+        'GET /search - Advanced class search',
+        'GET /available - Get classes available to user (auth required)',
+        'GET /my-classes - Get user\'s enrolled classes (auth required)',
+        'GET /:id - Get specific class details',
+        'GET /:id/quick-info - Get essential class info'
+      ],
+      content: [
+        'GET /:id/content - Get class content (auth + membership required)',
+        'GET /:id/participants - Get class participants (auth + membership required)',
+        'GET /:id/schedule - Get class schedule (auth + membership required)'
+      ],
+      enrollment: [
+        'POST /:id/join - Join a class (auth required)',
+        'POST /:id/leave - Leave a class (auth required)',
+        'POST /assign - Assign user to class (admin/moderator required)'
+      ],
+      interaction: [
+        'POST /:id/attendance - Mark attendance (auth + membership required)',
+        'GET /:id/progress - Get user progress (auth + membership required)'
+      ],
+      feedback: [
+        'POST /:id/feedback - Submit class feedback (auth + membership required)',
+        'GET /:id/feedback - Get class feedback (instructor/moderator required)'
+      ],
+      testing: [
+        'GET /test - Class routes test (auth required)',
+        'GET /health - Health check (public)'
+      ]
+    },
+    suggestions: suggestions.length > 0 ? suggestions : [
+      '/api/classes',
+      '/api/classes/available',
+      '/api/admin/classes'
+    ],
+    documentation: 'See API documentation for complete route details',
+    timestamp: new Date().toISOString()
+  });
+});
+
+/**
+ * Error handler for class routes
+ */
+router.use((error, req, res, next) => {
+  console.error('❌ Class route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    user: req.user?.username || 'unauthenticated',
+    timestamp: new Date().toISOString(),
+    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+  });
+  
+  // Determine error type and status code
+  let statusCode = 500;
+  let errorCode = 'INTERNAL_ERROR';
+  
+  if (error.name === 'ValidationError') {
+    statusCode = 400;
+    errorCode = 'VALIDATION_ERROR';
+  } else if (error.name === 'UnauthorizedError') {
+    statusCode = 401;
+    errorCode = 'UNAUTHORIZED';
+  } else if (error.name === 'ForbiddenError') {
+    statusCode = 403;
+    errorCode = 'FORBIDDEN';
+  } else if (error.code === 'ER_DUP_ENTRY') {
+    statusCode = 409;
+    errorCode = 'DUPLICATE_ENTRY';
+  } else if (error.statusCode) {
+    statusCode = error.statusCode;
+    errorCode = error.code || 'CUSTOM_ERROR';
+  }
+  
+  res.status(statusCode).json({
+    success: false,
+    error: error.message || 'Class operation error',
+    code: errorCode,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+    ...(process.env.NODE_ENV === 'development' && {
+      stack: error.stack,
+      details: error.details
+    })
+  });
+});
+
+// ===============================================
+// ROUTE INITIALIZATION LOGGING
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('🎓 Class routes loaded successfully:');
+  console.log('   📋 Discovery: GET /, /search, /available, /my-classes, /:id');
+  console.log('   📚 Content: GET /:id/content, /:id/participants, /:id/schedule');
+  console.log('   🎯 Enrollment: POST /:id/join, /:id/leave, /assign');
+  console.log('   📝 Interaction: POST /:id/attendance, GET /:id/progress');
+  console.log('   💬 Feedback: POST /:id/feedback, GET /:id/feedback');
+  console.log('   🔧 Testing: GET /test, /health');
+  console.log('   ⚠️  Legacy: GET /legacy/all, POST /, PUT /:id (deprecated)');
+}
+
+export default router;
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+
+// ikootaapi/routes/classAdminRoutes.js
+// ADMIN CLASS MANAGEMENT ROUTES - COMPLETE IMPLEMENTATION
+// All administrative class operations with comprehensive validation and security
+
+import express from 'express';
+import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+import {
+  validateClassId,
+  validateUserId,
+  validatePagination,
+  validateSorting,
+  validateClassData,
+  validateMembershipAction,
+  validateContentData,
+  validateFeedback,
+  validateBulkOperation,
+  validateDateRange,
+  validateRequestSize,
+  validateAdminClassRoute,
+  validateClassCreation,
+  validateClassUpdate,
+  validateParticipantManagement,
+  validateContentManagement
+} from '../middlewares/classValidation.js';
+
+// Import class admin controllers
+import {
+  // Class management
+  getClassManagement,
+  createClass,
+  getClassById,
+  updateClass,
+  deleteClass,
+  restoreClass,
+  duplicateClass,
+  
+  // Participant management
+  manageClassParticipants,
+  addParticipantToClass,
+  updateParticipant,
+  removeParticipantFromClass,
+  manageParticipantMembership,
+  getClassEnrollmentStats,
+  
+  // Content management
+  manageClassContent,
+  addClassContent,
+  updateClassContent,
+  deleteClassContent,
+  
+  // Instructor management
+  getClassInstructors,
+  addInstructorToClass,
+  removeInstructorFromClass,
+  
+  // Analytics & reporting
+  getClassAnalytics,
+  getClassStats,
+  getSpecificClassAnalytics,
+  
+  // Data export
+  exportClassData,
+  exportParticipantData,
+  exportAnalyticsData,
+  
+  // Bulk operations
+  bulkCreateClasses,
+  bulkUpdateClasses,
+  bulkDeleteClasses,
+  
+  // Configuration
+  getClassConfiguration,
+  updateClassConfiguration,
+  
+  // Testing & utilities
+  testAdminClassRoutes,
+  getClassSystemHealth,
+  handleAdminClassNotFound
+} from '../controllers/classAdminControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// SECURITY & MIDDLEWARE SETUP
+// ===============================================
+
+// Apply admin authentication to all routes
+router.use(authenticate);
+router.use(authorize(['admin', 'super_admin', 'moderator']));
+
+// Request size validation for all routes
+router.use(validateRequestSize);
+
+// Admin action logging middleware
+router.use((req, res, next) => {
+  const startTime = Date.now();
+  
+  // Log admin action initiation
+  console.log(`🔐 Admin action initiated: ${req.method} ${req.path} by ${req.user?.username} (${req.user?.role})`);
+  
+  // Add response time logging
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    const status = res.statusCode >= 400 ? '❌' : '✅';
+    console.log(`${status} Admin action completed: ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
+  });
+  
+  next();
+});
+
+// Rate limiting for admin operations (if available)
+if (process.env.ENABLE_ADMIN_RATE_LIMITING === 'true') {
+  try {
+    const rateLimit = (await import('express-rate-limit')).default;
+    const adminRateLimit = rateLimit({
+      windowMs: 5 * 60 * 1000, // 5 minutes
+      max: 200, // limit each admin to 200 requests per windowMs
+      message: {
+        success: false,
+        error: 'Too many admin requests, please slow down.',
+        retry_after: '5 minutes'
+      },
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req) => `admin-${req.user?.id || req.ip}`,
+      skip: (req) => req.path === '/test' || req.path === '/health' // Skip rate limiting for monitoring
+    });
+    router.use(adminRateLimit);
+  } catch (error) {
+    console.warn('Admin rate limiting not available:', error.message);
+  }
+}
+
+// ===============================================
+// CLASS MANAGEMENT ROUTES
+// ===============================================
+
+/**
+ * GET /admin/classes - Get all classes for management with comprehensive filtering
+ * Query: page, limit, type, is_active, search, sort_by, sort_order, include_stats, date_from, date_to, created_by, min_members, max_members
+ */
+router.get('/', 
+  validatePagination, 
+  validateSorting, 
+  validateDateRange,
+  getClassManagement
+);
+
+/**
+ * POST /admin/classes - Create new class with full administrative options
+ * Body: Comprehensive class creation data with all configuration options
+ */
+router.post('/', 
+  validateClassCreation,
+  createClass
+);
+
+/**
+ * GET /admin/classes/:id - Get specific class with administrative details
+ * Returns full class information including sensitive admin data
+ */
+router.get('/:id', 
+  validateClassId, 
+  getClassById
+);
+
+/**
+ * PUT /admin/classes/:id - Update class with comprehensive field support
+ * Body: Any combination of updatable class fields
+ */
+router.put('/:id', 
+  validateClassUpdate,
+  updateClass
+);
+
+/**
+ * DELETE /admin/classes/:id - Delete or archive class with safety checks
+ * Body: { force?, transfer_members_to?, archive_instead?, deletion_reason? }
+ */
+router.delete('/:id', 
+  validateClassId,
+  deleteClass
+);
+
+/**
+ * POST /admin/classes/:id/restore - Restore archived class
+ * Body: { restore_members?, restoration_reason? }
+ */
+router.post('/:id/restore',
+  validateClassId,
+  authorize(['super_admin']), // Only super admins can restore
+  restoreClass
+);
+
+/**
+ * POST /admin/classes/:id/duplicate - Duplicate class with options
+ * Body: { new_name?, copy_members?, copy_content?, copy_schedule? }
+ */
+router.post('/:id/duplicate',
+  validateClassId,
+  duplicateClass
+);
+
+// ===============================================
+// PARTICIPANT MANAGEMENT ROUTES
+// ===============================================
+
+/**
+ * GET /admin/classes/:id/participants - Get class participants (admin view)
+ * Query: page, limit, role_in_class, membership_status, search, sort_by, sort_order, include_inactive, date_from, date_to
+ */
+router.get('/:id/participants', 
+  validateClassId,
+  validatePagination, 
+  validateSorting, 
+  validateDateRange,
+  manageClassParticipants
+);
+
+/**
+ * POST /admin/classes/:id/participants - Add participant to class
+ * Body: { user_id, role_in_class?, receive_notifications?, expires_at?, can_see_class_name?, assignment_reason? }
+ */
+router.post('/:id/participants', 
+  validateParticipantManagement,
+  addParticipantToClass
+);
+
+/**
+ * PUT /admin/classes/:id/participants/:userId - Update participant
+ * Body: { role_in_class?, membership_status?, expires_at?, receive_notifications? }
+ */
+router.put('/:id/participants/:userId',
+  validateClassId,
+  validateUserId,
+  updateParticipant
+);
+
+/**
+ * DELETE /admin/classes/:id/participants/:userId - Remove participant
+ * Body: { reason?, notify_user? }
+ */
+router.delete('/:id/participants/:userId', 
+  validateClassId,
+  validateUserId,
+  removeParticipantFromClass
+);
+
+/**
+ * POST /admin/classes/:id/participants/:userId/manage - Manage participant membership
+ * Body: { action, new_role?, reason? }
+ * Actions: approve, reject, remove, change_role, promote, demote
+ */
+router.post('/:id/participants/:userId/manage',
+  validateClassId,
+  validateUserId,
+  validateMembershipAction,
+  manageParticipantMembership
+);
+
+/**
+ * GET /admin/classes/:id/enrollment-stats - Get enrollment statistics
+ * Query: period?, breakdown?
+ */
+router.get('/:id/enrollment-stats', 
+  validateClassId,
+  validateDateRange,
+  getClassEnrollmentStats
+);
+
+// ===============================================
+// CONTENT MANAGEMENT ROUTES
+// ===============================================
+
+/**
+ * GET /admin/classes/:id/content - Get class content (admin view)
+ * Query: content_type?, access_level?, page?, limit?, search?
+ */
+router.get('/:id/content', 
+  validateClassId,
+  validatePagination,
+  manageClassContent
+);
+
+/**
+ * POST /admin/classes/:id/content - Add content to class
+ * Body: { content_id, content_type, access_level? }
+ */
+router.post('/:id/content', 
+  validateContentManagement,
+  addClassContent
+);
+
+/**
+ * PUT /admin/classes/:id/content/:contentId - Update class content access
+ * Body: { access_level }
+ */
+router.put('/:id/content/:contentId', 
+  validateClassId,
+  validateContentData,
+  updateClassContent
+);
+
+/**
+ * DELETE /admin/classes/:id/content/:contentId - Remove content from class
+ */
+router.delete('/:id/content/:contentId', 
+  validateClassId,
+  deleteClassContent
+);
+
+// ===============================================
+// INSTRUCTOR MANAGEMENT ROUTES
+// ===============================================
+
+/**
+ * GET /admin/classes/:id/instructors - Get class instructors
+ * Query: page?, limit?, search?, role?
+ */
+router.get('/:id/instructors', 
+  validateClassId,
+  validatePagination,
+  getClassInstructors
+);
+
+/**
+ * POST /admin/classes/:id/instructors - Add instructor to class
+ * Body: { user_id, instructor_role?, permissions? }
+ */
+router.post('/:id/instructors', 
+  validateClassId,
+  validateUserId,
+  addInstructorToClass
+);
+
+/**
+ * DELETE /admin/classes/:id/instructors/:instructorId - Remove instructor
+ * Body: { reason?, transfer_classes? }
+ */
+router.delete('/:id/instructors/:instructorId', 
+  validateClassId,
+  validateUserId,
+  removeInstructorFromClass
+);
+
+// ===============================================
+// ANALYTICS & REPORTING ROUTES
+// ===============================================
+
+/**
+ * GET /admin/classes/analytics - Get comprehensive class analytics
+ * Query: period?, class_type?, include_inactive?, breakdown?, class_id?
+ */
+router.get('/analytics', 
+  validateDateRange,
+  getClassAnalytics
+);
+
+/**
+ * GET /admin/classes/stats - Get class statistics summary
+ * Query: summary?, by_type?, by_status?, recent_activity?
+ */
+router.get('/stats', 
+  getClassStats
+);
+
+/**
+ * GET /admin/classes/:id/analytics - Get specific class analytics
+ * Query: period?, breakdown?
+ */
+router.get('/:id/analytics', 
+  validateClassId,
+  validateDateRange,
+  getSpecificClassAnalytics
+);
+
+// ===============================================
+// DATA EXPORT ROUTES (SUPER ADMIN ONLY)
+// ===============================================
+
+/**
+ * GET /admin/classes/export - Export class data
+ * Query: format?, include_participants?, include_content?, date_from?, date_to?, class_type?
+ */
+router.get('/export', 
+  authorize(['super_admin']),
+  validateDateRange,
+  exportClassData
+);
+
+/**
+ * GET /admin/classes/export/participants - Export participant data
+ * Query: format?, date_from?, date_to?, class_ids?
+ */
+router.get('/export/participants', 
+  authorize(['super_admin']),
+  validateDateRange,
+  exportParticipantData
+);
+
+/**
+ * GET /admin/classes/export/analytics - Export analytics data
+ * Query: format?, period?, class_type?, breakdown?
+ */
+router.get('/export/analytics', 
+  authorize(['super_admin']),
+  validateDateRange,
+  exportAnalyticsData
+);
+
+// ===============================================
+// BULK OPERATIONS ROUTES
+// ===============================================
+
+/**
+ * POST /admin/classes/bulk-create - Bulk create classes
+ * Body: { classes: [{ class_name, ... }, ...] }
+ * Limit: 20 classes per request
+ */
+router.post('/bulk-create', 
+  validateBulkOperation,
+  bulkCreateClasses
+);
+
+/**
+ * PUT /admin/classes/bulk-update - Bulk update classes
+ * Body: { class_ids: [...], updates: {...} }
+ * Limit: 50 classes per request
+ */
+router.put('/bulk-update', 
+  validateBulkOperation,
+  bulkUpdateClasses
+);
+
+/**
+ * DELETE /admin/classes/bulk-delete - Bulk delete classes
+ * Body: { class_ids: [...], force?, transfer_members_to? }
+ * Limit: 20 classes per request
+ */
+router.delete('/bulk-delete', 
+  authorize(['super_admin']), // Only super admins can bulk delete
+  validateBulkOperation,
+  bulkDeleteClasses
+);
+
+// ===============================================
+// SYSTEM CONFIGURATION ROUTES
+// ===============================================
+
+/**
+ * GET /admin/classes/config - Get class system configuration
+ */
+router.get('/config', 
+  authorize(['super_admin']),
+  getClassConfiguration
+);
+
+/**
+ * PUT /admin/classes/config - Update class system configuration
+ * Body: { default_max_members?, default_privacy_level?, allowed_class_types?, auto_approve_joins?, notification_settings? }
+ */
+router.put('/config', 
+  authorize(['super_admin']),
+  updateClassConfiguration
+);
+
+// ===============================================
+// MONITORING & MAINTENANCE ROUTES
+// ===============================================
+
+/**
+ * GET /admin/classes/health - System health check for class management
+ */
+router.get('/health',
+  getClassSystemHealth
+);
+
+/**
+ * GET /admin/classes/test - Admin class routes test
+ */
+router.get('/test', 
+  testAdminClassRoutes
+);
+
+/**
+ * POST /admin/classes/maintenance/cleanup - Cleanup orphaned data (super admin only)
+ * Body: { cleanup_type?, dry_run? }
+ */
+router.post('/maintenance/cleanup',
+  authorize(['super_admin']),
+  async (req, res) => {
+    const { cleanup_type = 'all', dry_run = true } = req.body;
+    
+    // Placeholder for maintenance operations
+    console.log(`🧹 Admin ${req.user.username} initiated cleanup: ${cleanup_type} (dry_run: ${dry_run})`);
+    
+    res.json({
+      success: true,
+      message: 'Maintenance cleanup - implement with maintenance service',
+      operation: {
+        type: cleanup_type,
+        dry_run: Boolean(dry_run),
+        initiated_by: req.user.username,
+        admin_id: req.user.id
+      },
+      placeholder: true,
+      timestamp: new Date().toISOString()
+    });
+  }
+);
+
+/**
+ * POST /admin/classes/maintenance/recompute-stats - Recompute class statistics (super admin only)
+ */
+router.post('/maintenance/recompute-stats',
+  authorize(['super_admin']),
+  async (req, res) => {
+    console.log(`📊 Admin ${req.user.username} initiated stats recomputation`);
+    
+    res.json({
+      success: true,
+      message: 'Statistics recomputation - implement with maintenance service',
+      operation: {
+        type: 'recompute_statistics',
+        initiated_by: req.user.username,
+        admin_id: req.user.id
+      },
+      placeholder: true,
+      timestamp: new Date().toISOString()
+    });
+  }
+);
+
+// ===============================================
+// WEBHOOK MANAGEMENT ROUTES (if webhooks enabled)
+// ===============================================
+
+if (process.env.ENABLE_ADMIN_WEBHOOKS === 'true') {
+  /**
+   * GET /admin/classes/webhooks - Get configured webhooks
+   */
+  /**
+   * GET /admin/classes/webhooks - Get configured webhooks
+   */
+  router.get('/webhooks',
+    authorize(['super_admin']),
+    (req, res) => {
+      res.json({
+        success: true,
+        message: 'Webhook management - implement with webhook service',
+        data: {
+          webhooks: [],
+          total_webhooks: 0
+        },
+        admin_context: {
+          admin_id: req.user.id,
+          can_manage: true
+        },
+        placeholder: true,
+        timestamp: new Date().toISOString()
+      });
+    }
+  );
+
+  /**
+   * POST /admin/classes/webhooks - Configure new webhook
+   * Body: { url, events, secret?, enabled? }
+   */
+  router.post('/webhooks',
+    authorize(['super_admin']),
+    (req, res) => {
+      const { url, events, secret, enabled = true } = req.body;
+      
+      console.log(`🔗 Admin ${req.user.username} configuring webhook: ${url}`);
+      
+      res.json({
+        success: true,
+        message: 'Webhook configuration - implement with webhook service',
+        webhook: { url, events, enabled },
+        configured_by: req.user.username,
+        placeholder: true,
+        timestamp: new Date().toISOString()
+      });
+    }
+  );
+}
+
+// ===============================================
+// AUDIT LOG ROUTES
+// ===============================================
+
+/**
+ * GET /admin/classes/audit-log - Get audit log for class operations
+ * Query: page?, limit?, action_type?, admin_id?, date_from?, date_to?, class_id?
+ */
+router.get('/audit-log',
+  authorize(['super_admin']),
+  validatePagination,
+  validateDateRange,
+  async (req, res) => {
+    const {
+      page = 1,
+      limit = 50,
+      action_type,
+      admin_id,
+      date_from,
+      date_to,
+      class_id
+    } = req.query;
+
+    // Placeholder for audit log implementation
+    res.json({
+      success: true,
+      message: 'Audit log - implement with audit service',
+      data: {
+        audit_entries: [],
+        total_entries: 0
+      },
+      filters: {
+        action_type,
+        admin_id,
+        date_from,
+        date_to,
+        class_id
+      },
+      pagination: {
+        current_page: parseInt(page),
+        per_page: parseInt(limit),
+        total_pages: 0,
+        total_records: 0
+      },
+      accessed_by: req.user.username,
+      placeholder: true,
+      timestamp: new Date().toISOString()
+    });
+  }
+);
+
+// ===============================================
+// ADVANCED SEARCH & FILTERING ROUTES
+// ===============================================
+
+/**
+ * POST /admin/classes/search - Advanced admin search with complex criteria
+ * Body: { filters: {...}, sort: {...}, pagination: {...} }
+ */
+router.post('/search',
+  validatePagination,
+  async (req, res) => {
+    const { filters = {}, sort = {}, pagination = {} } = req.body;
+    
+    console.log(`🔍 Admin ${req.user.username} performing advanced search`);
+    
+    res.json({
+      success: true,
+      message: 'Advanced search - implement with enhanced search service',
+      search_criteria: { filters, sort, pagination },
+      results: {
+        classes: [],
+        total_results: 0
+      },
+      searched_by: req.user.username,
+      placeholder: true,
+      timestamp: new Date().toISOString()
+    });
+  }
+);
+
+// ===============================================
+// INTEGRATION ROUTES
+// ===============================================
+
+/**
+ * POST /admin/classes/integration/sync - Sync with external systems
+ * Body: { system_type, sync_direction?, force_sync? }
+ */
+router.post('/integration/sync',
+  authorize(['super_admin']),
+  async (req, res) => {
+    const { system_type, sync_direction = 'bidirectional', force_sync = false } = req.body;
+    
+    if (!system_type) {
+      return res.status(400).json({
+        success: false,
+        error: 'system_type is required',
+        available_systems: ['lms', 'crm', 'external_api'],
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    console.log(`🔄 Admin ${req.user.username} initiated sync with ${system_type}`);
+    
+    res.json({
+      success: true,
+      message: 'External system sync - implement with integration service',
+      sync_operation: {
+        system_type,
+        sync_direction,
+        force_sync: Boolean(force_sync),
+        initiated_by: req.user.username,
+        admin_id: req.user.id
+      },
+      placeholder: true,
+      timestamp: new Date().toISOString()
+    });
+  }
+);
+
+// ===============================================
+// DEVELOPMENT & DEBUGGING ROUTES
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  /**
+   * GET /admin/classes/debug/routes - List all available admin routes
+   */
+  router.get('/debug/routes', (req, res) => {
+    res.json({
+      success: true,
+      message: 'Admin class routes listing',
+      routes: {
+        class_management: {
+          'GET /': 'Get all classes for management',
+          'POST /': 'Create new class',
+          'GET /:id': 'Get specific class (admin view)',
+          'PUT /:id': 'Update class',
+          'DELETE /:id': 'Delete class',
+          'POST /:id/restore': 'Restore archived class (super admin)',
+          'POST /:id/duplicate': 'Duplicate class'
+        },
+        participant_management: {
+          'GET /:id/participants': 'Get class participants (admin view)',
+          'POST /:id/participants': 'Add participant to class',
+          'PUT /:id/participants/:userId': 'Update participant',
+          'DELETE /:id/participants/:userId': 'Remove participant',
+          'POST /:id/participants/:userId/manage': 'Manage participant membership',
+          'GET /:id/enrollment-stats': 'Get enrollment statistics'
+        },
+        content_management: {
+          'GET /:id/content': 'Get class content (admin view)',
+          'POST /:id/content': 'Add content to class',
+          'PUT /:id/content/:contentId': 'Update class content',
+          'DELETE /:id/content/:contentId': 'Delete class content'
+        },
+        instructor_management: {
+          'GET /:id/instructors': 'Get class instructors',
+          'POST /:id/instructors': 'Add instructor',
+          'DELETE /:id/instructors/:instructorId': 'Remove instructor'
+        },
+        analytics: {
+          'GET /analytics': 'System-wide class analytics',
+          'GET /stats': 'Class statistics summary',
+          'GET /:id/analytics': 'Specific class analytics'
+        },
+        data_export: {
+          'GET /export': 'Export class data (super admin)',
+          'GET /export/participants': 'Export participants (super admin)',
+          'GET /export/analytics': 'Export analytics (super admin)'
+        },
+        bulk_operations: {
+          'POST /bulk-create': 'Bulk create classes',
+          'PUT /bulk-update': 'Bulk update classes',
+          'DELETE /bulk-delete': 'Bulk delete classes (super admin)'
+        },
+        configuration: {
+          'GET /config': 'Get class configuration (super admin)',
+          'PUT /config': 'Update class configuration (super admin)'
+        },
+        monitoring: {
+          'GET /health': 'System health check',
+          'GET /test': 'Admin routes test',
+          'POST /maintenance/cleanup': 'Cleanup orphaned data (super admin)',
+          'POST /maintenance/recompute-stats': 'Recompute statistics (super admin)'
+        },
+        audit: {
+          'GET /audit-log': 'Get audit log (super admin)'
+        },
+        search: {
+          'POST /search': 'Advanced admin search'
+        },
+        integration: {
+          'POST /integration/sync': 'Sync with external systems (super admin)'
+        }
+      },
+      permission_levels: {
+        admin: 'Basic admin operations (most routes)',
+        super_admin: 'Full system access (config, export, bulk delete, maintenance)',
+        moderator: 'Limited admin access (class-specific operations)'
+      },
+      security_notes: {
+        authentication: 'All routes require admin authentication',
+        authorization: 'Routes are role-based with different access levels',
+        rate_limiting: process.env.ENABLE_ADMIN_RATE_LIMITING === 'true' ? 'Enabled (200 req/5min)' : 'Disabled',
+        audit_logging: 'All admin actions are logged'
+      },
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  /**
+   * GET /admin/classes/debug/permissions - Check admin permissions
+   */
+  router.get('/debug/permissions', (req, res) => {
+    const permissions = {
+      user_info: {
+        id: req.user.id,
+        username: req.user.username,
+        role: req.user.role
+      },
+      access_levels: {
+        basic_admin: ['admin', 'super_admin', 'moderator'].includes(req.user.role),
+        super_admin: req.user.role === 'super_admin',
+        can_export: req.user.role === 'super_admin',
+        can_bulk_delete: req.user.role === 'super_admin',
+        can_configure: req.user.role === 'super_admin',
+        can_maintenance: req.user.role === 'super_admin'
+      },
+      available_operations: []
+    };
+
+    if (permissions.access_levels.basic_admin) {
+      permissions.available_operations.push(
+        'class_management', 'participant_management', 'content_management',
+        'instructor_management', 'analytics', 'bulk_create', 'bulk_update'
+      );
+    }
+
+    if (permissions.access_levels.super_admin) {
+      permissions.available_operations.push(
+        'system_configuration', 'data_export', 'bulk_delete',
+        'maintenance_operations', 'audit_access', 'webhook_management'
+      );
+    }
+
+    res.json({
+      success: true,
+      message: 'Admin permissions check',
+      data: permissions,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  /**
+   * POST /admin/classes/debug/simulate-error - Simulate error for testing
+   * Body: { error_type?, status_code? }
+   */
+  router.post('/debug/simulate-error', (req, res) => {
+    const { error_type = 'generic', status_code = 500 } = req.body;
+    
+    console.log(`🧪 Admin ${req.user.username} simulating error: ${error_type}`);
+    
+    switch (error_type) {
+      case 'validation':
+        return res.status(400).json({
+          success: false,
+          error: 'Simulated validation error',
+          code: 'VALIDATION_ERROR',
+          simulated: true
+        });
+      case 'unauthorized':
+        return res.status(401).json({
+          success: false,
+          error: 'Simulated unauthorized error',
+          code: 'UNAUTHORIZED',
+          simulated: true
+        });
+      case 'forbidden':
+        return res.status(403).json({
+          success: false,
+          error: 'Simulated forbidden error',
+          code: 'FORBIDDEN',
+          simulated: true
+        });
+      case 'not_found':
+        return res.status(404).json({
+          success: false,
+          error: 'Simulated not found error',
+          code: 'NOT_FOUND',
+          simulated: true
+        });
+      default:
+        return res.status(parseInt(status_code)).json({
+          success: false,
+          error: 'Simulated generic error',
+          code: 'SIMULATED_ERROR',
+          error_type,
+          simulated: true
+        });
+    }
+  });
+}
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+/**
+ * 404 handler for admin class routes (must be before general error handler)
+ */
+router.use('*', handleAdminClassNotFound);
+
+/**
+ * Error handler for admin class routes
+ */
+router.use((error, req, res, next) => {
+  console.error('❌ Admin class route error:', {
+    error: error.message,
+    path: req.path,
+    method: req.method,
+    admin: req.user?.username || 'unknown',
+    admin_role: req.user?.role,
+    timestamp: new Date().toISOString(),
+    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+  });
+  
+  // Determine error type and status code
+  let statusCode = 500;
+  let errorCode = 'ADMIN_ERROR';
+  
+  if (error.name === 'ValidationError') {
+    statusCode = 400;
+    errorCode = 'VALIDATION_ERROR';
+  } else if (error.name === 'UnauthorizedError') {
+    statusCode = 401;
+    errorCode = 'UNAUTHORIZED';
+  } else if (error.name === 'ForbiddenError') {
+    statusCode = 403;
+    errorCode = 'FORBIDDEN';
+  } else if (error.code === 'ER_DUP_ENTRY') {
+    statusCode = 409;
+    errorCode = 'DUPLICATE_ENTRY';
+  } else if (error.statusCode) {
+    statusCode = error.statusCode;
+    errorCode = error.code || 'CUSTOM_ADMIN_ERROR';
+  }
+  
+  res.status(statusCode).json({
+    success: false,
+    error: error.message || 'Admin class operation error',
+    code: errorCode,
+    admin_action: true,
+    path: req.path,
+    method: req.method,
+    admin_context: {
+      admin_id: req.user?.id,
+      admin_username: req.user?.username,
+      admin_role: req.user?.role
+    },
+    timestamp: new Date().toISOString(),
+    ...(process.env.NODE_ENV === 'development' && {
+      stack: error.stack,
+      details: error.details
+    })
+  });
+});
+
+// ===============================================
+// ROUTE INITIALIZATION LOGGING
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔐 Admin class routes loaded successfully:');
+  console.log('   📋 Management: GET /, POST /, GET /:id, PUT /:id, DELETE /:id');
+  console.log('   👥 Participants: GET /:id/participants, POST /:id/participants, manage operations');
+  console.log('   📚 Content: GET /:id/content, POST /:id/content, PUT/DELETE operations');
+  console.log('   👨‍🏫 Instructors: GET /:id/instructors, POST /:id/instructors, DELETE operations');
+  console.log('   📊 Analytics: GET /analytics, GET /stats, GET /:id/analytics');
+  console.log('   💾 Export: GET /export/* (super admin only)');
+  console.log('   🔢 Bulk Ops: POST /bulk-create, PUT /bulk-update, DELETE /bulk-delete');
+  console.log('   ⚙️  Config: GET /config, PUT /config (super admin only)');
+  console.log('   🔧 Monitoring: GET /health, GET /test, POST /maintenance/*');
+  console.log('   📝 Audit: GET /audit-log (super admin only)');
+  console.log('   🔍 Search: POST /search');
+  console.log('   🔗 Integration: POST /integration/sync (super admin only)');
+  if (process.env.ENABLE_ADMIN_WEBHOOKS === 'true') {
+    console.log('   🪝 Webhooks: GET /webhooks, POST /webhooks (super admin only)');
+  }
+}
+
+// ===============================================
+// EXPORT ROUTER
+// ===============================================
+
+export default router;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+// ikootaapi/routes/authRoutes.js
+// FIXED VERSION - Proper route handling and middleware order
+
+import express from 'express';
+import { authenticate } from '../middlewares/auth.middleware.js';
+
+// Import authentication controllers
+import {
+  sendVerificationCode,
+  registerWithVerification,
+  enhancedLogin,
+  logoutUser,
+  requestPasswordReset,
+  resetPassword,
+  verifyPasswordReset,
+  verifyUser,
+  getAuthenticatedUser
+} from '../controllers/authControllers.js';
+
+const router = express.Router();
+
+// ===============================================
+// MIDDLEWARE SETUP
+// ===============================================
+
+// Add request logging middleware
+router.use((req, res, next) => {
+  console.log(`📥 ${new Date().toISOString()} - ${req.method} ${req.path}`, {
+    ip: req.ip,
+    userAgent: req.get('User-Agent')?.substring(0, 50) + '...',
+    body: req.method === 'POST' ? Object.keys(req.body || {}) : undefined
+  });
+  next();
+});
+
+// ===============================================
+// PRIMARY AUTHENTICATION ENDPOINTS
+// ===============================================
+
+// Email verification and registration flow
+router.post('/send-verification', sendVerificationCode);
+router.post('/register', registerWithVerification);
+
+// ✅ FIXED: Login endpoint with proper error handling
+router.post('/login', async (req, res, next) => {
+  try {
+    console.log('🔍 Login route hit with body:', Object.keys(req.body || {}));
+    await enhancedLogin(req, res);
+  } catch (error) {
+    console.error('❌ Login route error:', error);
+    next(error);
+  }
+});
+
+// Logout
+router.get('/logout', logoutUser);
+
+// ===============================================
+// PASSWORD RESET ENDPOINTS
+// ===============================================
+
+router.post('/passwordreset/request', requestPasswordReset);
+router.post('/passwordreset/reset', resetPassword);
+router.post('/passwordreset/verify', verifyPasswordReset);
+
+// ===============================================
+// USER VERIFICATION ENDPOINTS
+// ===============================================
+
+router.get('/verify/:token', verifyUser);
+
+// ===============================================
+// AUTHENTICATED USER ENDPOINTS
+// ===============================================
+
+router.get('/', authenticate, getAuthenticatedUser);
+
+// ===============================================
+// TESTING ENDPOINTS
+// ===============================================
+
+// Simple connectivity test
+router.get('/test-simple', (req, res) => {
+  console.log('✅ Test simple endpoint hit');
+  res.json({
+    success: true,
+    message: 'Authentication routes are working!',
+    timestamp: new Date().toISOString(),
+    endpoint: '/api/auth/test-simple'
+  });
+});
+
+// Authentication test
+router.get('/test-auth', authenticate, (req, res) => {
+  console.log('✅ Test auth endpoint hit');
+  res.json({
+    success: true,
+    message: 'Authentication middleware is working!',
+    user: {
+      id: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role
+    },
+    timestamp: new Date().toISOString(),
+    endpoint: '/api/auth/test-auth'
+  });
+});
+
+// ✅ NEW: Route debugging endpoint
+router.get('/routes', (req, res) => {
+  const routes = [];
+  router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      const methods = Object.keys(middleware.route.methods);
+      routes.push({
+        path: middleware.route.path,
+        methods: methods.map(m => m.toUpperCase())
+      });
+    }
+  });
+  
+  res.json({
+    success: true,
+    message: 'Available authentication routes',
+    routes,
+    totalRoutes: routes.length,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// ERROR HANDLING MIDDLEWARE
+// ===============================================
+
+// 404 handler for unmatched auth routes
+router.use('*', (req, res) => {
+  console.log(`❌ 404 - Auth route not found: ${req.method} ${req.originalUrl}`);
+  
+  res.status(404).json({
+    success: false,
+    error: 'Authentication route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      primary: [
+        'POST /send-verification - Send email verification code',
+        'POST /register - Register with verification',
+        'POST /login - User login',
+        'GET /logout - User logout'
+      ],
+      passwordReset: [
+        'POST /passwordreset/request - Request password reset',
+        'POST /passwordreset/reset - Reset password',
+        'POST /passwordreset/verify - Verify reset token'
+      ],
+      verification: [
+        'GET /verify/:token - Verify email token'
+      ],
+      user: [
+        'GET / - Get authenticated user info'
+      ],
+      testing: [
+        'GET /test-simple - Simple connectivity test',
+        'GET /test-auth - Authentication test',
+        'GET /routes - List all routes'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Error handler middleware
+router.use((error, req, res, next) => {
+  console.error('❌ Authentication route error:', {
+    error: error.message,
+    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+  
+  const statusCode = error.statusCode || error.status || 500;
+  
+  res.status(statusCode).json({
+    success: false,
+    error: error.message || 'Authentication error',
+    errorType: error.name || 'AuthError',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+    ...(process.env.NODE_ENV === 'development' && { 
+      stack: error.stack,
+      details: error 
+    })
+  });
+});
+
+console.log('🔐 Authentication routes loaded: verification, login, password reset');
+
+export default router;
+
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+import multer from 'multer';
+import path from 'path';
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import dotenv from 'dotenv';
+import { v4 as uuidv4 } from 'uuid';
+
+dotenv.config();
+
+// Configure AWS S3
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
+
+// Set up multer storage to use memory storage
+const storage = multer.memoryStorage();
+
+// File filter to only accept certain file types
+const fileFilter = (req, file, cb) => {
+  const filetypes = /jpeg|jpg|png|gif|mp4|mp3|m4a|webm|pdf|txt/;
+  const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = filetypes.test(file.mimetype);
+
+  if (mimetype && extname) {
+    return cb(null, true);
+  } else {
+    cb(new Error('File type not supported!'), false);
+  }
+};
+
+// Multer upload middleware
+const uploadMiddleware = multer({
+  storage,
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB limit
+  fileFilter,
+}).fields([
+  { name: "media1", maxCount: 1 },
+  { name: "media2", maxCount: 1 },
+  { name: "media3", maxCount: 1 },
+]);
+
+// Middleware to upload files to S3
+const uploadToS3 = async (req, res, next) => {
+  try {
+    if (!req.files || Object.keys(req.files).length === 0) return next();
+
+    const uploadedFiles = await Promise.all(
+      Object.values(req.files).flat().map(async (file) => {
+        const fileKey = `${uuidv4()}-${file.originalname}`;
+        const params = {
+          Bucket: process.env.AWS_BUCKET_NAME,
+          Key: fileKey,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+          ACL: 'public-read', // Ensure this is set to public-read
+        };
+        await s3Client.send(new PutObjectCommand(params));
+
+        // Construct the S3 URL
+        const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
+        return { url: fileUrl, type: file.mimetype.split("/")[0] };
+      })
+    );
+
+    req.uploadedFiles = uploadedFiles;
+    next();
+  } catch (err) {
+    console.log("here is the issue", err);
+    next(err);
+  }
+};
+
+export { uploadMiddleware, uploadToS3 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+//\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+//\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+
+// ikootaclient/src/App.jsx - FIXED VERSION WITH MEMBERSHIP ROUTES
+import './App.css';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+
+// Error boundary
+import ErrorBoundary from './components/ErrorBoundary';
+
+// Auth components
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import { UserProvider } from './components/auth/UserStatus';
+import LandingPage from './components/auth/LandingPage';
+import Signup from './components/auth/Signup';
+import Login from './components/auth/Login';
+import Applicationsurvey from './components/auth/Applicationsurvey';
+import AuthControl from './components/auth/AuthControls';
+import UserManagement from './components/admin/UserManagement';
+
+// ✅ Import IkoAuthWrapper instead of Iko directly
+import IkoAuthWrapper from './components/iko/IkoAuthWrapper';
+
+// Info components
+import ApplicationThankyou from './components/info/ApplicationThankYou';
+import SurveySubmitted from './components/info/SurveySubmitted';
+import Pendverifyinfo from './components/info/Pendverifyinfo';
+import Suspendedverifyinfo from './components/info/Suspendedverifyinfo';
+import Approveverifyinfo from './components/info/Approveverifyinfo';
+import Thankyou from './components/info/Thankyou';
+
+// ✅ MEMBERSHIP COMPONENTS - Import the membership-related components
+import FullMembershipSurvey from './components/membership/FullMembershipSurvey';
+import FullMembershipInfo from './components/membership/FullMembershipInfo';
+import FullMembershipSubmitted from './components/membership/FullMembershipSubmitted';
+import FullMembershipDeclined from './components/membership/FullMembershipDeclined';
+
+// Admin components
+import Admin from './components/admin/Admin';
+import Dashboard from './components/admin/Dashboard';
+import Reports from './components/admin/Reports';
+import AudienceClassMgr from './components/admin/AudienceClassMgr';
+import FullMembershipReviewControls from './components/admin/FullMembershipReviewControls';
+
+// Towncrier components
+import Towncrier from './components/towncrier/Towncrier';
+import TowncrierControls from './components/towncrier/TowncrierControls';
+
+// Iko components
+import IkoControl from './components/iko/IkoControls';
+
+// Search components
+import SearchControls from './components/search/SearchControls';
+
+// Test component
+// import Test from './Test';
+
+// Import user dashboard component
+import UserDashboard from './components/user/UserDashboard';
+
+// Create a client
+const queryClient = new QueryClient();
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <UserProvider>
+          <Router>
+            <div className='app_container'>
+              <Routes>
+                {/* 
+                  ✅ LAYER 1: COMPLETELY PUBLIC ROUTES - NO PROTECTION
+                  Open to all visitors without any authentication checks
+                */}
+                <Route path="/" element={
+                  <ErrorBoundary>
+                    <LandingPage />
+                  </ErrorBoundary>
+                } />
+                
+                {/* ✅ Public auth routes - also no protection needed */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+
+                {/* 
+                  SIGNUP PROCESS ROUTES
+                  Post-registration flow components
+                */}
+                <Route path="/application-thankyou" element={
+                  <ProtectedRoute allowPending={true}>
+                    <ApplicationThankyou />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/applicationsurvey" element={
+                  <ProtectedRoute allowPending={true}>
+                    <Applicationsurvey />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/survey-submitted" element={
+                  <ProtectedRoute allowPending={true}>
+                    <SurveySubmitted />
+                  </ProtectedRoute>
+                } />
+
+                {/* 
+                  ✅ APPLICATION STATUS ROUTES
+                  Different status pages based on review outcome
+                */}
+                <Route path="/pending-verification" element={
+                  <ProtectedRoute allowPending={true}>
+                    <Pendverifyinfo />
+                  </ProtectedRoute>
+                } />
+                
+                {/* ✅ Application status route */}
+                <Route path="/application-status" element={
+                  <ProtectedRoute allowPending={true}>
+                    <Pendverifyinfo />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/suspended-verification" element={
+                  <ProtectedRoute allowPending={true}>
+                    <Suspendedverifyinfo />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/approved-verification" element={
+                  <ProtectedRoute requireMember={true}>
+                    <Approveverifyinfo />
+                  </ProtectedRoute>
+                } />
+
+                {/* Legacy thank you route */}
+                <Route path="/thankyou" element={
+                  <ProtectedRoute allowPending={true}>
+                    <Thankyou />
+                  </ProtectedRoute>
+                } />
+
+                {/* 
+                  ✅ FIXED: MEMBERSHIP ROUTES - For pre-members to apply for full membership
+                */}
+                <Route path="/full-membership-info" element={
+                  <ProtectedRoute requirePreMember={true}>
+                    <FullMembershipInfo />
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/full-membership-application" element={
+                  <ProtectedRoute requirePreMember={true}>
+                    <FullMembershipSurvey />
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/full-membership-survey" element={
+                  <ProtectedRoute requirePreMember={true}>
+                    <FullMembershipSurvey />
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/full-membership-submitted" element={
+                  <ProtectedRoute requirePreMember={true}>
+                    <FullMembershipSubmitted />
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/full-membership-declined" element={
+                  <ProtectedRoute requirePreMember={true}>
+                    <FullMembershipDeclined />
+                  </ProtectedRoute>
+                } />
+
+                {/* 
+                  ✅ LAYER 2: TOWNCRIER ROUTES - STRICT SECURITY
+                  ONLY for approved pre-members - NOT for applicants
+                */}
+                <Route path="/towncrier" element={
+                  <ProtectedRoute requirePreMember={true}>
+                    <Towncrier />
+                  </ProtectedRoute>
+                } />
+
+                {/* User Dashboard route - for personal dashboard view */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute allowPending={true}>
+                    <UserDashboard />
+                  </ProtectedRoute>
+                } />
+
+                {/* Route alias for backward compatibility */}
+                <Route path="/member-dashboard" element={
+                  <ProtectedRoute allowPending={true}>
+                    <UserDashboard />
+                  </ProtectedRoute>
+                } />
+
+                {/* 
+                  ✅ LAYER 3: IKO ROUTES - CORRECTED
+                  Simple route - IkoAuthWrapper handles all authorization internally
+                */}
+                <Route path="/iko" element={<IkoAuthWrapper />} />
+
+                {/* 
+                  LAYER 4: ADMIN ROUTES 
+                  Only users with admin role privileges
+                */}
+                <Route path="/admin" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <Admin />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<Dashboard />} />
+                  <Route path="content/:content_id" element={<Dashboard />} />
+                  
+                  {/* Admin can access and manage all areas */}
+                  <Route path="towncrier" element={<Towncrier />} />
+                  <Route path="towncriercontrols" element={<TowncrierControls />} />
+                  
+                  {/* ✅ Use IkoAuthWrapper in admin context */}
+                  <Route path="iko" element={<IkoAuthWrapper isNested={true} />} />
+                  <Route path="ikocontrols" element={<IkoControl />} />
+                  
+                  {/* Admin-specific management tools */}
+                  <Route path="authcontrols" element={<AuthControl />} />
+                  <Route path="searchcontrols" element={<SearchControls />} />
+                  <Route path="reports" element={<Reports />} />
+                  <Route path="usermanagement" element={<UserManagement />} />
+                  <Route path="audienceclassmgr" element={<AudienceClassMgr />} />
+                  
+                  {/* ✅ NEW: Full Membership Review Route */}
+                  <Route path="full-membership-review" element={<FullMembershipReviewControls />} />
+                  
+                  {/* ✅ ADMIN MEMBERSHIP MANAGEMENT ROUTES */}
+                  <Route path="membership/info" element={<FullMembershipInfo />} />
+                  <Route path="membership/applications" element={<FullMembershipSurvey />} />
+                </Route>
+                
+                {/* Development/Test route */}
+                {/* <Route path="/test" element={
+                  <ProtectedRoute>
+                    <Test />
+                  </ProtectedRoute>
+                } /> */}
+
+                {/* ✅ CATCHALL: 404 fallback route */}
+                <Route path="*" element={
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: '100vh',
+                    textAlign: 'center',
+                    padding: '20px'
+                  }}>
+                    <h1 style={{ fontSize: '4rem', margin: '0' }}>404</h1>
+                    <h2 style={{ color: '#666', margin: '10px 0' }}>Page Not Found</h2>
+                    <p style={{ color: '#999', marginBottom: '20px' }}>
+                      The page you're looking for doesn't exist.
+                    </p>
+                    <a 
+                      href="/" 
+                      style={{
+                        background: '#667eea',
+                        color: 'white',
+                        padding: '12px 24px',
+                        borderRadius: '8px',
+                        textDecoration: 'none',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Go to Home Page
+                    </a>
+                  </div>
+                } />
+              </Routes>
+            </div>
+          </Router>
+        </UserProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+}
+
+export default App;
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/hooks/useUserStatus.js
+import { useState, useEffect } from 'react';
 import api from '../components/service/api';
 
+export const useUserStatus = () => {
+  const [userStatus, setUserStatus] = useState(null);
+  const [surveyStatus, setSurveyStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-MEDIUM PRIORITY (Priority 2)
+  // ✅ NEW: Check survey status function
+  const checkSurveyStatus = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('🔍 No token found, skipping survey status check');
+        return null;
+      }
 
-Standardize Full Membership Routes
+      // Set authorization header
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      const response = await api.get('/membership/survey/check-status');
+      
+      if (response.data) {
+        console.log('📋 Survey status fetched:', response.data);
+        setSurveyStatus(response.data);
+        return response.data;
+      }
+    } catch (err) {
+      console.log('Failed to get survey status:', err);
+      
+      // Handle specific error cases
+      if (err.response?.status === 401) {
+        console.log('🔍 Token expired or invalid for survey check');
+        localStorage.removeItem('token');
+        delete api.defaults.headers.common['Authorization'];
+        setSurveyStatus(null);
+        return null;
+      } else if (err.response?.status === 404) {
+        // Survey endpoint doesn't exist or user has no survey
+        console.log('🔍 No survey data found for user');
+        setSurveyStatus({ needs_survey: true, survey_completed: false });
+        return { needs_survey: true, survey_completed: false };
+      } else {
+        console.warn('⚠️ Survey status check failed:', err.message);
+        return null;
+      }
+    }
+  };
 
-Create consistent /api/full-membership/* pattern
-Add alias routes for backward compatibility
+  const getUserStatus = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Check if user is authenticated first
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('🔍 No token found, skipping user status fetch');
+        setUserStatus(null);
+        setSurveyStatus(null);
+        setLoading(false);
+        return;
+      }
+
+      // Set authorization header
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // ✅ ENHANCED: Fetch both user status and survey status
+      const [userResponse, surveyData] = await Promise.allSettled([
+        api.get('/membership/dashboard'),
+        checkSurveyStatus()
+      ]);
+
+      // Handle user status response
+      if (userResponse.status === 'fulfilled' && userResponse.value?.data) {
+        setUserStatus(userResponse.value.data);
+      } else if (userResponse.status === 'rejected') {
+        const err = userResponse.reason;
+        
+        if (err.response?.status === 401) {
+          console.log('🔍 Token expired or invalid, clearing auth data');
+          localStorage.removeItem('token');
+          delete api.defaults.headers.common['Authorization'];
+          setUserStatus(null);
+          setSurveyStatus(null);
+          setError(null);
+        } else if (err.response?.status === 403) {
+          console.log('🔍 User lacks permission for dashboard');
+          setError('Access denied');
+        } else {
+          setError(err.message || 'Failed to fetch user status');
+        }
+      }
+
+      // Survey status is already handled in checkSurveyStatus function
+      
+    } catch (err) {
+      console.log('Failed to get user status:', err);
+      setError(err.message || 'Failed to fetch user status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Only fetch user status if we have a token
+    const token = localStorage.getItem('token');
+    if (token) {
+      getUserStatus();
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  const refreshStatus = () => {
+    getUserStatus();
+  };
+
+  // ✅ NEW: Refresh only survey status
+  const refreshSurveyStatus = () => {
+    checkSurveyStatus();
+  };
+
+  // ✅ NEW: Helper function to determine if user should be redirected to survey
+  const shouldRedirectToSurvey = () => {
+    if (!userStatus || !surveyStatus) return false;
+    
+    // Only redirect regular users (not admins) who need to complete survey
+    return (
+      userStatus.role === 'user' && 
+      (surveyStatus.needs_survey || !surveyStatus.survey_completed)
+    );
+  };
+
+  // ✅ NEW: Helper function to get appropriate redirect path
+  const getRedirectPath = () => {
+    if (shouldRedirectToSurvey()) {
+      return '/applicationsurvey';
+    }
+    
+    // Use existing logic for other redirects
+    if (userStatus?.role === 'admin' || userStatus?.role === 'super_admin') {
+      return '/admin';
+    } else if (userStatus?.is_member === 'granted') {
+      return '/iko';
+    } else if (userStatus?.is_member === 'applied' || userStatus?.is_member === 'pending') {
+      return '/pending-verification';
+    } else {
+      return '/towncrier';
+    }
+  };
+
+  return {
+    userStatus,
+    surveyStatus, // ✅ NEW: Expose survey status
+    loading,
+    error,
+    refreshStatus,
+    refreshSurveyStatus, // ✅ NEW: Function to refresh only survey status
+    shouldRedirectToSurvey, // ✅ NEW: Helper for survey redirect logic
+    getRedirectPath, // ✅ NEW: Helper for getting redirect path
+    checkSurveyStatus // ✅ NEW: Expose survey check function
+  };
+};
+
+// Also provide default export for compatibility
+export default useUserStatus;
 
 
-Add Email Service Routes
-javascript// Add to communicationRoutes.js
-router.post('/email/send-membership-feedback', sendMembershipFeedback);
 
-Implement Missing Messages Endpoints
-javascript// Add to communicationRoutes.js or create messageRoutes.js
-router.get('/messages', getMessages);
-router.put('/messages/:id', updateMessage);
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 
 
-O
+ //ikootaclient\src\hooks\useUploadCommentFiles.js
+ import { useMutation } from "@tanstack/react-query";
+
+
+export const useUploadCommentFiles = () => {
+  const mutation = useMutation(async (files) => {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    const response = await api.post('/comments/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  });
+
+  return mutation;
+};
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+//ikootaclient\src\hooks\useUpload.js
+import { useMutation } from "@tanstack/react-query";
+import api from "../components/service/api";
+
+
+
+
+
+const useUpload = (endpoint) => {
+  const mutation = useMutation(async (formData) => {
+    const response = await api.post(endpoint, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  });
+
+  const validateFiles = (files) => {
+    // Add file validation logic if needed
+    return true;
+  };
+
+  return { validateFiles, mutation };
+};
+
+export default useUpload;
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/hooks/useDynamicLabels.js
+// Hook to fetch dynamic question labels for the survey form
+
+import { useState, useEffect } from 'react';
+import api from '../components/service/api';
+
+// Default labels - fallback if API fails
+const DEFAULT_LABELS = {
+  fullName: 'Full Name',
+  dateOfBirth: 'Date of Birth',
+  nationality: 'Nationality',
+  currentLocation: 'Current Location',
+  phoneNumber: 'Phone Number',
+  highestEducation: 'Highest Level of Education',
+  fieldOfStudy: 'Field of Study',
+  currentInstitution: 'Current/Most Recent Institution',
+  graduationYear: 'Graduation Year',
+  currentOccupation: 'Current Occupation',
+  workExperience: 'Years of Work Experience',
+  professionalSkills: 'Professional Skills',
+  careerGoals: 'Career Goals',
+  howDidYouHear: 'How did you hear about Ikoota?',
+  reasonForJoining: 'Why do you want to join Ikoota?',
+  expectedContributions: 'How do you plan to contribute to the community?',
+  educationalGoals: 'What are your educational goals?',
+  previousMemberships: 'Previous Memberships',
+  specialSkills: 'Special Skills',
+  languagesSpoken: 'Languages Spoken',
+  availabilityForEvents: 'Availability for Events',
+  agreeToTerms: 'I agree to the Terms and Conditions',
+  agreeToCodeOfConduct: 'I agree to follow the Community Code of Conduct',
+  agreeToDataProcessing: 'I consent to processing of my personal data'
+};
+
+export const useDynamicLabels = () => {
+  const [labels, setLabels] = useState(DEFAULT_LABELS);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchLabels = async () => {
+      try {
+        console.log('🔍 Fetching dynamic question labels...');
+        const response = await api.get('/survey/question-labels');
+        
+        let fetchedLabels;
+        if (response.data?.success && response.data?.data) {
+          fetchedLabels = response.data.data;
+        } else if (typeof response.data === 'object') {
+          fetchedLabels = response.data;
+        } else {
+          throw new Error('Invalid response format');
+        }
+        
+        // Merge with defaults to ensure all fields have labels
+        const mergedLabels = { ...DEFAULT_LABELS, ...fetchedLabels };
+        setLabels(mergedLabels);
+        console.log('✅ Dynamic labels loaded successfully');
+        
+      } catch (err) {
+        console.warn('⚠️ Failed to fetch dynamic labels, using defaults:', err.message);
+        setError(err.message);
+        // Keep using default labels
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLabels();
+  }, []);
+
+  return { labels, loading, error };
+};
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+// ikootaclient/src/hooks/useAuth.js
+import { useState, useEffect } from 'react';
+import { jwtDecode } from 'jwt-decode';
+
+export const useAuth = () => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem("token");
+      
+      if (!token) {
+        // Check for token in cookies
+        const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("access_token="));
+        if (tokenCookie) {
+          const cookieToken = tokenCookie.split("=")[1];
+          try {
+            const decoded = jwtDecode(cookieToken);
+            if (decoded.exp * 1000 > Date.now()) {
+              setUser(decoded);
+            }
+          } catch (error) {
+            console.error('Invalid token in cookie');
+          }
+        }
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        const decoded = jwtDecode(token);
+        if (decoded.exp * 1000 > Date.now()) {
+          setUser(decoded);
+        } else {
+          localStorage.removeItem("token");
+        }
+      } catch (error) {
+        localStorage.removeItem("token");
+      }
+      
+      setLoading(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  const login = (token) => {
+    localStorage.setItem("token", token);
+    try {
+      const decoded = jwtDecode(token);
+      setUser(decoded);
+    } catch (error) {
+      console.error('Invalid token provided to login');
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    setUser(null);
+  };
+
+  return {
+    user,
+    loading,
+    isAuthenticated: !!user,
+    isAdmin: user?.role === 'admin' || user?.isAdmin === true,
+    login,
+    logout
+  };
+};
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+// File: utils/membershipUtils.js
+
+import { getUserAccess } from './accessMatrix';
+
+// ✅ STANDARDIZED: Membership application route function
+export const getMembershipApplicationRoute = (userData) => {
+  const access = getUserAccess(userData);
+  const status = userData?.membershipApplicationStatus || userData?.full_membership_status;
+  
+  switch (status) {
+    case 'not_applied':
+      return access.canApplyForMembership ? '/full-membership/info' : '/towncrier';
+    case 'pending':
+      return '/full-membership/pending';
+    case 'approved':
+      return '/iko'; // Members go to Iko
+    case 'declined':
+      return '/full-membership/declined';
+    default:
+      return '/dashboard';
+  }
+};
+
+// ✅ STANDARDIZED: Feature access checking
+export const canAccessMembershipFeature = (userData, feature) => {
+  const access = getUserAccess(userData);
+  
+  switch (feature) {
+    case 'apply':
+      return access.canApplyForMembership;
+    case 'reapply':
+      return access.canReapplyForMembership;
+    case 'status':
+      return access.userType !== 'guest';
+    case 'iko_chat':
+      return access.canAccessIko;
+    default:
+      return false;
+  }
+};
+
+// ✅ STANDARDIZED: Route access checking
+export const canAccessRoute = (userData, route) => {
+  const access = getUserAccess(userData);
+  
+  // Check direct route access
+  if (access.allowedRoutes.includes(route)) {
+    return true;
+  }
+  
+  // Check wildcard routes
+  const hasWildcardAccess = access.allowedRoutes.some(allowedRoute => {
+    if (allowedRoute.endsWith('/*')) {
+      const basePath = allowedRoute.replace('/*', '');
+      return route.startsWith(basePath);
+    }
+    return false;
+  });
+  
+  if (hasWildcardAccess) {
+    return true;
+  }
+  
+  // ✅ STANDARDIZED: Membership route checks
+  if (route.startsWith('/full-membership/')) {
+    const subRoute = route.replace('/full-membership/', '');
+    
+    switch (subRoute) {
+      case 'info':
+      case 'apply':
+        return access.canApplyForMembership || access.canReapplyForMembership;
+      case 'pending':
+        return userData?.membershipApplicationStatus === 'pending' || 
+               userData?.full_membership_status === 'pending';
+      case 'approved':
+        return userData?.membershipApplicationStatus === 'approved' || 
+               userData?.full_membership_status === 'approved';
+      case 'declined':
+        return userData?.membershipApplicationStatus === 'declined' || 
+               userData?.full_membership_status === 'declined';
+      case 'status':
+        return access.userType !== 'guest';
+      default:
+        return access.canAccess.membershipApplication;
+    }
+  }
+  
+  // Check specific access properties
+  switch (route) {
+    case '/admin':
+      return access.canAccess.admin;
+    case '/iko':
+      return access.canAccess.iko;
+    case '/towncrier':
+      return access.canAccess.towncrier;
+    case '/dashboard':
+      return access.canAccess.dashboard;
+    default:
+      return false;
+  }
+};
+
+// ✅ STANDARDIZED: User status with clear levels
+export const getUserStatusString = (userData) => {
+  if (!userData) return 'guest';
+  
+  const role = userData.role?.toLowerCase();
+  const memberStatus = userData.is_member?.toLowerCase();
+  const membershipStage = userData.membership_stage?.toLowerCase();
+  const status = userData.status || userData.finalStatus;
+
+  // Admin users
+  if (role === 'admin' || role === 'super_admin') return 'admin';
+  
+  // ✅ STANDARDIZED: Member (full member)
+  if (status === 'member' || 
+      (memberStatus === 'member' && membershipStage === 'member')) {
+    return 'member';
+  }
+  
+  // ✅ STANDARDIZED: Pre-member states
+  if (status === 'pre_member_pending_upgrade') return 'pre_member_pending_upgrade';
+  if (status === 'pre_member_can_reapply') return 'pre_member_can_reapply';
+  
+  if (status === 'pre_member' || 
+      memberStatus === 'approved' && membershipStage === 'pre' ||
+      membershipStage === 'pre_member') {
+    return 'pre_member';
+  }
+  
+  // Pending/Applied
+  if (memberStatus === 'applied' || memberStatus === 'pending') return 'pending_verification';
+  
+  // Denied
+  if (memberStatus === 'declined' || memberStatus === 'denied') return 'denied';
+  
+  return 'authenticated';
+};
+
+// ✅ STANDARDIZED: Dashboard content configuration
+export const getDashboardContent = (userData) => {
+  const access = getUserAccess(userData);
+  const status = getUserStatusString(userData);
+  
+  return {
+    showMembershipApplicationCard: ['pre_member', 'pre_member_can_reapply'].includes(status),
+    showApplicationPending: status === 'pre_member_pending_upgrade',
+    showIkoAccess: access.canAccessIko,
+    showTowncrierAccess: access.canAccessTowncrier,
+    showAdminPanel: access.canAccessAdmin,
+    primaryAction: getPrimaryAction(userData),
+    statusMessage: access.statusMessage
+  };
+};
+
+// ✅ STANDARDIZED: Primary action determination
+export const getPrimaryAction = (userData) => {
+  const status = getUserStatusString(userData);
+  const access = getUserAccess(userData);
+  
+  switch (status) {
+    case 'admin':
+      return { text: 'Admin Panel', link: '/admin', type: 'admin' };
+    case 'member':
+      return { text: 'Iko Chat', link: '/iko', type: 'primary' };
+    case 'pre_member':
+      return access.canApplyForMembership 
+        ? { text: 'Apply for Full Membership', link: '/full-membership/info', type: 'upgrade' }
+        : { text: 'Access Towncrier', link: '/towncrier', type: 'secondary' };
+    case 'pre_member_pending_upgrade':
+      return { text: 'Check Application Status', link: '/full-membership/status', type: 'info' };
+    case 'pre_member_can_reapply':
+      return { text: 'Reapply for Full Membership', link: '/full-membership/info', type: 'retry' };
+    case 'pending_verification':
+      return { text: 'Check Application Status', link: '/application-status', type: 'warning' };
+    default:
+      return { text: 'Complete Application', link: '/application-survey', type: 'primary' };
+  }
+};
+
+// ✅ STANDARDIZED: Route protection helpers
+export const requireMembershipLevel = (userData, requiredLevel) => {
+  const access = getUserAccess(userData);
+  
+  switch (requiredLevel) {
+    case 'member':
+      return access.canAccessIko;
+    case 'pre_member':
+      return access.userType === 'pre_member' || access.canAccessIko;
+    case 'authenticated':
+      return access.userType !== 'guest';
+    case 'admin':
+      return access.canAccessAdmin;
+    default:
+      return false;
+  }
+};
+
+// ✅ STANDARDIZED: Application status helpers
+export const getApplicationStatusDisplay = (userData) => {
+  const status = userData?.full_membership_status || userData?.membershipApplicationStatus;
+  
+  const statusConfig = {
+    'not_applied': {
+      text: 'Not Applied',
+      color: 'gray',
+      icon: 'clock',
+      description: 'You have not applied for full membership yet'
+    },
+    'pending': {
+      text: 'Under Review',
+      color: 'yellow',
+      icon: 'hourglass',
+      description: 'Your application is being reviewed by our team'
+    },
+    'approved': {
+      text: 'Approved',
+      color: 'green',
+      icon: 'check-circle',
+      description: 'Congratulations! Your membership has been approved'
+    },
+    'declined': {
+      text: 'Declined',
+      color: 'red',
+      icon: 'x-circle',
+      description: 'Your application was not approved at this time'
+    }
+  };
+  
+  return statusConfig[status] || statusConfig['not_applied'];
+};
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+// ikootaclient/src/components/utils/IdDisplay.jsx
+// Utility component for displaying entity IDs
+
+import React from 'react';
+import { validateIdFormat, getEntityTypeFromId } from '../service/idGenerationService';
+
+export const EntityIdDisplay = ({ id, entityName }) => {
+  const entityType = getEntityTypeFromId(id);
+  const isValid = validateIdFormat(id, entityType);
+  
+  return (
+    <div className="entity-id-display">
+      <span className="entity-name">{entityName}:</span>
+      <span className={`entity-id ${isValid ? 'valid-id' : 'invalid-id'}`}>
+        {id}
+      </span>
+      <span className="entity-type">
+        ({entityType === 'user' ? 'Person' : 'Class'})
+      </span>
+      {!isValid && <span className="error-indicator"> ⚠️ Invalid format</span>}
+    </div>
+  );
+};
+
+// Hook for bulk ID operations
+export const useBulkIdOperations = () => {
+  const handleBulkIdGeneration = async (count, type) => {
+    try {
+      const response = await api.post('/admin/generate-bulk-ids', {
+        count,
+        type
+      });
+      
+      console.log('Generated IDs:', response.data.ids);
+      return response.data.ids;
+    } catch (error) {
+      console.error('Bulk generation failed:', error);
+      throw error;
+    }
+  };
+
+  return { handleBulkIdGeneration };
+};
+
+// Hook for ID format migration
+export const useIdMigration = () => {
+  const migrateOldIds = (users) => {
+    const usersNeedingMigration = users.filter(user => 
+      user.converse_id && user.converse_id.length !== 10
+    );
+    
+    usersNeedingMigration.forEach(user => {
+      console.log(`User ${user.id} needs ID migration: ${user.converse_id}`);
+    });
+    
+    return usersNeedingMigration;
+  };
+
+  return { migrateOldIds };
+};
+
+// Example component using utility functions
+export const UserIdCard = ({ user }) => {
+  return (
+    <div className="user-id-card">
+      <EntityIdDisplay id={user.converse_id} entityName="User ID" />
+      {user.class_id && (
+        <EntityIdDisplay id={user.class_id} entityName="Class ID" />
+      )}
+      {user.mentor_id && (
+        <EntityIdDisplay id={user.mentor_id} entityName="Mentor ID" />
+      )}
+    </div>
+  );
+};
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// 1. FRONTEND INTERCEPTOR (ikootaclient/src/utils/apiTracer.js)
+// ============================================================================
+
+import axios from 'axios';
+
+class APITracer {
+  constructor() {
+    this.traces = new Map();
+    this.setupInterceptors();
+  }
+
+  generateTraceId() {
+    return `trace_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  setupInterceptors() {
+    // Request interceptor
+    axios.interceptors.request.use(
+      (config) => {
+        const traceId = this.generateTraceId();
+        config.headers['X-Trace-Id'] = traceId;
+        
+        const trace = {
+          traceId,
+          method: config.method.toUpperCase(),
+          url: config.url,
+          baseURL: config.baseURL,
+          fullUrl: `${config.baseURL || ''}${config.url}`,
+          headers: config.headers,
+          data: config.data,
+          params: config.params,
+          timestamp: new Date().toISOString(),
+          stages: []
+        };
+
+        // Add frontend stage
+        trace.stages.push({
+          stage: 'FRONTEND_REQUEST',
+          timestamp: new Date().toISOString(),
+          location: this.getCallerLocation(),
+          data: {
+            method: config.method,
+            url: config.url,
+            headers: config.headers,
+            payload: config.data
+          }
+        });
+
+        this.traces.set(traceId, trace);
+        
+        console.log('🚀 API TRACE STARTED:', {
+          traceId,
+          method: config.method.toUpperCase(),
+          url: config.url,
+          timestamp: trace.timestamp
+        });
+
+        return config;
+      },
+      (error) => {
+        console.error('❌ REQUEST INTERCEPTOR ERROR:', error);
+        return Promise.reject(error);
+      }
+    );
+
+    // Response interceptor
+    axios.interceptors.response.use(
+      (response) => {
+        const traceId = response.config.headers['X-Trace-Id'];
+        const trace = this.traces.get(traceId);
+
+        if (trace) {
+          trace.stages.push({
+            stage: 'FRONTEND_RESPONSE',
+            timestamp: new Date().toISOString(),
+            data: {
+              status: response.status,
+              statusText: response.statusText,
+              headers: response.headers,
+              data: response.data
+            }
+          });
+
+          trace.completed = true;
+          trace.completedAt = new Date().toISOString();
+          trace.duration = Date.now() - new Date(trace.timestamp).getTime();
+
+          this.logCompleteTrace(trace);
+        }
+
+        return response;
+      },
+      (error) => {
+        const traceId = error.config?.headers['X-Trace-Id'];
+        const trace = this.traces.get(traceId);
+
+        if (trace) {
+          trace.stages.push({
+            stage: 'FRONTEND_ERROR',
+            timestamp: new Date().toISOString(),
+            data: {
+              error: error.message,
+              status: error.response?.status,
+              statusText: error.response?.statusText,
+              responseData: error.response?.data
+            }
+          });
+
+          trace.error = true;
+          trace.completedAt = new Date().toISOString();
+          trace.duration = Date.now() - new Date(trace.timestamp).getTime();
+
+          this.logCompleteTrace(trace);
+        }
+
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  getCallerLocation() {
+    const stack = new Error().stack;
+    const lines = stack.split('\n');
+    // Find the line that contains the actual caller (not interceptor)
+    for (let i = 2; i < lines.length; i++) {
+      if (!lines[i].includes('interceptor') && !lines[i].includes('apiTracer')) {
+        return lines[i].trim();
+      }
+    }
+    return 'Unknown location';
+  }
+
+  logCompleteTrace(trace) {
+    console.group(`📊 COMPLETE API TRACE: ${trace.traceId}`);
+    console.log('🎯 Request:', `${trace.method} ${trace.fullUrl}`);
+    console.log('⏱️ Duration:', `${trace.duration}ms`);
+    console.log('📍 Stages:', trace.stages.length);
+    
+    trace.stages.forEach((stage, index) => {
+      console.group(`${index + 1}. ${stage.stage}`);
+      console.log('⏰ Timestamp:', stage.timestamp);
+      console.log('📄 Data:', stage.data);
+      if (stage.location) console.log('📍 Location:', stage.location);
+      console.groupEnd();
+    });
+    
+    console.groupEnd();
+
+    // Store for debugging
+    window.apiTraces = window.apiTraces || [];
+    window.apiTraces.push(trace);
+  }
+
+  getTrace(traceId) {
+    return this.traces.get(traceId);
+  }
+
+  getAllTraces() {
+    return Array.from(this.traces.values());
+  }
+}
+
+// Initialize tracer
+const apiTracer = new APITracer();
+export default apiTracer;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/components/utils/apiDebugHelper.js
+// Utility to help debug API response issues
+
+export const debugApiResponse = (response, endpoint = 'unknown') => {
+  console.group(`🔍 API Debug: ${endpoint}`);
+  
+  console.log('📡 Full Response:', response);
+  console.log('📋 Response Status:', response?.status);
+  console.log('📄 Response Headers:', response?.headers);
+  console.log('💾 Response Data:', response?.data);
+  console.log('🔧 Data Type:', typeof response?.data);
+  console.log('📏 Is Array:', Array.isArray(response?.data));
+  
+  if (response?.data && typeof response.data === 'object') {
+    console.log('🗂️ Object Keys:', Object.keys(response.data));
+    
+    // Check for common array properties
+    const commonArrayKeys = ['data', 'teachings', 'results', 'items', 'list'];
+    commonArrayKeys.forEach(key => {
+      if (response.data[key]) {
+        console.log(`📂 Found "${key}":`, response.data[key]);
+        console.log(`📂 "${key}" is array:`, Array.isArray(response.data[key]));
+      }
+    });
+  }
+  
+  console.groupEnd();
+  return response;
+};
+
+export const normalizeTeachingsResponse = (response) => {
+  console.log('🔄 Normalizing teachings response...');
+  
+  let teachingsData = [];
+  
+  try {
+    if (!response || !response.data) {
+      console.warn('⚠️ No response data found');
+      return [];
+    }
+    
+    const data = response.data;
+    
+    // Try different possible structures
+    if (Array.isArray(data)) {
+      console.log('✅ Data is direct array');
+      teachingsData = data;
+    } else if (data.data && Array.isArray(data.data)) {
+      console.log('✅ Data found in data.data');
+      teachingsData = data.data;
+    } else if (data.teachings && Array.isArray(data.teachings)) {
+      console.log('✅ Data found in data.teachings');
+      teachingsData = data.teachings;
+    } else if (data.results && Array.isArray(data.results)) {
+      console.log('✅ Data found in data.results');
+      teachingsData = data.results;
+    } else if (data.items && Array.isArray(data.items)) {
+      console.log('✅ Data found in data.items');
+      teachingsData = data.items;
+    } else if (typeof data === 'object') {
+      console.log('⚠️ Data is object, checking for array properties...');
+      
+      // Find any array property
+      const arrayProp = Object.keys(data).find(key => Array.isArray(data[key]));
+      if (arrayProp) {
+        console.log(`✅ Found array in property: ${arrayProp}`);
+        teachingsData = data[arrayProp];
+      } else {
+        console.log('⚠️ No array found, wrapping single object');
+        teachingsData = [data];
+      }
+    } else {
+      console.error('❌ Unknown data structure:', typeof data);
+      teachingsData = [];
+    }
+    
+    console.log(`📊 Normalized to ${teachingsData.length} teachings`);
+    return teachingsData;
+    
+  } catch (error) {
+    console.error('❌ Error normalizing response:', error);
+    return [];
+  }
+};
+
+export const enhanceTeaching = (teaching, index = 0) => {
+  return {
+    ...teaching,
+    // Ensure required fields exist
+    id: teaching.id || `temp-${index}`,
+    content_type: 'teaching',
+    content_title: teaching.topic || teaching.title || 'Untitled Teaching',
+    prefixed_id: teaching.prefixed_id || `t${teaching.id || index}`,
+    display_date: teaching.updatedAt || teaching.createdAt || new Date().toISOString(),
+    author: teaching.author || teaching.user_id || teaching.created_by || 'Admin',
+    topic: teaching.topic || teaching.title || 'Untitled',
+    description: teaching.description || 'No description available',
+    subjectMatter: teaching.subjectMatter || teaching.subject || 'Not specified',
+    audience: teaching.audience || 'General'
+  };
+};
+
+// Test function to check API endpoint
+export const testTeachingsEndpoint = async (api) => {
+  console.group('🧪 Testing Teachings Endpoint');
+  
+  try {
+    console.log('📡 Making request to /teachings...');
+    const response = await api.get('/teachings');
+    
+    debugApiResponse(response, '/teachings');
+    
+    const normalized = normalizeTeachingsResponse(response);
+    console.log('📊 Normalized data:', normalized);
+    
+    if (normalized.length > 0) {
+      console.log('📋 Sample teaching:', normalized[0]);
+      console.log('🔧 Enhanced sample:', enhanceTeaching(normalized[0]));
+    }
+    
+    console.log('✅ Endpoint test completed successfully');
+    return normalized;
+    
+  } catch (error) {
+    console.error('❌ Endpoint test failed:', error);
+    console.error('📋 Error details:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    return [];
+  } finally {
+    console.groupEnd();
+  }
+};
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+// ikootaclient/src/components/user/UserDashboard.jsx - CLEAN VERSION
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useUser } from '../auth/UserStatus';
+import { getUserAccess } from '../config/accessMatrix';
+import api from '../service/api'; 
+import './UserDashboard.css';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
+// ==================================================
+// API FUNCTIONS
+// ==================================================
+
+const fetchUserDashboard = async () => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.get('/membership/dashboard', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
+const markNotificationAsRead = async (notificationId) => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.put(`/user/notifications/${notificationId}/read`, {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
+// ==================================================
+// COMPONENT SECTIONS
+// ==================================================
+
+const MembershipStatus = ({ status, onApplyClick }) => {
+  console.log('🔍 MembershipStatus received status:', status);
+  
+  if (!status) return (
+    <div className="membership-status loading">
+      <div className="loading-spinner"></div>
+      <p>Loading membership status...</p>
+    </div>
+  );
+
+  const getStatusColor = (statusType) => {
+    switch (statusType) {
+      case 'member':
+      case 'full_member':
+      case 'approved_member':
+      case 'approved_pre_member':
+      case 'approved':
+        return 'success';
+      case 'pre_member':
+        return 'info';
+      case 'ready_to_apply':
+      case 'not_submitted':
+        return 'primary';
+      case 'pending':
+      case 'under_review':
+        return 'warning';
+      case 'declined':
+      case 'rejected':
+        return 'danger';
+      default:
+        return 'default';
+    }
+  };
+
+  const getStatusIcon = (statusType) => {
+    switch (statusType) {
+      case 'member':
+      case 'full_member':
+      case 'approved_member':
+      case 'approved_pre_member':
+      case 'approved':
+        return '✅';
+      case 'pre_member':
+        return '👤';
+      case 'ready_to_apply':
+      case 'not_submitted':
+        return '📝';
+      case 'pending':
+      case 'under_review':
+        return '⏳';
+      case 'declined':
+      case 'rejected':
+        return '❌';
+      default:
+        return '📋';
+    }
+  };
+
+  // ✅ CRITICAL FIX: Use the new API response structure
+  const membershipStage = status.membership_stage || 'none';
+  const memberStatus = status.is_member || 'not_applied';
+  
+  // ✅ NEW: Get application status from the new API structure
+  let applicationStatus, applicationStatusDisplay, applicationDescription;
+  
+  if (status.application_status) {
+    // New API structure
+    applicationStatus = status.application_status;
+    applicationStatusDisplay = status.application_status_display || status.application_status;
+    applicationDescription = status.application_description || 'No description available';
+  } else {
+    // Fallback to legacy structure
+    applicationStatus = status.initial_application_status || 'not_submitted';
+    applicationStatusDisplay = applicationStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    applicationDescription = 'Application status information';
+  }
+  
+  console.log('🔍 MembershipStatus processing:', {
+    membershipStage,
+    memberStatus,
+    applicationStatus,
+    applicationStatusDisplay,
+    applicationDescription
+  });
+  
+  return (
+    <div className="membership-status">
+      <div className="status-header">
+        <h3>Membership Status</h3>
+        <div className={`status-badge ${getStatusColor(applicationStatus)}`}>
+          <span className="status-icon">{getStatusIcon(applicationStatus)}</span>
+          <span className="status-text">
+            {applicationStatus === 'ready_to_apply' ? 'NEW USER' :
+             applicationStatus === 'approved_pre_member' ? 'PRE-MEMBER' :
+             applicationStatus === 'approved_member' ? 'FULL MEMBER' :
+             applicationStatus === 'pending' ? 'UNDER REVIEW' :
+             applicationStatusDisplay.toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      <div className="status-details">
+        <div className="detail-item">
+          <strong>Current Status:</strong> 
+          <span className={`status-indicator ${getStatusColor(memberStatus)}`}>
+            {memberStatus === 'applied' && applicationStatus === 'ready_to_apply' ? 'Ready to Apply' :
+             memberStatus === 'applied' ? 'Application Submitted' : 
+             memberStatus === 'pre_member' ? 'Pre-Member' :
+             memberStatus === 'member' ? 'Full Member' :
+             memberStatus.replace(/_/g, ' ')}
+          </span>
+        </div>
+        
+        <div className="detail-item">
+          <strong>Application Status:</strong> 
+          <span className={`status-indicator ${getStatusColor(applicationStatus)}`}>
+            {applicationStatusDisplay}
+          </span>
+        </div>
+
+        {status.user_created && (
+          <div className="detail-item">
+            <strong>Member Since:</strong> 
+            <span>{new Date(status.user_created).toLocaleDateString()}</span>
+          </div>
+        )}
+
+        {(status.application_ticket || status.survey_ticket) && (
+          <div className="detail-item">
+            <strong>Application ID:</strong> 
+            <span className="application-ticket">
+              {status.application_ticket || status.survey_ticket}
+            </span>
+          </div>
+        )}
+
+        {status.application_submittedAt && (
+          <div className="detail-item">
+            <strong>Submitted:</strong> 
+            <span>{new Date(status.application_submittedAt).toLocaleDateString()}</span>
+          </div>
+        )}
+
+        {status.application_reviewedAt && (
+          <div className="detail-item">
+            <strong>Reviewed:</strong> 
+            <span>{new Date(status.application_reviewedAt).toLocaleDateString()}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="status-actions">
+        {/* ✅ ENHANCED: Handle new user status */}
+        {applicationStatus === 'ready_to_apply' && (
+          <div className="ready-to-apply-message">
+            <div className="ready-icon">📝</div>
+            <h4>Ready to Apply</h4>
+            <p>{applicationDescription}</p>
+            <button 
+              className="apply-btn"
+              onClick={() => window.location.href = '/applicationsurvey'}
+            >
+              Start Application
+            </button>
+          </div>
+        )}
+
+        {applicationStatus === 'not_submitted' && memberStatus === 'applied' && (
+          <div className="not-submitted-message">
+            <div className="not-submitted-icon">📝</div>
+            <h4>Application Required</h4>
+            <p>Complete your membership application to join our community.</p>
+            <button 
+              className="apply-btn"
+              onClick={() => window.location.href = '/applicationsurvey'}
+            >
+              Submit Application
+            </button>
+          </div>
+        )}
+
+        {(applicationStatus === 'pending' || applicationStatus === 'under_review') && (
+          <div className="pending-message">
+            <div className="pending-icon">⏳</div>
+            <h4>Application Under Review</h4>
+            <p>{applicationDescription}</p>
+            {status.application_submittedAt && (
+              <small>
+                Submitted on {new Date(status.application_submittedAt).toLocaleDateString()}
+              </small>
+            )}
+          </div>
+        )}
+
+        {(membershipStage === 'member' || applicationStatus === 'approved_member') && (
+          <div className="member-benefits">
+            <div className="benefits-icon">🎉</div>
+            <h4>Full Member Benefits Active</h4>
+            <ul>
+              <li>✅ Access to Iko Chat</li>
+              <li>✅ Full platform access</li>
+              <li>✅ Community participation</li>
+              <li>✅ Priority support</li>
+            </ul>
+          </div>
+        )}
+
+        {(membershipStage === 'pre_member' || applicationStatus === 'approved_pre_member') && (
+          <div className="premember-benefits">
+            <div className="benefits-icon">👤</div>
+            <h4>Pre-Member Access</h4>
+            <ul>
+              <li>✅ Towncrier content access</li>
+              <li>✅ Limited community features</li>
+              <li>📝 Full membership application available</li>
+            </ul>
+            <button 
+              className="upgrade-btn"
+              onClick={() => window.location.href = '/full-membership'}
+            >
+              Apply for Full Membership
+            </button>
+          </div>
+        )}
+
+        {(applicationStatus === 'rejected' || applicationStatus === 'declined') && (
+          <div className="rejected-message">
+            <div className="rejected-icon">❌</div>
+            <h4>Application Not Approved</h4>
+            <p>{applicationDescription}</p>
+            {status.admin_notes && (
+              <div className="admin-feedback">
+                <strong>Feedback:</strong> {status.admin_notes}
+              </div>
+            )}
+            <button 
+              className="reapply-btn"
+              onClick={() => window.location.href = '/applicationsurvey'}
+            >
+              Reapply
+            </button>
+          </div>
+        )}
+
+        {applicationStatus === 'approved' && !membershipStage && (
+          <div className="approved-message">
+            <div className="approved-icon">✅</div>
+            <h4>Application Approved!</h4>
+            <p>{applicationDescription}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}; 
+
+// ✅ ENHANCED: Quick Actions with admin buttons and smaller size
+const QuickActions = ({ actions, user }) => {
+  const { getUserStatus } = useUser();
+  const userStatus = getUserStatus();
+  const userAccess = user ? getUserAccess(user) : null;
+
+  console.log('🔍 QuickActions - User Status:', userStatus);
+  console.log('🔍 QuickActions - User Access:', userAccess);
+
+  // ✅ ENHANCED: Dynamic actions based on user status with admin buttons
+  const getActionsForUser = () => {
+    const baseActions = [
+      {
+        text: 'View Profile',
+        link: '/profile',
+        type: 'primary',
+        icon: '👤',
+        size: 'small'
+      }
+    ];
+
+    // ✅ ADMIN SPECIFIC ACTIONS
+    if (userStatus === 'admin') {
+      return [
+        ...baseActions,
+        {
+          text: 'Admin Panel',
+          link: '/admin',
+          type: 'admin',
+          icon: '🔧',
+          size: 'small'
+        },
+        {
+          text: 'User Management',
+          link: '/admin/usermanagement',
+          type: 'admin',
+          icon: '👥',
+          size: 'small'
+        },
+        {
+          text: 'Applications',
+          link: '/admin/authcontrols',
+          type: 'admin',
+          icon: '📋',
+          size: 'small'
+        },
+        {
+          text: 'Reports',
+          link: '/admin/reports',
+          type: 'admin',
+          icon: '📊',
+          size: 'small'
+        },
+        {
+          text: 'Iko Chat',
+          link: '/iko',
+          type: 'info',
+          icon: '💬',
+          size: 'small'
+        },
+        {
+          text: 'Towncrier',
+          link: '/towncrier',
+          type: 'secondary',
+          icon: '📚',
+          size: 'small'
+        }
+      ];
+    }
+
+    // ✅ FULL MEMBER ACTIONS
+    if (userStatus === 'full_member') {
+      return [
+        ...baseActions,
+        {
+          text: 'Iko Chat',
+          link: '/iko',
+          type: 'info',
+          icon: '💬',
+          size: 'small'
+        },
+        {
+          text: 'Towncrier',
+          link: '/towncrier',
+          type: 'secondary',
+          icon: '📚',
+          size: 'small'
+        }
+      ];
+    }
+    
+    // ✅ PRE-MEMBER ACTIONS
+    if (userStatus === 'pre_member') {
+      return [
+        ...baseActions,
+        {
+          text: 'Towncrier Content',
+          link: '/towncrier',
+          type: 'secondary',
+          icon: '📚',
+          size: 'small'
+        },
+        {
+          text: 'Apply for Full Membership',
+          link: '/full-membership-application',
+          type: 'success',
+          icon: '📝',
+          size: 'small'
+        }
+      ];
+    }
+    
+    // ✅ PENDING VERIFICATION ACTIONS
+    if (userStatus === 'pending_verification') {
+      return [
+        ...baseActions,
+        {
+          text: 'Application Status',
+          link: '/pending-verification',
+          type: 'warning',
+          icon: '⏳',
+          size: 'small'
+        }
+      ];
+    }
+    
+    // ✅ NEEDS APPLICATION ACTIONS
+    if (userStatus === 'needs_application') {
+      return [
+        ...baseActions,
+        {
+          text: 'Complete Application',
+          link: '/applicationsurvey',
+          type: 'primary',
+          icon: '📝',
+          size: 'small'
+        }
+      ];
+    }
+    
+    return baseActions;
+  };
+
+  // ✅ DEFAULT ACTIONS - Made smaller
+  const defaultActions = [
+    {
+      text: 'Help Center',
+      link: '/help',
+      type: 'info',
+      icon: '❓',
+      size: 'small'
+    },
+    {
+      text: 'Settings',
+      link: '/settings',
+      type: 'default',
+      icon: '⚙️',
+      size: 'small'
+    },
+    {
+      text: 'Home',
+      link: '/',
+      type: 'secondary',
+      icon: '🏠',
+      size: 'small'
+    }
+  ];
+
+  const userSpecificActions = getActionsForUser();
+  const allActions = [...userSpecificActions, ...defaultActions, ...(actions || [])];
+
+  // ✅ NEW: Logout function
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
+    window.location.href = '/login';
+  };
+
+  return (
+    <div className="quick-actions">
+      <h3>Quick Actions</h3>
+      <div className="actions-grid compact">
+        {allActions.map((action, index) => (
+          <a 
+            key={index} 
+            href={action.link} 
+            className={`action-btn ${action.type} ${action.size || 'small'}`}
+            title={action.description || action.text}
+          >
+            <div className="action-icon">{action.icon}</div>
+            <span className="action-text">{action.text}</span>
+            {action.badge && (
+              <span className="action-badge">{action.badge}</span>
+            )}
+          </a>
+        ))}
+        
+        {/* ✅ NEW: Logout Button */}
+        <button 
+          onClick={handleLogout}
+          className="action-btn danger small"
+          title="Sign out of your account"
+        >
+          <div className="action-icon">🚪</div>
+          <span className="action-text">Logout</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const RecentActivities = ({ activities }) => {
+  const getActivityIcon = (type) => {
+    switch (type) {
+      case 'application':
+        return '📝';
+      case 'approval':
+        return '✅';
+      case 'course':
+        return '📚';
+      case 'message':
+        return '💬';
+      case 'login':
+        return '🔐';
+      case 'registration':
+        return '🎉';
+      default:
+        return '📋';
+    }
+  };
+
+  const getActivityColor = (status) => {
+    switch (status) {
+      case 'completed':
+      case 'approved':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'failed':
+      case 'declined':
+        return 'danger';
+      default:
+        return 'info';
+    }
+  };
+
+  // Default activities if none provided
+  const defaultActivities = [
+    {
+      type: 'registration',
+      title: 'Account Created',
+      description: 'Welcome to the Ikoota platform!',
+      date: new Date().toISOString(),
+      status: 'completed'
+    },
+    {
+      type: 'application',
+      title: 'Application Submitted',
+      description: 'Your membership application is under review',
+      date: new Date().toISOString(),
+      status: 'pending'
+    }
+  ];
+
+  const displayActivities = activities && activities.length > 0 ? activities : defaultActivities;
+
+  return (
+    <div className="recent-activities">
+      <h3>Recent Activities</h3>
+      <div className="activities-list">
+        {displayActivities.map((activity, index) => (
+          <div key={index} className="activity-item">
+            <div className="activity-icon">
+              {getActivityIcon(activity.type)}
+            </div>
+            <div className="activity-content">
+              <h4 className="activity-title">{activity.title}</h4>
+              <p className="activity-description">{activity.description}</p>
+              <div className="activity-meta">
+                <span className="activity-date">
+                  {new Date(activity.date).toLocaleDateString()}
+                </span>
+                <span className={`activity-status ${getActivityColor(activity.status)}`}>
+                  {activity.status}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const NotificationsSection = ({ notifications, onMarkAsRead }) => {
+  if (!notifications || notifications.length === 0) {
+    return (
+      <div className="notifications-section">
+        <h3>Notifications</h3>
+        <div className="empty-notifications">
+          <div className="empty-icon">🔔</div>
+          <p>No new notifications</p>
+          <small>You're all caught up!</small>
+        </div>
+      </div>
+    );
+  }
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'success':
+        return '✅';
+      case 'warning':
+        return '⚠️';
+      case 'error':
+        return '❌';
+      case 'info':
+        return 'ℹ️';
+      default:
+        return '📢';
+    }
+  };
+
+  return (
+    <div className="notifications-section">
+      <h3>Notifications</h3>
+      <div className="notifications-list">
+        {notifications.map((notification, index) => (
+          <div 
+            key={notification.id || index} 
+            className={`notification ${notification.type} ${notification.read ? 'read' : 'unread'}`}
+          >
+            <div className="notification-icon">
+              {getNotificationIcon(notification.type)}
+            </div>
+            <div className="notification-content">
+              <p className="notification-message">{notification.message}</p>
+              <div className="notification-meta">
+                <span className="notification-date">
+                  {new Date(notification.date || Date.now()).toLocaleDateString()}
+                </span>
+                {!notification.read && onMarkAsRead && (
+                  <button 
+                    onClick={() => onMarkAsRead(notification.id)}
+                    className="mark-read-btn"
+                  >
+                    Mark as read
+                  </button>
+                )}
+              </div>
+            </div>
+            {!notification.read && <div className="unread-indicator"></div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const WelcomeSection = ({ user, dashboardData }) => {
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  return (
+    <div className="welcome-section">
+      <div className="welcome-content">
+        <h1 className="welcome-title">
+          {getGreeting()}, {user?.username || 'User'}! 👋
+        </h1>
+        <p className="welcome-subtitle">
+          {dashboardData?.membershipStatus?.membership_stage === 'member' 
+            ? "Welcome back to your member dashboard"
+            : "Here's your current status and available actions"
+          }
+        </p>
+      </div>
+      <div className="welcome-stats">
+        <div className="stat-item">
+          <span className="stat-number">{dashboardData?.stats?.coursesCompleted || 0}</span>
+          <span className="stat-label">Activities</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-number">{dashboardData?.stats?.achievementsUnlocked || 0}</span>
+          <span className="stat-label">Achievements</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-number">{dashboardData?.stats?.daysActive || 1}</span>
+          <span className="stat-label">Days Active</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==================================================
+// MAIN COMPONENT
+// ==================================================
+
+const UserDashboard = () => {
+  const { user, isAuthenticated, getUserStatus } = useUser();
+  const queryClient = useQueryClient();
+
+  // Queries
+  const { data: dashboardData, isLoading, error } = useQuery({
+    queryKey: ['userDashboard'],
+    queryFn: fetchUserDashboard,
+    enabled: !!user && isAuthenticated,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    retry: 1
+  });
+
+  // Mutations
+  const markAsReadMutation = useMutation({
+    mutationFn: markNotificationAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['userDashboard']);
+    },
+    onError: (error) => {
+      console.error('Failed to mark notification as read:', error);
+    }
+  });
+
+  // Event Handlers
+  const handleMarkAsRead = (notificationId) => {
+    markAsReadMutation.mutate(notificationId);
+  };
+
+  // Loading and Error States
+  if (!isAuthenticated) {
+    return (
+      <div className="dashboard-auth-error">
+        <div className="auth-error-container">
+          <div className="auth-error-icon">🔐</div>
+          <h3>Authentication Required</h3>
+          <p>Please log in to view your dashboard</p>
+          <a href="/login" className="login-btn">Go to Login</a>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="dashboard-loading">
+        <div className="loading-container">
+          <div className="loading-spinner large"></div>
+          <h3>Loading your dashboard...</h3>
+          <p>Please wait while we fetch your latest information</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-error">
+        <div className="error-container">
+          <div className="error-icon">⚠️</div>
+          <h3>Error loading dashboard</h3>
+          <p>{error.message}</p>
+          <button 
+            onClick={() => queryClient.invalidateQueries(['userDashboard'])}
+            className="retry-btn"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="user-dashboard">
+      <WelcomeSection user={user} dashboardData={dashboardData} />
+      
+      <div className="dashboard-grid">
+        <MembershipStatus 
+          status={dashboardData?.membershipStatus || user} 
+        />
+        <QuickActions 
+          actions={dashboardData?.quickActions}
+          user={user}
+        />
+        <RecentActivities 
+          activities={dashboardData?.recentActivities} 
+        />
+      </div>
+
+      {(dashboardData?.notifications?.length > 0) && (
+        <NotificationsSection 
+          notifications={dashboardData.notifications}
+          onMarkAsRead={handleMarkAsRead}
+        />
+      )}
+    </div>
+  );
+};
+
+export default UserDashboard;
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+//ikootaclient\src\components\towncrier\TowncrierControls.jsx
+import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import { jwtDecode } from "jwt-decode";
+import useUpload from "../../hooks/useUpload";
+import { useFetchTeachings } from "../service/useFetchTeachings";
+import "../../components/admin/navbar.css";
+
+const TowncrierControls = () => {
+  const { handleSubmit, register, reset, formState: { errors } } = useForm();
+  const { validateFiles, mutation } = useUpload("/teachings");
+  const { data: teachings = [], isLoading, error, refetch } = useFetchTeachings();
+  
+  const [step, setStep] = useState(0);
+  const [showForm, setShowForm] = useState(false);
+
+  const token = localStorage.getItem("token");
+  const user_id = token ? jwtDecode(token).user_id : null;
+
+  const onSubmit = async (data) => {
+    try {
+      if (!user_id) {
+        alert("User not authenticated");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("user_id", user_id);
+      formData.append("topic", data.topic);
+      formData.append("description", data.description);
+      formData.append("subjectMatter", data.subjectMatter);
+      formData.append("audience", data.audience);
+      formData.append("content", data.content);
+
+      ["media1", "media2", "media3"].forEach((file) => {
+        if (data[file]?.[0]) {
+          formData.append(file, data[file][0]);
+        }
+      });
+
+      const response = await mutation.mutateAsync(formData);
+      console.log("Teaching uploaded successfully with ID:", response.data?.prefixed_id);
+      
+      reset();
+      setStep(0);
+      setShowForm(false);
+      
+      // Refresh the teachings list
+      refetch();
+      
+      alert("Teaching created successfully!");
+    } catch (error) {
+      console.error("Error uploading teaching material:", error);
+      alert("Failed to create teaching. Please try again.");
+    }
+  };
+
+  const handleNextStep = () => {
+    if (step < 7) setStep(step + 1);
+  };
+
+  const handlePrevStep = () => {
+    if (step > 0) setStep(step - 1);
+  };
+
+  const getContentIdentifier = (teaching) => {
+    return teaching?.prefixed_id || `t${teaching?.id}` || 'Unknown';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown date';
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const truncateText = (text, maxLength = 50) => {
+    if (!text) return 'Not specified';
+    return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+  };
+
+  return (
+    <div className="towncrier_controls_body">
+      <div className="controls-header">
+        <h2>Towncrier Controls</h2>
+        <div className="header-actions">
+          <button 
+            onClick={() => {
+              setShowForm(!showForm);
+              setStep(0);
+            }}
+            className="toggle-form-btn"
+          >
+            {showForm ? 'Hide Form' : 'Add New Teaching'}
+          </button>
+          <button onClick={refetch} className="refresh-btn">
+            Refresh List
+          </button>
+        </div>
+      </div>
+
+      {/* Add Teaching Form */}
+      {showForm && (
+        <div className="teaching-form-container">
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+            <div className="step-indicator">
+              Step {step + 1} of 8: {['Topic', 'Description', 'Subject', 'Audience', 'Content', 'Media 1', 'Media 2', 'Media 3'][step]}
+            </div>
+
+            <div className="form-content">
+              {step === 0 && (
+                <div className="form-step">
+                  <label>Topic *</label>
+                  <input
+                    type="text"
+                    placeholder="Enter Topic"
+                    {...register("topic", { required: "Topic is required" })}
+                  />
+                  {errors.topic && <span className="error">{errors.topic.message}</span>}
+                </div>
+              )}
+
+              {step === 1 && (
+                <div className="form-step">
+                  <label>Description *</label>
+                  <textarea
+                    placeholder="Enter Description"
+                    rows="4"
+                    {...register("description", { required: "Description is required" })}
+                  />
+                  {errors.description && <span className="error">{errors.description.message}</span>}
+                </div>
+              )}
+
+              {step === 2 && (
+                <div className="form-step">
+                  <label>Subject Matter *</label>
+                  <input
+                    type="text"
+                    placeholder="Enter Subject Matter"
+                    {...register("subjectMatter", { required: "Subject Matter is required" })}
+                  />
+                  {errors.subjectMatter && <span className="error">{errors.subjectMatter.message}</span>}
+                </div>
+              )}
+
+              {step === 3 && (
+                <div className="form-step">
+                  <label>Audience *</label>
+                  <input
+                    type="text"
+                    placeholder="Enter Target Audience"
+                    {...register("audience", { required: "Audience is required" })}
+                  />
+                  {errors.audience && <span className="error">{errors.audience.message}</span>}
+                </div>
+              )}
+
+              {step === 4 && (
+                <div className="form-step">
+                  <label>Content *</label>
+                  <textarea
+                    placeholder="Enter Content (Text, Emoji, URLs)"
+                    rows="6"
+                    {...register("content", { required: "Content is required" })}
+                  />
+                  {errors.content && <span className="error">{errors.content.message}</span>}
+                </div>
+              )}
+
+              {step === 5 && (
+                <div className="form-step">
+                  <label>Media 1 (Optional)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,video/*,audio/*"
+                    {...register("media1", { validate: validateFiles })}
+                  />
+                </div>
+              )}
+
+              {step === 6 && (
+                <div className="form-step">
+                  <label>Media 2 (Optional)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,video/*,audio/*"
+                    {...register("media2", { validate: validateFiles })}
+                  />
+                </div>
+              )}
+
+              {step === 7 && (
+                <div className="form-step">
+                  <label>Media 3 (Optional)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,video/*,audio/*"
+                    {...register("media3", { validate: validateFiles })}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="form-navigation">
+              {step > 0 && (
+                <button type="button" onClick={handlePrevStep} className="nav-btn">
+                  Previous
+                </button>
+              )}
+              
+              {step < 7 && (
+                <button type="button" onClick={handleNextStep} className="nav-btn">
+                  Next
+                </button>
+              )}
+              
+              <button 
+                type="submit" 
+                className="submit-btn"
+                disabled={mutation.isPending}
+              >
+                {mutation.isPending ? 'Creating...' : 'Add Teaching'}
+              </button>
+              
+              <button 
+                type="button" 
+                onClick={() => {
+                  setShowForm(false);
+                  setStep(0);
+                  reset();
+                }}
+                className="cancel-btn"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Teachings List */}
+      <div className="teachings_list">
+        <div className="list-header">
+          <h3>Existing Teachings ({teachings.length})</h3>
+          <div className="list-stats">
+            {isLoading && <span>Loading...</span>}
+            {error && <span style={{color: 'red'}}>Error: {error.message}</span>}
+          </div>
+        </div>
+
+        <div className="teachings-grid">
+          {isLoading ? (
+            <div className="loading-message">
+              <p>Loading teachings...</p>
+            </div>
+          ) : error ? (
+            <div className="error-message">
+              <p style={{color: 'red'}}>Error: {error.message}</p>
+              <button onClick={refetch}>Retry</button>
+            </div>
+          ) : teachings.length === 0 ? (
+            <div className="no-teachings">
+              <p>No teachings available. Create your first teaching!</p>
+            </div>
+          ) : (
+            teachings.map((teaching) => (
+              <div key={teaching.prefixed_id || `teaching-${teaching.id}`} className="teaching-card">
+                <div className="card-header">
+                  <span className="content-type-badge">Teaching</span>
+                  <span className="content-id">{getContentIdentifier(teaching)}</span>
+                </div>
+                
+                <div className="card-content">
+                  <h4 className="teaching-topic">{teaching.topic || 'Untitled'}</h4>
+                  <p className="teaching-description">
+                    {truncateText(teaching.description, 60)}
+                  </p>
+                  
+                  <div className="teaching-details">
+                    <p><strong>Lesson #:</strong> {teaching.lessonNumber || getContentIdentifier(teaching)}</p>
+                    <p><strong>Subject:</strong> {truncateText(teaching.subjectMatter, 30)}</p>
+                    <p><strong>Audience:</strong> {teaching.audience || 'General'}</p>
+                    <p><strong>By:</strong> {teaching.user_id || 'Admin'}</p>
+                  </div>
+                  
+                  <div className="teaching-dates">
+                    <p><strong>Created:</strong> {formatDate(teaching.createdAt)}</p>
+                    <p><strong>Updated:</strong> {formatDate(teaching.updatedAt)}</p>
+                  </div>
+                </div>
+                
+                {/* Media indicators */}
+                <div className="media-indicators">
+                  {teaching.media_url1 && <span className="media-badge">📷</span>}
+                  {teaching.media_url2 && <span className="media-badge">🎥</span>}
+                  {teaching.media_url3 && <span className="media-badge">🎵</span>}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TowncrierControls;
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/components/towncrier/Towncrier.jsx
+// FIXED: Enhanced debug and correct status detection
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import "./towncrier.css";
+import RevTopics from "./RevTopics";
+import RevTeaching from "./RevTeaching";
+import { useFetchTeachings } from "../service/useFetchTeachings";
+import { useUser } from "../auth/UserStatus";
+
+const Towncrier = () => {
+  const { data: rawTeachings = [], isLoading, error, refetch } = useFetchTeachings();
+  const [selectedTeaching, setSelectedTeaching] = useState(null);
+  const { user, logout, isMember, isAuthenticated, isPending, getUserStatus, canAccessIko, canApplyForMembership } = useUser();
+  const navigate = useNavigate();
+
+  // ✅ ENHANCED DEBUG: Log all user status values
+  useEffect(() => {
+    console.log('🔍 Towncrier Debug - Full User State:', {
+      user: user,
+      isMember: isMember,
+      isPending: isPending,
+      isAuthenticated: isAuthenticated,
+      getUserStatus: getUserStatus(),
+      canAccessIko: canAccessIko(),
+      canApplyForMembership: canApplyForMembership(),
+      userMembershipStage: user?.membership_stage,
+      userIsMember: user?.is_member,
+      userRole: user?.role,
+      userStatus: user?.status,
+      userFinalStatus: user?.finalStatus
+    });
+  }, [user, isMember, isPending, isAuthenticated]);
+
+  // Memoize enhanced teachings to prevent unnecessary recalculations
+  const enhancedTeachings = useMemo(() => {
+    try {
+      const teachingsArray = Array.isArray(rawTeachings) ? rawTeachings : 
+                            (rawTeachings?.data && Array.isArray(rawTeachings.data)) ? rawTeachings.data : [];
+
+      if (teachingsArray.length === 0) return [];
+
+      const enhanced = teachingsArray.map(teaching => ({
+        ...teaching,
+        content_type: 'teaching',
+        content_title: teaching.topic || teaching.title || 'Untitled Teaching',
+        prefixed_id: teaching.prefixed_id || `t${teaching.id}`,
+        display_date: teaching.updatedAt || teaching.createdAt || new Date().toISOString(),
+        author: teaching.author || teaching.user_id || teaching.created_by || 'Admin'
+      }));
+      
+      enhanced.sort((a, b) => {
+        const aDate = new Date(a.display_date);
+        const bDate = new Date(b.display_date);
+        return bDate - aDate;
+      });
+      
+      return enhanced;
+    } catch (error) {
+      console.error('Error processing teachings data:', error);
+      return [];
+    }
+  }, [rawTeachings]);
+
+  // ✅ NEW: Banner detection logic
+  const hasBanners = useMemo(() => {
+    return isAuthenticated && (isPending || !isMember);
+  }, [isAuthenticated, isPending, isMember]);
+
+  useEffect(() => {
+    if (enhancedTeachings.length > 0 && !selectedTeaching) {
+      setSelectedTeaching(enhancedTeachings[0]);
+    }
+  }, [enhancedTeachings.length]);
+
+  useEffect(() => {
+    if (enhancedTeachings.length === 0) {
+      setSelectedTeaching(null);
+    }
+  }, [enhancedTeachings.length]);
+
+  const handleSelectTeaching = (teaching) => {
+    try {
+      const enhancedTeaching = {
+        ...teaching,
+        content_type: 'teaching',
+        content_title: teaching.topic || teaching.title || 'Untitled Teaching',
+        prefixed_id: teaching.prefixed_id || `t${teaching.id}`,
+        display_date: teaching.updatedAt || teaching.createdAt || new Date().toISOString(),
+        author: teaching.author || teaching.user_id || teaching.created_by || 'Admin'
+      };
+      
+      setSelectedTeaching(enhancedTeaching);
+    } catch (error) {
+      console.error('Error selecting teaching:', error);
+    }
+  };
+
+  const handleRefresh = () => {
+    refetch();
+  };
+
+  // ✅ FIXED: Navigation handlers with proper membership logic
+  const handleNavigateToIko = () => {
+    if (!isAuthenticated) {
+      alert("Please sign in first to access member features.");
+      navigate('/login');
+      return;
+    }
+
+    // ✅ FIXED: Check actual member status
+    const status = getUserStatus();
+    
+    console.log('🔍 Iko click - User status:', {
+      status,
+      canAccessIko: canAccessIko(),
+      user: {
+        membership_stage: user?.membership_stage,
+        is_member: user?.is_member
+      }
+    });
+
+    if (status === 'member' || canAccessIko()) {
+      navigate('/iko');
+      return;
+    }
+
+    // ✅ FIXED: For pre-members, suggest they apply for full membership
+    if (status.startsWith('pre_member') || isPending()) {
+      alert("Iko Chat is available to full members only. Apply for full membership to gain access to Iko Chat features.");
+      return;
+    }
+
+    // For users who need initial application
+    const shouldApply = window.confirm(
+      "You are not yet a member! \n\nTo access the Iko Chat system, you need to become an approved member.\n\nWould you like to go to the application page now?"
+    );
+    if (shouldApply) {
+      navigate('/applicationsurvey');
+    }
+  };
+
+  const handleSignOut = () => {
+    const confirmSignOut = window.confirm("Are you sure you want to sign out?");
+    if (confirmSignOut) {
+      logout();
+      navigate('/');
+    }
+  };
+
+  const handleApplyForMembership = () => {
+    if (!isAuthenticated) {
+      alert("Please sign in first to apply for membership.");
+      navigate('/login');
+      return;
+    }
+    navigate('/applicationsurvey');
+  };
+
+  // ✅ FIXED: Handle Full Membership Application Logic
+  const handleApplyForFullMembership = () => {
+    if (!isAuthenticated) {
+      alert("Please sign in first to apply for full membership.");
+      navigate('/login');
+      return;
+    }
+
+    // ✅ FIXED: Get current user status
+    const status = getUserStatus();
+    
+    console.log('🔍 Full membership click - User status:', {
+      status,
+      isMember: isMember(),
+      isPending: isPending(),
+      canAccessIko: canAccessIko(),
+      canApplyForMembership: canApplyForMembership(),
+      user: {
+        membership_stage: user?.membership_stage,
+        is_member: user?.is_member,
+        membershipApplicationStatus: user?.membershipApplicationStatus
+      }
+    });
+
+    // ✅ FIXED: If user is already a full member, direct them to Iko
+    if (status === 'member' || canAccessIko()) {
+      navigate('/iko');
+      return;
+    }
+
+    // ✅ FIXED: Handle pre-member states correctly
+    if (status === 'pre_member_pending_upgrade') {
+      alert('Your membership application is currently under review. You will be notified via email once a decision is made.');
+      return;
+    }
+
+    if (status === 'pre_member_can_reapply') {
+      navigate('/full-membership-info');
+      return;
+    }
+
+    // ✅ FIXED: For regular pre-members who can apply
+    if (status === 'pre_member' && canApplyForMembership()) {
+      navigate('/full-membership-info');
+      return;
+    }
+
+    // ✅ FIXED: For pre-members who cannot apply (shouldn't happen, but safety check)
+    if (status === 'pre_member') {
+      alert('Membership application is not available at this time. Please contact support if you believe this is an error.');
+      return;
+    }
+
+    // ✅ FIXED: For users who need initial application first
+    if (status === 'needs_application' || (!isPending() && !isMember())) {
+      alert("You must complete the initial membership application first.");
+      navigate('/applicationsurvey');
+      return;
+    }
+
+    // Fallback
+    alert('Unable to process membership application. Please contact support.');
+  };
+
+  // ✅ COMPLETELY REWRITTEN: User status determination based on backend values
+  const getUserStatusInfo = () => {
+    if (!isAuthenticated) {
+      return { status: 'guest', label: 'Guest', color: 'gray' };
+    }
+
+    // ✅ ENHANCED DEBUG: Log exactly what we're working with
+    const debugInfo = {
+      userStatus: getUserStatus(),
+      isMember: isMember(),
+      isPending: isPending(),
+      userRole: user?.role,
+      userMembershipStage: user?.membership_stage,
+      userIsMemberField: user?.is_member,
+      userStatusField: user?.status,
+      userFinalStatus: user?.finalStatus
+    };
+    console.log('🔍 getUserStatusInfo Debug:', debugInfo);
+
+    // Get the canonical status from getUserStatus()
+    const status = getUserStatus();
+
+    // Admin users
+    if (user?.role === 'admin' || user?.role === 'super_admin') {
+      return { 
+        status: 'admin', 
+        label: `👑 ${user.role === 'super_admin' ? 'Super Admin' : 'Admin'}`, 
+        color: 'purple' 
+      };
+    }
+
+    // ✅ FIXED: Status determination based on the actual status string
+    switch (status) {
+      case 'member':
+        return { status: 'full_member', label: '💎 Full Member', color: 'gold' };
+      
+      case 'pre_member':
+      case 'pre_member_pending_upgrade':
+      case 'pre_member_can_reapply':
+        return { status: 'pre_member', label: '🌟 Pre-Member', color: 'blue' };
+      
+      case 'pending_verification':
+        return { status: 'applicant', label: '⏳ Applicant', color: 'orange' };
+      
+      case 'denied':
+        return { status: 'denied', label: '❌ Denied', color: 'red' };
+      
+      case 'needs_application':
+        return { status: 'needs_application', label: '📝 Needs Application', color: 'orange' };
+      
+      default:
+        return { status: 'authenticated', label: '👤 User', color: 'green' };
+    }
+  };
+
+  const userStatus = getUserStatusInfo();
+
+  // ✅ ENHANCED DEBUG: Log the final status decision
+  console.log('🎯 Final Status Decision:', {
+    userStatus,
+    shouldShowBanner: isAuthenticated && isPending() && !isMember(),
+    bannerConditions: {
+      isAuthenticated,
+      isPending: isPending(),
+      isMember: isMember()
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <div className="towncrier_container">
+        <div className="nav">
+          <div className="nav-left">
+            <span>Towncrier - Public Educational Content</span>
+            <span className="status-badge loading">Loading...</span>
+          </div>
+        </div>
+        <div className="towncrier_viewport">
+          <div className="loading-message">
+            <div className="loading-spinner"></div>
+            <p>Loading educational content...</p>
+          </div>
+        </div>
+        <div className="footnote">Ikoota Educational Platform</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="towncrier_container">
+        <div className="nav">
+          <div className="nav-left">
+            <span>Towncrier - Public Educational Content</span>
+            <span className="status-badge error">Error</span>
+          </div>
+        </div>
+        <div className="towncrier_viewport">
+          <div className="error-message">
+            <h3>Unable to Load Content</h3>
+            <p style={{color: 'red'}}>Error: {error.message || 'Failed to fetch teachings'}</p>
+            <button onClick={handleRefresh} className="retry-btn">
+              🔄 Try Again
+            </button>
+          </div>
+        </div>
+        <div className="footnote">Ikoota Educational Platform</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="towncrier_container">
+      {/* Enhanced Navigation Bar */}
+      <div className="nav">
+        <div className="nav-left">
+          <span>Towncrier - Public Educational Content</span>
+          {isAuthenticated && (
+            <div className="user-status">
+              <span className="user-info">
+                👤 {user?.username || user?.email || 'User'} 
+                <span className={`status-badge ${userStatus.status}`} style={{color: userStatus.color}}>
+                  {userStatus.label}
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
+        
+        <div className="nav-right">
+          <span className="content-count">
+            📚 {enhancedTeachings.length} Resources
+          </span>
+          <button onClick={handleRefresh} className="refresh-btn">
+            🔄
+          </button>
+        </div>
+      </div>
+
+      {/* ✅ FIXED: Show banner only for pre-members (isPending=true, isMember=false) */}
+      {isAuthenticated && isPending() && !isMember() && (
+        <div className="membership-banner">
+          <div className="banner-content">
+            <div className="banner-text">
+              <h3>🎓 Ready for Full Membership?</h3>
+              <p>
+                As a pre-member, you can now apply for full membership to unlock the complete Ikoota experience 
+                including chat access, commenting, and content creation!
+              </p>
+            </div>
+            <button 
+              onClick={handleApplyForFullMembership}
+              className="membership-application-btn"
+            >
+              📝 Apply for Full Membership
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* ✅ UPDATED: Viewport with banner detection */}
+      <div className={`towncrier_viewport ${hasBanners ? 'with-banners' : ''}`}>
+        <RevTopics 
+          teachings={enhancedTeachings} 
+          onSelect={handleSelectTeaching}
+          selectedTeaching={selectedTeaching}
+        />
+                
+        <RevTeaching 
+          teaching={selectedTeaching} 
+          allTeachings={enhancedTeachings}
+          onSelectNext={handleSelectTeaching}
+        />
+      </div>
+      
+      {/* Enhanced Footer with Status-Aware Controls */}
+      <div className="footnote">
+        <div className="footer-left">
+          <span>Ikoota Educational Platform</span>
+          {selectedTeaching && (
+            <span> | {selectedTeaching.prefixed_id}</span>
+          )}
+        </div>
+        
+        <div className="footer-center">
+          <span>{new Date().toLocaleString()}</span>
+          {isAuthenticated && (
+            <span className={`user-status-badge ${userStatus.status}`}>
+              {userStatus.label}
+            </span>
+          )}
+        </div>
+        
+        <div className="footer-right">
+          <div className="footer-controls">
+            {/* ✅ FIXED: Show full membership button only for pre-members who can apply */}
+            {isAuthenticated && isPending() && !isMember() && canApplyForMembership() && (
+              <button 
+                onClick={handleApplyForFullMembership} 
+                className="footer-btn membership-btn"
+                title="Apply for full membership to unlock all features"
+              >
+                🎓 Full Member
+              </button>
+            )}
+
+            <button 
+              onClick={handleNavigateToIko} 
+              className="footer-btn iko-btn"
+              title={isMember() ? "Access Iko Chat" : "Apply for membership to access Iko Chat"}
+            >
+              💬 {isMember() ? "Iko" : "Join"}
+            </button>
+            
+            {!isAuthenticated ? (
+              <>
+                <button 
+                  onClick={() => navigate('/login')} 
+                  className="footer-btn login-btn"
+                >
+                  🔑 In
+                </button>
+                <button 
+                  onClick={() => navigate('/signup')} 
+                  className="footer-btn signup-btn"
+                >
+                  📝 Up
+                </button>
+              </>
+            ) : (
+              <>
+                {!isPending() && !isMember() && (
+                  <button 
+                    onClick={handleApplyForMembership} 
+                    className="footer-btn apply-btn"
+                  >
+                    📋 Apply
+                  </button>
+                )}
+                <button 
+                  onClick={() => navigate('/dashboard')} 
+                  className="footer-btn membership-btn"
+                >
+                  📊 Dashboard
+                </button>
+                <button 
+                  onClick={handleSignOut} 
+                  className="footer-btn signout-btn"
+                >
+                  👋 Out
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Towncrier;
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+//ikootaclient\src\components\towncrier\Teaching.jsx
+import React, { useState, useEffect } from 'react';
+import SearchControls from '../search/SearchControls';
+import { useForm } from 'react-hook-form';
+import useUpload from '../../hooks/useUpload';
+import { jwtDecode } from 'jwt-decode';
+import api from '../service/api';
+import './teaching.css';
+
+const Teaching = ({ setActiveItem, deactivateListChats }) => {
+  const { handleSubmit, register, reset, formState: { errors } } = useForm();
+  const { validateFiles, mutation: teachingMutation } = useUpload("/teachings");
+  
+  const [addMode, setAddMode] = useState(false);
+  const [activeItem, setActiveItemState] = useState({ id: null, type: null });
+  const [teachings, setTeachings] = useState([]);
+  const [filteredTeachings, setFilteredTeachings] = useState([]);
+  const [step, setStep] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const token = localStorage.getItem("token");
+  const user_id = token ? jwtDecode(token).user_id : null;
+
+  useEffect(() => {
+    const fetchTeachings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await api.get('/teachings');
+        const teachingsData = response.data.map(teaching => ({ 
+          ...teaching, 
+          content_type: 'teaching',
+          content_title: teaching.topic || 'Untitled Teaching',
+          // Ensure prefixed_id exists, fallback to generated one
+          prefixed_id: teaching.prefixed_id || `t${teaching.id}`,
+          // Normalize date fields
+          display_date: teaching.updatedAt || teaching.createdAt
+        }));
+        
+        setTeachings(teachingsData);
+        setFilteredTeachings(teachingsData);
+      } catch (error) {
+        console.error('Error fetching teachings:', error);
+        setError('Failed to fetch teachings. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeachings();
+  }, []);
+
+  const handleSearch = (query) => {
+    if (!Array.isArray(teachings)) return;
+    
+    const lowercaseQuery = query.toLowerCase();
+    const filtered = teachings.filter(teaching => {
+      const searchFields = [
+        teaching.topic,
+        teaching.description,
+        teaching.subjectMatter,
+        teaching.prefixed_id,
+        teaching.audience,
+        teaching.content
+      ];
+      
+      return searchFields.some(field => 
+        field && field.toString().toLowerCase().includes(lowercaseQuery)
+      );
+    });
+    
+    setFilteredTeachings(filtered);
+  };
+
+  const handleItemClick = (teaching) => {
+    try {
+      if (deactivateListChats) deactivateListChats();
+      
+      const enhancedTeaching = {
+        ...teaching,
+        id: teaching.prefixed_id || teaching.id,
+        type: 'teaching',
+        content_type: 'teaching'
+      };
+      
+      setActiveItemState(enhancedTeaching);
+      if (setActiveItem) setActiveItem(enhancedTeaching);
+    } catch (error) {
+      console.error('Error handling item click:', error);
+    }
+  };
+
+  const handleNextStep = () => {
+    if (step < 7) setStep(step + 1); // Updated to include media3
+  };
+
+  const handlePrevStep = () => {
+    if (step > 0) setStep(step - 1);
+  };
+
+  const handleSendTeaching = async (data) => {
+    try {
+      if (!user_id) {
+        alert("User not authenticated");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("user_id", user_id);
+      formData.append("topic", data.topic);
+      formData.append("description", data.description);
+      formData.append("subjectMatter", data.subjectMatter);
+      formData.append("audience", data.audience);
+      formData.append("content", data.content);
+
+      ["media1", "media2", "media3"].forEach((field) => {
+        if (data[field]?.[0]) {
+          formData.append(field, data[field][0]);
+        }
+      });
+
+      const response = await teachingMutation.mutateAsync(formData);
+      console.log("Teaching created with prefixed ID:", response.data?.prefixed_id);
+      
+      reset();
+      setStep(0);
+      setAddMode(false);
+      
+      // Refresh teachings list
+      const updatedResponse = await api.get('/teachings');
+      const updatedTeachings = updatedResponse.data.map(teaching => ({ 
+        ...teaching, 
+        content_type: 'teaching',
+        content_title: teaching.topic || 'Untitled Teaching',
+        prefixed_id: teaching.prefixed_id || `t${teaching.id}`,
+        display_date: teaching.updatedAt || teaching.createdAt
+      }));
+      
+      setTeachings(updatedTeachings);
+      setFilteredTeachings(updatedTeachings);
+      
+      alert("Teaching created successfully!");
+    } catch (error) {
+      console.error("Error creating teaching:", error);
+      alert("Failed to create teaching. Please try again.");
+    }
+  };
+
+  // Helper functions
+  const getContentIdentifier = (teaching) => {
+    return teaching?.prefixed_id || `t${teaching?.id}` || 'Unknown';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown date';
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const truncateText = (text, maxLength = 100) => {
+    if (!text) return 'Not specified';
+    return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+  };
+
+  if (loading) {
+    return (
+      <div className='teaching_container'>
+        <div className="loading-message">
+          <p>Loading teachings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className='teaching_container'>
+        <div className="error-message">
+          <p style={{color: 'red'}}>{error}</p>
+          <button onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className='teaching_container'>
+      <div className="search">
+        <div className="searchbar">
+          <img src="./search.png" alt="Search" />
+          <SearchControls onSearch={handleSearch} />
+        </div>
+        <img 
+          src={addMode ? "./minus.png" : "./plus.png"} 
+          alt="Toggle" 
+          className='add' 
+          onClick={() => {
+            setAddMode(!addMode);
+            setStep(0);
+          }} 
+        />
+      </div>
+
+      {/* Add Mode Form */}
+      {addMode && (
+        <div className="add-teaching-form">
+          <form onSubmit={handleSubmit(handleSendTeaching)} noValidate>
+            <div className="step-indicator">
+              Step {step + 1} of 8: {['Topic', 'Description', 'Subject', 'Audience', 'Content', 'Media 1', 'Media 2', 'Media 3'][step]}
+            </div>
+            
+            {step === 0 && (
+              <div>
+                <input
+                  type="text"
+                  placeholder="Enter Topic"
+                  {...register("topic", { required: "Topic is required" })}
+                />
+                {errors.topic && <span style={{color: 'red'}}>{errors.topic.message}</span>}
+              </div>
+            )}
+            {step === 1 && (
+              <div>
+                <textarea
+                  placeholder="Enter Description"
+                  rows="3"
+                  {...register("description", { required: "Description is required" })}
+                />
+                {errors.description && <span style={{color: 'red'}}>{errors.description.message}</span>}
+              </div>
+            )}
+            {step === 2 && (
+              <div>
+                <input
+                  type="text"
+                  placeholder="Enter Subject Matter"
+                  {...register("subjectMatter", { required: "Subject Matter is required" })}
+                />
+                {errors.subjectMatter && <span style={{color: 'red'}}>{errors.subjectMatter.message}</span>}
+              </div>
+            )}
+            {step === 3 && (
+              <div>
+                <input
+                  type="text"
+                  placeholder="Enter Audience"
+                  {...register("audience", { required: "Audience is required" })}
+                />
+                {errors.audience && <span style={{color: 'red'}}>{errors.audience.message}</span>}
+              </div>
+            )}
+            {step === 4 && (
+              <div>
+                <textarea
+                  placeholder="Enter Content"
+                  rows="5"
+                  {...register("content", { required: "Content is required" })}
+                />
+                {errors.content && <span style={{color: 'red'}}>{errors.content.message}</span>}
+              </div>
+            )}
+            {step === 5 && (
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                {...register("media1", { validate: validateFiles })}
+              />
+            )}
+            {step === 6 && (
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                {...register("media2", { validate: validateFiles })}
+              />
+            )}
+            {step === 7 && (
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                {...register("media3", { validate: validateFiles })}
+              />
+            )}
+            
+            <div className="form-buttons">
+              {step < 7 && <button type="button" onClick={handleNextStep}>Next</button>}
+              {step > 0 && <button type="button" onClick={handlePrevStep}>Previous</button>}
+              <button 
+                type="submit" 
+                disabled={teachingMutation.isPending}
+              >
+                {teachingMutation.isPending ? 'Creating...' : 'Create Teaching'}
+              </button>
+              <button type="button" onClick={() => {setAddMode(false); setStep(0);}}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Teachings List */}
+      {!addMode && filteredTeachings.length === 0 && (
+        <p>No teachings available</p>
+      )}
+      
+      {!addMode && filteredTeachings.map((teaching) => (
+        <div 
+          key={teaching.prefixed_id || `teaching-${teaching.id}`} 
+          className={`item ${activeItem?.id === (teaching.prefixed_id || teaching.id) ? 'active' : ''}`}
+          onClick={() => handleItemClick(teaching)}
+        >
+          <div className="texts">
+            <div className="teaching-header">
+              <span className="content-type-badge">Teaching</span>
+              <span className="content-id">{getContentIdentifier(teaching)}</span>
+            </div>
+            
+            <span className="topic">Topic: {teaching.topic || 'No topic'}</span>
+            <p className="description">
+              Description: {truncateText(teaching.description, 80)}
+            </p>
+            <p>Lesson#: {teaching.lessonNumber || getContentIdentifier(teaching)}</p>
+            <p>Subject Matter: {truncateText(teaching.subjectMatter, 50)}</p>
+            <p>Audience: {teaching.audience || 'General'}</p>
+            <p>By: {teaching.user_id || 'Admin'}</p>
+            <p>Created: {formatDate(teaching.createdAt)}</p>
+            <p>Updated: {formatDate(teaching.updatedAt)}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default Teaching;
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/components/towncrier/RevTopics.jsx - FIXED VERSION
+import React, { useState, useEffect, useMemo } from 'react';
+import SearchControls from '../search/SearchControls';
+import './revtopics.css';
+import api from '../service/api';
+
+const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }) => {
+  const [teachings, setTeachings] = useState([]);
+  const [filteredTeachings, setFilteredTeachings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Use prop teachings if available, otherwise fetch
+  useEffect(() => {
+    if (propTeachings.length > 0) {
+      console.log('Using prop teachings:', propTeachings.length, 'items');
+      setTeachings(propTeachings);
+      setFilteredTeachings(propTeachings);
+      setLoading(false);
+      return;
+    }
+
+    // Only fetch if no prop teachings
+    const fetchTeachings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('Fetching teachings from API...');
+        const response = await api.get('/teachings');
+        
+        // Debug response
+        console.log('API Response type:', typeof response.data);
+        console.log('API Response:', response.data);
+        
+        // Normalize response
+        let teachingsData = [];
+        if (Array.isArray(response.data)) {
+          teachingsData = response.data;
+        } else if (response.data?.data && Array.isArray(response.data.data)) {
+          teachingsData = response.data.data;
+        } else if (response.data?.teachings && Array.isArray(response.data.teachings)) {
+          teachingsData = response.data.teachings;
+        } else {
+          console.warn('Unexpected response structure:', response.data);
+          teachingsData = [];
+        }
+        
+        const enhancedTeachings = teachingsData.map((teaching, index) => ({
+          ...teaching,
+          id: teaching.id || `temp-${index}`,
+          content_type: 'teaching',
+          content_title: teaching.topic || teaching.title || 'Untitled Teaching',
+          prefixed_id: teaching.prefixed_id || `t${teaching.id || index}`,
+          display_date: teaching.updatedAt || teaching.createdAt || new Date().toISOString(),
+          author: teaching.author || teaching.user_id || teaching.created_by || 'Admin',
+          topic: teaching.topic || teaching.title || 'Untitled',
+          description: teaching.description || 'No description available',
+          subjectMatter: teaching.subjectMatter || teaching.subject || 'Not specified',
+          audience: teaching.audience || 'General'
+        }));
+        
+        enhancedTeachings.sort((a, b) => new Date(b.display_date) - new Date(a.display_date));
+        
+        console.log('Processed teachings:', enhancedTeachings.length, 'items');
+        setTeachings(enhancedTeachings);
+        setFilteredTeachings(enhancedTeachings);
+      } catch (error) {
+        console.error('Error fetching teachings:', error);
+        setError(`Failed to fetch teachings: ${error.message}`);
+        setTeachings([]);
+        setFilteredTeachings([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeachings();
+  }, [propTeachings.length]); // Only depend on length to avoid infinite loops
+
+  const handleSearch = (query) => {
+    if (!Array.isArray(teachings)) return;
+    
+    const lowercaseQuery = query.toLowerCase();
+    const filtered = teachings.filter(teaching => {
+      const searchFields = [
+        teaching.topic, teaching.title, teaching.description,
+        teaching.subjectMatter, teaching.subject, teaching.audience,
+        teaching.author, teaching.prefixed_id, teaching.content
+      ];
+      
+      return searchFields.some(field => 
+        field && field.toString().toLowerCase().includes(lowercaseQuery)
+      );
+    });
+    
+    setFilteredTeachings(filtered);
+  };
+
+  const handleTopicClick = (teaching) => {
+    try {
+      console.log('🔍 Topic clicked:', teaching.id, teaching.topic);
+      if (onSelect) {
+        onSelect(teaching);
+      }
+    } catch (error) {
+      console.error('Error selecting teaching:', error);
+    }
+  };
+
+  // Helper functions
+  const getContentIdentifier = (teaching) => {
+    return teaching?.prefixed_id || `t${teaching?.id}` || 'Unknown';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown date';
+    try {
+      return new Date(dateString).toLocaleString();
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const truncateText = (text, maxLength = 100) => {
+    if (!text) return 'No description available';
+    return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+  };
+
+  // ✅ FIXED: Enhanced selection detection
+  const isSelected = (teaching) => {
+    if (!selectedTeaching || !teaching) return false;
+    
+    // Try multiple comparison methods
+    const matches = [
+      selectedTeaching.id === teaching.id,
+      selectedTeaching.prefixed_id === teaching.prefixed_id,
+      selectedTeaching.id === teaching.prefixed_id,
+      selectedTeaching.prefixed_id === teaching.id
+    ];
+    
+    const result = matches.some(match => match);
+    console.log('🔍 Selection check:', {
+      selectedId: selectedTeaching.id,
+      selectedPrefixedId: selectedTeaching.prefixed_id,
+      teachingId: teaching.id,
+      teachingPrefixedId: teaching.prefixed_id,
+      isSelected: result
+    });
+    
+    return result;
+  };
+
+  if (loading) {
+    return (
+      <div className="revtopic-container">
+        <div className="loading-message">
+          <div className="loading-spinner"></div>
+          <p>Loading educational content...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="revtopic-container">
+        <div className="error-message">
+          <h3>Unable to Load Content</h3>
+          <p style={{color: 'red'}}>{error}</p>
+          <button onClick={() => window.location.reload()} className="retry-btn">
+            🔄 Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="revtopic-container">
+      <div className="search">
+        <div className="searchbar">
+          <img src="./search.png" alt="Search Icon" />
+          <SearchControls onSearch={handleSearch} />
+        </div>
+        <div className="search-stats">
+          <span>📖 {filteredTeachings.length} of {teachings.length} resources</span>
+        </div>
+      </div>
+
+      <div className="topics-list">
+        {filteredTeachings.length > 0 ? (
+          filteredTeachings.map((teaching, index) => {
+            const selected = isSelected(teaching);
+            
+            return (
+              <div 
+                key={teaching.prefixed_id || `teaching-${teaching.id || index}`} 
+                className={`topic-item ${selected ? 'selected' : ''}`}
+                onClick={() => handleTopicClick(teaching)}
+              >
+                <div className="topic-header">
+                  <span className="content-type-badge">📚 Educational Resource</span>
+                  <span className="content-id">{getContentIdentifier(teaching)}</span>
+                </div>
+                
+                <div className="texts">
+                  <span className="topic-title">
+                    {teaching.topic || teaching.title || 'Untitled Resource'}
+                  </span>
+                  <p className="topic-description">
+                    {truncateText(teaching.description, 80)}
+                  </p>
+                  
+                  <div className="topic-meta">
+                    <p>📋 Subject: {teaching.subjectMatter || teaching.subject || 'Not specified'}</p>
+                    <p>👥 Audience: {teaching.audience || 'General'}</p>
+                    <p>✍️ By: {teaching.author}</p>
+                  </div>
+                  
+                  <div className="topic-dates">
+                    <p>📅 Created: {formatDate(teaching.createdAt)}</p>
+                    {teaching.updatedAt && teaching.updatedAt !== teaching.createdAt && (
+                      <p>🔄 Updated: {formatDate(teaching.updatedAt)}</p>
+                    )}
+                  </div>
+                </div>
+                
+                {selected && (
+                  <div className="selected-indicator">
+                    <span>▶</span>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        ) : (
+          <div className="no-teachings">
+            <div className="empty-state">
+              <h3>📚 No Educational Content Available</h3>
+              <p>
+                {teachings.length > 0 
+                  ? "No content matches your search. Try adjusting your search terms." 
+                  : "No educational resources have been published yet."
+                }
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div className="topics-footer">
+        <div className="summary-stats">
+          <span>📊 Total: {teachings.length} resources</span>
+          {filteredTeachings.length !== teachings.length && (
+            <span> | 🔍 Showing: {filteredTeachings.length}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default RevTopics;
+
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+//ikootaclient\src\components\towncrier\RevTeaching.jsx
+import React from "react";
+import ReactPlayer from "react-player";
+import "./revteaching.css";
+
+const RevTeaching = ({ teaching, allTeachings = [], onSelectNext }) => {
+  if (!teaching) {
+    return (
+      <div className="revTeaching-container">
+        <div className="no-selection">
+          <p>Select a teaching to view details.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Enhanced media rendering function
+  const renderMedia = (url, type, alt = "media", index) => {
+    if (!url || !type) return null;
+
+    const commonStyle = { 
+      maxWidth: "100%", 
+      marginBottom: "15px",
+      borderRadius: "8px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+    };
+
+    switch (type) {
+      case "image":
+        return (
+          <div key={`image-${index}`} className="media-item">
+            <img 
+              src={url} 
+              alt={alt} 
+              style={{ 
+                ...commonStyle, 
+                maxHeight: "400px", 
+                objectFit: "contain",
+                width: "100%"
+              }}
+              onError={(e) => {
+                e.target.style.display = 'none';
+                console.error('Failed to load image:', url);
+              }}
+            />
+          </div>
+        );
+      case "video":
+        return (
+          <div key={`video-${index}`} className="media-item">
+            <ReactPlayer 
+              url={url} 
+              controls 
+              width="100%" 
+              height="300px"
+              style={commonStyle}
+              onError={(error) => console.error('Video playback error:', error)}
+            />
+          </div>
+        );
+      case "audio":
+        return (
+          <div key={`audio-${index}`} className="media-item">
+            <audio controls style={{ width: "100%", ...commonStyle }}>
+              <source src={url} type="audio/mpeg" />
+              <source src={url} type="audio/wav" />
+              <source src={url} type="audio/ogg" />
+              Your browser does not support the audio element.
+            </audio>
+          </div>
+        );
+      case "file":
+        return (
+          <div key={`file-${index}`} className="media-item">
+            <a 
+              href={url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ 
+                display: "block", 
+                padding: "10px", 
+                backgroundColor: "#f0f0f0",
+                borderRadius: "4px",
+                textDecoration: "none",
+                color: "#333",
+                ...commonStyle
+              }}
+            >
+              📎 Download File
+            </a>
+          </div>
+        );
+      default:
+        return (
+          <div key={`unknown-${index}`} className="media-item">
+            <p>Unsupported media type: {type}</p>
+          </div>
+        );
+    }
+  };
+
+  // Helper functions
+  const getContentIdentifier = (teaching) => {
+    return teaching?.prefixed_id || `${teaching?.id}` || 'Unknown';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown date';
+    try {
+      return new Date(dateString).toLocaleString();
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const formatContent = (content) => {
+    if (!content) return 'No content available';
+    
+    // Simple formatting for URLs and line breaks
+    return content
+      .split('\n')
+      .map((line, index) => (
+        <p key={index} style={{ marginBottom: '10px' }}>
+          {line}
+        </p>
+      ));
+  };
+
+  // Navigation helpers
+  const findNextTeaching = () => {
+    if (!allTeachings.length) return null;
+    const currentIndex = allTeachings.findIndex(t => t.id === teaching.id);
+    return currentIndex < allTeachings.length - 1 ? allTeachings[currentIndex + 1] : null;
+  };
+
+  const findPrevTeaching = () => {
+    if (!allTeachings.length) return null;
+    const currentIndex = allTeachings.findIndex(t => t.id === teaching.id);
+    return currentIndex > 0 ? allTeachings[currentIndex - 1] : null;
+  };
+
+  const nextTeaching = findNextTeaching();
+  const prevTeaching = findPrevTeaching();
+
+  return (
+    <div className="revTeaching-container">
+      <div className="teaching-item">
+        {/* Header */}
+        <div className="teaching-header">
+          <div className="title-section">
+            <h2>{teaching.topic || 'Untitled Teaching'}</h2>
+            <div className="teaching-meta">
+              <span className="content-id">ID: {getContentIdentifier(teaching)}</span>
+              <span className="content-type-badge">Teaching</span>
+            </div>
+          </div>
+          
+          {/* Navigation buttons */}
+          {(prevTeaching || nextTeaching) && (
+            <div className="navigation-buttons">
+              {prevTeaching && (
+                <button 
+                  onClick={() => onSelectNext(prevTeaching)}
+                  className="nav-btn prev-btn"
+                  title={`Previous: ${prevTeaching.topic}`}
+                >
+                  ← Previous
+                </button>
+              )}
+              {nextTeaching && (
+                <button 
+                  onClick={() => onSelectNext(nextTeaching)}
+                  className="nav-btn next-btn"
+                  title={`Next: ${nextTeaching.topic}`}
+                >
+                  Next →
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="teaching-content">
+          <div className="teaching-details">
+            <p><strong>Description:</strong> {teaching.description || 'No description available'}</p>
+            <p><strong>Lesson #:</strong> {teaching.lessonNumber || getContentIdentifier(teaching)}</p>
+            <p><strong>Subject Matter:</strong> {teaching.subjectMatter || 'Not specified'}</p>
+            <p><strong>Audience:</strong> {teaching.audience || 'General'}</p>
+            <p><strong>By:</strong> {teaching.author || teaching.user_id || 'Admin'}</p>
+            <p><strong>Created:</strong> {formatDate(teaching.createdAt)}</p>
+            <p><strong>Updated:</strong> {formatDate(teaching.updatedAt)}</p>
+          </div>
+
+          {/* Main content */}
+          {teaching.content && (
+            <div className="main-content">
+              <h3>Content:</h3>
+              <div className="content-text">
+                {formatContent(teaching.content)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Media content */}
+        <div className="media-container">
+          <h3>Media Content:</h3>
+          {[
+            { url: teaching.media_url1, type: teaching.media_type1 },
+            { url: teaching.media_url2, type: teaching.media_type2 },
+            { url: teaching.media_url3, type: teaching.media_type3 }
+          ].some(media => media.url && media.type) ? (
+            <div className="media-grid">
+              {renderMedia(teaching.media_url1, teaching.media_type1, "Media 1", 1)}
+              {renderMedia(teaching.media_url2, teaching.media_type2, "Media 2", 2)}
+              {renderMedia(teaching.media_url3, teaching.media_type3, "Media 3", 3)}
+            </div>
+          ) : (
+            <p className="no-media">No media content available</p>
+          )}
+        </div>
+
+        {/* Footer with additional info */}
+        <div className="teaching-footer">
+          <div className="teaching-stats">
+            <span>Position: {allTeachings.findIndex(t => t.id === teaching.id) + 1} of {allTeachings.length}</span>
+            {teaching.display_date && (
+              <span>Last activity: {formatDate(teaching.display_date)}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default RevTeaching;
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/components/service/useFetchTeachings.js
+import { useQuery } from '@tanstack/react-query';
+import api from './api';
+import { normalizeTeachingsResponse, enhanceTeaching, debugApiResponse } from '../../components/utils/apiDebugHelper';
+
+export const useFetchTeachings = () => {
+  return useQuery({
+    queryKey: ['teachings'],
+    queryFn: async () => {
+      try {
+        console.log('🚀 Fetching teachings...');
+        
+      const response = await api.get('/api/content/teachings');
+        
+        // Debug the response
+        debugApiResponse(response, '/teachings');
+        
+        // Normalize the response structure
+        const teachingsData = normalizeTeachingsResponse(response);
+        
+        // Enhance each teaching with consistent structure
+        const enhancedTeachings = teachingsData.map((teaching, index) => 
+          enhanceTeaching(teaching, index)
+        );
+        
+        // Sort by most recent first
+        enhancedTeachings.sort((a, b) => {
+          const aDate = new Date(a.display_date);
+          const bDate = new Date(b.display_date);
+          return bDate - aDate;
+        });
+        
+        console.log(`✅ Successfully processed ${enhancedTeachings.length} teachings`);
+        return enhancedTeachings;
+        
+      } catch (error) {
+        console.error('❌ Error in useFetchTeachings:', error);
+        
+        // Enhanced error logging
+        console.error('📋 Error details:', {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          url: error.config?.url
+        });
+        
+        // Throw the error for React Query to handle
+        throw new Error(`Failed to fetch teachings: ${error.message}`);
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    retry: (failureCount, error) => {
+      // Retry up to 3 times for network errors, but not for 4xx errors
+      if (error.response?.status >= 400 && error.response?.status < 500) {
+        return false; // Don't retry client errors
+      }
+      return failureCount < 3;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    onError: (error) => {
+      console.error('🚨 React Query error in useFetchTeachings:', error);
+    },
+    onSuccess: (data) => {
+      console.log('🎉 useFetchTeachings success:', data?.length, 'teachings loaded');
+    }
+  });
+};
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+//ikootaclient\src\components\service\useFetchComments.js
+import { useQuery } from "@tanstack/react-query";
+import api from "./api.js";
+
+// Fetch parent chats and teachings along with their comments
+export const useFetchParentChatsAndTeachingsWithComments = (user_id) => {
+  return useQuery({
+    queryKey: ["parent-comments", user_id],
+    queryFn: async () => {
+      if (!user_id) return [];
+      const response = await api.get(`/comments/parent-comments`, {
+        params: { user_id }
+      });
+      return response.data;
+    },
+    enabled: !!user_id, // Only fetch when user_id is set
+  });
+};
+
+// Fetch comments by user_id
+export const useFetchComments = (user_id) => {
+  return useQuery({
+    queryKey: ["comments", user_id],
+    queryFn: async () => {
+      if (!user_id) return [];
+      const response = await api.get(`/comments/parent`, {
+        params: {
+          user_id
+        }
+      });
+      return response.data;
+    },
+    enabled: !!user_id, // Only fetch when user_id is set
+  });
+};
+
+// Fetch all comments
+export const useFetchAllComments = () => {
+  return useQuery({
+    queryKey: ["all-comments"],
+    queryFn: async () => {
+      const response = await api.get(`/comments/all`);
+      return response.data;
+    }
+  });
+};
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+//ikootaclient\src\components\service\useFetchChats.js
+import { useQuery } from "@tanstack/react-query";
+import api from "./api.js";
+
+// Fetch chats
+export const useFetchChats = () => {
+
+  return useQuery({
+    queryKey: ["chats"], // Corrected to use an array
+    queryFn: async () => {
+      const response = await api.get("/chats");
+      return response.data;
+    },
+  });
+};
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+//ikootaclient\src\components\service\surveypageservice.js
+import { useMutation } from '@tanstack/react-query';
+import api from './api';
+
+const submitForm = async (answers) => {
+  const res = await api.post('/survey/submit_applicationsurvey', answers, { withCredentials: true });
+  console.log('res.data', res.data);
+  return res.data;
+};
+
+export const useSendApplicationsurvey = () => {
+    return useMutation({
+        mutationFn:submitForm,
+    });
+  };
+  
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/components/service/idGenerationService.js
+// This replaces the old generateRandomId.js
+
+import api from './api';
+
+/**
+ * Generates a cryptographically secure 6-character alphanumeric ID
+ * @returns {string} A random 6-character alphanumeric ID
+ */
+const generateSecureRandomId = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    
+    // Use crypto.getRandomValues for better security in browser
+    const array = new Uint8Array(6);
+    crypto.getRandomValues(array);
+    
+    for (let i = 0; i < 6; i++) {
+        result += chars[array[i] % chars.length];
+    }
+    
+    return result;
+};
+
+/**
+ * Generates a preview converse ID for display purposes (not guaranteed unique)
+ * Format: OTO#XXXXXX (total 10 characters)
+ * @returns {string} A preview converse ID like "OTO#123ABC"
+ */
+export const generatePreviewConverseId = () => {
+    const randomPart = generateSecureRandomId();
+    return `OTO#${randomPart}`;
+};
+
+/**
+ * Generates a preview class ID for display purposes (not guaranteed unique)
+ * Format: OTU#XXXXXX (total 10 characters)
+ * @returns {string} A preview class ID like "OTU#A1B2C3"
+ */
+export const generatePreviewClassId = () => {
+    const randomPart = generateSecureRandomId();
+    return `OTU#${randomPart}`;
+};
+
+/**
+ * Requests a unique converse ID from the backend
+ * @returns {Promise<string>} A unique converse ID from the server
+ */
+export const generateUniqueConverseId = async () => {
+    try {
+        const response = await api.post('/admin/generate-converse-id');
+        return response.data.converseId;
+    } catch (error) {
+        console.error('Failed to generate unique converse ID:', error);
+        // Fallback to preview ID (should be used carefully)
+        return generatePreviewConverseId();
+    }
+};
+
+/**
+ * Requests a unique class ID from the backend
+ * @returns {Promise<string>} A unique class ID from the server
+ */
+export const generateUniqueClassId = async () => {
+    try {
+        const response = await api.post('/admin/generate-class-id');
+        return response.data.classId;
+    } catch (error) {
+        console.error('Failed to generate unique class ID:', error);
+        // Fallback to preview ID (should be used carefully)
+        return generatePreviewClassId();
+    }
+};
+
+/**
+ * Legacy function for backward compatibility
+ * Generates a preview converse ID
+ * @returns {string} A preview converse ID
+ */
+export const generateRandomId = () => {
+    return generatePreviewConverseId();
+};
+
+/**
+ * Validates if an ID follows the correct format
+ * @param {string} id - The ID to validate
+ * @param {string} type - Either 'user' or 'class'
+ * @returns {boolean} True if valid format
+ */
+export const validateIdFormat = (id, type = 'user') => {
+    if (!id || typeof id !== 'string') return false;
+    
+    if (type === 'user') {
+        // Should be OTO# followed by 6 alphanumeric characters (total 10 chars)
+        return /^OTO#[A-Z0-9]{6}$/.test(id);
+    } else if (type === 'class') {
+        // Should be OTU# followed by 6 alphanumeric characters (total 10 chars)
+        return /^OTU#[A-Z0-9]{6}$/.test(id);
+    }
+    
+    return false;
+};
+
+/**
+ * Extracts the prefix from an ID
+ * @param {string} id - The ID to analyze
+ * @returns {string|null} The prefix ('OTO#' or 'OTU#') or null if invalid
+ */
+export const getIdPrefix = (id) => {
+    if (!id || typeof id !== 'string' || id.length < 4) return null;
+    
+    const prefix = id.substring(0, 4);
+    return ['OTO#', 'OTU#'].includes(prefix) ? prefix : null;
+};
+
+/**
+ * Determines the entity type from an ID
+ * @param {string} id - The ID to analyze
+ * @returns {string|null} 'user', 'class', or null if invalid
+ */
+export const getEntityTypeFromId = (id) => {
+    const prefix = getIdPrefix(id);
+    
+    if (prefix === 'OTO#') return 'user';
+    if (prefix === 'OTU#') return 'class';
+    
+    return null;
+};
+
+/**
+ * Extracts the random part from an ID (removes prefix)
+ * @param {string} id - The ID to analyze
+ * @returns {string|null} The 6-character random part or null if invalid
+ */
+export const getRandomPart = (id) => {
+    if (!validateIdFormat(id, 'user') && !validateIdFormat(id, 'class')) {
+        return null;
+    }
+    
+    return id.substring(4); // Remove the 4-character prefix (OTO# or OTU#)
+};
+
+/**
+ * Formats an ID for display with entity type indicator
+ * @param {string} id - The ID to format
+ * @returns {string} Formatted display string
+ */
+export const formatIdForDisplay = (id) => {
+    const entityType = getEntityTypeFromId(id);
+    
+    if (entityType === 'user') {
+        return `User ${id}`;
+    } else if (entityType === 'class') {
+        return `Class ${id}`;
+    }
+    
+    return id; // Fallback to original ID
+};
+
+/**
+ * Checks if two IDs are of compatible types for operations
+ * @param {string} id1 - First ID
+ * @param {string} id2 - Second ID
+ * @param {string} operation - Type of operation ('mentor-assign', 'class-assign', etc.)
+ * @returns {boolean} True if operation is valid
+ */
+export const validateIdCompatibility = (id1, id2, operation) => {
+    const type1 = getEntityTypeFromId(id1);
+    const type2 = getEntityTypeFromId(id2);
+    
+    switch (operation) {
+        case 'mentor-assign':
+            // Both should be users
+            return type1 === 'user' && type2 === 'user';
+        case 'class-assign':
+            // One user, one class
+            return (type1 === 'user' && type2 === 'class') || 
+                   (type1 === 'class' && type2 === 'user');
+        default:
+            return true;
+    }
+};
+
+/**
+ * Generates a batch of preview IDs for testing or demonstration
+ * @param {string} type - Either 'user' or 'class'
+ * @param {number} count - Number of IDs to generate
+ * @returns {string[]} Array of preview IDs
+ */
+export const generatePreviewIdBatch = (type = 'user', count = 5) => {
+    const ids = [];
+    
+    for (let i = 0; i < count; i++) {
+        if (type === 'user') {
+            ids.push(generatePreviewConverseId());
+        } else if (type === 'class') {
+            ids.push(generatePreviewClassId());
+        }
+    }
+    
+    return ids;
+};
+
+/**
+ * Converts old format IDs to new format (migration helper)
+ * @param {string} oldId - Old format ID
+ * @param {string} type - Entity type ('user' or 'class')
+ * @returns {string} New format ID
+ */
+export const convertToNewFormat = (oldId, type = 'user') => {
+    if (!oldId) return null;
+    
+    // If already in new format, return as is
+    if (validateIdFormat(oldId, type)) {
+        return oldId;
+    }
+    
+    // Convert old format to new format
+    const randomPart = generateSecureRandomId();
+    
+    if (type === 'user') {
+        return `OTO#${randomPart}`;
+    } else if (type === 'class') {
+        return `OTU#${randomPart}`;
+    }
+    
+    return null;
+};
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/components/service/fullMembershipService.js
+// Service functions for Full Membership Review Operations
+// Parallel to surveypageservice.js but for full membership applications
+
+import { useMutation, useQuery } from '@tanstack/react-query';
+import api from './api';
+
+// =====================================================
+// SUBMISSION SERVICES (for applicants)
+// =====================================================
+
+/**
+ * Submit full membership application
+ * Used by pre-members applying for full membership
+ */
+const submitFullMembershipApplication = async (applicationData) => {
+  console.log('🔍 Submitting full membership application:', applicationData);
+  
+  const res = await api.post('/full-membership/submit-full-membership', applicationData, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Full membership submission response:', res.data);
+  return res.data;
+};
+
+/**
+ * Reapply for full membership (after decline)
+ */
+const reapplyFullMembership = async (applicationData) => {
+  console.log('🔍 Reapplying for full membership:', applicationData);
+  
+  const res = await api.post('/full-membership/reapply-full-membership', applicationData, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Full membership reapplication response:', res.data);
+  return res.data;
+};
+
+/**
+ * Get user's full membership status
+ */
+const getFullMembershipStatus = async (userId) => {
+  console.log('🔍 Fetching full membership status for user:', userId);
+  
+  const res = await api.get(`/full-membership/full-membership-status/${userId}`, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Full membership status response:', res.data);
+  return res.data;
+};
+
+// =====================================================
+// ADMIN REVIEW SERVICES
+// =====================================================
+
+/**
+ * Fetch all full membership applications (Admin)
+ */
+const fetchFullMembershipApplications = async (filters = {}) => {
+  console.log('🔍 Fetching full membership applications with filters:', filters);
+  
+  const params = new URLSearchParams({
+    status: 'pending',
+    limit: 50,
+    offset: 0,
+    ...filters
+  });
+  
+  const res = await api.get(`/admin/membership/applications?${params}`, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Full membership applications response:', res.data);
+  return res.data;
+};
+
+/**
+ * Review full membership application (Admin approve/decline)
+ */
+const reviewFullMembershipApplication = async ({ applicationId, status, adminNotes }) => {
+  console.log('🔍 Reviewing full membership application:', { applicationId, status, adminNotes });
+  
+  if (!['approved', 'declined'].includes(status)) {
+    throw new Error('Invalid status. Must be "approved" or "declined"');
+  }
+  
+  const res = await api.put(`/admin/membership/review/${applicationId}`, {
+    status,
+    adminNotes
+  }, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Application review response:', res.data);
+  return res.data;
+};
+
+/**
+ * Get application statistics (Admin)
+ */
+const getApplicationStatistics = async () => {
+  console.log('🔍 Fetching application statistics...');
+  
+  const res = await api.get('/admin/applications/stats', { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Application statistics response:', res.data);
+  return res.data;
+};
+
+/**
+ * Send feedback email for application decision
+ */
+const sendApplicationFeedbackEmail = async ({ email, status, applicantName, membershipTicket, customMessage }) => {
+  console.log('🔍 Sending application feedback email:', { email, status, applicantName });
+  
+  const res = await api.post('/email/send-membership-feedback', {
+    email,
+    status,
+    applicantName,
+    membershipTicket,
+    customMessage,
+    template: status === 'approved' ? 'full_membership_approved' : 'full_membership_declined'
+  }, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Feedback email response:', res.data);
+  return res.data;
+};
+
+/**
+ * Bulk operations for multiple applications (Admin)
+ */
+const bulkReviewApplications = async ({ applicationIds, action, adminNotes }) => {
+  console.log('🔍 Bulk reviewing applications:', { applicationIds, action, adminNotes });
+  
+  const res = await api.post('/admin/membership/bulk-review', {
+    applicationIds,
+    action,
+    adminNotes
+  }, { 
+    withCredentials: true 
+  });
+  
+  console.log('✅ Bulk review response:', res.data);
+  return res.data;
+};
+
+/**
+ * Export applications data (Admin)
+ */
+const exportApplicationsData = async (filters = {}) => {
+  console.log('🔍 Exporting applications data with filters:', filters);
+  
+  const params = new URLSearchParams(filters);
+  const res = await api.get(`/admin/membership/export?${params}`, { 
+    withCredentials: true,
+    responseType: 'blob' // For file download
+  });
+  
+  console.log('✅ Export completed');
+  return res.data;
+};
+
+// =====================================================
+// REACT QUERY HOOKS FOR APPLICANTS
+// =====================================================
+
+/**
+ * Hook for submitting full membership application
+ */
+export const useSubmitFullMembershipApplication = () => {
+  return useMutation({
+    mutationFn: submitFullMembershipApplication,
+    onSuccess: (data) => {
+      console.log('✅ Full membership application submitted successfully:', data);
+    },
+    onError: (error) => {
+      console.error('❌ Full membership application submission failed:', error);
+    }
+  });
+};
+
+/**
+ * Hook for reapplying for full membership
+ */
+export const useReapplyFullMembership = () => {
+  return useMutation({
+    mutationFn: reapplyFullMembership,
+    onSuccess: (data) => {
+      console.log('✅ Full membership reapplication submitted successfully:', data);
+    },
+    onError: (error) => {
+      console.error('❌ Full membership reapplication failed:', error);
+    }
+  });
+};
+
+/**
+ * Hook for fetching user's full membership status
+ */
+export const useFullMembershipStatus = (userId, options = {}) => {
+  return useQuery({
+    queryKey: ['fullMembershipStatus', userId],
+    queryFn: () => getFullMembershipStatus(userId),
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    ...options
+  });
+};
+
+// =====================================================
+// REACT QUERY HOOKS FOR ADMIN REVIEW
+// =====================================================
+
+/**
+ * Hook for fetching full membership applications (Admin)
+ */
+export const useFullMembershipApplications = (filters = {}, options = {}) => {
+  return useQuery({
+    queryKey: ['fullMembershipApplications', filters],
+    queryFn: () => fetchFullMembershipApplications(filters),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    cacheTime: 5 * 60 * 1000, // 5 minutes
+    ...options
+  });
+};
+
+/**
+ * Hook for reviewing full membership application (Admin)
+ */
+export const useReviewFullMembershipApplication = () => {
+  return useMutation({
+    mutationFn: reviewFullMembershipApplication,
+    onSuccess: (data, variables) => {
+      console.log('✅ Application review completed:', variables.status);
+    },
+    onError: (error) => {
+      console.error('❌ Application review failed:', error);
+    }
+  });
+};
+
+/**
+ * Hook for fetching application statistics (Admin)
+ */
+export const useApplicationStatistics = (options = {}) => {
+  return useQuery({
+    queryKey: ['applicationStatistics'],
+    queryFn: getApplicationStatistics,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    ...options
+  });
+};
+
+/**
+ * Hook for sending feedback emails
+ */
+export const useSendApplicationFeedback = () => {
+  return useMutation({
+    mutationFn: sendApplicationFeedbackEmail,
+    onSuccess: (data) => {
+      console.log('✅ Feedback email sent successfully');
+    },
+    onError: (error) => {
+      console.error('❌ Feedback email failed:', error);
+    }
+  });
+};
+
+/**
+ * Hook for bulk reviewing applications (Admin)
+ */
+export const useBulkReviewApplications = () => {
+  return useMutation({
+    mutationFn: bulkReviewApplications,
+    onSuccess: (data, variables) => {
+      console.log('✅ Bulk review completed:', variables.action);
+    },
+    onError: (error) => {
+      console.error('❌ Bulk review failed:', error);
+    }
+  });
+};
+
+/**
+ * Hook for exporting applications data (Admin)
+ */
+export const useExportApplicationsData = () => {
+  return useMutation({
+    mutationFn: exportApplicationsData,
+    onSuccess: (data) => {
+      console.log('✅ Applications data exported successfully');
+      
+      // Trigger file download
+      const blob = new Blob([data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `full_membership_applications_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    },
+    onError: (error) => {
+      console.error('❌ Export failed:', error);
+    }
+  });
+};
+
+// =====================================================
+// UTILITY FUNCTIONS
+// =====================================================
+
+/**
+ * Format application status for display
+ */
+export const formatApplicationStatus = (status) => {
+  const statusMap = {
+    'not_applied': { text: 'Not Applied', color: 'gray', icon: '📋' },
+    'pending': { text: 'Under Review', color: 'yellow', icon: '⏳' },
+    'approved': { text: 'Approved', color: 'green', icon: '✅' },
+    'declined': { text: 'Declined', color: 'red', icon: '❌' }
+  };
+  
+  return statusMap[status] || { text: status, color: 'gray', icon: '❓' };
+};
+
+/**
+ * Calculate days since application submission
+ */
+export const calculateDaysPending = (submittedAt) => {
+  if (!submittedAt) return 0;
+  
+  const submissionDate = new Date(submittedAt);
+  const now = new Date();
+  const diffTime = Math.abs(now - submissionDate);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays;
+};
+
+/**
+ * Validate application data before submission
+ */
+export const validateApplicationData = (applicationData) => {
+  const errors = [];
+  
+  if (!applicationData.answers || !Array.isArray(applicationData.answers)) {
+    errors.push('Application answers are required');
+  }
+  
+  if (!applicationData.membershipTicket) {
+    errors.push('Membership ticket is required');
+  }
+  
+  if (applicationData.answers && applicationData.answers.length === 0) {
+    errors.push('At least one application answer is required');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+/**
+ * Generate membership ticket (utility function)
+ */
+export const generateMembershipTicket = () => {
+  const timestamp = Date.now().toString(36);
+  const randomStr = Math.random().toString(36).substr(2, 5);
+  return `FM-${timestamp}-${randomStr}`.toUpperCase();
+};
+
+// =====================================================
+// DEFAULT EXPORT WITH ALL FUNCTIONS
+// =====================================================
+
+export default {
+  // Service functions
+  submitFullMembershipApplication,
+  reapplyFullMembership,
+  getFullMembershipStatus,
+  fetchFullMembershipApplications,
+  reviewFullMembershipApplication,
+  getApplicationStatistics,
+  sendApplicationFeedbackEmail,
+  bulkReviewApplications,
+  exportApplicationsData,
+  
+  // React Query hooks
+  useSubmitFullMembershipApplication,
+  useReapplyFullMembership,
+  useFullMembershipStatus,
+  useFullMembershipApplications,
+  useReviewFullMembershipApplication,
+  useApplicationStatistics,
+  useSendApplicationFeedback,
+  useBulkReviewApplications,
+  useExportApplicationsData,
+  
+  // Utility functions
+  formatApplicationStatus,
+  calculateDaysPending,
+  validateApplicationData,
+  generateMembershipTicket
+};
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+//ikootaclient\src\components\service\commentServices.js
+import api from './api.js';
+
+export const postComment = async ({ chatId, userId, comment, mediaData }) => {
+    try {
+      const response = await api.post("/comments", {
+        userId,
+        chatId,
+        comment,
+        media: mediaData, // Send structured media data
+      });
+     
+      return response.data;
+
+    } catch (error) {
+      console.error("Error posting comment:", error.response?.data || error.message);
+      throw error;
+    }
+  };
+
+export const getCommentData = async (commentId) => {
+    try {
+      const response = await api.get(`/comments/${commentId}`);
+     
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching comment data:", error.response?.data || error.message);
+      throw error;
+    }
+  };
+  
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+//ikootaclient\src\components\service\api.js - REPLACE YOUR EXISTING FILE WITH THIS
+import axios from 'axios';
+
+// ✅ CRITICAL CHANGE: Use /api instead of full URL to use proxy
+const api = axios.create({
+  baseURL: '/api', // This will use the Vite proxy to forward to localhost:3000/api
+  timeout: 15000,
+  withCredentials: true, // Important for session cookies
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// ✅ SIMPLIFIED: Single request interceptor
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    console.log('🔍 API Request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      baseURL: config.baseURL,
+      fullURL: `${config.baseURL}${config.url}`,
+      hasToken: !!token,
+      headers: config.headers
+    });
+    
+    return config;
+  },
+  (error) => {
+    console.error('❌ Request interceptor error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// ✅ ENHANCED: Response interceptor with better error handling
+api.interceptors.response.use(
+  (response) => {
+    console.log('✅ API Response:', {
+      status: response.status,
+      url: response.config.url,
+      data: response.data
+    });
+    return response;
+  },
+  (error) => {
+    console.error('❌ API Response Error:', {
+      status: error.response?.status,
+      url: error.config?.url,
+      data: error.response?.data,
+      message: error.message
+    });
+    
+    // ✅ SPECIFIC: Check for HTML response (routing issue)
+    if (error.response?.data && typeof error.response.data === 'string' && error.response.data.includes('<!doctype')) {
+      console.error('❌ Received HTML instead of JSON - this is a routing/proxy issue');
+      console.error('Full HTML response:', error.response.data.substring(0, 200));
+    }
+    
+    // Handle authentication errors
+    if (error.response?.status === 401) {
+      console.log('🔐 Unauthorized - removing token');
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
+    }
+    
+    // Enhance error object with useful info
+    const enhancedError = {
+      ...error,
+      message: error.response?.data?.message || 
+               error.response?.data?.error || 
+               error.message || 
+               'Network Error',
+      status: error.response?.status,
+      url: error.config?.url
+    };
+    
+    return Promise.reject(enhancedError);
+  }
+);
+
+export default api;
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+import React, { useState } from 'react';
+import './searchcontrols.css';
+
+const SearchControls = ({ onSearch }) => {
+  const [query, setQuery] = useState('');
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    onSearch(query);
+  };
+
+  return (
+    <div className="search-controls">
+      <form onSubmit={handleSearch}>
+        <input
+          type="text"
+          placeholder="Search..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <button type="submit">Search</button>
+      </form>
+    </div>
+  );
+};
+
+export default SearchControls;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+// ikootaclient/src/components/membership/FullMembershipSurvey.jsx - WITH AUTOSAVE
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useUser } from '../auth/UserStatus';
+import api from "../service/api";
+import './fullMembershipSurvey.css';
+
+const FullMembershipSurvey = () => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useUser();
+  const [answers, setAnswers] = useState(['', '', '', '', '', '', '', '']);
+  const [loading, setLoading] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState('saved'); // 'saving', 'saved', 'error'
+
+  // ✅ AUTOSAVE: Storage keys
+  const STORAGE_KEY = `full_membership_survey_${user?.id || 'guest'}`;
+  const PROGRESS_KEY = `${STORAGE_KEY}_progress`;
+
+  // Full Membership Survey Questions
+  const questions = [
+    {
+      id: 1,
+      question: "Describe your current role in education and your professional experience in teaching, learning, or educational administration.",
+      placeholder: "Include your current position, years of experience, institutions you've worked with, and any educational leadership roles...",
+      required: true
+    },
+    {
+      id: 2, 
+      question: "What specific educational expertise or specialization do you bring to our community? What subjects or areas are you most passionate about?",
+      placeholder: "Detail your areas of expertise, specialized knowledge, subjects you teach or research, and what makes you unique...",
+      required: true
+    },
+    {
+      id: 3,
+      question: "How do you envision contributing to the Ikoota community? What kind of content, discussions, or collaborations would you like to initiate or participate in?",
+      placeholder: "Describe specific ways you plan to contribute, types of content you'd create, discussions you'd lead, or projects you'd collaborate on...",
+      required: true
+    },
+    {
+      id: 4,
+      question: "Describe a challenging educational situation you've encountered and how you addressed it. What did you learn from this experience?",
+      placeholder: "Share a specific example that demonstrates your problem-solving skills, adaptability, and learning mindset in educational contexts...",
+      required: true
+    },
+    {
+      id: 5,
+      question: "What is your philosophy on collaborative learning and knowledge sharing? How do you approach working with diverse groups of educators and learners?",
+      placeholder: "Explain your beliefs about collaboration, how you handle different perspectives, and your approach to inclusive education...",
+      required: true
+    },
+    {
+      id: 6,
+      question: "What are your professional development goals, and how do you see Ikoota helping you achieve them? What do you hope to learn from other community members?",
+      placeholder: "Outline your growth objectives, areas where you want to improve, and how you plan to leverage the community for development...",
+      required: true
+    },
+    {
+      id: 7,
+      question: "How would you handle disagreements or conflicts within educational discussions? Describe your approach to maintaining professionalism in challenging conversations.",
+      placeholder: "Explain your conflict resolution strategies, how you maintain respect during disagreements, and your commitment to professional discourse...",
+      required: true
+    },
+    {
+      id: 8,
+      question: "Is there anything else you'd like to share about yourself, your educational journey, or your commitment to being an active and valuable member of our community?",
+      placeholder: "Add any additional information that would help us understand your passion for education and community involvement...",
+      required: false
+    }
+  ];
+
+  // ✅ AUTOSAVE: Load saved data on component mount
+  useEffect(() => {
+    if (user?.id) {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      const savedProgress = localStorage.getItem(PROGRESS_KEY);
+      
+      if (savedData) {
+        try {
+          const parsedData = JSON.parse(savedData);
+          if (parsedData.answers && Array.isArray(parsedData.answers)) {
+            setAnswers(parsedData.answers);
+            setLastSaved(new Date(parsedData.timestamp));
+            console.log('✅ Loaded saved application data:', parsedData);
+          }
+        } catch (error) {
+          console.error('❌ Error loading saved data:', error);
+        }
+      }
+      
+      if (savedProgress) {
+        try {
+          const step = parseInt(savedProgress);
+          if (step >= 0 && step < questions.length) {
+            setCurrentStep(step);
+          }
+        } catch (error) {
+          console.error('❌ Error loading saved progress:', error);
+        }
+      }
+    }
+  }, [user?.id]);
+
+  // ✅ AUTOSAVE: Save data to localStorage
+  const saveToLocalStorage = useCallback((answersToSave, stepToSave) => {
+    if (!user?.id) return;
+    
+    try {
+      const dataToSave = {
+        answers: answersToSave,
+        timestamp: new Date().toISOString(),
+        currentStep: stepToSave,
+        userId: user.id,
+        username: user.username
+      };
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      localStorage.setItem(PROGRESS_KEY, stepToSave.toString());
+      setLastSaved(new Date());
+      setAutoSaveStatus('saved');
+      
+      console.log('💾 Auto-saved application data');
+    } catch (error) {
+      console.error('❌ Error saving to localStorage:', error);
+      setAutoSaveStatus('error');
+    }
+  }, [user?.id, STORAGE_KEY, PROGRESS_KEY]);
+
+  // ✅ AUTOSAVE: Auto-save when answers change
+  useEffect(() => {
+    if (answers.some(answer => answer.trim().length > 0)) {
+      setAutoSaveStatus('saving');
+      const timeoutId = setTimeout(() => {
+        saveToLocalStorage(answers, currentStep);
+      }, 2000); // Save 2 seconds after user stops typing
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [answers, currentStep, saveToLocalStorage]);
+
+  // ✅ MANUAL SAVE: Function for manual save button
+  const handleManualSave = () => {
+    setAutoSaveStatus('saving');
+    saveToLocalStorage(answers, currentStep);
+  };
+
+  // ✅ CLEAR SAVED DATA: Function to clear localStorage
+  const clearSavedData = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(PROGRESS_KEY);
+    setLastSaved(null);
+    console.log('🗑️ Cleared saved application data');
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      alert('Please sign in first to access the full membership survey.');
+      navigate('/login');
+      return;
+    }
+
+    // Check if user has already submitted
+    checkSubmissionStatus();
+  }, [isAuthenticated, navigate]);
+
+  // const checkSubmissionStatus = async () => {
+  //   try {
+  //     // ✅ FIXED: Use the correct endpoint with userId
+  //     const response = await api.get(`/membership/full-membership-status/${user.id}`);
+  //     if (response.data.hasSubmitted || response.data.status === 'pending' || response.data.status === 'approved') {
+  //       setHasSubmitted(true);
+  //       // Clear saved data if already submitted
+  //       clearSavedData();
+  //       alert('You have already submitted a full membership application.');
+  //       navigate('/full-membership-info');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error checking submission status:', error);
+  //     // Continue to show the form if there's an error checking status
+  //   }
+  // };
+
+
+const checkSubmissionStatus = async () => {
+  try {
+    // ✅ FIXED: Properly extract userId and handle undefined case
+    const userId = user?.user_id || user?.id;
+    
+    if (!userId) {
+      console.log('No user ID available');
+      return;
+    }
+
+    console.log('🔍 Checking submission status for user:', userId);
+    
+    const response = await api.get(`/membership/full-membership-status/${userId}`);
+    
+    console.log('✅ Submission status response:', response.data);
+    
+    if (response.data.hasApplication || 
+        response.data.status === 'pending' || 
+        response.data.status === 'approved') {
+      setHasSubmitted(true);
+      // Clear saved data if already submitted
+      clearSavedData();
+      alert('You have already submitted a full membership application.');
+      navigate('/full-membership-info');
+    }
+  } catch (error) {
+    console.log('Error checking submission status:', error);
+    
+    // If it's a 404 or 403, that means no application exists, so continue
+    if (error.response?.status === 404 || error.response?.status === 403) {
+      console.log('No existing application found, proceeding with form');
+      return;
+    }
+    
+    // For other errors, continue to show the form
+    console.log('API error, but continuing to show form');
+  }
+};
+
+  const generateMembershipTicket = () => {
+    const username = user?.username || 'USER';
+    const email = user?.email || 'user@example.com';
+    const usernamePrefix = username.substring(0, 3).toUpperCase();
+    const emailPrefix = email.split('@')[0].substring(0, 3).toUpperCase();
+    const now = new Date();
+    const dateStr = now.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
+    const timeStr = now.toTimeString().slice(0, 5).replace(':', ''); // HHMM
+    
+    return `FM${usernamePrefix}${emailPrefix}${dateStr}${timeStr}`; // FM = Full Membership
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Validate required answers
+    const requiredAnswers = questions.filter(q => q.required).map((q, index) => answers[index]);
+    if (requiredAnswers.some(answer => !answer.trim())) {
+      alert('Please answer all required questions before submitting.');
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      const membershipTicket = generateMembershipTicket();
+      
+      const response = await api.post('/membership/submit-full-membership', {
+        answers: answers,
+        membershipTicket: membershipTicket,
+        userId: user.id,
+        userEmail: user.email,
+        username: user.username,
+        applicationType: 'full_membership'
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        // ✅ SUCCESS: Clear saved data after successful submission
+        clearSavedData();
+        
+        alert(`Full Membership application submitted successfully!\n\nYour Membership Ticket: ${membershipTicket}\n\nPlease save this number for your records.`);
+        
+        navigate('/full-membership-submitted', { 
+          state: { 
+            membershipTicket: membershipTicket,
+            username: user.username 
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting full membership survey:', error);
+      alert(`Failed to submit application: ${error.response?.data?.message || 'Please try again. Your progress has been saved.'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (index, value) => {
+    const updatedAnswers = [...answers];
+    updatedAnswers[index] = value;
+    setAnswers(updatedAnswers);
+  };
+
+  const nextStep = () => {
+    if (currentStep < questions.length - 1) {
+      const newStep = currentStep + 1;
+      setCurrentStep(newStep);
+      saveToLocalStorage(answers, newStep);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      const newStep = currentStep - 1;
+      setCurrentStep(newStep);
+      saveToLocalStorage(answers, newStep);
+    }
+  };
+
+  const goToStep = (step) => {
+    setCurrentStep(step);
+    saveToLocalStorage(answers, step);
+  };
+
+  const getCompletionPercentage = () => {
+    const answeredCount = answers.filter(answer => answer.trim()).length;
+    return Math.round((answeredCount / questions.length) * 100);
+  };
+
+  const getAutoSaveStatusDisplay = () => {
+    switch (autoSaveStatus) {
+      case 'saving':
+        return { text: '💾 Saving...', color: '#f59e0b' };
+      case 'saved':
+        return lastSaved ? { 
+          text: `✅ Saved ${lastSaved.toLocaleTimeString()}`, 
+          color: '#10b981' 
+        } : { text: '✅ Saved', color: '#10b981' };
+      case 'error':
+        return { text: '⚠️ Save failed', color: '#ef4444' };
+      default:
+        return { text: '', color: '#6b7280' };
+    }
+  };
+
+  if (hasSubmitted) {
+    return (
+      <div className="survey-container">
+        <div className="submitted-message">
+          <h2>Application Already Submitted</h2>
+          <p>You have already submitted your full membership application.</p>
+          <button onClick={() => navigate('/full-membership-info')} className="btn-primary">
+            View Application Status
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const autoSaveDisplay = getAutoSaveStatusDisplay();
+
+  return (
+    <div className="full-membership-survey-container">
+      <div className="survey-card">
+        <div className="survey-header">
+          <h1>🎓 Full Membership Application Survey</h1>
+          <p>Complete this comprehensive survey to apply for full membership</p>
+          
+          <div className="progress-section">
+            <div className="progress-bar">
+              <div 
+                className="progress-fill" 
+                style={{ width: `${getCompletionPercentage()}%` }}
+              ></div>
+            </div>
+            <div className="progress-info">
+              <span>{getCompletionPercentage()}% Complete</span>
+              <span>{answers.filter(a => a.trim()).length} of {questions.length} answered</span>
+            </div>
+          </div>
+
+          {/* ✅ AUTOSAVE STATUS DISPLAY */}
+          <div className="autosave-status" style={{ 
+            marginTop: '10px', 
+            fontSize: '0.9rem',
+            color: autoSaveDisplay.color 
+          }}>
+            {autoSaveDisplay.text}
+          </div>
+        </div>
+
+        <div className="applicant-info">
+          <p><strong>Applicant:</strong> {user?.username} ({user?.email})</p>
+          <p><strong>Current Status:</strong> Pre-Member</p>
+          <p><strong>Application Type:</strong> Full Membership</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="survey-form">
+          {/* ✅ SAVE CONTROLS */}
+          <div className="save-controls" style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '15px',
+            backgroundColor: '#f8fafc',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{ fontSize: '0.9rem', color: '#64748b' }}>
+              Your progress is automatically saved as you type
+            </div>
+            <button 
+              type="button"
+              onClick={handleManualSave}
+              className="btn-save"
+              style={{
+                padding: '8px 16px',
+                fontSize: '0.9rem',
+                backgroundColor: '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              💾 Save Now
+            </button>
+          </div>
+
+          <div className="question-navigation">
+            <div className="question-tabs">
+              {questions.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  className={`question-tab ${currentStep === index ? 'active' : ''} ${answers[index].trim() ? 'completed' : ''}`}
+                  onClick={() => goToStep(index)}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="current-question">
+            <div className="question-header">
+              <span className="question-number">Question {currentStep + 1} of {questions.length}</span>
+              {questions[currentStep].required && <span className="required-indicator">* Required</span>}
+            </div>
+            
+            <label className="question-label">
+              {questions[currentStep].question}
+            </label>
+            
+            <textarea
+              value={answers[currentStep]}
+              onChange={(e) => handleInputChange(currentStep, e.target.value)}
+              placeholder={questions[currentStep].placeholder}
+              className="answer-input"
+              rows="6"
+              required={questions[currentStep].required}
+            />
+            
+            <div className="character-count">
+              {answers[currentStep].length} characters
+              {answers[currentStep].length < 50 && questions[currentStep].required && (
+                <span className="min-length-warning"> (Minimum 50 characters recommended)</span>
+              )}
+            </div>
+          </div>
+
+          <div className="navigation-buttons">
+            <button 
+              type="button" 
+              onClick={prevStep} 
+              disabled={currentStep === 0}
+              className="btn-nav prev"
+            >
+              ← Previous
+            </button>
+            
+            {currentStep < questions.length - 1 ? (
+              <button 
+                type="button" 
+                onClick={nextStep}
+                className="btn-nav next"
+              >
+                Next →
+              </button>
+            ) : (
+              <button 
+                type="submit" 
+                disabled={loading || answers.filter((a, i) => questions[i].required).some(a => !a.trim())}
+                className="btn-submit"
+              >
+                {loading ? 'Submitting Application...' : 'Submit Full Membership Application'}
+              </button>
+            )}
+          </div>
+
+          <div className="survey-overview">
+            <h4>📋 Questions Overview</h4>
+            <div className="questions-list">
+              {questions.map((q, index) => (
+                <div 
+                  key={q.id} 
+                  className={`question-overview-item ${answers[index].trim() ? 'answered' : ''} ${currentStep === index ? 'current' : ''}`}
+                  onClick={() => goToStep(index)}
+                >
+                  <span className="question-num">Q{index + 1}</span>
+                  <span className="question-brief">{q.question.substring(0, 60)}...</span>
+                  <span className="question-status">
+                    {answers[index].trim() ? '✓' : (q.required ? '*' : '○')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="application-info">
+            <h4>ℹ️ Application Information</h4>
+            <div className="info-grid">
+              <div className="info-item">
+                <strong>Review Timeline:</strong> 5-7 business days
+              </div>
+              <div className="info-item">
+                <strong>Decision Notification:</strong> Via email
+              </div>
+              <div className="info-item">
+                <strong>Application Tracking:</strong> Unique ticket number provided
+              </div>
+              <div className="info-item">
+                <strong>Support Contact:</strong> support@ikoota.com
+              </div>
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <button 
+              type="button" 
+              onClick={() => navigate('/full-membership-info')}
+              className="btn-cancel"
+            >
+              ← Back to Information
+            </button>
+            
+            <button 
+              type="button" 
+              onClick={() => navigate('/towncrier')}
+              className="btn-cancel"
+            >
+              Cancel & Return to Towncrier
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default FullMembershipSurvey;
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/components/membership/FullMembershipInfo.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../auth/UserStatus';
+import api from '../service/api';
+import './fullMembershipInfo.css';
+
+const FullMembershipInfo = () => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useUser();
+  const [hasAccessedBefore, setHasAccessedBefore] = useState(false);
+  const [hasSubmittedApplication, setHasSubmittedApplication] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      alert('Please sign in first to access membership applications.');
+      navigate('/login');
+      return;
+    }
+
+    // Check if user is eligible for full membership application
+    checkMembershipEligibility();
+  }, [isAuthenticated, navigate]);
+
+  const checkMembershipEligibility = async () => {
+    try {
+      const response = await api.get('/membership/full-membership-status');
+      const { hasAccessed, hasSubmitted, status, isPreMember } = response.data;
+      
+      if (!isPreMember) {
+        alert('You must be a pre-member first before applying for full membership.');
+        navigate('/towncrier');
+        return;
+      }
+
+      setHasAccessedBefore(hasAccessed);
+      setHasSubmittedApplication(hasSubmitted);
+      setApplicationStatus(status);
+
+      // Log first-time access
+      if (!hasAccessed) {
+        await api.post('/membership/log-full-membership-access');
+      }
+    } catch (error) {
+      console.error('Error checking membership status:', error);
+      alert('Error checking your membership status. Please try again.');
+      navigate('/towncrier');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProceedToSurvey = () => {
+    navigate('/full-membership-survey');
+  };
+
+  const handleGoBack = () => {
+    navigate('/towncrier');
+  };
+
+  if (loading) {
+    return (
+      <div className="membership-info-container">
+        <div className="loading-message">
+          <p>Loading membership information...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If user has already submitted application
+  if (hasSubmittedApplication) {
+    return (
+      <div className="membership-info-container">
+        <div className="membership-card submitted-state">
+          <div className="membership-header">
+            <h1>📋 Full Membership Application Status</h1>
+          </div>
+
+          <div className="status-display">
+            <div className={`status-badge ${applicationStatus}`}>
+              {applicationStatus === 'pending' && '⏳ Under Review'}
+              {applicationStatus === 'suspended' && '⚠️ Additional Info Required'}
+              {applicationStatus === 'approved' && '✅ Approved'}
+              {applicationStatus === 'declined' && '❌ Declined'}
+            </div>
+          </div>
+
+          <div className="status-content">
+            {applicationStatus === 'pending' && (
+              <div className="pending-info">
+                <h3>Your Application is Under Review</h3>
+                <p>Our team is currently reviewing your full membership application. You'll receive an email notification once the review is complete.</p>
+                <div className="timeline">
+                  <div className="timeline-item completed">✅ Application Submitted</div>
+                  <div className="timeline-item current">🔍 Under Review</div>
+                  <div className="timeline-item future">📧 Decision Notification</div>
+                </div>
+              </div>
+            )}
+
+            {applicationStatus === 'suspended' && (
+              <div className="suspended-info">
+                <h3>Additional Information Required</h3>
+                <p>Your application has been temporarily suspended pending additional information. Please check your email for specific requirements.</p>
+                <button onClick={() => navigate('/full-membership-suspended')} className="btn-primary">
+                  View Requirements
+                </button>
+              </div>
+            )}
+
+            {applicationStatus === 'approved' && (
+              <div className="approved-info">
+                <h3>🎉 Congratulations! You're Now a Full Member</h3>
+                <p>Your full membership has been approved. You now have access to all platform features including the Iko chat system.</p>
+                <button onClick={() => navigate('/iko')} className="btn-primary">
+                  Access Iko Chat System
+                </button>
+              </div>
+            )}
+
+            {applicationStatus === 'declined' && (
+              <div className="declined-info">
+                <h3>Application Not Approved</h3>
+                <p>Your full membership application was not approved at this time. Please check your email for feedback and reapplication guidelines.</p>
+                <button onClick={() => navigate('/full-membership-declined')} className="btn-secondary">
+                  View Feedback
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="back-action">
+            <button onClick={handleGoBack} className="btn-back">
+              ← Back to Towncrier
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main membership information page
+  return (
+    <div className="membership-info-container">
+      <div className="membership-card">
+        <div className="membership-header">
+          <h1>🎓 Full Membership Application</h1>
+          <h2>Join the Complete Ikoota Community</h2>
+        </div>
+
+        <div className="welcome-message">
+          <p>
+            <strong>Welcome, {user?.username}!</strong>
+          </p>
+          <p>
+            As a pre-member, you've already experienced our educational content in Towncrier. 
+            Now you can apply for full membership to unlock the complete Ikoota experience.
+          </p>
+        </div>
+
+        <div className="membership-benefits">
+          <h3>🌟 Full Membership Benefits</h3>
+          <div className="benefits-grid">
+            <div className="benefit-item">
+              <span className="benefit-icon">💬</span>
+              <div className="benefit-content">
+                <h4>Iko Chat System Access</h4>
+                <p>Join exclusive member discussions and real-time conversations</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">💭</span>
+              <div className="benefit-content">
+                <h4>Comment & Engage</h4>
+                <p>Participate in discussions on educational content and posts</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">✍️</span>
+              <div className="benefit-content">
+                <h4>Create & Share</h4>
+                <p>Contribute your own educational content and teaching materials</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">🤝</span>
+              <div className="benefit-content">
+                <h4>Community Collaboration</h4>
+                <p>Work directly with other educators and learners</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">📚</span>
+              <div className="benefit-content">
+                <h4>Advanced Resources</h4>
+                <p>Access member-only educational materials and tools</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">🎯</span>
+              <div className="benefit-content">
+                <h4>Personalized Learning</h4>
+                <p>Customized content recommendations and learning paths</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="membership-expectations">
+          <h3>📋 Membership Expectations</h3>
+          <div className="expectations-content">
+            <div className="expectation-section">
+              <h4>🎯 Our Mission</h4>
+              <p>
+                Ikoota is dedicated to creating a high-quality educational community where 
+                verified educators and serious learners collaborate to advance education 
+                through innovative teaching methods and meaningful discussions.
+              </p>
+            </div>
+            
+            <div className="expectation-section">
+              <h4>🌟 Community Values</h4>
+              <ul>
+                <li><strong>Excellence:</strong> Commitment to high-quality educational content</li>
+                <li><strong>Respect:</strong> Treating all community members with dignity</li>
+                <li><strong>Collaboration:</strong> Working together for mutual growth</li>
+                <li><strong>Innovation:</strong> Embracing new educational technologies and methods</li>
+                <li><strong>Integrity:</strong> Honest and ethical participation in all activities</li>
+              </ul>
+            </div>
+
+            <div className="expectation-section">
+              <h4>👥 Member Responsibilities</h4>
+              <ul>
+                <li>Contribute meaningfully to discussions and content</li>
+                <li>Maintain professional and respectful communication</li>
+                <li>Share knowledge and expertise with the community</li>
+                <li>Follow community guidelines and platform rules</li>
+                <li>Support fellow members' learning and growth</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="platform-overview">
+          <h3>🏛️ About Our Educational Platform</h3>
+          <div className="platform-content">
+            <div className="platform-section">
+              <h4>📚 Educational Focus</h4>
+              <p>
+                Our platform serves as a comprehensive educational ecosystem where 
+                teachers, students, researchers, and lifelong learners come together 
+                to share knowledge, collaborate on projects, and advance the field of education.
+              </p>
+            </div>
+
+            <div className="platform-section">
+              <h4>💬 Chat & Discussion System</h4>
+              <p>
+                The Iko chat system facilitates real-time collaboration, allowing members 
+                to engage in focused educational discussions, share resources instantly, 
+                and build lasting professional relationships.
+              </p>
+            </div>
+
+            <div className="platform-section">
+              <h4>🔐 Quality Assurance</h4>
+              <p>
+                Our two-stage membership process ensures that all full members are 
+                committed to maintaining the high standards of educational discourse 
+                and collaborative learning that define our community.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="application-process">
+          <h3>📝 Application Process Overview</h3>
+          <div className="process-steps">
+            <div className="process-step">
+              <span className="step-number">1</span>
+              <div className="step-content">
+                <h4>Complete Membership Survey</h4>
+                <p>Answer detailed questions about your educational background and goals</p>
+              </div>
+            </div>
+            <div className="process-step">
+              <span className="step-number">2</span>
+              <div className="step-content">
+                <h4>Application Review</h4>
+                <p>Our team evaluates your responses and commitment to education</p>
+              </div>
+            </div>
+            <div className="process-step">
+              <span className="step-number">3</span>
+              <div className="step-content">
+                <h4>Decision & Access</h4>
+                <p>Receive notification and gain full platform access upon approval</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="important-notes">
+          <h3>⚠️ Important Information</h3>
+          <div className="notes-list">
+            <div className="note-item">
+              <span className="note-icon">📋</span>
+              <div>
+                <h4>Application Requirements</h4>
+                <p>All questions in the membership survey must be answered thoroughly and honestly.</p>
+              </div>
+            </div>
+            <div className="note-item">
+              <span className="note-icon">⏰</span>
+              <div>
+                <h4>Review Timeline</h4>
+                <p>Full membership applications typically take 5-7 business days to review.</p>
+              </div>
+            </div>
+            <div className="note-item">
+              <span className="note-icon">🔄</span>
+              <div>
+                <h4>One Application Only</h4>
+                <p>You may only submit one full membership application. Make it count!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="action-buttons">
+          <button 
+            onClick={handleProceedToSurvey} 
+            className="btn-primary application-btn"
+          >
+            📝 Begin Full Membership Application
+          </button>
+          
+          <button 
+            onClick={handleGoBack} 
+            className="btn-secondary"
+          >
+            ← Back to Towncrier
+          </button>
+        </div>
+
+        <div className="first-access-note">
+          {!hasAccessedBefore && (
+            <div className="access-logged">
+              <p>
+                📊 <strong>Note:</strong> Your access to this membership information page has been 
+                logged for record-keeping purposes.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FullMembershipInfo;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+//ikootaclient\src\components\iko\Userinfo.jsx
+import React, { useEffect, useState } from 'react';
+import api from '../service/api';
+import {jwtDecode} from 'jwt-decode';
+import './userinfo.css';
+
+const Userinfo = () => {
+  const [userInfo, setUserInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [user_id, setUserId] = useState(null);
+  const [activeTime, setActiveTime] = useState('0m ago');
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      setUserId(jwtDecode(token).user_id);
+    } else {
+      const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("access_token="));
+      if (tokenCookie) {
+        setUserId(jwtDecode(tokenCookie.split("=")[1]).user_id);
+      } else {
+        throw new Error("Access token not found");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user_id) return;
+
+    const fetchUserInfo = async () => {
+      try {
+        const response = await api.get('/users/profile', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        setUserInfo(response.data);
+        setLoading(false);
+      } catch (error) {
+        setError(error.message);
+        setLoading(false);
+      }
+    };
+
+    fetchUserInfo();
+  }, [user_id]);
+
+  useEffect(() => {
+    const startTime = Date.now();
+
+    const updateActiveTime = () => {
+      const elapsedTime = Date.now() - startTime;
+      const minutes = Math.floor(elapsedTime / 60000);
+      const hours = Math.floor(minutes / 60);
+      const displayTime = hours > 0 ? `${hours}h ${minutes % 60}m ago` : `${minutes}m ago`;
+      setActiveTime(displayTime);
+    };
+
+    const intervalId = setInterval(updateActiveTime, 60000); // Update every minute
+
+    return () => clearInterval(intervalId); // Cleanup on unmount
+  }, []);
+
+  if (loading) return <p>Loading user info...</p>;
+  if (error) return <p>Error fetching user info: {error}</p>;
+
+  return (
+    <>
+      <div className='userinfo'>
+        <div className="user">
+          <img src={userInfo.avatar || "./avatar.png"} alt="User Avatar" />
+          <h4>{userInfo.username}</h4>
+        </div>
+        <div className="icons">
+          <img src="./more.png" alt="More" />
+          <img src="./video.png" alt="Video" />
+          <img src="./edit.png" alt="Edit" />
+        </div>
+      </div>
+      <p>Email: {userInfo.email}</p>
+      <p>Class ID: {userInfo.class_id}</p>
+      <p>User ID: {userInfo.id}</p>
+      <p>Active {activeTime}</p>
+    </>
+  );
+};
+
+export default Userinfo;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+//ikootaclient\src\components\iko\ListChats.jsx
+import React, { useState, useEffect } from 'react';
+import SearchControls from '../search/SearchControls';
+import './listchats.css';
+import api from '../service/api';
+
+const ListChats = ({ setActiveItem, deactivateListComments }) => {
+  const [addMode, setAddMode] = useState(false);
+  const [activeItem, setActiveItemState] = useState({ id: null, type: null });
+  const [content, setContent] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [filteredItems, setFilteredItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        console.log('Fetching combined content...');
+        
+        const [contentResponse, commentsResponse] = await Promise.all([
+          api.get('/chats/combinedcontent'),
+          api.get('/comments/all')
+        ]);
+        
+        console.log('Combined content response:', contentResponse);
+
+        const contentData = contentResponse.data?.data || contentResponse.data || [];
+        const commentsData = commentsResponse.data || [];
+
+        console.log('Processed content data:', contentData);
+        console.log('Comments data:', commentsData);
+
+        // Clean and normalize the data
+        const cleanedContent = contentData.map(item => ({
+          ...item,
+          // Normalize content properties
+          content_title: item.content_title || item.title || item.topic || 'Untitled',
+          content_type: item.content_type || (item.title ? 'chat' : 'teaching'),
+          audience: item.audience === 'undefined' ? '' : item.audience,
+          summary: item.summary?.startsWith('undefined') ? 
+            item.summary.replace('undefined', '').trim() : item.summary,
+          // Ensure consistent date fields
+          display_date: item.updatedAt || item.createdAt,
+          // Create fallback prefixed_id if missing
+          prefixed_id: item.prefixed_id || `${item.content_type?.[0] || 'c'}${item.id}`
+        }));
+
+        setContent(cleanedContent);
+        setComments(commentsData);
+        setFilteredItems(cleanedContent);
+      } catch (error) {
+        console.error('Error fetching combined content:', error);
+        setError('Failed to fetch content. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Enhanced comment grouping with better error handling
+  const groupCommentsByParent = () => {
+    const groupedComments = {};
+
+    if (!Array.isArray(comments)) {
+      console.warn('Comments is not an array:', comments);
+      return groupedComments;
+    }
+    
+    comments.forEach(comment => {
+      try {
+        if (comment.chat_id) {
+          const keys = [comment.chat_id, `c${comment.chat_id}`];
+          keys.forEach(key => {
+            if (!groupedComments[key]) groupedComments[key] = [];
+            groupedComments[key].push(comment);
+          });
+        }
+        
+        if (comment.teaching_id) {
+          const keys = [comment.teaching_id, `t${comment.teaching_id}`];
+          keys.forEach(key => {
+            if (!groupedComments[key]) groupedComments[key] = [];
+            groupedComments[key].push(comment);
+          });
+        }
+      } catch (err) {
+        console.warn('Error grouping comment:', comment, err);
+      }
+    });
+    
+    return groupedComments;
+  };
+
+  const groupedComments = groupCommentsByParent();
+
+  const handleSearch = (query) => {
+    if (!Array.isArray(content)) {
+      console.warn('Content is not an array for search:', content);
+      return;
+    }
+    
+    const lowercaseQuery = query.toLowerCase();
+    const filtered = content.filter(item => {
+      const searchFields = [
+        item.content_title,
+        item.title,
+        item.topic,
+        item.summary,
+        item.description,
+        item.prefixed_id,
+        item.subjectMatter,
+        item.audience
+      ];
+      
+      return searchFields.some(field => 
+        field && field.toString().toLowerCase().includes(lowercaseQuery)
+      );
+    });
+    
+    setFilteredItems(filtered);
+  };
+
+  const handleItemClick = (item) => {
+    try {
+      if (deactivateListComments) deactivateListComments();
+      
+      const itemData = {
+        id: item.prefixed_id || item.id,
+        type: item.content_type || (item.title ? 'chat' : 'teaching'),
+        prefixed_id: item.prefixed_id,
+        ...item
+      };
+      
+      setActiveItemState(itemData);
+      if (setActiveItem) setActiveItem(itemData);
+    } catch (error) {
+      console.error('Error handling item click:', error);
+    }
+  };
+
+  // Helper functions
+  const getContentTitle = (item) => {
+    return item?.content_title || item?.title || item?.topic || 'Untitled';
+  };
+
+  const getCreationDate = (item) => {
+    const dateStr = item?.display_date || item?.createdAt;
+    if (!dateStr) return 'Unknown date';
+    
+    try {
+      return new Date(dateStr).toLocaleDateString();
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const getContentIdentifier = (item) => {
+    return item?.prefixed_id || `${item?.content_type?.[0] || 'c'}${item?.id}`;
+  };
+
+  if (loading) {
+    return (
+      <div className='listchats_container' style={{border:"3px solid brown"}}>
+        <div className="loading-message">
+          <p>Loading content...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className='listchats_container' style={{border:"3px solid brown"}}>
+        <div className="error-message">
+          <p style={{color: 'red'}}>{error}</p>
+          <button onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className='listchats_container' style={{border:"3px solid brown"}}>
+      <div className="search">
+        <div className="searchbar">
+          <img src="./search.png" alt="Search" />
+          <SearchControls onSearch={handleSearch} />
+        </div>
+        <img 
+          src={addMode ? "./minus.png" : "./plus.png"} 
+          alt="Toggle" 
+          className='add' 
+          onClick={() => setAddMode(!addMode)} 
+        />
+      </div>
+
+      {!Array.isArray(filteredItems) || filteredItems.length === 0 ? (
+        <p>No content available</p>
+      ) : (
+        filteredItems.map((item, index) => {
+          const itemKey = item.prefixed_id || item.id;
+          const commentsForItem = groupedComments[itemKey] || groupedComments[item.id] || [];
+          const uniqueKey = item.prefixed_id || `${item.content_type || 'item'}-${item.id}-${index}`;
+          
+          return (
+            <div 
+              key={uniqueKey}
+              className={`item ${activeItem?.prefixed_id === item.prefixed_id ? 'active' : ''}`} 
+              onClick={() => handleItemClick(item)}
+            >
+              <div className="texts">
+                <div className="item-header">
+                  <span className="content-type-badge">{item.content_type}</span>
+                  <span className="content-id">{getContentIdentifier(item)}</span>
+                </div>
+                
+                <span className="content-title">Title: {getContentTitle(item)}</span>
+                <p>Lesson#: {item.lessonNumber || item.id}</p>
+                <p>Audience: {item.audience || 'General'}</p>
+                <p>By: {item.user_id || item.created_by || 'Admin'}</p>
+                <p>Date: {getCreationDate(item)}</p>
+                
+                {item.subjectMatter && (
+                  <p>Subject: {item.subjectMatter}</p>
+                )}
+              </div>
+
+              {/* Comments Preview */}
+              <div className="comments-preview">
+                {commentsForItem && commentsForItem.length > 0 ? (
+                  <div className="comments">
+                    <h4>Comments ({commentsForItem.length}):</h4>
+                    {commentsForItem.slice(0, 2).map((comment, commentIndex) => (
+                      <div key={comment.id || `comment-${commentIndex}`} className="comment-item">
+                        <p>By: {comment.user_id || 'Unknown'}</p>
+                        <p>Created: {new Date(comment.createdAt).toLocaleDateString()}</p>
+                        {comment.comment && comment.comment.length > 50 ? (
+                          <p>"{comment.comment.substring(0, 50)}..."</p>
+                        ) : (
+                          <p>"{comment.comment}"</p>
+                        )}
+                      </div>
+                    ))}
+                    {commentsForItem.length > 2 && (
+                      <p className="more-comments">+{commentsForItem.length - 2} more comments</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="no-comments">
+                    <p>No comments for {getContentIdentifier(item)}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+};
+
+export default ListChats;
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+//ikootaclient\src\components\iko\IkoControls.jsx
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import './ikocontrols.css';
+// import Chat from "./Chat";
+
+const IkoControls = () => {
+  const [messages, setMessages] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [chats, setChats] = useState([]);
+  const [filter, setFilter] = useState('pending'); // Default filter for messages
+
+  // Fetch data based on filter
+  const fetchData = async (type) => {
+    try {
+      let response;
+      switch (type) {
+        case 'messages':
+          response = await axios.get(`/api/messages?status=${filter}`);
+          setMessages(response.data);
+          break;
+        case 'comments':
+          response = await axios.get(`/api/comments?status=${filter}`);
+          setComments(response.data);
+          break;
+        case 'chats':
+          response = await axios.get(`/api/chats`);
+          setChats(response.data);
+          break;
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Approve, Reject, or Delete items
+  const handleAction = async (type, id, action) => {
+    try {
+      await axios.put(`/api/${type}/${id}`, { status: action });
+      fetchData(type);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchData('messages');
+    fetchData('comments');
+    fetchData('chats');
+  }, [filter]);
+
+  return (
+    <div className="iko-controls">
+       <h2>Admin Chat Controls</h2>
+       {/* <Chat /> */}
+      <h1>Iko Controls</h1>
+      <div className="controls-container">
+        <div className="messages-section">
+          <h2>Manage Messages</h2>
+          <div className="filters">
+            <button onClick={() => setFilter('pending')}>Pending</button>
+            <button onClick={() => setFilter('approved')}>Approved</button>
+            <button onClick={() => setFilter('rejected')}>Rejected</button>
+            <button onClick={() => setFilter('deleted')}>Deleted</button>
+          </div>
+          <ul>
+            { Array.isArray(messages) && messages?.map((msg) => (
+              <li key={msg.id}>
+                <p><strong>{msg.topic}</strong>: {msg.description}</p>
+                <div>
+                  <button onClick={() => handleAction('messages', msg.id, 'approved')}>Approve</button>
+                  <button onClick={() => handleAction('messages', msg.id, 'rejected')}>Reject</button>
+                  <button onClick={() => handleAction('messages', msg.id, 'deleted')}>Delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="comments-section">
+          <h2>Manage Comments</h2>
+          <ul>
+            { Array.isArray(comments) && comments.map((comment) => (
+              <li key={comment.id}>
+                <p>{comment.content}</p>
+                <div>
+                  <button onClick={() => handleAction('comments', comment.id, 'approved')}>Approve</button>
+                  <button onClick={() => handleAction('comments', comment.id, 'rejected')}>Reject</button>
+                  <button onClick={() => handleAction('comments', comment.id, 'deleted')}>Delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="chats-section">
+          <h2>Manage Chats</h2>
+          <ul>
+            { Array.isArray(chats) && chats.map((chat) => (
+              <li key={chat.id}>
+                <p><strong>{chat.topic}</strong>: {chat.description}</p>
+                <div>
+                  <button onClick={() => handleAction('chats', chat.id, 'deleted')}>Delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default IkoControls;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/components/config/accessMatrix.js
+// ✅ STANDARDIZED VERSION - Two Clear Levels: pre_member and member
+
+const ACCESS_MATRIX = {
+  // Super Admin - Full access to everything
+  super_admin: {
+    routes: ['/', '/admin/*', '/iko', '/towncrier', '/application-survey', '/dashboard', '/full-membership/*'],
+    api_endpoints: ['ALL'],
+    default_redirect: '/admin',
+    dashboard_redirect: '/dashboard',
+    permissions: ['admin', 'iko', 'towncrier', 'dashboard', 'membership_management', 'all'],
+    userType: 'admin',
+    canAccess: {
+      iko: true,
+      towncrier: true,
+      admin: true,
+      dashboard: true,
+      membershipApplication: true
+    }
+  },
+
+  // Admin - Most access
+  admin: {
+    routes: ['/', '/admin/*', '/iko', '/towncrier', '/dashboard', '/full-membership/*'],
+    api_endpoints: [
+      '/admin/*',
+      '/membership/*', 
+      '/users/*',
+      '/classes/*',
+      '/teachings/*',
+      '/chats/*'
+    ],
+    default_redirect: '/admin',
+    dashboard_redirect: '/dashboard',
+    permissions: ['admin', 'iko', 'towncrier', 'dashboard', 'membership_management'],
+    userType: 'admin',
+    canAccess: {
+      iko: true,
+      towncrier: true,
+      admin: true,
+      dashboard: true,
+      membershipApplication: true
+    }
+  },
+
+  // ✅ MEMBER - Full access (highest non-admin level)
+  member: {
+    conditions: {
+      membership_stage: 'member',
+      is_member: 'member',
+      status: 'member'
+    },
+    routes: ['/', '/iko', '/towncrier', '/dashboard', '/profile'],
+    api_endpoints: [
+      '/teachings/*',
+      '/chats/*',
+      '/users/profile',
+      '/membership/dashboard'
+    ],
+    default_redirect: '/iko',
+    dashboard_redirect: '/dashboard',
+    permissions: ['iko', 'towncrier', 'dashboard'],
+    userType: 'member',
+    canAccess: {
+      iko: true,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: false // Already a member
+    }
+  },
+
+  // ✅ PRE-MEMBER with Pending Membership Application
+  pre_member_pending_upgrade: {
+    conditions: {
+      status: 'pre_member_pending_upgrade',
+      membershipApplicationStatus: 'pending'
+    },
+    routes: ['/', '/towncrier', '/dashboard', '/full-membership/status', '/full-membership/pending'],
+    api_endpoints: [
+      '/teachings/*',
+      '/membership/dashboard',
+      '/membership/full-membership-status/*'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard', 'membership_status'],
+    userType: 'pre_member',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: false // Cannot apply while pending
+    },
+    statusMessage: 'Your membership application is under review'
+  },
+
+  // ✅ PRE-MEMBER with Declined Application (can reapply)
+  pre_member_can_reapply: {
+    conditions: {
+      status: 'pre_member_can_reapply',
+      membershipApplicationStatus: 'declined'
+    },
+    routes: ['/', '/towncrier', '/dashboard', '/full-membership/info', '/full-membership/apply', '/full-membership/declined'],
+    api_endpoints: [
+      '/teachings/*',
+      '/membership/dashboard',
+      '/membership/full-membership-status/*',
+      '/membership/full-membership/apply'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard', 'membership_reapply'],
+    userType: 'pre_member',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: true // Can reapply
+    },
+    statusMessage: 'You can reapply for full membership'
+  },
+
+  // ✅ PRE-MEMBER - Eligible for membership application
+  pre_member: {
+    conditions: {
+      membership_stage: 'pre_member',
+      status: 'pre_member',
+      membershipApplicationStatus: ['not_applied', null, undefined]
+    },
+    routes: ['/', '/towncrier', '/dashboard', '/full-membership/info', '/full-membership/apply'],
+    api_endpoints: [
+      '/teachings/*',
+      '/membership/dashboard',
+      '/membership/full-membership-status/*',
+      '/membership/full-membership/apply'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard', 'membership_apply'],
+    userType: 'pre_member',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: true // Can apply
+    },
+    statusMessage: 'You are eligible to apply for full membership'
+  },
+
+  // Applicant - Very limited access
+  applicant: {
+    conditions: {
+      membership_stage: 'applicant'
+    },
+    routes: ['/', '/towncrier', '/application-survey', '/application-status', '/dashboard'],
+    api_endpoints: [
+      '/membership/survey/*',
+      '/teachings/*'
+    ],
+    default_redirect: '/application-survey',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard'],
+    userType: 'applicant',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: false
+    }
+  },
+
+  // Applied/Pending users (initial application)
+  applied: {
+    conditions: {
+      is_member: ['applied', 'pending']
+    },
+    routes: ['/', '/towncrier', '/application-status', '/pending-verification', '/dashboard'],
+    api_endpoints: [
+      '/membership/survey/*',
+      '/teachings/*'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard'],
+    userType: 'pending',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: false
+    }
+  },
+
+  // Non-authenticated users
+  guest: {
+    routes: ['/', '/login', '/register', '/signup', '/forgot-password'],
+    api_endpoints: [
+      '/auth/*',
+      '/teachings/public'
+    ],
+    default_redirect: '/login',
+    dashboard_redirect: '/login',
+    permissions: [],
+    userType: 'guest',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: false,
+      membershipApplication: false
+    }
+  }
+};
+
+// ✅ STANDARDIZED: Helper function with clear member/pre_member logic
+const checkUserAccess = (user, requestedRoute = null, requestedEndpoint = null) => {
+  if (!user) {
+    return ACCESS_MATRIX.guest;
+  }
+
+  console.log('🔍 Checking user access with standardized levels for:', {
+    role: user.role,
+    membership_stage: user.membership_stage,
+    is_member: user.is_member,
+    status: user.status,
+    membershipApplicationStatus: user.membershipApplicationStatus
+  });
+
+  const role = user.role?.toLowerCase();
+  const status = user.status || user.finalStatus;
+
+  // ✅ Admin checks (preserved from original)
+  if (role === 'super_admin' && ACCESS_MATRIX.super_admin) {
+    console.log('👑 Super admin access granted');
+    return ACCESS_MATRIX.super_admin;
+  }
+  
+  if (role === 'admin' && ACCESS_MATRIX.admin) {
+    console.log('👑 Admin access granted');
+    return ACCESS_MATRIX.admin;
+  }
+
+  // ✅ STANDARDIZED: Status-based access
+  switch (status) {
+    case 'member':
+      console.log('💎 Member access granted');
+      return ACCESS_MATRIX.member;
+      
+    case 'pre_member_pending_upgrade':
+      console.log('⏳ Pre-member with pending upgrade access');
+      return ACCESS_MATRIX.pre_member_pending_upgrade;
+      
+    case 'pre_member_can_reapply':
+      console.log('🔄 Pre-member can reapply access');
+      return ACCESS_MATRIX.pre_member_can_reapply;
+      
+    case 'pre_member':
+      console.log('👤 Pre-member access granted');
+      return ACCESS_MATRIX.pre_member;
+      
+    case 'pending_verification':
+    case 'applied':
+      console.log('⏳ Applied/Pending access granted');
+      return ACCESS_MATRIX.applied;
+      
+    default:
+      console.log('📝 Default applicant access granted');
+      return ACCESS_MATRIX.applicant;
+  }
+};
+
+// ✅ STANDARDIZED: Usage function (preserving original structure)
+const getUserAccess = (userData) => {
+  if (!userData) {
+    return {
+      userType: 'guest',
+      defaultRoute: '/',
+      dashboardRoute: '/login',
+      permissions: [],
+      canAccess: ACCESS_MATRIX.guest.canAccess,
+      canAccessIko: false,
+      canAccessAdmin: false,
+      canAccessTowncrier: true,
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'not_eligible',
+      allowedRoutes: ACCESS_MATRIX.guest.routes,
+      allowedEndpoints: ACCESS_MATRIX.guest.api_endpoints
+    };
+  }
+
+  const access = checkUserAccess(userData);
+  
+  return {
+    userType: access.userType,
+    defaultRoute: access.default_redirect,
+    dashboardRoute: access.dashboard_redirect,
+    permissions: access.permissions || [],
+    canAccess: access.canAccess,
+    statusMessage: access.statusMessage,
+    
+    // ✅ PRESERVED: Original properties
+    canAccessIko: access.routes.includes('/iko'),
+    canAccessAdmin: access.routes.some(route => route.startsWith('/admin')),
+    canAccessTowncrier: access.routes.includes('/towncrier'),
+    
+    // ✅ STANDARDIZED: Membership properties
+    canApplyForMembership: access.canAccess?.membershipApplication === true && 
+                          userData.membershipApplicationStatus === 'not_applied',
+    canReapplyForMembership: access.canAccess?.membershipApplication === true && 
+                            userData.membershipApplicationStatus === 'declined',
+    membershipApplicationStatus: userData.membershipApplicationStatus || 'not_applied',
+    membershipTicket: userData.membershipTicket,
+    
+    allowedRoutes: access.routes,
+    allowedEndpoints: access.api_endpoints
+  };
+};
+
+// ✅ STANDARDIZED: Membership application route function
+export const getMembershipApplicationRoute = (userData) => {
+  const access = getUserAccess(userData);
+  const status = userData?.membershipApplicationStatus;
+  
+  switch (status) {
+    case 'not_applied':
+      return access.canApplyForMembership ? '/full-membership/info' : '/towncrier';
+    case 'pending':
+      return '/full-membership/pending';
+    case 'approved':
+      return '/iko'; // Members go to Iko
+    case 'declined':
+      return '/full-membership/declined';
+    default:
+      return '/dashboard';
+  }
+};
+
+export const canAccessMembershipFeature = (userData, feature) => {
+  const access = getUserAccess(userData);
+  
+  switch (feature) {
+    case 'apply':
+      return access.canApplyForMembership;
+    case 'reapply':
+      return access.canReapplyForMembership;
+    case 'status':
+      return access.userType !== 'guest';
+    case 'iko_chat':
+      return access.canAccessIko;
+    default:
+      return false;
+  }
+};
+
+// ✅ PRESERVED: Route checking from original
+export const canAccessRoute = (userData, route) => {
+  const access = getUserAccess(userData);
+  
+  // Check direct route access
+  if (access.allowedRoutes.includes(route)) {
+    return true;
+  }
+  
+  // Check wildcard routes
+  const hasWildcardAccess = access.allowedRoutes.some(allowedRoute => {
+    if (allowedRoute.endsWith('/*')) {
+      const basePath = allowedRoute.replace('/*', '');
+      return route.startsWith(basePath);
+    }
+    return false;
+  });
+  
+  if (hasWildcardAccess) {
+    return true;
+  }
+  
+  // ✅ STANDARDIZED: Membership route checks
+  if (route.startsWith('/full-membership/')) {
+    const subRoute = route.replace('/full-membership/', '');
+    
+    switch (subRoute) {
+      case 'info':
+      case 'apply':
+        return access.canApplyForMembership || access.canReapplyForMembership;
+      case 'pending':
+        return userData?.membershipApplicationStatus === 'pending';
+      case 'approved':
+        return userData?.membershipApplicationStatus === 'approved';
+      case 'declined':
+        return userData?.membershipApplicationStatus === 'declined';
+      case 'status':
+        return access.userType !== 'guest';
+      default:
+        return access.canAccess.membershipApplication;
+    }
+  }
+  
+  // ✅ PRESERVED: Original route checks
+  switch (route) {
+    case '/admin':
+      return access.canAccess.admin;
+    case '/iko':
+      return access.canAccess.iko;
+    case '/towncrier':
+      return access.canAccess.towncrier;
+    case '/dashboard':
+      return access.canAccess.dashboard;
+    default:
+      return false;
+  }
+};
+
+// ✅ STANDARDIZED: User status with clear levels (updated for member vs full_member)
+export const getUserStatusString = (userData) => {
+  if (!userData) return 'guest';
+  
+  const role = userData.role?.toLowerCase();
+  const memberStatus = userData.is_member?.toLowerCase();
+  const membershipStage = userData.membership_stage?.toLowerCase();
+  const status = userData.status || userData.finalStatus;
+
+  // Admin users
+  if (role === 'admin' || role === 'super_admin') return 'admin';
+  
+  // ✅ STANDARDIZED: Member (no more "full_member")
+  if (status === 'member' || 
+      (memberStatus === 'member' && membershipStage === 'member')) {
+    return 'member';
+  }
+  
+  // ✅ STANDARDIZED: Pre-member states
+  if (status === 'pre_member_pending_upgrade') return 'pre_member_pending_upgrade';
+  if (status === 'pre_member_can_reapply') return 'pre_member_can_reapply';
+  
+  if (status === 'pre_member' || 
+      memberStatus === 'approved' && membershipStage === 'pre' ||
+      membershipStage === 'pre_member') {
+    return 'pre_member';
+  }
+  
+  // Pending/Applied
+  if (memberStatus === 'applied' || memberStatus === 'pending') return 'pending_verification';
+  
+  // Denied
+  if (memberStatus === 'declined' || memberStatus === 'denied') return 'denied';
+  
+  return 'authenticated';
+};
+
+// ✅ PRESERVED: Dashboard route function
+export const getDashboardRoute = (userData) => {
+  const access = getUserAccess(userData);
+  return access.dashboardRoute || '/dashboard';
+};
+
+// ✅ PRESERVED: Default route function
+export const getDefaultRoute = (userData) => {
+  const access = getUserAccess(userData);
+  return access.defaultRoute;
+};
+
+// ✅ PRESERVED: Endpoint access check
+export const canAccessEndpoint = (userData, endpoint) => {
+  const access = checkUserAccess(userData);
+  
+  if (access.api_endpoints.includes('ALL')) {
+    return true;
+  }
+  
+  if (access.api_endpoints.includes(endpoint)) {
+    return true;
+  }
+  
+  return access.api_endpoints.some(allowedEndpoint => {
+    if (allowedEndpoint.endsWith('/*')) {
+      const basePath = allowedEndpoint.replace('/*', '');
+      return endpoint.startsWith(basePath);
+    }
+    return false;
+  });
+};
+
+// ✅ PRESERVED: Export everything (maintaining backward compatibility)
+export { 
+  ACCESS_MATRIX, 
+  checkUserAccess, 
+  getUserAccess 
+};
+
+// ✅ PRESERVED: Default export for modern import styles
+export default {
+  ACCESS_MATRIX,
+  checkUserAccess,
+  getUserAccess,
+  getDefaultRoute,
+  getDashboardRoute,
+  canAccessRoute,
+  getUserStatusString,
+  canAccessEndpoint,
+  getMembershipApplicationRoute,
+  canAccessMembershipFeature
+};
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/components/auth/UserStatus.jsx - FIXED LOGIC
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { jwtDecode } from 'jwt-decode';
+import api from '../service/api';
+
+const UserContext = createContext();
+
+export const useUser = () => {
+  const context = useContext(UserContext);
+  if (!context) {
+    throw new Error('useUser must be used within a UserProvider');
+  }
+  return context;
+};
+
+// ✅ STANDARDIZED: Two clear levels - pre_member and member
+const determineUserStatus = ({ 
+  role, 
+  memberStatus, 
+  membershipStage, 
+  userId, 
+  approvalStatus,
+  fullMembershipApplicationStatus, // This tracks the APPLICATION, not a separate membership level
+  fullMembershipAppliedAt 
+}) => {
+  console.log('🔍 Status determination with standardized levels:', { 
+    role, memberStatus, membershipStage, userId, approvalStatus, fullMembershipApplicationStatus 
+  });
+
+  // Normalize empty strings
+  const normalizedMemberStatus = memberStatus === '' ? null : memberStatus;
+  const normalizedMembershipStage = membershipStage === '' ? null : membershipStage;
+  const normalizedRole = role === '' ? 'user' : role;
+  const normalizedApplicationStatus = fullMembershipApplicationStatus === '' ? 'not_applied' : fullMembershipApplicationStatus;
+
+  console.log('🔧 Normalized values:', { 
+    normalizedRole, 
+    normalizedMemberStatus, 
+    normalizedMembershipStage, 
+    approvalStatus,
+    normalizedApplicationStatus
+  });
+
+  // ✅ Admin check
+  if (normalizedRole === 'admin' || normalizedRole === 'super_admin') {
+    console.log('👑 Admin user detected');
+    return {
+      isMember: true, // Admins have full access
+      isPendingMember: false,
+      userType: 'admin',
+      status: 'admin',
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'admin_exempt',
+      canAccessTowncrier: true,
+      canAccessIko: true
+    };
+  }
+
+  // ✅ FULL MEMBER CHECK (member level - highest non-admin level)
+  if (normalizedMemberStatus === 'member' && normalizedMembershipStage === 'member') {
+    console.log('💎 Full member detected');
+    return {
+      isMember: true,
+      isPendingMember: false,
+      userType: 'member',
+      status: 'member',
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'approved', // They already are members
+      canAccessTowncrier: true,
+      canAccessIko: true
+    };
+  }
+
+  // ✅ PRE-MEMBER WITH MEMBERSHIP APPLICATION LOGIC
+  if (normalizedMemberStatus === 'pre_member' || 
+      normalizedMembershipStage === 'pre_member' ||
+      (normalizedMemberStatus === 'granted' && normalizedMembershipStage === 'pre_member') ||
+      ((normalizedMemberStatus === 'applied' || normalizedMemberStatus === null) && 
+       (approvalStatus === 'granted' || approvalStatus === 'approved'))) {
+    
+    console.log('👤 Pre-member detected, checking membership application status...');
+    
+    // Handle different application states for pre-members
+    switch (normalizedApplicationStatus) {
+      case 'pending':
+        console.log('⏳ Pre-member with pending membership application');
+        return {
+          isMember: false,
+          isPendingMember: true,
+          userType: 'pre_member',
+          status: 'pre_member_pending_upgrade',
+          canApplyForMembership: false, // Already applied
+          membershipApplicationStatus: 'pending',
+          canAccessTowncrier: true,
+          canAccessIko: false
+        };
+        
+      case 'approved':
+        // If application approved, they should be upgraded to member
+        console.log('✅ Pre-member with approved application - should be member now');
+        return {
+          isMember: true,
+          isPendingMember: false,
+          userType: 'member',
+          status: 'member',
+          canApplyForMembership: false,
+          membershipApplicationStatus: 'approved',
+          canAccessTowncrier: true,
+          canAccessIko: true
+        };
+        
+      case 'declined':
+        console.log('❌ Pre-member with declined application');
+        return {
+          isMember: false,
+          isPendingMember: true,
+          userType: 'pre_member',
+          status: 'pre_member_can_reapply',
+          canApplyForMembership: true, // Can reapply
+          membershipApplicationStatus: 'declined',
+          canAccessTowncrier: true,
+          canAccessIko: false
+        };
+        
+      case 'not_applied':
+      default:
+        console.log('📝 Pre-member eligible for membership application');
+        return {
+          isMember: false,
+          isPendingMember: true,
+          userType: 'pre_member',
+          status: 'pre_member',
+          canApplyForMembership: true,
+          membershipApplicationStatus: 'not_applied',
+          canAccessTowncrier: true,
+          canAccessIko: false
+        };
+    }
+  }
+
+  // ✅ Applied/Pending check (for initial applications)
+  if (normalizedMemberStatus === 'applied' || normalizedMemberStatus === 'pending' || normalizedMemberStatus === null) {
+    console.log('⏳ Applicant detected');
+    return {
+      isMember: false,
+      isPendingMember: true,
+      userType: 'applicant',
+      status: 'pending_verification',
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'not_eligible',
+      canAccessTowncrier: false,
+      canAccessIko: false
+    };
+  }
+  
+  // Denied/Suspended check
+  if (normalizedMemberStatus === 'denied' || normalizedMemberStatus === 'suspended' || normalizedMemberStatus === 'declined') {
+    console.log('❌ Denied user detected');
+    return {
+      isMember: false,
+      isPendingMember: false,
+      userType: 'denied',
+      status: 'denied',
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'not_eligible',
+      canAccessTowncrier: false,
+      canAccessIko: false
+    };
+  }
+
+  // Default fallback
+  console.log('⚠️ Using fallback status for authenticated user');
+  return {
+    isMember: false,
+    isPendingMember: false,
+    userType: 'authenticated',
+    status: 'authenticated',
+    canApplyForMembership: false,
+    membershipApplicationStatus: 'unknown',
+    canAccessTowncrier: false,
+    canAccessIko: false
+  };
+};
+
+export const UserProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [membershipStatus, setMembershipStatus] = useState('not loaded');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const initializationRef = useRef(false);
+  const membershipFetchRef = useRef(false);
+  const lastFetchTime = useRef(0);
+  const RATE_LIMIT_MS = 5000;
+
+  console.log('🚀 Initializing UserProvider with standardized levels');
+
+  const updateUserState = (newState) => {
+    console.log('👤 User state updated:', newState);
+    setUser(newState.user || null);
+    setMembershipStatus(newState.membershipStatus || 'not loaded');
+    setLoading(newState.loading || false);
+    setError(newState.error || null);
+  };
+
+  // ✅ RENAMED: Fetch membership application status (not a separate membership level)
+  const fetchMembershipApplicationStatus = async (userId) => {
+    try {
+      const response = await api.get(`/membership/status/${userId}`);
+      console.log('✅ Membership application status response:', response.data);
+      return {
+        membershipApplicationStatus: response.data.status || 'not_applied',
+        membershipAppliedAt: response.data.appliedAt,
+        membershipReviewedAt: response.data.reviewedAt,
+        membershipTicket: response.data.ticket,
+        membershipAdminNotes: response.data.adminNotes
+      };
+    } catch (error) {
+      console.log('⚠️ Membership application status not available:', error.message);
+      return {
+        membershipApplicationStatus: 'not_applied',
+        membershipAppliedAt: null,
+        membershipReviewedAt: null,
+        membershipTicket: null,
+        membershipAdminNotes: null
+      };
+    }
+  };
+
+  // ✅ STANDARDIZED: fetchMembershipStatus
+  const fetchMembershipStatus = async () => {
+    const now = Date.now();
+    if (now - lastFetchTime.current < RATE_LIMIT_MS) {
+      console.log('🚫 Rate limited - skipping membership status fetch');
+      return;
+    }
+
+    if (membershipFetchRef.current) {
+      console.log('🚫 Membership fetch already in progress');
+      return;
+    }
+
+    membershipFetchRef.current = true;
+    lastFetchTime.current = now;
+
+    console.log('🔍 Fetching comprehensive membership status...');
+    
+    try {
+      const tokenData = getTokenUserData();
+      if (!tokenData) {
+        console.log('❌ No token data available');
+        membershipFetchRef.current = false;
+        return;
+      }
+
+      // Fetch both initial status and membership application status
+      const [surveyResponse, membershipApplicationData] = await Promise.allSettled([
+        api.get('/membership/survey/status'),
+        fetchMembershipApplicationStatus(tokenData.user_id)
+      ]);
+
+      let surveyData = {};
+      if (surveyResponse.status === 'fulfilled') {
+        surveyData = surveyResponse.value.data;
+      }
+
+      let membershipApplicationInfo = {};
+      if (membershipApplicationData.status === 'fulfilled') {
+        membershipApplicationInfo = membershipApplicationData.value;
+      }
+
+      // ✅ STANDARDIZED: Combine all data sources
+      const combinedUserData = {
+        user_id: tokenData.user_id,
+        username: tokenData.username,
+        email: tokenData.email,
+        membership_stage: tokenData.membership_stage,
+        is_member: tokenData.is_member,
+        role: tokenData.role,
+        // Initial membership data
+        survey_completed: surveyData.survey_completed,
+        approval_status: surveyData.approval_status,
+        needs_survey: surveyData.needs_survey,
+        survey_data: surveyData.survey_data,
+        // ✅ STANDARDIZED: Membership application data (not separate membership level)
+        ...membershipApplicationInfo
+      };
+
+      console.log('✅ Combined user data with membership application status:', combinedUserData);
+
+      // ✅ STANDARDIZED: Status determination
+      const statusResult = determineUserStatus({
+        role: combinedUserData.role,
+        memberStatus: combinedUserData.is_member,
+        membershipStage: combinedUserData.membership_stage,
+        userId: combinedUserData.user_id,
+        approvalStatus: combinedUserData.approval_status,
+        fullMembershipApplicationStatus: combinedUserData.membershipApplicationStatus,
+        fullMembershipAppliedAt: combinedUserData.membershipAppliedAt
+      });
+
+      console.log('✅ Standardized status determined:', statusResult);
+
+      let finalStatus = statusResult.status;
+
+      // Additional checks for survey requirements (excluding admins and members)
+      if (finalStatus !== 'admin' && finalStatus !== 'member') {
+        if (surveyData.needs_survey === true || surveyData.survey_completed === false) {
+          finalStatus = 'needs_application';
+          console.log('🚨 User needs to complete initial application survey');
+        }
+      }
+
+      updateUserState({
+        user: {
+          ...combinedUserData,
+          ...statusResult,
+          finalStatus
+        },
+        membershipStatus: 'loaded',
+        status: finalStatus,
+        loading: false,
+        error: null
+      });
+
+    } catch (error) {
+      console.error('❌ Error fetching membership status:', error);
+      
+      const tokenData = getTokenUserData();
+      if (tokenData) {
+        const fallbackStatus = determineUserStatus({
+          role: tokenData.role,
+          memberStatus: tokenData.is_member,
+          membershipStage: tokenData.membership_stage,
+          userId: tokenData.user_id,
+          approvalStatus: null,
+          fullMembershipApplicationStatus: 'not_applied'
+        });
+        
+        updateUserState({
+          user: {
+            ...tokenData,
+            ...fallbackStatus
+          },
+          membershipStatus: 'error',
+          status: fallbackStatus.status,
+          loading: false,
+          error: `API Error: ${error.message}`
+        });
+      } else {
+        updateUserState({
+          user: null,
+          membershipStatus: 'error',
+          status: 'error',
+          loading: false,
+          error: error.message
+        });
+      }
+    } finally {
+      membershipFetchRef.current = false;
+    }
+  };
+
+  const getTokenUserData = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+
+    try {
+      const decoded = jwtDecode(token);
+      
+      if (decoded.exp * 1000 < Date.now()) {
+        console.log('⚠️ Token expired, removing...');
+        localStorage.removeItem('token');
+        return null;
+      }
+
+      console.log('🔍 Token user data:', decoded);
+      return decoded;
+    } catch (error) {
+      console.error('❌ Error decoding token:', error);
+      localStorage.removeItem('token');
+      return null;
+    }
+  };
+
+  const initializeUser = async () => {
+    if (initializationRef.current) {
+      console.log('🚫 User already initialized');
+      return;
+    }
+
+    initializationRef.current = true;
+    console.log('🔄 Initializing user with standardized levels...');
+
+    const tokenData = getTokenUserData();
+    
+    if (!tokenData) {
+      console.log('❌ No valid token found');
+      updateUserState({
+        user: null,
+        membershipStatus: 'not loaded',
+        status: 'guest',
+        loading: false,
+        error: null
+      });
+      return;
+    }
+
+    const initialStatus = determineUserStatus({
+      role: tokenData.role,
+      memberStatus: tokenData.is_member,
+      membershipStage: tokenData.membership_stage,
+      userId: tokenData.user_id,
+      approvalStatus: null,
+      fullMembershipApplicationStatus: 'not_applied'
+    });
+
+    updateUserState({
+      user: {
+        ...tokenData,
+        ...initialStatus
+      },
+      membershipStatus: 'loading',
+      status: initialStatus.status,
+      loading: true,
+      error: null
+    });
+
+    await fetchMembershipStatus();
+  };
+
+  useEffect(() => {
+    if (!initializationRef.current) {
+      initializeUser();
+    }
+  }, []);
+
+  const isAuthenticated = () => {
+    return !!user && !!localStorage.getItem('token');
+  };
+
+  const getUserStatus = () => {
+    if (!user) return 'guest';
+    
+    if (user.finalStatus) {
+      return user.finalStatus;
+    }
+    
+    if (user.status) {
+      return user.status;
+    }
+    
+    const fallbackStatus = determineUserStatus({
+      role: user.role,
+      memberStatus: user.is_member,
+      membershipStage: user.membership_stage,
+      userId: user.user_id,
+      approvalStatus: user.approval_status,
+      fullMembershipApplicationStatus: user.membershipApplicationStatus || 'not_applied'
+    });
+    
+    return fallbackStatus.status;
+  };
+
+  const refreshUser = async () => {
+    console.log('🔄 Refreshing user data...');
+    
+    const now = Date.now();
+    if (now - lastFetchTime.current > RATE_LIMIT_MS) {
+      membershipFetchRef.current = false;
+      await fetchMembershipStatus();
+    } else {
+      console.log('🚫 Refresh rate limited');
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    
+    initializationRef.current = false;
+    membershipFetchRef.current = false;
+    lastFetchTime.current = 0;
+    
+    updateUserState({
+      user: null,
+      membershipStatus: 'not loaded',
+      status: 'guest',
+      loading: false,
+      error: null
+    });
+  };
+
+  // ✅ FIXED: Context value with correct member/pre_member distinction
+  const value = {
+    user,
+    membershipStatus,
+    loading,
+    error,
+    isAuthenticated: isAuthenticated(),
+    getUserStatus,
+    refreshUser,
+    updateUser: refreshUser,
+    logout,
+    // ✅ FIXED: Clear status checks based on the actual user status
+    isAdmin: () => getUserStatus() === 'admin',
+    isMember: () => {
+      const status = getUserStatus();
+      // ✅ FIXED: Only return true for actual full members
+      return status === 'member';
+    },
+    isPreMember: () => {
+      const status = getUserStatus();
+      return status === 'pre_member' || status === 'pre_member_pending_upgrade' || status === 'pre_member_can_reapply';
+    },
+    // ✅ FIXED: isPending should return true for pre-members (they are "pending" full membership)
+    isPending: () => {
+      const status = getUserStatus();
+      return status === 'pre_member' || status === 'pre_member_pending_upgrade' || status === 'pre_member_can_reapply' || status === 'pending_verification';
+    },
+    needsApplication: () => getUserStatus() === 'needs_application',
+    // ✅ STANDARDIZED: Application status checks
+    isPendingUpgrade: () => getUserStatus() === 'pre_member_pending_upgrade',
+    canReapplyForMembership: () => getUserStatus() === 'pre_member_can_reapply',
+    canApplyForMembership: () => user?.canApplyForMembership === true,
+    getMembershipApplicationStatus: () => user?.membershipApplicationStatus || 'not_applied',
+    getMembershipTicket: () => user?.membershipTicket || null,
+    canAccessIko: () => user?.canAccessIko === true,
+    canAccessTowncrier: () => user?.canAccessTowncrier === true
+  };
+
+  return (
+    <UserContext.Provider value={value}>
+      {children}
+    </UserContext.Provider>
+  );
+};
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+// ikootaclient/src/components/auth/Signup.jsx - COMPLETE FIXED WITH ENHANCED DEBUGGING
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import './signup.css';
+
+const Signup = () => {
+  const [values, setValues] = useState({
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    phone: "",
+  });
+  
+  const [verificationStep, setVerificationStep] = useState('form'); // 'form', 'verification', 'success'
+  const [verificationMethod, setVerificationMethod] = useState(''); // 'email' or 'phone'
+  const [verificationCode, setVerificationCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [devCode, setDevCode] = useState(''); // For development
+  
+  axios.defaults.withCredentials = true;
+  const navigate = useNavigate();
+
+  // Step 1: Submit initial signup form and send verification code
+  const handleInitialSubmit = async (event) => {
+    event.preventDefault();
+    
+    // Validation
+    if (values.password !== values.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    
+    if (!values.username || !values.email || !values.password || !values.phone) {
+      alert("Please fill in all required fields!");
+      return;
+    }
+    
+    if (!verificationMethod) {
+      alert("Please select a verification method!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      console.log('🔍 Sending verification request:', {
+        email: values.email,
+        phone: values.phone,
+        method: verificationMethod
+      });
+      
+      // ✅ UPDATED: Use auth endpoint instead of membership endpoint
+      const verificationResponse = await axios.post("http://localhost:3000/api/auth/send-verification", {
+        email: values.email,
+        phone: values.phone,
+        method: verificationMethod, // ✅ Use 'method' to match database
+        username: values.username
+      });
+      
+      console.log('✅ Verification response:', verificationResponse.data);
+      
+      if (verificationResponse.status === 200) {
+        // ✅ Store dev code if provided (development mode)
+        if (verificationResponse.data.devCode) {
+          setDevCode(verificationResponse.data.devCode);
+          console.log('🛠️ Dev code received:', verificationResponse.data.devCode);
+        }
+        
+        setVerificationStep('verification');
+        alert(`Verification code sent to your ${verificationMethod}!`);
+      }
+    } catch (err) {
+      console.error('❌ Verification error:', err);
+      
+      let errorMessage = 'Failed to send verification code.';
+      
+      if (err.response?.status === 404) {
+        errorMessage = 'The verification endpoint is not available. Please check the server.';
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      alert(`${errorMessage} Please try again.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ ENHANCED: Step 2 - Verify code and complete registration with extensive debugging
+  const handleVerificationSubmit = async (event) => {
+    event.preventDefault();
+    
+    if (!verificationCode) {
+      alert("Please enter the verification code!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // ✅ ENHANCED: Clean and validate the verification code
+      const cleanedCode = verificationCode.trim();
+      
+      const requestData = {
+        username: values.username,
+        email: values.email,
+        password: values.password,
+        phone: values.phone,
+        verificationCode: cleanedCode,
+        verificationMethod
+      };
+      
+      console.log('🔍 Submitting registration with data:', {
+        ...requestData,
+        password: '***HIDDEN***' // Don't log the actual password
+      });
+      
+      // ✅ ENHANCED: Log verification code details for debugging
+      console.log('🔍 Verification code details:', {
+        original: verificationCode,
+        trimmed: cleanedCode,
+        length: cleanedCode.length,
+        type: typeof cleanedCode,
+        charCodes: [...cleanedCode].map(char => char.charCodeAt(0)),
+        isNumeric: /^\d+$/.test(cleanedCode),
+        devCodeMatch: devCode ? (cleanedCode === devCode) : 'No dev code available'
+      });
+      
+      // ✅ ENHANCED: Additional validation
+      if (cleanedCode.length !== 6) {
+        alert("Verification code must be exactly 6 digits!");
+        return;
+      }
+      
+      if (!/^\d+$/.test(cleanedCode)) {
+        alert("Verification code must contain only numbers!");
+        return;
+      }
+      
+      // ✅ UPDATED: Use auth endpoint instead of membership endpoint
+      const registerResponse = await axios.post("http://localhost:3000/api/auth/register", requestData, { 
+        withCredentials: true 
+      });
+      
+      console.log('✅ Registration response:', registerResponse.data);
+      
+      if (registerResponse.status === 201) {
+        setVerificationStep('success');
+        
+        // Use server-provided application ticket or generate fallback
+        const applicationTicket = registerResponse.data.user?.application_ticket || 
+                                generateApplicationTicket(values.username, values.email);
+        
+        setTimeout(() => {
+          navigate('/application-thankyou', { 
+            state: { 
+              applicationTicket,
+              username: values.username,
+              userId: registerResponse.data.user?.id
+            }
+          });
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('❌ Registration error:', err);
+      console.error('❌ Full error response:', err.response);
+      
+      // ✅ ENHANCED: Enhanced error logging and debugging
+      if (err.response?.data?.debug) {
+        console.error('🔍 Server debug info:', err.response.data.debug);
+      }
+      
+      let errorMessage = 'Registration failed.';
+      
+      if (err.response?.status === 400) {
+        if (err.response.data?.error?.includes('verification')) {
+          errorMessage = "Invalid verification code. Please try again.";
+          
+          // ✅ ENHANCED: Show debug info in development
+          if (process.env.NODE_ENV === 'development' && err.response.data?.debug) {
+            console.log('🔍 Debug info from server:', err.response.data.debug);
+            const debugInfo = err.response.data.debug;
+            errorMessage += `\n\nDEBUG INFO (Development Mode):\nStored: ${debugInfo.storedCode}\nSubmitted: ${debugInfo.submittedCode}\nTypes: ${debugInfo.storedType} vs ${debugInfo.submittedType}`;
+          }
+          
+          // ✅ ENHANCED: Additional debugging for development
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 Local verification analysis:', {
+              enteredCode: verificationCode.trim(),
+              devCode: devCode,
+              match: verificationCode.trim() === devCode,
+              expectedLength: 6,
+              actualLength: verificationCode.trim().length
+            });
+          }
+        } else {
+          errorMessage = err.response.data?.error || 'Invalid input data.';
+        }
+      } else if (err.response?.status === 409) {
+        errorMessage = "User already exists with this email or username. Please try logging in.";
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      alert(`${errorMessage} Please try again.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate application ticket number (fallback)
+  const generateApplicationTicket = (username, email) => {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substr(2, 5);
+    return `APP-${username.substr(0, 3).toUpperCase()}-${timestamp}-${random}`.toUpperCase();
+  };
+
+  // Resend verification code
+  const handleResendCode = async () => {
+    try {
+      setLoading(true);
+      
+      console.log('🔍 Resending verification code...');
+      
+      // ✅ UPDATED: Use auth endpoint instead of membership endpoint
+      const response = await axios.post("http://localhost:3000/api/auth/send-verification", {
+        email: values.email,
+        phone: values.phone,
+        method: verificationMethod, // ✅ Use 'method' field
+        username: values.username
+      });
+      
+      console.log('✅ Resend response:', response.data);
+      
+      // ✅ Update dev code if provided
+      if (response.data.devCode) {
+        setDevCode(response.data.devCode);
+        console.log('🛠️ New dev code received:', response.data.devCode);
+      }
+      
+      alert(`Verification code resent to your ${verificationMethod}!`);
+    } catch (err) {
+      console.error('❌ Resend error:', err);
+      alert("Failed to resend code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ ENHANCED: Auto-fill verification code with validation
+  const handleDevCodeFill = () => {
+    if (devCode) {
+      setVerificationCode(devCode);
+      console.log('🛠️ Auto-filled verification code:', devCode);
+    } else {
+      console.warn('⚠️ No dev code available to auto-fill');
+    }
+  };
+
+  // ✅ ENHANCED: Input handler for verification code with real-time validation
+  const handleVerificationCodeChange = (e) => {
+    const value = e.target.value;
+    // Only allow numeric input and limit to 6 characters
+    if (/^\d*$/.test(value) && value.length <= 6) {
+      setVerificationCode(value);
+    }
+  };
+
+  // Render based on current step
+  if (verificationStep === 'success') {
+    return (
+      <div className="signup-form success-message">
+        <h2>🎉 Registration Successful!</h2>
+        <div className="success-content">
+          <p>Welcome to Ikoota, {values.username}!</p>
+          <p>Your account has been created successfully.</p>
+          <div className="loading-spinner">
+            <p>Redirecting you to complete your application...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (verificationStep === 'verification') {
+    return (
+      <div className="signup-form verification-form">
+        <h2>Verify Your Account</h2>
+        <p>We've sent a verification code to your {verificationMethod}.</p>
+        
+        {/* ✅ ENHANCED: Development debug info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="dev-code-info" style={{
+            background: '#f0f8ff', 
+            padding: '15px', 
+            margin: '15px 0', 
+            borderRadius: '8px',
+            border: '1px solid #b0d4ff'
+          }}>
+            <p><strong>🛠️ Development Mode Debug Info:</strong></p>
+            {devCode ? (
+              <>
+                <p>Latest verification code: <code style={{
+                  background: '#ffe6e6', 
+                  padding: '2px 6px', 
+                  borderRadius: '4px',
+                  fontWeight: 'bold',
+                  fontSize: '16px'
+                }}>{devCode}</code></p>
+                <button 
+                  type="button" 
+                  onClick={handleDevCodeFill} 
+                  className="dev-fill-btn"
+                  style={{
+                    background: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginTop: '5px'
+                  }}
+                >
+                  Auto-fill Code
+                </button>
+                <p style={{fontSize: '12px', color: '#666', marginTop: '5px'}}>
+                  Current input: "{verificationCode}" | Match: {verificationCode.trim() === devCode ? '✅' : '❌'}
+                </p>
+              </>
+            ) : (
+              <p style={{color: '#ff6600'}}>No dev code available. Check server logs.</p>
+            )}
+          </div>
+        )}
+        
+        <form onSubmit={handleVerificationSubmit}>
+          <div className="verification-input">
+            <label htmlFor="verificationCode">
+              <strong>Enter Verification Code:</strong>
+            </label>
+            <input
+              type="text"
+              placeholder="Enter 6-digit code"
+              value={verificationCode}
+              onChange={handleVerificationCodeChange} // ✅ ENHANCED: Use new handler
+              maxLength="6"
+              className="form-control verification-code-input"
+              autoComplete="off"
+              style={{
+                fontSize: '18px',
+                textAlign: 'center',
+                letterSpacing: '3px',
+                fontFamily: 'monospace'
+              }}
+            />
+            {/* ✅ ENHANCED: Real-time validation feedback */}
+            {verificationCode && (
+              <div style={{fontSize: '12px', marginTop: '5px'}}>
+                {verificationCode.length === 6 ? (
+                  <span style={{color: 'green'}}>✅ Code length correct</span>
+                ) : (
+                  <span style={{color: 'orange'}}>⚠️ Code must be 6 digits ({verificationCode.length}/6)</span>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <div className="verification-actions">
+            <button 
+              type="submit" 
+              disabled={loading || !verificationCode || verificationCode.length !== 6}
+              style={{
+                opacity: (loading || !verificationCode || verificationCode.length !== 6) ? 0.6 : 1
+              }}
+            >
+              {loading ? 'Verifying...' : 'Verify & Complete Registration'}
+            </button>
+            
+            <button type="button" onClick={handleResendCode} disabled={loading} className="resend-btn">
+              {loading ? 'Resending...' : 'Resend Code'}
+            </button>
+            
+            <button type="button" onClick={() => setVerificationStep('form')} className="back-btn">
+              ← Back to Form
+            </button>
+          </div>
+        </form>
+        
+        <div className="verification-help">
+          <p>Didn't receive the code? Check your spam folder or try resending.</p>
+          <p>Code sent to: {verificationMethod === 'email' ? values.email : values.phone}</p>
+          
+          {/* ✅ ENHANCED: Additional help in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{marginTop: '15px', padding: '10px', background: '#fff3cd', borderRadius: '5px'}}>
+              <p><strong>🔧 Development Tips:</strong></p>
+              <ul style={{fontSize: '14px', marginBottom: '0'}}>
+                <li>Check browser console for detailed debugging information</li>
+                <li>Server logs show the generated verification code</li>
+                <li>Use the auto-fill button above for quick testing</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Initial signup form
+  return (
+    <div className="signup-form">
+      <h2>Join Ikoota Platform</h2>
+      <p>Create your account to apply for membership</p>
+      
+      <form onSubmit={handleInitialSubmit}>
+        <div className="form-group">
+          <label htmlFor="username"><strong>Username:</strong></label>
+          <input
+            type="text"
+            placeholder="Enter Username"
+            name="username"
+            value={values.username}
+            onChange={e => setValues({ ...values, username: e.target.value })}
+            className="form-control"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="email"><strong>Email:</strong></label>
+          <input
+            type="email"
+            autoComplete="off"
+            placeholder="Enter Email"
+            name="email"
+            value={values.email}
+            onChange={e => setValues({ ...values, email: e.target.value })}
+            className="form-control"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="phone"><strong>Phone:</strong></label>
+          <input
+            type="tel"
+            autoComplete="off"
+            placeholder="Enter WhatsApp Phone Number"
+            name="phone"
+            value={values.phone}
+            onChange={e => setValues({ ...values, phone: e.target.value })}
+            className="form-control"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="password"><strong>Password:</strong></label>
+          <input
+            type="password"
+            placeholder="Enter Password"
+            name="password"
+            value={values.password}
+            onChange={e => setValues({ ...values, password: e.target.value })}
+            className="form-control"
+            autoComplete="off"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="confirmPassword"><strong>Confirm Password:</strong></label>
+          <input
+            type="password"
+            placeholder="Confirm Password"
+            name="confirmPassword"
+            value={values.confirmPassword}
+            onChange={e => setValues({ ...values, confirmPassword: e.target.value })}
+            className="form-control"
+            autoComplete="off"
+            required
+          />
+        </div>
+        
+        {/* ✅ FIXED: Verification Method Selection */}
+        <div className="form-group verification-method">
+          <label><strong>Verify account via:</strong></label>
+          <div className="method-options">
+            <label className="radio-option">
+              <input
+                type="radio"
+                name="verificationMethod"
+                value="email"
+                checked={verificationMethod === 'email'}
+                onChange={e => setVerificationMethod(e.target.value)}
+                required
+              />
+              <span>Email</span>
+            </label>
+            <label className="radio-option">
+              <input
+                type="radio"
+                name="verificationMethod"
+                value="phone"
+                checked={verificationMethod === 'phone'}
+                onChange={e => setVerificationMethod(e.target.value)}
+                required
+              />
+              <span>Phone/SMS</span>
+            </label>
+          </div>
+        </div>
+        
+        <button type="submit" disabled={loading || !verificationMethod}>
+          {loading ? 'Sending Code...' : 'Send Verification Code'}
+        </button>
+        
+        <div className="next-step-info">
+          <p>📋 Next: Complete application survey for membership consideration</p>
+        </div>
+      </form>
+      
+      <div className="form-footer">
+        <Link to="/login">Already have an account? <strong>Sign In</strong></Link>
+        <br />
+        <Link to="/">← Back to Home</Link>
+      </div>
+    </div>
+  );
+};
+
+export default Signup;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+//ikootaclient\src\components\auth\Passwordreset.jsx
+import React, { useState } from "react";
+import axios from "axios";
+import "./passwordreset.css";
+
+const Passwordreset = () => {
+  const [step, setStep] = useState(1);
+  const [values, setValues] = useState({
+    emailOrPhone: "",
+    newPassword: "",
+    confirmNewPassword: "",
+    verificationCode: "",
+  });
+
+  const handleResetRequest = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post("http://localhost:3000/api/auth/passwordreset/request", {
+        emailOrPhone: values.emailOrPhone,
+      });
+      setStep(2); // Move to password reset step
+    } catch (err) {
+      console.error(err.response.data.message);
+    }
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post("http://localhost:3000/api/auth/passwordreset/reset", {
+        ...values,
+      });
+      setStep(3); // Move to verification step
+    } catch (err) {
+      console.error(err.response.data.message);
+    }
+  };
+
+  const handleVerification = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post("http://localhost:3000/api/auth/passwordreset/verify", {
+        emailOrPhone: values.emailOrPhone,
+        verificationCode: values.verificationCode,
+      });
+      alert("Password reset successful!");
+    } catch (err) {
+      console.error(err.response.data.message);
+    }
+  };
+
+  return (
+    <div className="password-reset-container">
+      {step === 1 && (
+        <form onSubmit={handleResetRequest}>
+          <h2>Request Password Reset</h2>
+          <input
+            type="text"
+            placeholder="Enter Email or Phone"
+            onChange={(e) => setValues({ ...values, emailOrPhone: e.target.value })}
+            required
+          />
+          <button type="submit">Send Reset Link</button>
+        </form>
+      )}
+      {step === 2 && (
+        <form onSubmit={handlePasswordReset}>
+          <h2>Reset Password</h2>
+          <input
+            type="password"
+            placeholder="New Password"
+            onChange={(e) => setValues({ ...values, newPassword: e.target.value })}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Confirm New Password"
+            onChange={(e) => setValues({ ...values, confirmNewPassword: e.target.value })}
+            required
+          />
+          <button type="submit">Reset Password</button>
+        </form>
+      )}
+      {step === 3 && (
+        <form onSubmit={handleVerification}>
+          <h2>Verify Reset</h2>
+          <input
+            type="text"
+            placeholder="Enter Verification Code"
+            onChange={(e) => setValues({ ...values, verificationCode: e.target.value })}
+            required
+          />
+          <button type="submit">Verify</button>
+        </form>
+      )}
+    </div>
+  );
+};
+
+export default Passwordreset;
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+
+// ikootaclient/src/components/auth/Login.jsx
+// ✅ FIXED VERSION - Proper routing based on user status and privileges
+
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { useUser } from "./UserStatus";
+import './login.css';
+import { getUserAccess } from '../config/accessMatrix';
+
+const Login = () => {
+  const [values, setValues] = useState({
+    email: "",
+    password: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const navigate = useNavigate();
+  const { updateUser, isAuthenticated } = useUser();
+  
+  axios.defaults.withCredentials = true;
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+    
+    if (!values.email || !values.password) {
+      setError("Please fill in all fields.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const response = await axios.post("http://localhost:3000/api/auth/login", {
+        email: values.email,
+        password: values.password
+      }, { 
+        withCredentials: true,
+        timeout: 15000
+      });
+
+      console.log('🔍 Login response:', response.data);
+
+      if (response.status === 200) {
+        const responseData = response.data;
+        let token, user;
+
+        // Handle multiple response formats
+        if (responseData.token && responseData.user) {
+          token = responseData.token;
+          user = responseData.user;
+        } else if (responseData.data?.token && responseData.data?.user) {
+          token = responseData.data.token;
+          user = responseData.data.user;
+        } else if (responseData.access_token || responseData.accessToken) {
+          token = responseData.access_token || responseData.accessToken;
+          user = responseData.user || responseData.data?.user;
+        } else if (responseData.success && responseData.data) {
+          token = responseData.data.token || responseData.data.access_token;
+          user = responseData.data.user;
+        } else {
+          user = responseData.user || responseData.data || responseData;
+          token = responseData.token || responseData.access_token || responseData.accessToken;
+        }
+
+        console.log('🔍 Extracted token:', token ? 'Present' : 'Missing');
+        console.log('🔍 Extracted user:', user);
+
+        if (!user) {
+          console.error('❌ No user data received from login response');
+          setError('Login failed: Invalid response from server');
+          return;
+        }
+
+        // Store token properly
+        if (token) {
+          localStorage.setItem("token", token);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+        
+        // Update user context first
+        try {
+          console.log('🔄 Updating user context...');
+          await updateUser();
+          
+          // Small delay to ensure context is updated
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (updateError) {
+          console.warn('⚠️ Failed to update user context:', updateError);
+        }
+        
+        // ✅ FIXED: Smart routing based on user status
+        await handleUserRouting(user, token);
+      }
+    } catch (err) {
+      console.error('❌ Login error:', err);
+      
+      if (err.response?.status === 401) {
+        setError("Invalid email or password.");
+      } else if (err.response?.status === 403) {
+        const message = err.response.data?.message || '';
+        if (message.includes('banned')) {
+          setError("Your account has been banned. Contact support for assistance.");
+        } else if (message.includes('pending')) {
+          handlePendingUser(err.response.data);
+        } else {
+          setError("Access denied. Please contact support.");
+        }
+      } else if (err.response?.status === 404) {
+        setError("No account found with this email. Please sign up first.");
+      } else if (err.code === 'ECONNABORTED') {
+        setError("Login request timed out. Please check your connection and try again.");
+      } else {
+        setError("Login failed. Please check your network and try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ COMPLETELY REWRITTEN: Smart user routing based on membership status
+  const handleUserRouting = async (userData, token) => {
+    if (!userData) {
+      console.error('❌ No user data provided to handleUserRouting');
+      setError('Login failed: Invalid user data received');
+      return;
+    }
+    
+    console.log('🔍 Routing user based on data:', userData);
+    
+    try {
+      const role = userData.role?.toLowerCase();
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      console.log('🔍 User routing analysis:', {
+        role,
+        memberStatus, 
+        membershipStage,
+        userId: userData.id
+      });
+
+      // ✅ PRIORITY 1: Admin users - Go straight to admin panel
+      if (role === 'admin' || role === 'super_admin') {
+        console.log('👑 Admin user detected - routing to admin panel');
+        navigate('/admin', { replace: true });
+        return;
+      }
+
+      // ✅ PRIORITY 2: Full Members - Go to Iko Chat
+      if ((memberStatus === 'member' && membershipStage === 'member') || 
+          (memberStatus === 'active' && membershipStage === 'member')) {
+        console.log('💎 Full member detected - routing to Iko Chat');
+        navigate('/iko', { replace: true });
+        return;
+      }
+
+      // ✅ PRIORITY 3: Pre-Members - Go to Towncrier  
+      if (memberStatus === 'pre_member' || membershipStage === 'pre_member') {
+        console.log('👤 Pre-member detected - routing to Towncrier');
+        navigate('/towncrier', { replace: true });
+        return;
+      }
+
+      // ✅ PRIORITY 4: Check if user needs to complete application survey
+      if (token) {
+        const needsSurvey = await checkIfUserNeedsApplication(token, userData);
+        
+        if (needsSurvey) {
+          console.log('📝 User needs to complete application - routing to survey');
+          navigate('/applicationsurvey', { replace: true });
+          return;
+        }
+      }
+
+      // ✅ PRIORITY 5: Other authenticated users - Go to dashboard
+      console.log('🏠 Default routing - going to dashboard');
+      navigate('/dashboard', { replace: true });
+      
+    } catch (error) {
+      console.error('❌ Error in user routing:', error);
+      setError('Login successful but routing failed. Redirecting to dashboard...');
+      
+      // Last resort fallback
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 2000);
+    }
+  };
+
+  // ✅ NEW: More precise check for application survey requirement
+  const checkIfUserNeedsApplication = async (token, userData) => {
+    try {
+      console.log('🔍 Checking if user needs application survey...');
+      
+      // Skip survey check for known member statuses
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      // Users who definitely don't need survey
+      if (memberStatus === 'pre_member' || 
+          memberStatus === 'member' || 
+          memberStatus === 'active' ||
+          membershipStage === 'pre_member' || 
+          membershipStage === 'member') {
+        console.log('✅ User has confirmed membership status - no survey needed');
+        return false;
+      }
+
+      // Check survey status via API for edge cases
+      const response = await axios.get('http://localhost:3000/api/membership/survey/check-status', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        timeout: 5000
+      });
+      
+      const statusData = response.data;
+      console.log('📋 Survey status check:', statusData);
+      
+      // Only require survey if explicitly needed and not completed
+      const needsSurvey = statusData.needs_survey === true && 
+                         statusData.survey_completed === false &&
+                         memberStatus === 'applied' &&
+                         membershipStage === 'none';
+      
+      console.log('🎯 Survey requirement decision:', {
+        needsSurvey,
+        reason: needsSurvey ? 'New user needs to complete application' : 'User has existing status'
+      });
+      
+      return needsSurvey;
+      
+    } catch (error) {
+      console.warn('⚠️ Survey status check failed:', error);
+      
+      // Conservative fallback: only require survey for clearly new users
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      const isNewUser = memberStatus === 'applied' && 
+                       membershipStage === 'none' &&
+                       !userData.application_submittedAt;
+      
+      console.log('🔄 Fallback survey check:', {
+        isNewUser,
+        memberStatus,
+        membershipStage
+      });
+      
+      return isNewUser;
+    }
+  };
+
+  const handlePendingUser = (data) => {
+    const { applicationStatus, applicationTicket } = data;
+    
+    switch (applicationStatus) {
+      case 'pending':
+        alert(`Your application is still under review.\n\nApplication Ticket: ${applicationTicket || 'N/A'}\n\nYou'll receive an email notification once the review is complete.`);
+        navigate('/pending-verification');
+        break;
+      case 'suspended':
+        alert(`Your application review is suspended and requires additional information.\n\nPlease check your email for details on what's needed.\n\nApplication Ticket: ${applicationTicket || 'N/A'}`);
+        navigate('/suspended-verification');
+        break;
+      default:
+        setError("Your application is being processed. Please check your email for updates.");
+    }
+  };
+
+  const handleForgotPassword = () => {
+    const email = values.email;
+    if (!email) {
+      alert("Please enter your email address first, then click 'Forgot Password'.");
+      return;
+    }
+    
+    navigate('/forgot-password', { state: { email } });
+  };
+
+  const handleChange = (e) => {
+    setValues({ ...values, [e.target.name]: e.target.value });
+  };
+
+  return (
+    <div className="login-container">
+      <div className="login-form">
+        <div className="login-header">
+          <h2>Sign In to Ikoota</h2>
+          <p>Access your educational community account</p>
+        </div>
+
+        {error && (
+          <div className="error-message">
+            <span className="error-icon">⚠️</span>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="email">
+              <strong>Email Address:</strong>
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={values.email}
+              onChange={handleChange}
+              placeholder="Enter your email"
+              className="form-control"
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">
+              <strong>Password:</strong>
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={values.password}
+              onChange={handleChange}
+              placeholder="Enter your password"
+              className="form-control"
+              autoComplete="current-password"
+              required
+            />
+          </div>
+
+          <div className="form-actions">
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="btn-login"
+            >
+              {loading ? 'Signing In...' : 'Sign In'}
+            </button>
+            
+            <button 
+              type="button" 
+              onClick={handleForgotPassword}
+              className="btn-forgot"
+            >
+              Forgot Password?
+            </button>
+          </div>
+        </form>
+
+        <div className="login-divider">
+          <span>New to Ikoota?</span>
+        </div>
+
+        <div className="signup-section">
+          <p>Join our educational community</p>
+          <Link to="/signup" className="btn-signup">
+            Create Account
+          </Link>
+        </div>
+
+        <div className="login-help">
+          <h3>Having trouble signing in?</h3>
+          <div className="help-options">
+            <div className="help-item">
+              <span className="help-icon">📧</span>
+              <div>
+                <h4>Check Your Application Status</h4>
+                <p>If you've applied for membership, check your email for status updates</p>
+              </div>
+            </div>
+            <div className="help-item">
+              <span className="help-icon">⏳</span>
+              <div>
+                <h4>Application Under Review</h4>
+                <p>Pending applications typically take 3-5 business days to review</p>
+              </div>
+            </div>
+            <div className="help-item">
+              <span className="help-icon">❓</span>
+              <div>
+                <h4>Need Help?</h4>
+                <p>Contact support@ikoota.com with your application ticket number</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="login-footer">
+          <div className="footer-links">
+            <Link to="/">← Back to Home</Link>
+            <Link to="/towncrier">Browse Public Content</Link>
+          </div>
+          <p className="footer-note">
+            By signing in, you agree to our Terms of Service and Privacy Policy.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
+
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+//ikootaclient/src/components/auth/AuthControls.jsx
+import React, { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
+import api from "../service/api";
+import "./authControls.css";
+
+const AuthControls = () => {
+  const queryClient = useQueryClient();
+  const location = useLocation();
+  const [surveyQuestions, setSurveyQuestions] = useState([]);
+  const [selectedSurvey, setSelectedSurvey] = useState(null);
+  const [userRoleUpdates, setUserRoleUpdates] = useState({ userId: "", role: "" });
+
+  // ✅ Detect if we're in admin context
+  const isInAdminContext = location.pathname.includes('/admin');
+
+  // ✅ Add context class to body for CSS targeting
+  useEffect(() => {
+    const bodyClass = 'auth-controls-in-admin';
+    
+    if (isInAdminContext) {
+      document.body.classList.add(bodyClass);
+    } else {
+      document.body.classList.remove(bodyClass);
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove(bodyClass);
+    };
+  }, [isInAdminContext]);
+
+  // ✅ Fetch question labels
+  const { data: questionLabels, refetch: fetchQuestionLabels, isLoading: labelsLoading } = useQuery({
+    queryKey: ["fetchQuestionLabels"],
+    queryFn: async () => {
+      console.log('🔍 Fetching question labels...');
+      const res = await api.get("/survey/question-labels");
+      console.log("✅ Question labels response:", res.data);
+      
+      // Handle different response formats from API
+      if (res.data?.success && res.data?.data) {
+        return res.data.data; // New format: {success: true, data: {...}}
+      } else if (res.data?.labels) {
+        return res.data.labels; // Backup format with labels field
+      } else if (typeof res.data === 'object') {
+        return res.data; // Direct object format
+      } else {
+        console.warn('⚠️ Unexpected labels format:', res.data);
+        return {}; // Fallback to empty object
+      }
+    },
+    retry: 2,
+    retryDelay: 1000,
+  });
+
+  // ✅ Fetch survey logs with enhanced error handling
+  const { 
+    data: surveys, 
+    refetch: fetchSurveyLogs, 
+    isLoading: surveysLoading,
+    error: surveysError 
+  } = useQuery({
+    queryKey: ["fetchSurveyLogs"],
+    queryFn: async () => {
+      console.log('🔍 Fetching survey logs...');
+      try {
+        const res = await api.get("/survey/logs");
+        console.log("✅ Survey logs response:", res.data);
+        
+        // Handle different response formats
+        if (res.data?.success && res.data?.data) {
+          return res.data.data; // New format with success wrapper
+        } else if (Array.isArray(res.data)) {
+          return res.data; // Direct array format
+        } else if (res.data?.logs) {
+          return res.data.logs; // Alternative format
+        } else {
+          console.warn('⚠️ Unexpected survey logs format:', res.data);
+          return [];
+        }
+      } catch (error) {
+        console.error('❌ Survey logs fetch error:', error);
+        if (error.response?.status === 403) {
+          throw new Error('Admin privileges required to view survey logs');
+        }
+        throw error;
+      }
+    },
+    retry: 2,
+    retryDelay: 1000,
+    onError: (error) => {
+      console.error('❌ Survey logs query error:', error);
+    }
+  });
+
+  // ✅ Update question labels mutation
+  const { mutate: updateLabels, isLoading: updatingLabels } = useMutation({
+    mutationFn: (labels) => {
+      console.log('🔍 Updating question labels:', labels);
+      
+      if (!labels || Object.keys(labels).length === 0) {
+        throw new Error('Please provide at least one question label before saving');
+      }
+      
+      return api.put("/survey/question-labels", { labels });
+    },
+    onSuccess: () => {
+      console.log('✅ Question labels updated successfully');
+      fetchQuestionLabels();
+      alert('Survey question labels updated successfully!');
+    },
+    onError: (error) => {
+      console.error('❌ Error updating question labels:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update question labels';
+      alert('Failed to update question labels: ' + errorMessage);
+    }
+  });
+
+  // ✅ Update approval status mutation
+  const { mutate: updateApprovalStatus, isLoading: updatingApproval } = useMutation({
+    mutationFn: ({ surveyId, userId, status }) => {
+      console.log('🔍 Updating approval status:', { surveyId, userId, status });
+      return api.put("/survey/approve", { surveyId, userId, status });
+    },
+    onSuccess: (data, variables) => {
+      console.log('✅ Approval status updated:', variables);
+      fetchSurveyLogs();
+      alert(`Application ${variables.status} successfully!`);
+    },
+    onError: (error) => {
+      console.error('❌ Error updating approval status:', error);
+      alert('Failed to update approval status: ' + error.message);
+    }
+  });
+
+  // ✅ Update user role mutation
+  const { mutate: updateUserRole, isLoading: updatingRole } = useMutation({
+    mutationFn: ({ userId, role }) => {
+      console.log('🔍 Updating user role:', { userId, role });
+      return api.put("/users/role", { userId, role });
+    },
+    onSuccess: () => {
+      console.log('✅ User role updated successfully');
+      alert("User role updated successfully.");
+      setUserRoleUpdates({ userId: "", role: "" });
+    },
+    onError: (error) => {
+      console.error('❌ Error updating user role:', error);
+      alert('Failed to update user role: ' + error.message);
+    }
+  });
+
+  // ✅ Convert question labels to editable format
+  useEffect(() => {
+    if (questionLabels) {
+      console.log('🔍 Setting question labels:', questionLabels);
+      // Convert labels object to editable array format for the UI
+      if (typeof questionLabels === 'object') {
+        const labelsArray = Object.entries(questionLabels).map(([field, label]) => ({
+          field,
+          label
+        }));
+        setSurveyQuestions(labelsArray.length > 0 ? labelsArray : [{ field: '', label: '' }]);
+      } else {
+        setSurveyQuestions([{ field: '', label: '' }]);
+      }
+    } else {
+      // If no labels loaded, start with one empty entry
+      setSurveyQuestions([{ field: '', label: '' }]);
+    }
+  }, [questionLabels]);
+
+  // ✅ Handle question label changes
+  const handleQuestionChange = (index, field, value) => {
+    const updatedQuestions = [...surveyQuestions];
+    updatedQuestions[index] = {
+      ...updatedQuestions[index],
+      [field]: value
+    };
+    setSurveyQuestions(updatedQuestions);
+  };
+
+  // ✅ Add new question label
+  const addQuestionLabel = () => {
+    setSurveyQuestions([...surveyQuestions, { field: '', label: '' }]);
+  };
+
+  // ✅ Remove question label
+  const removeQuestionLabel = (index) => {
+    if (surveyQuestions.length > 1) {
+      const newQuestions = surveyQuestions.filter((_, i) => i !== index);
+      setSurveyQuestions(newQuestions);
+    }
+  };
+
+  // ✅ Load current form labels from your actual form
+  const loadCurrentFormLabels = () => {
+    const currentFormLabels = [
+      { field: 'fullName', label: 'Full Name' },
+      { field: 'dateOfBirth', label: 'Date of Birth' },
+      { field: 'nationality', label: 'Nationality' },
+      { field: 'currentLocation', label: 'Current Location' },
+      { field: 'phoneNumber', label: 'Phone Number' },
+      { field: 'highestEducation', label: 'Highest Level of Education' },
+      { field: 'fieldOfStudy', label: 'Field of Study' },
+      { field: 'currentInstitution', label: 'Current/Most Recent Institution' },
+      { field: 'graduationYear', label: 'Graduation Year' },
+      { field: 'currentOccupation', label: 'Current Occupation' },
+      { field: 'workExperience', label: 'Years of Work Experience' },
+      { field: 'reasonForJoining', label: 'Why do you want to join Ikoota?' },
+      { field: 'educationalGoals', label: 'What are your educational goals?' },
+      { field: 'expectedContributions', label: 'How do you plan to contribute to the community?' },
+      { field: 'howDidYouHear', label: 'How did you hear about Ikoota?' },
+      { field: 'languagesSpoken', label: 'Languages Spoken' },
+      { field: 'agreeToTerms', label: 'I agree to the Terms and Conditions' },
+      { field: 'agreeToCodeOfConduct', label: 'I agree to follow the Community Code of Conduct' },
+      { field: 'agreeToDataProcessing', label: 'I consent to processing of my personal data' }
+    ];
+    setSurveyQuestions(currentFormLabels);
+  };
+
+  // ✅ Save question labels
+  const saveQuestionLabels = () => {
+    // Convert array format back to object format for API
+    const labelsObject = {};
+    surveyQuestions.forEach(item => {
+      if (item.field && item.field.trim() && item.label && item.label.trim()) {
+        labelsObject[item.field.trim()] = item.label.trim();
+      }
+    });
+    
+    updateLabels(labelsObject);
+  };
+
+  // ✅ Handle approval/decline actions
+  const handleApproveOrDecline = (surveyId, userId, status) => {
+    console.log('🔍 Handling approval/decline:', { surveyId, userId, status });
+    updateApprovalStatus({ surveyId, userId, status });
+  };
+
+  // ✅ Send feedback email
+  const handleSendFeedback = (email, status) => {
+    console.log('🔍 Sending feedback:', { email, status });
+    const feedbackTemplate = status === "granted" ? "approveverifyinfo" : "suspendedverifyinfo";
+    api.post("/email/send", { email, template: feedbackTemplate, status })
+      .then(() => {
+        console.log('✅ Feedback sent successfully');
+        alert('Feedback email sent successfully!');
+      })
+      .catch((error) => {
+        console.error('❌ Error sending feedback:', error);
+        alert('Failed to send feedback email: ' + error.message);
+      });
+  };
+
+  // ✅ Enhanced survey answers rendering with proper formatting
+  const renderSurveyAnswers = (answers) => {
+    try {
+      console.log('🔍 Raw answers data:', answers, typeof answers);
+      
+      if (!answers) {
+        return (
+          <div className="no-answers">
+            <em>No answers provided</em>
+          </div>
+        );
+      }
+
+      let parsedAnswers;
+
+      // Handle string JSON data
+      if (typeof answers === 'string') {
+        try {
+          parsedAnswers = JSON.parse(answers);
+        } catch (parseError) {
+          console.warn('⚠️ Error parsing JSON string:', parseError);
+          return (
+            <div className="invalid-answers">
+              <strong>Raw Answer Data:</strong>
+              <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
+                {answers}
+              </pre>
+            </div>
+          );
+        }
+      } else {
+        parsedAnswers = answers;
+      }
+
+      console.log('🔍 Parsed answers:', parsedAnswers);
+
+      // Handle array of question-answer objects (new format)
+      if (Array.isArray(parsedAnswers)) {
+        // Check if it's array of objects with question/answer structure
+        if (parsedAnswers.length > 0 && typeof parsedAnswers[0] === 'object' && parsedAnswers[0].question) {
+          return (
+            <div className="survey-answers-detailed">
+              {parsedAnswers.map((item, index) => (
+                <div key={index} className="answer-item">
+                  <div className="question-label">
+                    <strong>{formatQuestionLabel(item.question)}:</strong>
+                  </div>
+                  <div className="answer-value">
+                    {formatAnswerValue(item.answer)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        } 
+        // Handle simple array format (old format)
+        else {
+          return (
+            <div className="survey-answers-simple">
+              <div className="answer-list">
+                {parsedAnswers.map((answer, index) => (
+                  <div key={index} className="simple-answer">
+                    <strong>Answer {index + 1}:</strong> {answer || 'No response'}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
+      }
+
+      // Handle object format (alternative format)
+      if (typeof parsedAnswers === 'object') {
+        return (
+          <div className="survey-answers-object">
+            {Object.entries(parsedAnswers).map(([key, value], index) => (
+              <div key={index} className="answer-item">
+                <div className="question-label">
+                  <strong>{formatQuestionLabel(key)}:</strong>
+                </div>
+                <div className="answer-value">
+                  {formatAnswerValue(value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // Fallback for any other format
+      return (
+        <div className="fallback-answers">
+          <strong>Survey Response:</strong>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
+            {JSON.stringify(parsedAnswers, null, 2)}
+          </pre>
+        </div>
+      );
+
+    } catch (error) {
+      console.error('❌ Critical error in renderSurveyAnswers:', error);
+      return (
+        <div className="error-answers">
+          <em style={{ color: 'red' }}>Error displaying answers: {error.message}</em>
+          <details style={{ marginTop: '10px' }}>
+            <summary>Raw Data (for debugging)</summary>
+            <pre style={{ fontSize: '0.8em', background: '#f5f5f5', padding: '10px' }}>
+              {JSON.stringify(answers, null, 2)}
+            </pre>
+          </details>
+        </div>
+      );
+    }
+  };
+
+  // ✅ Helper function to format question labels
+  const formatQuestionLabel = (questionKey) => {
+    const labelMap = {
+      fullName: 'Full Name',
+      dateOfBirth: 'Date of Birth',
+      nationality: 'Nationality',
+      currentLocation: 'Current Location',
+      phoneNumber: 'Phone Number',
+      highestEducation: 'Highest Education',
+      fieldOfStudy: 'Field of Study',
+      currentInstitution: 'Current Institution',
+      graduationYear: 'Graduation Year',
+      currentOccupation: 'Current Occupation',
+      workExperience: 'Work Experience',
+      professionalSkills: 'Professional Skills',
+      careerGoals: 'Career Goals',
+      howDidYouHear: 'How Did You Hear About Us',
+      reasonForJoining: 'Reason for Joining',
+      expectedContributions: 'Expected Contributions',
+      educationalGoals: 'Educational Goals',
+      previousMemberships: 'Previous Memberships',
+      specialSkills: 'Special Skills',
+      languagesSpoken: 'Languages Spoken',
+      availabilityForEvents: 'Availability for Events',
+      agreeToTerms: 'Agree to Terms',
+      agreeToCodeOfConduct: 'Agree to Code of Conduct',
+      agreeToDataProcessing: 'Agree to Data Processing'
+    };
+
+    return labelMap[questionKey] || questionKey.charAt(0).toUpperCase() + questionKey.slice(1);
+  };
+
+  // ✅ Helper function to format answer values
+  const formatAnswerValue = (answer) => {
+    if (answer === true || answer === 'true') {
+      return <span style={{ color: 'green' }}>✅ Yes</span>;
+    }
+    if (answer === false || answer === 'false') {
+      return <span style={{ color: 'red' }}>❌ No</span>;
+    }
+    if (!answer || answer === '') {
+      return <em style={{ color: '#888' }}>Not provided</em>;
+    }
+    return answer;
+  };
+
+  return (
+    <div className="auth_controls_body">
+      {/* ✅ Context-aware header */}
+      <div className="admin_controls_header">
+        Auth Controls
+        {isInAdminContext && (
+          <small style={{ fontSize: '0.8rem', color: '#666', marginLeft: '10px' }}>
+            (Admin Panel)
+          </small>
+        )}
+      </div>
+
+      {/* Section: Edit Survey Question Labels */}
+      <div className="section">
+        <h3>Edit Survey Question Labels</h3>
+        <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
+          Update the labels/text that appear in your survey form. These changes will be reflected in the 
+          Applicationsurvey.jsx form that users fill out.
+        </p>
+        
+        {labelsLoading && <p>Loading question labels...</p>}
+        
+        {/* ✅ Question label management interface */}
+        <div className="question-labels-container">
+          {Array.isArray(surveyQuestions) && surveyQuestions.map((item, index) => (
+            <div key={index} className="question-label-item" style={{ 
+              marginBottom: '15px', 
+              padding: '15px', 
+              border: '1px solid #ddd', 
+              borderRadius: '6px',
+              backgroundColor: '#f9f9f9'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ minWidth: '60px', fontWeight: 'bold', color: '#666' }}>
+                    #{index + 1}
+                  </span>
+                  <div style={{ flex: 1, display: 'flex', gap: '10px' }}>
+                    <div style={{ flex: '0 0 200px' }}>
+                      <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>
+                        Field Name
+                      </label>
+                      <input
+                        type="text"
+                        value={item.field || ''}
+                        onChange={(e) => handleQuestionChange(index, 'field', e.target.value)}
+                        disabled={updatingLabels}
+                        placeholder="e.g., fullName"
+                        style={{ 
+                          width: '100%', 
+                          padding: '8px', 
+                          border: '1px solid #ccc', 
+                          borderRadius: '4px',
+                          fontSize: '13px'
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>
+                        Label Text (What users see)
+                      </label>
+                      <input
+                        type="text"
+                        value={item.label || ''}
+                        onChange={(e) => handleQuestionChange(index, 'label', e.target.value)}
+                        disabled={updatingLabels}
+                        placeholder="e.g., Full Name"
+                        style={{ 
+                          width: '100%', 
+                          padding: '8px', 
+                          border: '1px solid #ccc', 
+                          borderRadius: '4px',
+                          fontSize: '13px'
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {surveyQuestions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeQuestionLabel(index)}
+                      disabled={updatingLabels}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                      title="Remove this question label"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* ✅ Action buttons */}
+        <div className="question-labels-actions" style={{ 
+          marginTop: '20px', 
+          display: 'flex', 
+          gap: '10px', 
+          flexWrap: 'wrap',
+          alignItems: 'center'
+        }}>
+          <button
+            type="button"
+            onClick={addQuestionLabel}
+            disabled={updatingLabels}
+            style={{
+              padding: '10px 15px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            ➕ Add Label
+          </button>
+          
+          <button
+            type="button"
+            onClick={loadCurrentFormLabels}
+            disabled={updatingLabels}
+            style={{
+              padding: '10px 15px',
+              backgroundColor: '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            📋 Load Current Form Labels
+          </button>
+          
+          <button 
+            onClick={saveQuestionLabels}
+            disabled={updatingLabels || !Array.isArray(surveyQuestions)}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: updatingLabels ? '#6c757d' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: updatingLabels ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold'
+            }}
+          >
+            {updatingLabels ? '⏳ Saving...' : '💾 Save Labels'}
+          </button>
+        </div>
+        
+        {/* ✅ Helpful info */}
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '15px', 
+          backgroundColor: '#e8f4f8', 
+          borderRadius: '6px',
+          fontSize: '14px',
+          color: '#0c5460'
+        }}>
+          <strong>📌 How This Works:</strong>
+          <ul style={{ marginLeft: '20px', marginBottom: '0', marginTop: '8px' }}>
+            <li><strong>Field Name:</strong> Must match the field names in your Applicationsurvey.jsx component</li>
+            <li><strong>Label Text:</strong> This is what users will see as the question/label text</li>
+            <li><strong>Dynamic Updates:</strong> Changes here will update the actual survey form users fill out</li>
+            <li><strong>Load Current:</strong> Use "Load Current Form Labels" to see your existing form fields</li>
+          </ul>
+        </div>
+        
+        {/* ✅ Preview section */}
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '15px', 
+          backgroundColor: '#f8f9fa', 
+          borderRadius: '6px',
+          border: '1px solid #dee2e6'
+        }}>
+          <h4 style={{ margin: '0 0 15px 0', color: '#495057' }}>📋 Preview of Current Labels:</h4>
+          <div style={{ fontSize: '13px', color: '#6c757d' }}>
+            {surveyQuestions.filter(item => item.field && item.label).length > 0 ? (
+              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                {surveyQuestions
+                  .filter(item => item.field && item.label)
+                  .map((item, index) => (
+                    <div key={index} style={{ marginBottom: '5px' }}>
+                      <strong>{item.field}:</strong> "{item.label}"
+                    </div>
+                  ))
+                }
+              </div>
+            ) : (
+              <em>No valid labels configured yet. Use "Load Current Form Labels" to get started.</em>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Section: Fetch and Vet Survey Forms */}
+      <div className="section">
+        <h3>Vetting Survey Forms</h3>
+        
+        {/* ✅ Survey logs loading and error states */}
+        {surveysLoading && (
+          <div className="loading-state">
+            <p>Loading survey submissions...</p>
+          </div>
+        )}
+        
+        {surveysError && (
+          <div className="error-state" style={{ color: 'red', padding: '10px', border: '1px solid red', borderRadius: '4px', marginBottom: '10px' }}>
+            <strong>Error loading surveys:</strong> {surveysError.message}
+            <button 
+              onClick={() => fetchSurveyLogs()} 
+              style={{ marginLeft: '10px', padding: '5px 10px' }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* ✅ Display survey submissions */}
+        {surveys && surveys.length > 0 ? (
+          <div className="surveys-list">
+            {surveys.map((survey, index) => (
+              <div key={survey.id || index} className="survey-item" style={{
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                padding: '15px',
+                marginBottom: '15px',
+                backgroundColor: survey.approval_status === 'approved' ? '#f0f8f0' : 
+                               survey.approval_status === 'declined' ? '#fff0f0' : '#fff'
+              }}>
+                {/* ✅ Survey header with user info */}
+                <div className="survey-header" style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: '10px',
+                  paddingBottom: '10px',
+                  borderBottom: '1px solid #eee'
+                }}>
+                  <div className="user-info">
+                    <h4 style={{ margin: '0 0 5px 0' }}>
+                      Survey #{survey.id} - {survey.username || 'Unknown User'}
+                    </h4>
+                    <p style={{ margin: '0', color: '#666', fontSize: '0.9em' }}>
+                      Email: {survey.user_email || 'No email'}
+                    </p>
+                    <p style={{ margin: '0', color: '#666', fontSize: '0.9em' }}>
+                      Submitted: {survey.createdAt ? new Date(survey.createdAt).toLocaleDateString() : 'Unknown date'}
+                    </p>
+                    {survey.application_ticket && (
+                      <p style={{ margin: '0', color: '#666', fontSize: '0.8em' }}>
+                        Ticket: {survey.application_ticket}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="status-badge">
+                    <span style={{
+                      padding: '5px 10px',
+                      borderRadius: '15px',
+                      fontSize: '0.8em',
+                      fontWeight: 'bold',
+                      backgroundColor: survey.approval_status === 'approved' ? '#d4edda' : 
+                                     survey.approval_status === 'declined' ? '#f8d7da' : 
+                                     survey.approval_status === 'granted' ? '#d4edda' : '#fff3cd',
+                      color: survey.approval_status === 'approved' ? '#155724' : 
+                             survey.approval_status === 'declined' ? '#721c24' : 
+                             survey.approval_status === 'granted' ? '#155724' : '#856404'
+                    }}>
+                      {survey.approval_status?.toUpperCase() || 'PENDING'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* ✅ Basic Info Grid */}
+                <div className="survey-info" style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '10px',
+                  marginBottom: '20px'
+                }}>
+                  <div><strong>User ID:</strong> {survey.user_id}</div>
+                  <div><strong>Email:</strong> {survey.user_email || 'N/A'}</div>
+                  <div><strong>Application Type:</strong> {survey.application_type || 'initial_application'}</div>
+                  <div><strong>Membership Stage:</strong> {survey.membership_stage || 'N/A'}</div>
+                </div>
+
+                {/* ✅ Survey answers display */}
+                <div className="survey-answers-section" style={{
+                  backgroundColor: '#f8f9fa',
+                  padding: '15px',
+                  borderRadius: '5px',
+                  marginBottom: '15px'
+                }}>
+                  <h5 style={{ marginTop: '0', marginBottom: '15px', color: '#495057' }}>
+                    📝 Survey Responses:
+                  </h5>
+                  {renderSurveyAnswers(survey.answers)}
+                </div>
+
+                {/* Admin Notes */}
+                {survey.admin_notes && (
+                  <div style={{ 
+                    backgroundColor: '#e8f4fd', 
+                    padding: '10px', 
+                    borderRadius: '5px',
+                    marginBottom: '15px'
+                  }}>
+                    <strong>Admin Notes:</strong> {survey.admin_notes}
+                  </div>
+                )}
+
+                {/* ✅ Action buttons */}
+                <div className="survey-actions" style={{ 
+                  marginTop: '15px', 
+                  paddingTop: '15px', 
+                  borderTop: '1px solid #eee',
+                  display: 'flex',
+                  gap: '10px',
+                  flexWrap: 'wrap'
+                }}>
+                  <button
+                    onClick={() => handleApproveOrDecline(survey.id, survey.user_id, 'approved')}
+                    disabled={updatingApproval || survey.approval_status === 'approved' || survey.approval_status === 'granted'}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: (survey.approval_status === 'approved' || survey.approval_status === 'granted') ? '#95a5a6' : '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: (survey.approval_status === 'approved' || survey.approval_status === 'granted') ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {(survey.approval_status === 'approved' || survey.approval_status === 'granted') ? '✅ Already Approved' : 
+                     updatingApproval ? 'Processing...' : '✅ Approve'}
+                  </button>
+                  
+                  <button
+                    onClick={() => handleApproveOrDecline(survey.id, survey.user_id, 'declined')}
+                    disabled={updatingApproval || survey.approval_status === 'declined'}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: survey.approval_status === 'declined' ? '#95a5a6' : '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: survey.approval_status === 'declined' ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {survey.approval_status === 'declined' ? '❌ Already Declined' : 
+                     updatingApproval ? 'Processing...' : '❌ Decline'}
+                  </button>
+                  
+                  {survey.user_email && (
+                    <button
+                      onClick={() => handleSendFeedback(survey.user_email, survey.approval_status)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      📧 Send Feedback
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setSelectedSurvey(selectedSurvey === survey.id ? null : survey.id)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#6c757d',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {selectedSurvey === survey.id ? 'Hide Details' : 'View Details'}
+                  </button>
+                </div>
+
+                {/* ✅ Detailed view when selected */}
+                {selectedSurvey === survey.id && (
+                  <div className="survey-details" style={{
+                    marginTop: '15px',
+                    padding: '15px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '4px'
+                  }}>
+                    <h5>Full Survey Details:</h5>
+                    <pre style={{ 
+                      whiteSpace: 'pre-wrap', 
+                      fontSize: '0.85em',
+                      maxHeight: '300px',
+                      overflow: 'auto'
+                    }}>
+                      {JSON.stringify(survey, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          !surveysLoading && !surveysError && (
+            <div className="no-surveys" style={{ 
+              textAlign: 'center', 
+              padding: '20px', 
+              color: '#666',
+              fontStyle: 'italic'
+            }}>
+              No survey submissions found.
+            </div>
+          )
+        )}
+
+        {/* ✅ Refresh button */}
+        <div style={{ marginTop: '20px' }}>
+          <button 
+            onClick={() => fetchSurveyLogs()}
+            disabled={surveysLoading}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            {surveysLoading ? 'Refreshing...' : 'Refresh Survey List'}
+          </button>
+        </div>
+      </div>
+
+      {/* Section: Update User Roles */}
+      <div className="section">
+        <h3>Update User Roles</h3>
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            placeholder="User ID"
+            value={userRoleUpdates.userId}
+            onChange={(e) => setUserRoleUpdates({ ...userRoleUpdates, userId: e.target.value })}
+            disabled={updatingRole}
+            style={{ padding: '8px', minWidth: '200px' }}
+          />
+          <select
+            value={userRoleUpdates.role}
+            onChange={(e) => setUserRoleUpdates({ ...userRoleUpdates, role: e.target.value })}
+            disabled={updatingRole}
+            style={{ padding: '8px', minWidth: '150px' }}
+          >
+            <option value="">Select Role</option>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+            <option value="moderator">Moderator</option>
+            <option value="member">Member</option>
+          </select>
+          <button
+            onClick={() => updateUserRole(userRoleUpdates)}
+            disabled={updatingRole || !userRoleUpdates.userId || !userRoleUpdates.role}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            {updatingRole ? 'Updating...' : 'Update Role'}
+          </button>
+        </div>
+        <small style={{ color: '#666' }}>
+          Enter the user ID and select a new role to update user permissions.
+        </small>
+      </div>
+
+      {/* ✅ Context-aware footer */}
+      <div className="auth-controls-footer" style={{ 
+        marginTop: '30px', 
+        paddingTop: '20px', 
+        borderTop: '1px solid #eee',
+        fontSize: '0.9em',
+        color: '#666'
+      }}>
+        {isInAdminContext ? (
+          <p>You are viewing AuthControls in Admin Panel context with full administrative privileges.</p>
+        ) : (
+          <p>AuthControls running in standalone mode.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AuthControls;
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+// ikootaclient/src/components/auth/Applicationsurvey.jsx - CORRECTED TO STOP AUTO REDIRECTS
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from './UserStatus';
+import './applicationSurvey.css';
+import api from '../service/api';
+import { useDynamicLabels } from '../../hooks/useDynamicLabels';
+
+
+const ApplicationSurvey = () => {
+  const navigate = useNavigate();
+  const { labels: dynamicLabels, loading: labelsLoading } = useDynamicLabels();
+  const { user, isAuthenticated } = useUser();
+  const [loading, setLoading] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [error, setError] = useState('');
+  const [currentStep, setCurrentStep] = useState(1);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const totalSteps = 4;
+
+  // ✅ ADD REFS TO PREVENT API LOOPS
+  const statusCheckRef = useRef(false);
+  const hasCheckedStatus = useRef(false);
+  const initialLoadComplete = useRef(false);
+
+  // Storage key for this user's application data
+  const STORAGE_KEY = `ikoota_application_${user?.id || 'guest'}`;
+  const STEP_STORAGE_KEY = `ikoota_application_step_${user?.id || 'guest'}`;
+
+  // Initial form data
+  const initialFormData = {
+    // Personal Information
+    fullName: '',
+    dateOfBirth: '',
+    nationality: '',
+    currentLocation: '',
+    phoneNumber: '',
+    
+    // Educational Background
+    highestEducation: '',
+    fieldOfStudy: '',
+    currentInstitution: '',
+    graduationYear: '',
+    
+    // Professional Background
+    currentOccupation: '',
+    workExperience: '',
+    professionalSkills: [],
+    careerGoals: '',
+    
+    // Interest in Ikoota
+    howDidYouHear: '',
+    reasonForJoining: '',
+    expectedContributions: '',
+    educationalGoals: '',
+    
+    // Additional Information
+    previousMemberships: '',
+    specialSkills: '',
+    languagesSpoken: [],
+    availabilityForEvents: '',
+    
+    // Agreements
+    agreeToTerms: false,
+    agreeToCodeOfConduct: false,
+    agreeToDataProcessing: false
+  };
+
+  // Form state with auto-save functionality
+  const [formData, setFormData] = useState(initialFormData);
+
+  // Load saved data from localStorage
+  const loadSavedData = useCallback(() => {
+    try {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      const savedStep = localStorage.getItem(STEP_STORAGE_KEY);
+      
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        console.log('📂 Loading saved application data:', Object.keys(parsedData).length, 'fields');
+        
+        setFormData(prev => ({
+          ...prev,
+          ...parsedData
+        }));
+        
+        const savedTime = parsedData._savedAt;
+        if (savedTime) {
+          setLastSaved(new Date(savedTime));
+        }
+      }
+      
+      if (savedStep) {
+        const stepNumber = parseInt(savedStep, 10);
+        if (stepNumber >= 1 && stepNumber <= totalSteps) {
+          setCurrentStep(stepNumber);
+          console.log('📂 Resuming from step:', stepNumber);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading saved data:', error);
+      // If there's corrupted data, clear it
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STEP_STORAGE_KEY);
+    }
+  }, [STORAGE_KEY, STEP_STORAGE_KEY, totalSteps]);
+
+  // Save data to localStorage
+  const saveToStorage = useCallback((dataToSave, stepToSave = currentStep) => {
+    try {
+      const saveData = {
+        ...dataToSave,
+        _savedAt: new Date().toISOString(),
+        _version: '1.0' // For future migrations if needed
+      };
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+      localStorage.setItem(STEP_STORAGE_KEY, stepToSave.toString());
+      setLastSaved(new Date());
+      
+      console.log('💾 Auto-saved application data');
+    } catch (error) {
+      console.error('❌ Error saving data:', error);
+      // Handle storage quota exceeded
+      if (error.name === 'QuotaExceededError') {
+        alert('Storage space is full. Please clear some browser data and try again.');
+      }
+    }
+  }, [STORAGE_KEY, STEP_STORAGE_KEY, currentStep]);
+
+  // Clear saved data
+  const clearSavedData = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STEP_STORAGE_KEY);
+    setLastSaved(null);
+    console.log('🗑️ Cleared saved application data');
+  }, [STORAGE_KEY, STEP_STORAGE_KEY]);
+
+  // ✅ FIXED: Status check with NO AUTO-REDIRECT
+  const checkApplicationStatus = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (statusCheckRef.current || hasCheckedStatus.current) {
+      console.log('🚫 Skipping status check - already in progress or completed');
+      return;
+    }
+
+    statusCheckRef.current = true;
+    hasCheckedStatus.current = true;
+
+    try {
+      console.log('🔍 Checking application status... (ONE TIME ONLY)');
+      
+      const response = await api.get('/membership/survey/check-status');
+      console.log('✅ Response data:', response.data);
+      
+      // ✅ CRITICAL FIX: DO NOT REDIRECT IF SURVEY NOT COMPLETED
+      // Let the user stay on the survey page to complete it
+      if (response.data.survey_completed) {
+        console.log('✅ Survey already completed, redirecting to status page');
+        clearSavedData();
+        navigate('/application-status');
+        return;
+      }
+
+      // ✅ If survey not completed, let user fill it out - DON'T REDIRECT
+      console.log('📝 Survey not completed - allowing user to fill it out');
+      
+      // Only load saved data if survey not completed and we haven't loaded yet
+      if (!initialLoadComplete.current) {
+        loadSavedData();
+        initialLoadComplete.current = true;
+      }
+      
+      return response.data;
+      
+    } catch (error) {
+      console.error('❌ Error checking application status:', error);
+      // Don't block the user from continuing with their saved data
+      if (!initialLoadComplete.current) {
+        loadSavedData();
+        initialLoadComplete.current = true;
+      }
+    } finally {
+      statusCheckRef.current = false;
+    }
+  }, [clearSavedData, loadSavedData, navigate]);
+
+  // Auto-save with debouncing
+  useEffect(() => {
+    if (!user?.id || !initialLoadComplete.current) return; // Don't save if no user or not loaded
+
+    const timeoutId = setTimeout(() => {
+      setIsAutoSaving(true);
+      saveToStorage(formData, currentStep);
+      setTimeout(() => setIsAutoSaving(false), 500);
+    }, 2000); // Auto-save after 2 seconds of no changes
+
+    return () => clearTimeout(timeoutId);
+  }, [formData, currentStep, saveToStorage, user?.id]);
+
+  // ✅ FIXED: Check authentication and application status ONCE
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    // Only check status once on mount
+    if (!hasCheckedStatus.current) {
+      console.log('🚀 Applicationsurvey mounted - checking status once');
+      checkApplicationStatus();
+    }
+  }, [isAuthenticated, navigate, checkApplicationStatus]);
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    
+    setFormData(prev => {
+      let newData = { ...prev };
+      
+      if (type === 'checkbox') {
+        if (name === 'professionalSkills' || name === 'languagesSpoken') {
+          // Handle array checkboxes
+          newData[name] = checked 
+            ? [...prev[name], value]
+            : prev[name].filter(item => item !== value);
+        } else {
+          newData[name] = checked;
+        }
+      } else {
+        newData[name] = value;
+      }
+      
+      return newData;
+    });
+  };
+
+  const validateStep = (step) => {
+    const errors = [];
+    
+    switch (step) {
+      case 1: // Personal Information
+        if (!formData.fullName) errors.push('Full name is required');
+        if (!formData.dateOfBirth) errors.push('Date of birth is required');
+        if (!formData.nationality) errors.push('Nationality is required');
+        if (!formData.currentLocation) errors.push('Current location is required');
+        break;
+        
+      case 2: // Educational Background
+        if (!formData.highestEducation) errors.push('Highest education is required');
+        if (!formData.fieldOfStudy) errors.push('Field of study is required');
+        break;
+        
+      case 3: // Professional Background & Interest
+        if (!formData.currentOccupation) errors.push('Current occupation is required');
+        if (!formData.reasonForJoining) errors.push('Reason for joining is required');
+        if (!formData.educationalGoals) errors.push('Educational goals are required');
+        break;
+        
+      case 4: // Agreements
+        if (!formData.agreeToTerms) errors.push('You must agree to terms and conditions');
+        if (!formData.agreeToCodeOfConduct) errors.push('You must agree to code of conduct');
+        if (!formData.agreeToDataProcessing) errors.push('You must agree to data processing');
+        break;
+    }
+    
+    if (errors.length > 0) {
+      setError(errors.join(', '));
+      return false;
+    }
+    
+    setError('');
+    return true;
+  };
+
+  const nextStep = () => {
+    if (validateStep(currentStep)) {
+      const newStep = Math.min(currentStep + 1, totalSteps);
+      setCurrentStep(newStep);
+      // Save immediately when moving to next step
+      saveToStorage(formData, newStep);
+    }
+  };
+
+  const prevStep = () => {
+    const newStep = Math.max(currentStep - 1, 1);
+    setCurrentStep(newStep);
+    setError('');
+    // Save immediately when moving to previous step
+    saveToStorage(formData, newStep);
+  };
+
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+    
+  //   if (!validateStep(currentStep)) {
+  //     return;
+  //   }
+
+  //   setLoading(true);
+  //   setError('');
+
+  //   try {
+  //     // Prepare answers array for backend
+  //     const answers = Object.entries(formData)
+  //       .filter(([key]) => !key.startsWith('_')) // Exclude internal keys like _savedAt
+  //       .map(([key, value]) => ({
+  //         question: key,
+  //         answer: Array.isArray(value) ? value.join(', ') : value.toString()
+  //       }));
+
+  //     const response = await api.post('/membership/survey/submit-application', {
+  //       answers,
+  //       applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`
+  //     });
+
+  //     const data = response.data;
+
+  //     // Clear saved data after successful submission
+  //     clearSavedData();
+      
+  //     setSubmitSuccess(true);
+      
+  //     // Redirect to success page after delay
+  //     setTimeout(() => {
+  //       navigate('/pending-verification', {
+  //         state: {
+  //           applicationTicket: data.applicationTicket,
+  //           username: user.username
+  //         }
+  //       });
+  //     }, 3000);
+
+  //   } catch (error) {
+  //     console.error('Error submitting application:', error);
+      
+  //     if (error.response) {
+  //       setError(error.response.data?.error || error.response.data?.message || 'Failed to submit application');
+  //     } else if (error.request) {
+  //       setError('Network error. Please check your connection and try again.');
+  //     } else {
+  //       setError('An unexpected error occurred. Please try again.');
+  //     }
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  // Manual save function
+  
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateStep(currentStep)) {
+    return;
+  }
+
+  setLoading(true);
+  setError('');
+
+  try {
+    // Prepare answers array for backend
+    const answers = Object.entries(formData)
+      .filter(([key]) => !key.startsWith('_')) // Exclude internal keys like _savedAt
+      .map(([key, value]) => ({
+        question: key,
+        answer: Array.isArray(value) ? value.join(', ') : value.toString()
+      }));
+
+    const response = await api.post('/membership/survey/submit-application', {
+      answers,
+      applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`,
+      username: user.username, // ADD THIS LINE
+      userId: user.id || user.user_id // ADD THIS LINE TOO
+    });
+
+    const data = response.data;
+
+    // Clear saved data after successful submission
+    clearSavedData();
+    
+    setSubmitSuccess(true);
+    
+    // Redirect to success page after delay
+    setTimeout(() => {
+      navigate('/pending-verification', {
+        state: {
+          applicationTicket: data.applicationTicket,
+          username: user.username
+        }
+      });
+    }, 3000);
+
+  } catch (error) {
+    console.error('Error submitting application:', error);
+    
+    if (error.response) {
+      setError(error.response.data?.error || error.response.data?.message || 'Failed to submit application');
+    } else if (error.request) {
+      setError('Network error. Please check your connection and try again.');
+    } else {
+      setError('An unexpected error occurred. Please try again.');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+  
+  
+  const handleManualSave = () => {
+    setIsAutoSaving(true);
+    saveToStorage(formData, currentStep);
+    setTimeout(() => setIsAutoSaving(false), 1000);
+  };
+
+  // Clear data confirmation
+  const handleClearData = () => {
+    if (window.confirm('Are you sure you want to clear all saved data? This action cannot be undone.')) {
+      clearSavedData();
+      setFormData(initialFormData);
+      setCurrentStep(1);
+    }
+  };
+
+  // Auto-save indicator component
+  const AutoSaveIndicator = () => {
+    if (isAutoSaving) {
+      return (
+        <div className="auto-save-indicator saving">
+          <span className="save-spinner">⟳</span>
+          Saving...
+        </div>
+      );
+    }
+    
+    if (lastSaved) {
+      const timeDiff = Date.now() - lastSaved.getTime();
+      const minutes = Math.floor(timeDiff / 60000);
+      const seconds = Math.floor((timeDiff % 60000) / 1000);
+      
+      let timeText;
+      if (minutes > 0) {
+        timeText = `${minutes}m ago`;
+      } else if (seconds > 5) {
+        timeText = `${seconds}s ago`;
+      } else {
+        timeText = 'just now';
+      }
+      
+      return (
+        <div className="auto-save-indicator saved">
+          <span className="save-icon">✓</span>
+          Saved {timeText}
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
+
+ const renderStep1 = () => (
+    <div className="survey-step">
+      <h3>📋 Personal Information</h3>
+      
+      <div className="form-group">
+        <label htmlFor="fullName">{dynamicLabels.fullName} *</label>
+        <input
+          type="text"
+          id="fullName"
+          name="fullName"
+          value={formData.fullName}
+          onChange={handleInputChange}
+          placeholder="Enter your full legal name"
+          required
+        />
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor="dateOfBirth">{dynamicLabels.dateOfBirth} *</label>
+          <input
+            type="date"
+            id="dateOfBirth"
+            name="dateOfBirth"
+            value={formData.dateOfBirth}
+            onChange={handleInputChange}
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="nationality">{dynamicLabels.nationality} *</label>
+          <input
+            type="text"
+            id="nationality"
+            name="nationality"
+            value={formData.nationality}
+            onChange={handleInputChange}
+            placeholder="Your nationality"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="currentLocation">{dynamicLabels.currentLocation} *</label>
+        <input
+          type="text"
+          id="currentLocation"
+          name="currentLocation"
+          value={formData.currentLocation}
+          onChange={handleInputChange}
+          placeholder="City, Country"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="phoneNumber">{dynamicLabels.phoneNumber}</label>
+        <input
+          type="tel"
+          id="phoneNumber"
+          name="phoneNumber"
+          value={formData.phoneNumber}
+          onChange={handleInputChange}
+          placeholder="+1 (555) 123-4567"
+        />
+      </div>
+    </div>
+  );
+
+  const renderStep2 = () => (
+    <div className="survey-step">
+      <h3>🎓 Educational Background</h3>
+      
+      <div className="form-group">
+        <label htmlFor="highestEducation">{dynamicLabels.highestEducation} *</label>
+        <select
+          id="highestEducation"
+          name="highestEducation"
+          value={formData.highestEducation}
+          onChange={handleInputChange}
+          required
+        >
+          <option value="">Select your highest education</option>
+          <option value="high_school">High School</option>
+          <option value="associate">Associate Degree</option>
+          <option value="bachelor">Bachelor's Degree</option>
+          <option value="master">Master's Degree</option>
+          <option value="doctorate">Doctorate/PhD</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor="fieldOfStudy">{dynamicLabels.fieldOfStudy} *</label>
+          <input
+            type="text"
+            id="fieldOfStudy"
+            name="fieldOfStudy"
+            value={formData.fieldOfStudy}
+            onChange={handleInputChange}
+            placeholder="e.g., Computer Science, Business, etc."
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="graduationYear">{dynamicLabels.graduationYear}</label>
+          <input
+            type="number"
+            id="graduationYear"
+            name="graduationYear"
+            value={formData.graduationYear}
+            onChange={handleInputChange}
+            placeholder="YYYY"
+            min="1950"
+            max="2030"
+          />
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="currentInstitution">{dynamicLabels.currentInstitution}</label>
+        <input
+          type="text"
+          id="currentInstitution"
+          name="currentInstitution"
+          value={formData.currentInstitution}
+          onChange={handleInputChange}
+          placeholder="University or institution name"
+        />
+      </div>
+    </div>
+  );
+
+  const renderStep3 = () => (
+    <div className="survey-step">
+      <h3>💼 Professional Background & Interests</h3>
+      
+      <div className="form-group">
+        <label htmlFor="currentOccupation">{dynamicLabels.currentOccupation} *</label>
+        <input
+          type="text"
+          id="currentOccupation"
+          name="currentOccupation"
+          value={formData.currentOccupation}
+          onChange={handleInputChange}
+          placeholder="Your current job title or status"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="workExperience">{dynamicLabels.workExperience}</label>
+        <select
+          id="workExperience"
+          name="workExperience"
+          value={formData.workExperience}
+          onChange={handleInputChange}
+        >
+          <option value="">Select experience level</option>
+          <option value="0-1">0-1 years</option>
+          <option value="2-5">2-5 years</option>
+          <option value="6-10">6-10 years</option>
+          <option value="11-15">11-15 years</option>
+          <option value="16+">16+ years</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="reasonForJoining">{dynamicLabels.reasonForJoining} *</label>
+        <textarea
+          id="reasonForJoining"
+          name="reasonForJoining"
+          value={formData.reasonForJoining}
+          onChange={handleInputChange}
+          placeholder="Tell us what motivates you to join our educational community..."
+          rows="4"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="educationalGoals">{dynamicLabels.educationalGoals} *</label>
+        <textarea
+          id="educationalGoals"
+          name="educationalGoals"
+          value={formData.educationalGoals}
+          onChange={handleInputChange}
+          placeholder="Describe what you hope to learn or achieve through Ikoota..."
+          rows="4"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="expectedContributions">{dynamicLabels.expectedContributions}</label>
+        <textarea
+          id="expectedContributions"
+          name="expectedContributions"
+          value={formData.expectedContributions}
+          onChange={handleInputChange}
+          placeholder="Share your skills, knowledge, or ways you'd like to help..."
+          rows="3"
+        />
+      </div>
+    </div>
+  );
+
+  const renderStep4 = () => (
+    <div className="survey-step">
+      <h3>📄 Additional Information & Agreements</h3>
+      
+      <div className="form-group">
+        <label htmlFor="howDidYouHear">{dynamicLabels.howDidYouHear}</label>
+        <select
+          id="howDidYouHear"
+          name="howDidYouHear"
+          value={formData.howDidYouHear}
+          onChange={handleInputChange}
+        >
+          <option value="">Please select</option>
+          <option value="social_media">Social Media</option>
+          <option value="friend_referral">Friend/Colleague Referral</option>
+          <option value="web_search">Web Search</option>
+          <option value="online_community">Online Community</option>
+          <option value="educational_institution">Educational Institution</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label>{dynamicLabels.languagesSpoken}</label>
+        <div className="checkbox-group">
+          {['English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese', 'Arabic', 'Other'].map(lang => (
+            <label key={lang} className="checkbox-label">
+              <input
+                type="checkbox"
+                name="languagesSpoken"
+                value={lang}
+                checked={formData.languagesSpoken.includes(lang)}
+                onChange={handleInputChange}
+              />
+              {lang}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="agreements-section">
+        <h4>📋 Required Agreements</h4>
+        
+        <div className="agreement-item">
+          <label className="agreement-label">
+            <input
+              type="checkbox"
+              name="agreeToTerms"
+              checked={formData.agreeToTerms}
+              onChange={handleInputChange}
+              required
+            />
+            <span className="checkmark"></span>
+            {dynamicLabels.agreeToTerms} * <a href="/terms" target="_blank">(View Terms)</a>
+          </label>
+        </div>
+
+        <div className="agreement-item">
+          <label className="agreement-label">
+            <input
+              type="checkbox"
+              name="agreeToCodeOfConduct"
+              checked={formData.agreeToCodeOfConduct}
+              onChange={handleInputChange}
+              required
+            />
+            <span className="checkmark"></span>
+            {dynamicLabels.agreeToCodeOfConduct} * <a href="/code-of-conduct" target="_blank">(View Code)</a>
+          </label>
+        </div>
+
+        <div className="agreement-item">
+          <label className="agreement-label">
+            <input
+              type="checkbox"
+              name="agreeToDataProcessing"
+              checked={formData.agreeToDataProcessing}
+              onChange={handleInputChange}
+              required
+            />
+            <span className="checkmark"></span>
+            {dynamicLabels.agreeToDataProcessing} * <a href="/privacy" target="_blank">(View Policy)</a>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ✅ Show loading state while labels are being fetched
+  if (labelsLoading) {
+    return (
+      <div className="survey-container">
+        <div className="survey-card">
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <div className="loading-spinner"></div>
+            <p>Loading survey form...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+  if (submitSuccess) {
+    return (
+      <div className="survey-container">
+        <div className="survey-card success-card">
+          <div className="success-icon">🎉</div>
+          <h2>Application Submitted Successfully!</h2>
+          <p>Thank you for completing your membership application. You will be redirected shortly...</p>
+          <div className="loading-spinner"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="survey-container">
+      <div className="survey-card">
+        <div className="survey-header">
+          <div className="header-top">
+            <h1>🎯 Membership Application Survey</h1>
+            <div className="header-actions">
+              <AutoSaveIndicator />
+              <button 
+                type="button" 
+                onClick={handleManualSave}
+                className="btn-save-manual"
+                disabled={isAutoSaving}
+                title="Save progress manually"
+              >
+                💾
+              </button>
+              <button 
+                type="button" 
+                onClick={handleClearData}
+                className="btn-clear-data"
+                title="Clear all saved data"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+          <p>Help us get to know you better and understand your educational goals.</p>
+          
+          <div className="progress-bar">
+            <div className="progress-steps">
+              {[1, 2, 3, 4].map(step => (
+                <div 
+                  key={step} 
+                  className={`progress-step ${currentStep >= step ? 'active' : ''} ${currentStep > step ? 'completed' : ''}`}
+                >
+                  <span className="step-number">{step}</span>
+                  <span className="step-label">
+                    {step === 1 && 'Personal'}
+                    {step === 2 && 'Education'}
+                    {step === 3 && 'Professional'}
+                    {step === 4 && 'Agreements'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="progress-fill" style={{ width: `${(currentStep / totalSteps) * 100}%` }}></div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="survey-form">
+          {currentStep === 1 && renderStep1()}
+          {currentStep === 2 && renderStep2()}
+          {currentStep === 3 && renderStep3()}
+          {currentStep === 4 && renderStep4()}
+
+          {error && (
+            <div className="error-message">
+              <span className="error-icon">⚠️</span>
+              {error}
+            </div>
+          )}
+
+          <div className="form-navigation">
+            {currentStep > 1 && (
+              <button 
+                type="button" 
+                onClick={prevStep}
+                className="btn-secondary"
+                disabled={loading}
+              >
+                ← Previous
+              </button>
+            )}
+            
+            <div className="nav-spacer"></div>
+            
+            {currentStep < totalSteps ? (
+              <button 
+                type="button" 
+                onClick={nextStep}
+                className="btn-primary"
+                disabled={loading}
+              >
+                Next →
+              </button>
+            ) : (
+              <button 
+                type="submit" 
+                className="btn-primary submit-btn"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="loading-spinner"></span>
+                    Submitting...
+                  </>
+                ) : (
+                  '📤 Submit Application'
+                )}
+              </button>
+            )}
+          </div>
+        </form>
+
+        <div className="survey-footer">
+          <p>Step {currentStep} of {totalSteps} • All required fields marked with *</p>
+          {lastSaved && (
+            <p className="auto-save-info">
+              💾 Your progress is automatically saved as you type
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ApplicationSurvey;
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/components/admin/UserManagement.jsx
+// ==================================================
+// This component merges ALL functionalities from both:
+// - /auth/UserManagement.jsx (legacy user management)
+// - /admin/UserManagement.jsx (converse ID & identity masking)
+// - NEW: Two-stage membership system management
+
+import React, { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../service/api';
+import './userManagement.css';
+import { 
+  generateUniqueConverseId, 
+  generateRandomId, 
+  validateIdFormat, 
+  formatIdForDisplay 
+} from '../service/idGenerationService';
+
+// ==================================================
+// API FUNCTIONS - ALL SYSTEMS
+// ==================================================
+
+// NEW: Two-Stage Membership System APIs
+// const fetchMembershipOverview = async () => {
+//   const { data } = await api.get('/membership/admin/membership-overview');
+//   return data;
+// };
+
+const fetchMembershipOverview = async () => {
+  try {
+    const { data } = await api.get('/membership/admin/membership-overview');
+    return data?.overview || {};
+  } catch (error) {
+    console.error('❌ Error fetching membership overview:', error);
+    return {};
+  }
+};
+
+
+// const fetchPendingApplications = async (filters = {}) => {
+//   const params = new URLSearchParams(filters);
+//   const { data } = await api.get(`/membership/admin/pending-applications?${params}`);
+//   return data;
+// };
+
+
+const fetchPendingApplications = async (filters = {}) => {
+  try {
+    const params = new URLSearchParams(filters);
+    const { data } = await api.get(`/membership/admin/pending-applications?${params}`);
+    return data || { applications: [], pagination: { total: 0, page: 1, totalPages: 1 } };
+  } catch (error) {
+    console.error('❌ Error fetching pending applications:', error);
+    return { applications: [], pagination: { total: 0, page: 1, totalPages: 1 } };
+  }
+};
+
+
+const bulkApproveApplications = async ({ userIds, action, adminNotes }) => {
+  const { data } = await api.post('/membership/admin/bulk-approve', {
+    userIds,
+    action,
+    adminNotes
+  });
+  return data;
+};
+// THis fxn also exist at membershipcontroller.js
+const updateApplicationStatus = async ({ userId, status, adminNotes }) => {
+  const { data } = await api.put(`/membership/admin/update-user-status/${userId}`, {
+    status,
+    adminNotes
+  });
+  return data;
+};
+
+
+
+// Legacy APIs (preserve existing functionality)
+// const fetchUsers = async () => {
+//   const { data } = await api.get('/admin/users');
+//   return data;
+// };
+
+
+
+// const fetchUsers = async () => {
+//   try {
+//     const { data } = await api.get('/admin/users');
+//     // Handle different response formats
+//     if (data?.success && Array.isArray(data.users)) {
+//       return data.users;
+//     }
+//     if (Array.isArray(data)) {
+//       return data;
+//     }
+//     return [];
+//   } catch (error) {
+//     console.error('Error fetching users:', error);
+//     return [];
+//   }
+// };
+
+
+const fetchUsers = async () => {
+  try {
+    const { data } = await api.get('/admin/users');
+    console.log('👤 Users API Response:', data);
+    
+    // Handle different response formats safely
+    if (data?.success && Array.isArray(data.users)) {
+      return data.users;
+    }
+    if (data?.users && Array.isArray(data.users)) {
+      return data.users;
+    }
+    if (Array.isArray(data)) {
+      return data;
+    }
+    
+    console.warn('⚠️ Unexpected users API response format:', data);
+    return [];
+  } catch (error) {
+    console.error('❌ Error fetching users:', error);
+    // Return empty array instead of throwing to prevent crash
+    return [];
+  }
+};
+
+// const fetchClasses = async () => {
+//   const { data } = await api.get('/classes');
+//   return data;
+// };
+
+const fetchClasses = async () => {
+  try {
+    const { data } = await api.get('/classes');
+    return Array.isArray(data?.classes) ? data.classes : [];
+  } catch (error) {
+    console.error('❌ Error fetching classes:', error);
+    return [];
+  }
+};
+
+
+// const fetchMentors = async () => {
+//   const { data } = await api.get('/admin/mentors');
+//   return data;
+// };
+
+const fetchMentors = async () => {
+  try {
+    const { data } = await api.get('/admin/mentors');
+    return Array.isArray(data?.mentors) ? data.mentors : [];
+  } catch (error) {
+    console.error('❌ Error fetching mentors:', error);
+    return [];
+  }
+};
+
+
+// const fetchReports = async () => {
+//   const { data } = await api.get('/admin/reports');
+//   return data;
+// };
+
+const fetchReports = async () => {
+  try {
+    const { data } = await api.get('/admin/reports');
+    console.log('📊 Reports API Response:', data);
+    
+    // Handle different response formats safely
+    if (data?.success && Array.isArray(data.reports)) {
+      return data.reports;
+    }
+    if (data?.reports && Array.isArray(data.reports)) {
+      return data.reports;
+    }
+    if (Array.isArray(data)) {
+      return data;
+    }
+    
+    console.warn('⚠️ Unexpected reports API response format:', data);
+    return [];
+  } catch (error) {
+    console.error('❌ Error fetching reports:', error);
+    // Return empty array instead of throwing to prevent crash
+    return [];
+  }
+};
+
+const updateUser = async ({ id, formData }) => {
+  const { data } = await api.put(`/admin/update-user/${id}`, formData);
+  return data;
+};
+
+const maskUserIdentity = async ({ userId, adminConverseId, mentorConverseId, classId }) => {
+  const { data } = await api.post('/admin/mask-identity', {
+    userId,
+    adminConverseId,
+    mentorConverseId,
+    classId
+  });
+  return data;
+};
+
+const deleteUser = async (userId) => {
+  const { data } = await api.delete(`/admin/delete-user/${userId}`);
+  return data;
+};
+
+const createUser = async (userData) => {
+  const { data } = await api.post('/admin/create-user', userData);
+  return data;
+};
+
+const sendNotification = async ({ userId, message, type }) => {
+  const { data } = await api.post('/admin/send-notification', {
+    userId,
+    message,
+    type
+  });
+  return data;
+};
+
+const updateReportStatus = async ({ reportId, status, adminNotes }) => {
+  const { data } = await api.put(`/admin/update-report/${reportId}`, {
+    status,
+    adminNotes
+  });
+  return data;
+};
+
+const exportUserData = async (filters = {}) => {
+  const params = new URLSearchParams(filters);
+  const { data } = await api.get(`/admin/export-users?${params}`);
+  return data;
+};
+
+
+
+// ==================================================
+// MAIN COMPONENT WITH ENHANCED ERROR BOUNDARIES
+// ==================================================
+
+const UserManagement = () => {
+  const queryClient = useQueryClient();
+  
+  // Tab management
+  const [activeTab, setActiveTab] = useState('membership_overview');
+  
+  // State management
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [bulkAction, setBulkAction] = useState('');
+  const [adminNotes, setAdminNotes] = useState('');
+  const [filters, setFilters] = useState({
+    page: 1,
+    limit: 20,
+    search: '',
+    sortBy: 'submittedAt',
+    sortOrder: 'ASC'
+  });
+
+  // Legacy state
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [formData, setFormData] = useState({
+    converse_id: '',
+    mentor_id: '',
+    class_id: '',
+    is_member: '',
+    role: '',
+    username: '',
+    email: '',
+    password: '',
+    isblocked: false,
+    isbanned: false
+  });
+
+  // ===== REACT QUERY HOOKS WITH SAFE DEFAULTS =====
+
+  // ✅ FIXED: Safe users query with proper error handling
+  const { 
+    data: rawUsers, 
+    isLoading: usersLoading, 
+    isError: usersError, 
+    error: usersErrorData 
+  } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+    staleTime: 3 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
+    retry: (failureCount, error) => {
+      if (failureCount < 2) return true;
+      return false;
+    },
+    onError: (error) => {
+      console.error('❌ Users query error:', error);
+    }
+  });
+
+  // ✅ CRITICAL FIX: Safe users array with memoization
+  const users = useMemo(() => {
+    if (!rawUsers) return [];
+    if (Array.isArray(rawUsers)) return rawUsers;
+    if (rawUsers.users && Array.isArray(rawUsers.users)) return rawUsers.users;
+    return [];
+  }, [rawUsers]);
+
+  // ✅ FIXED: Safe reports query
+  const { 
+    data: rawReports, 
+    isLoading: reportsLoading, 
+    error: reportsError 
+  } = useQuery({
+    queryKey: ['reports'],
+    queryFn: fetchReports,
+    staleTime: 2 * 60 * 1000,
+    cacheTime: 5 * 60 * 1000,
+    retry: 1,
+    onError: (error) => {
+      console.error('❌ Reports query error:', error);
+    }
+  });
+
+  // ✅ CRITICAL FIX: Safe reports array with memoization  
+  const reports = useMemo(() => {
+    if (!rawReports) return [];
+    if (Array.isArray(rawReports)) return rawReports;
+    if (rawReports.reports && Array.isArray(rawReports.reports)) return rawReports.reports;
+    return [];
+  }, [rawReports]);
+
+  // Other queries with safe defaults
+  const { data: membershipOverview, isLoading: overviewLoading, error: overviewError } = useQuery({
+    queryKey: ['membershipOverview'],
+    queryFn: fetchMembershipOverview,
+    staleTime: 5 * 60 * 1000,
+    retry: 1
+  });
+
+  const { data: pendingApplications, isLoading: applicationsLoading, error: applicationsError } = useQuery({
+    queryKey: ['pendingApplications', activeTab, filters],
+    queryFn: () => fetchPendingApplications({
+      ...filters,
+      stage: activeTab === 'membership_pending' ? 'initial' : 'full_membership'
+    }),
+    enabled: activeTab === 'membership_pending' || activeTab === 'membership_full',
+    staleTime: 2 * 60 * 1000,
+    retry: 1
+  });
+
+  const { data: classes, isLoading: classesLoading, error: classesError } = useQuery({
+    queryKey: ['classes'],
+    queryFn: fetchClasses,
+    staleTime: 10 * 60 * 1000,
+    retry: 1
+  });
+
+  const { data: mentors, isLoading: mentorsLoading, error: mentorsError } = useQuery({
+    queryKey: ['mentors'],
+    queryFn: fetchMentors,
+    staleTime: 5 * 60 * 1000,
+    retry: 1
+  });
+
+  // ===== SAFE FILTERED USERS WITH MEMOIZATION =====
+
+  // ✅ CRITICAL FIX: Safe filtered users computation
+  const filteredUsers = useMemo(() => {
+    try {
+      const userArray = Array.isArray(users) ? users : [];
+      
+      switch (activeTab) {
+        case 'legacy_pending':
+          return userArray.filter(user => user?.is_member === 'applied');
+        case 'legacy_granted':
+          return userArray.filter(user => user?.is_member === 'granted');
+        case 'legacy_declined':
+          return userArray.filter(user => user?.is_member === 'declined');
+        default:
+          return userArray;
+      }
+    } catch (error) {
+      console.error('❌ Error filtering users:', error);
+      return [];
+    }
+  }, [users, activeTab]);
+
+  // ===== HELPER FUNCTIONS =====
+
+  const resetFormData = () => {
+    setFormData({
+      converse_id: '',
+      mentor_id: '',
+      class_id: '',
+      is_member: '',
+      role: '',
+      username: '',
+      email: '',
+      password: '',
+      isblocked: false,
+      isbanned: false
+    });
+  };
+
+  const formatUserDisplayName = (user) => {
+    if (!user) return 'Unknown User';
+    if (user.is_identity_masked && user.converse_id) {
+      return user.converse_id;
+    }
+    return user.username || user.email || 'Unknown User';
+  };
+
+  const getStatusBadgeClass = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+      case 'granted':
+        return 'status-success';
+      case 'rejected':
+      case 'declined':
+        return 'status-danger';
+      case 'pending':
+      case 'applied':
+        return 'status-warning';
+      default:
+        return 'status-default';
+    }
+  };
+
+  // ===== EVENT HANDLERS =====
+
+  const handleRefreshData = () => {
+    queryClient.invalidateQueries();
+    alert('Data refreshed successfully!');
+  };
+
+  const handleTabChange = (newTab) => {
+    try {
+      setActiveTab(newTab);
+      setSelectedUsers([]);
+      setSelectedUser(null);
+      setSelectedReport(null);
+    } catch (error) {
+      console.error('❌ Error changing tab:', error);
+    }
+  };
+
+  // ===== ERROR BOUNDARY COMPONENT =====
+  
+  if (usersError && reportsError) {
+    return (
+      <div className="user-management-container">
+        <div className="error-state major">
+          <div className="error-icon">⚠️</div>
+          <h3>System Error</h3>
+          <p>Unable to load essential data. Please try refreshing the page.</p>
+          <div className="error-details">
+            <details>
+              <summary>Error Details</summary>
+              <pre>
+                Users Error: {usersErrorData?.message || 'Unknown error'}
+                Reports Error: {reportsError?.message || 'Unknown error'}
+              </pre>
+            </details>
+          </div>
+          <div className="error-actions">
+            <button onClick={handleRefreshData} className="btn-retry">
+              🔄 Retry
+            </button>
+            <button onClick={() => window.location.reload()} className="btn-reload">
+              🔃 Reload Page
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ===== MAIN RENDER =====
+
+  return (
+    <div className="user-management-container">
+      <div className="header-section">
+        <h2>User Management System</h2>
+        <div className="header-actions">
+          <button onClick={handleRefreshData} className="btn-refresh">
+            🔄 Refresh All
+          </button>
+        </div>
+      </div>
+
+      {/* Enhanced Tab Navigation */}
+      <div className="tab-navigation">
+        <button 
+          className={`tab-btn ${activeTab === 'membership_overview' ? 'active' : ''}`} 
+          onClick={() => handleTabChange('membership_overview')}
+        >
+          <span>Overview</span>
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'membership_pending' ? 'active' : ''}`} 
+          onClick={() => handleTabChange('membership_pending')}
+        >
+          <span>Pending Applications</span>
+          <span className="tab-count">({pendingApplications?.pagination?.total || 0})</span>
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'all_users' ? 'active' : ''}`} 
+          onClick={() => handleTabChange('all_users')}
+        >
+          <span>All Users</span>
+          <span className="tab-count">({users?.length || 0})</span>
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'reports' ? 'active' : ''}`} 
+          onClick={() => handleTabChange('reports')}
+        >
+          <span>Reports</span>
+          <span className="tab-count">({reports?.length || 0})</span>
+        </button>
+      </div>
+
+      {/* ===== OVERVIEW TAB ===== */}
+      {activeTab === 'membership_overview' && (
+        <div className="overview-section">
+          <h3>System Overview</h3>
+          {overviewLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Loading overview...</p>
+            </div>
+          ) : overviewError ? (
+            <div className="error-state">
+              <p>Error loading overview: {overviewError.message}</p>
+            </div>
+          ) : (
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon">👥</div>
+                <div className="stat-content">
+                  <h4>Total Users</h4>
+                  <span className="stat-number">{users?.length || 0}</span>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">✅</div>
+                <div className="stat-content">
+                  <h4>Active Members</h4>
+                  <span className="stat-number">
+                    {users?.filter(u => u?.is_member === 'granted').length || 0}
+                  </span>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">⏳</div>
+                <div className="stat-content">
+                  <h4>Pending Applications</h4>
+                  <span className="stat-number">
+                    {users?.filter(u => u?.is_member === 'applied').length || 0}
+                  </span>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">📊</div>
+                <div className="stat-content">
+                  <h4>Reports</h4>
+                  <span className="stat-number">{reports?.length || 0}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== ALL USERS TAB ===== */}
+      {activeTab === 'all_users' && (
+        <div className="all-users-section">
+          <div className="section-header">
+            <h3>All Users ({users?.length || 0})</h3>
+          </div>
+          
+          {usersLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Loading users...</p>
+            </div>
+          ) : usersError ? (
+            <div className="error-state">
+              <div className="error-icon">⚠️</div>
+              <p>Error loading users: {usersErrorData?.message || 'Unknown error'}</p>
+              <button 
+                onClick={() => queryClient.invalidateQueries(['users'])}
+                className="retry-btn"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : !users?.length ? (
+            <div className="empty-state">
+              <div className="empty-icon">👥</div>
+              <h4>No Users Found</h4>
+              <p>No users are registered in the system yet.</p>
+            </div>
+          ) : (
+            <div className="users-table-container">
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id} className="user-row">
+                      <td className="user-cell">
+                        <div className="user-info">
+                          <div className="user-avatar small">
+                            {(user.username || 'U').charAt(0).toUpperCase()}
+                          </div>
+                          <div className="user-details">
+                            <span className="username">{formatUserDisplayName(user)}</span>
+                            <span className="user-id">ID: {user.id}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="email-cell">{user.email}</td>
+                      <td className="role-cell">
+                        <span className={`role-badge role-${user.role}`}>{user.role}</span>
+                      </td>
+                      <td className="status-cell">
+                        <span className={`status-badge ${getStatusBadgeClass(user.is_member)}`}>
+                          {user.is_member}
+                        </span>
+                        {user.isblocked && <span className="status-badge blocked">Blocked</span>}
+                        {user.isbanned && <span className="status-badge banned">Banned</span>}
+                      </td>
+                      <td className="joined-cell">
+                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== REPORTS TAB ===== */}
+      {activeTab === 'reports' && (
+        <div className="reports-section">
+          <div className="section-header">
+            <h3>User Reports ({reports?.length || 0})</h3>
+          </div>
+          
+          {reportsLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Loading reports...</p>
+            </div>
+          ) : reportsError ? (
+            <div className="error-state">
+              <div className="error-icon">⚠️</div>
+              <p>Error loading reports: {reportsError.message}</p>
+              <button 
+                onClick={() => queryClient.invalidateQueries(['reports'])}
+                className="retry-btn"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : !reports?.length ? (
+            <div className="empty-state">
+              <div className="empty-icon">📋</div>
+              <h4>No Reports Found</h4>
+              <p>No user reports have been submitted yet.</p>
+            </div>
+          ) : (
+            <div className="reports-list">
+              {reports.map(report => (
+                <div key={report.id} className="report-card">
+                  <div className="report-header">
+                    <span className="report-id">Report #{report.id}</span>
+                    <span className={`status-badge ${getStatusBadgeClass(report.status)}`}>
+                      {report.status}
+                    </span>
+                    <span className="report-date">
+                      {new Date(report.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="report-content">
+                    <p><strong>Reporter:</strong> {report.reporter_id}</p>
+                    <p><strong>Reported User:</strong> {report.reported_id}</p>
+                    <p><strong>Reason:</strong> {report.reason}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== PENDING APPLICATIONS TAB ===== */}
+      {activeTab === 'membership_pending' && (
+        <div className="pending-applications-section">
+          <div className="section-header">
+            <h3>Pending Applications ({pendingApplications?.pagination?.total || 0})</h3>
+          </div>
+          
+          {applicationsLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Loading applications...</p>
+            </div>
+          ) : applicationsError ? (
+            <div className="error-state">
+              <div className="error-icon">⚠️</div>
+              <p>Error loading applications: {applicationsError.message}</p>
+              <button 
+                onClick={() => queryClient.invalidateQueries(['pendingApplications'])}
+                className="retry-btn"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : !pendingApplications?.applications?.length ? (
+            <div className="empty-state">
+              <div className="empty-icon">📋</div>
+              <h4>No Applications Found</h4>
+              <p>No pending applications at this time.</p>
+            </div>
+          ) : (
+            <div className="applications-list">
+              {pendingApplications.applications.map((application) => (
+                <div key={application.application_id} className="application-card">
+                  <div className="application-header">
+                    <div className="user-info">
+                      <h4 className="username">{application.username}</h4>
+                      <p className="email">{application.email}</p>
+                      <span className="user-id">ID: {application.user_id}</span>
+                    </div>
+                    
+                    <div className="application-meta">
+                      <div className="timing-info">
+                        <span className="days-pending">
+                          {application.days_pending} day{application.days_pending !== 1 ? 's' : ''} pending
+                        </span>
+                        <span className="submitted-date">
+                          Submitted: {new Date(application.submittedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <span className={`status-badge ${getStatusBadgeClass(application.status)}`}>
+                        {application.status}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="application-details">
+                    <div className="detail-grid">
+                      <div className="detail-item">
+                        <strong>Stage:</strong> 
+                        <span>{application.membership_stage || 'Initial Application'}</span>
+                      </div>
+                      {application.application_ticket && (
+                        <div className="detail-item">
+                          <strong>Ticket:</strong> 
+                          <span className="ticket-number">{application.application_ticket}</span>
+                        </div>
+                      )}
+                      {application.admin_notes && (
+                        <div className="detail-item">
+                          <strong>Admin Notes:</strong> 
+                          <span className="admin-note">{application.admin_notes}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="application-answers">
+                    <details className="answers-details">
+                      <summary className="answers-summary">
+                        View Application Answers
+                        <span className="expand-icon">▼</span>
+                      </summary>
+                      <div className="answers-content">
+                        {typeof application.answers === 'string' ? (
+                          <pre className="answers-text">{application.answers}</pre>
+                        ) : (
+                          <pre className="answers-json">
+                            {JSON.stringify(application.answers, null, 2)}
+                          </pre>
+                        )}
+                      </div>
+                    </details>
+                  </div>
+
+                  <div className="application-actions">
+                    <button 
+                      onClick={() => console.log('Approve', application.user_id)}
+                      className="btn-approve"
+                      title="Approve this application"
+                    >
+                      <span className="btn-icon">✅</span>
+                      Approve
+                    </button>
+                    <button 
+                      onClick={() => console.log('Reject', application.user_id)}
+                      className="btn-reject"
+                      title="Reject this application"
+                    >
+                      <span className="btn-icon">❌</span>
+                      Reject
+                    </button>
+                    <button 
+                      onClick={() => console.log('View', application.user_id)}
+                      className="btn-view"
+                      title="View detailed information"
+                    >
+                      <span className="btn-icon">👁️</span>
+                      View
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination for applications */}
+          {pendingApplications?.pagination && pendingApplications.pagination.totalPages > 1 && (
+            <div className="pagination">
+              <div className="pagination-controls">
+                <button 
+                  onClick={() => setFilters(prev => ({ ...prev, page: 1 }))}
+                  disabled={filters.page <= 1}
+                  className="pagination-btn first"
+                  title="First page"
+                >
+                  ⏮️
+                </button>
+                <button 
+                  onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+                  disabled={filters.page <= 1}
+                  className="pagination-btn prev"
+                  title="Previous page"
+                >
+                  ◀️
+                </button>
+                
+                <div className="pagination-info">
+                  <span className="current-page">
+                    Page {pendingApplications.pagination.page} of {pendingApplications.pagination.totalPages}
+                  </span>
+                  <span className="total-items">
+                    ({pendingApplications.pagination.total} total items)
+                  </span>
+                </div>
+                
+                <button 
+                  onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+                  disabled={filters.page >= pendingApplications.pagination.totalPages}
+                  className="pagination-btn next"
+                  title="Next page"
+                >
+                  ▶️
+                </button>
+                <button 
+                  onClick={() => setFilters(prev => ({ ...prev, page: pendingApplications.pagination.totalPages }))}
+                  disabled={filters.page >= pendingApplications.pagination.totalPages}
+                  className="pagination-btn last"
+                  title="Last page"
+                >
+                  ⏭️
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== GLOBAL LOADING STATES ===== */}
+      {(usersLoading || reportsLoading || overviewLoading) && (
+        <div className="global-loading-overlay">
+          <div className="loading-container">
+            <div className="loading-spinner large"></div>
+            <p>Loading system data...</p>
+            <small>This may take a few moments</small>
+          </div>
+        </div>
+      )}
+
+      {/* ===== GLOBAL ERROR STATES ===== */}
+      {(usersError || reportsError || overviewError) && (
+        <div className="global-error-banner">
+          <div className="error-content">
+            <span className="error-icon">⚠️</span>
+            <div className="error-details">
+              <strong>System Error Detected</strong>
+              <p>Some components may not function properly. Please try refreshing the page.</p>
+            </div>
+            <div className="error-actions">
+              <button 
+                onClick={handleRefreshData}
+                className="btn-retry"
+              >
+                Refresh Data
+              </button>
+              <button 
+                onClick={() => window.location.reload()}
+                className="btn-reload"
+              >
+                Reload Page
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer Information */}
+      <div className="footer-info">
+        <div className="system-stats">
+          <span>Total Users: {users?.length || 0}</span>
+          <span>•</span>
+          <span>Active Members: {users?.filter(u => u?.is_member === 'granted').length || 0}</span>
+          <span>•</span>
+          <span>Pending Reports: {reports?.filter(r => r?.status === 'pending').length || 0}</span>
+          <span>•</span>
+          <span>Last Updated: {new Date().toLocaleTimeString()}</span>
+        </div>
+        <div className="version-info">
+          <small>User Management System v3.0 - Enhanced Error Handling</small>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default UserManagement;
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+// ikootaclient/src/components/admin/Sidebar.jsx
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import api from '../service/api';
+import './sidbar.css';
+
+const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) => {
+  const location = useLocation();
+
+  // ✅ ADD: Fetch pending full membership applications count
+  const { data: pendingFullMembershipCount } = useQuery({
+    queryKey: ['pendingFullMembershipCount'],
+    queryFn: async () => {
+      try {
+        const { data } = await api.get('/admin/membership/pending-count', { withCredentials: true });
+        return data?.count || 0;
+      } catch (error) {
+        console.error('Failed to fetch pending full membership count:', error);
+        return 0;
+      }
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+    retry: 1
+  });
+
+  // ✅ UPDATED: Add Full Membership Review to sidebar items
+  const sidebarItems = [
+    { name: 'Dashboard', to: '', label: 'Dashboard', icon: '📊' },
+    { name: 'Towncrier', to: 'towncrier', label: 'Towncrier', icon: '📢' },
+    { name: 'Towncrier Controls', to: 'towncriercontrols', label: 'Towncrier Controls', icon: '🎛️' },
+    { name: 'Iko', to: 'iko', label: 'Iko', icon: '🤖' },
+    { name: 'Iko Controls', to: 'ikocontrols', label: 'Iko Controls', icon: '⚙️' },
+    { name: 'AuthControls', to: 'authcontrols', label: 'AuthControls', icon: '🔐' },
+    { name: 'SearchControls', to: 'searchcontrols', label: 'SearchControls', icon: '🔍' },
+    { name: 'Reports', to: 'reports', label: 'Reports', icon: '📈' },
+    { name: 'UserManagement', to: 'usermanagement', label: 'UserManagement', icon: '👥' },
+    { name: 'AudienceClassMgr', to: 'audienceclassmgr', label: 'AudienceClassMgr', icon: '🎯' },
+    // ✅ ADD: Full Membership Review item
+    { 
+      name: 'Full Membership Review', 
+      to: 'full-membership-review', 
+      label: 'Full Membership Review', 
+      icon: '🎓',
+      badge: pendingFullMembershipCount // Add badge count
+    }
+  ];
+
+  const handleItemClick = (itemName) => {
+    setSelectedItem(itemName);
+    
+    // Close mobile menu when item is clicked on mobile
+    if (isMobile && closeMobileMenu) {
+      setTimeout(() => {
+        closeMobileMenu();
+      }, 150); // Small delay for better UX
+    }
+  };
+
+  return (
+    <div className="admin_sidebar">
+      {sidebarItems.map((item) => (
+        <Link
+          key={item.name}
+          to={item.to}
+          className={`admin_sidebar_item ${selectedItem === item.name ? 'active' : ''}`}
+          onClick={() => handleItemClick(item.name)}
+          data-discover="true"
+        >
+          {/* Icon */}
+          <span className="sidebar-icon" style={{ marginRight: '8px' }}>
+            {item.icon}
+          </span>
+          
+          {/* Label */}
+          <span className="sidebar-label">
+            {item.label}
+          </span>
+          
+          {/* ✅ ADD: Badge for pending count */}
+          {item.badge && item.badge > 0 && (
+            <span className="sidebar-badge">
+              {item.badge}
+            </span>
+          )}
+        </Link>
+      ))}
+    </div>
+  );
+};
+
+export default Sidebar;
+
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+// ikootaclient/src/components/admin/FullMembershipReviewControls.jsx
+// COMPLETELY FIXED VERSION - Direct API integration without custom fetch wrapper
+
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
+import api from '../service/api'; // Use the fixed api service
+import './FullMembershipReviewControls.css';
+
+const FullMembershipReviewControls = () => {
+  const [selectedApplications, setSelectedApplications] = useState([]);
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('pending');
+  const [searchTerm, setSearchTerm] = useState('');
+  const queryClient = useQueryClient();
+  const location = useLocation();
+
+  // Detect if we're in admin context
+  const isInAdminContext = location.pathname.includes('/admin');
+
+  // Add context class to body for CSS targeting
+  useEffect(() => {
+    const bodyClass = 'full-membership-review-in-admin';
+    
+    if (isInAdminContext) {
+      document.body.classList.add(bodyClass);
+    } else {
+      document.body.classList.remove(bodyClass);
+    }
+
+    return () => {
+      document.body.classList.remove(bodyClass);
+    };
+  }, [isInAdminContext]);
+
+  // ✅ FIXED: Direct API calls using the axios instance
+  const testAdminEndpoints = async () => {
+    try {
+      console.log('🧪 Testing admin endpoints...');
+      
+      // Test 1: Simple admin test endpoint
+      console.log('🧪 Testing admin test endpoint...');
+      const testResponse = await api.get('/admin/membership/test');
+      console.log('✅ Admin test response:', testResponse.data);
+
+      // Test 2: Applications endpoint
+      console.log('🧪 Testing applications endpoint...');
+      const appsResponse = await api.get('/admin/membership/applications?status=pending');
+      console.log('✅ Applications response:', appsResponse.data);
+
+      // Test 3: Stats endpoint
+      console.log('🧪 Testing stats endpoint...');
+      const statsResponse = await api.get('/admin/membership/full-membership-stats');
+      console.log('✅ Stats response:', statsResponse.data);
+
+    } catch (error) {
+      console.error('❌ Admin endpoint test failed:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        url: error.url
+      });
+    }
+  };
+
+  // ✅ Run tests on component mount (development only)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🧪 Running admin endpoint tests...');
+      testAdminEndpoints();
+    }
+  }, []); // Empty dependency array means run once on mount
+
+  // ✅ FIXED: Applications query using direct axios calls
+  const { 
+    data: applicationsData, 
+    isLoading: applicationsLoading, 
+    error: applicationsError, 
+    refetch: refetchApplications 
+  } = useQuery({
+    queryKey: ['admin', 'membership', 'applications', filterStatus],
+    queryFn: async () => {
+      try {
+        console.log('🔍 QUERY: Fetching applications with status:', filterStatus);
+        
+        const response = await api.get(`/admin/membership/applications?status=${filterStatus}`);
+        console.log("✅ SUCCESS: Applications response:", response.data);
+        
+        // Handle your backend response structure
+        if (response.data?.success && response.data?.data) {
+          return Array.isArray(response.data.data) ? response.data.data : [];
+        } else if (Array.isArray(response.data)) {
+          return response.data;
+        } else {
+          console.warn('⚠️ Unexpected response structure:', response.data);
+          return [];
+        }
+        
+      } catch (error) {
+        console.error('❌ Applications query failed:', error);
+        throw error; // Let React Query handle the error
+      }
+    },
+    retry: 2,
+    retryDelay: 1000,
+    initialData: [],
+    keepPreviousData: true
+  });
+
+  // ✅ FIXED: Stats query using direct axios calls
+  const { 
+    data: stats, 
+    isLoading: statsLoading, 
+    error: statsError 
+  } = useQuery({
+    queryKey: ['admin', 'membership', 'stats'],
+    queryFn: async () => {
+      try {
+        console.log('🔍 QUERY: Fetching membership stats');
+        
+        const response = await api.get('/admin/membership/full-membership-stats');
+        console.log("✅ STATS SUCCESS: Response:", response.data);
+        
+        // Handle your backend response structure
+        if (response.data?.success && response.data?.data) {
+          return response.data.data;
+        } else if (response.data?.pending !== undefined) {
+          // Direct stats object
+          return {
+            pending: response.data.pending || 0,
+            approved: response.data.approved || 0,
+            declined: response.data.declined || 0,
+            suspended: response.data.suspended || 0,
+            total: response.data.total || 0
+          };
+        } else {
+          console.warn('⚠️ Unexpected stats response:', response.data);
+          return { pending: 0, approved: 0, declined: 0, suspended: 0, total: 0 };
+        }
+        
+      } catch (error) {
+        console.error('❌ Stats query failed:', error);
+        return { pending: 0, approved: 0, declined: 0, suspended: 0, total: 0 };
+      }
+    },
+    retry: 1,
+    retryDelay: 1000,
+    initialData: { pending: 0, approved: 0, declined: 0, suspended: 0, total: 0 }
+  });
+
+  // ✅ Ensure applications is always an array
+  const applications = React.useMemo(() => {
+    if (!applicationsData) {
+      console.log('📋 No applications data, returning empty array');
+      return [];
+    }
+    
+    if (Array.isArray(applicationsData)) {
+      console.log('📋 Applications is array with', applicationsData.length, 'items');
+      return applicationsData;
+    }
+    
+    console.warn('⚠️ Applications data is not array:', applicationsData);
+    return [];
+  }, [applicationsData]);
+
+  // ✅ FIXED: Review mutation using direct axios calls
+  const reviewMutation = useMutation({
+    mutationFn: async ({ applicationId, decision, notes }) => {
+      console.log('🔍 REVIEW: Reviewing application:', { applicationId, decision, notes });
+      
+      const response = await api.put(`/admin/membership/applications/${applicationId}/review`, {
+        status: decision, 
+        adminNotes: notes || ''
+      });
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      console.log('✅ Application review completed:', variables);
+      queryClient.invalidateQueries(['admin', 'membership']);
+      setSelectedApplications([]);
+      alert(`Application ${variables.decision}d successfully!`);
+    },
+    onError: (error) => {
+      console.error('❌ Error reviewing application:', error);
+      const errorMessage = error.message || 'Unknown error';
+      alert('Failed to review application: ' + errorMessage);
+    }
+  });
+
+  // ✅ FIXED: Bulk review mutation using direct axios calls
+  const bulkReviewMutation = useMutation({
+    mutationFn: async ({ applicationIds, decision, notes }) => {
+      console.log('🔍 BULK: Bulk reviewing applications:', { applicationIds, decision, notes });
+      
+      const response = await api.post('/admin/membership/applications/bulk-review', {
+        applicationIds, 
+        decision, 
+        notes: notes || '' 
+      });
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      console.log('✅ Bulk review completed:', variables);
+      queryClient.invalidateQueries(['admin', 'membership']);
+      setSelectedApplications([]);
+      alert(`${variables.applicationIds.length} applications ${variables.decision}d successfully!`);
+    },
+    onError: (error) => {
+      console.error('❌ Error in bulk review:', error);
+      const errorMessage = error.message || 'Unknown error';
+      alert('Failed to bulk review: ' + errorMessage);
+    }
+  });
+
+  // Handle individual review
+  const handleReview = (applicationId, decision, notes = '') => {
+    if (!applicationId) {
+      alert('Invalid application ID');
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to ${decision} this application?`;
+    if (window.confirm(confirmMessage)) {
+      reviewMutation.mutate({ applicationId, decision, notes });
+    }
+  };
+
+  // Handle bulk review
+  const handleBulkReview = (decision, notes = '') => {
+    if (selectedApplications.length === 0) {
+      alert('Please select applications to review');
+      return;
+    }
+    
+    const confirmMessage = `Are you sure you want to ${decision} ${selectedApplications.length} application(s)?`;
+    if (window.confirm(confirmMessage)) {
+      bulkReviewMutation.mutate({ 
+        applicationIds: selectedApplications, 
+        decision, 
+        notes 
+      });
+    }
+  };
+
+  // Toggle application selection
+  const toggleSelection = (applicationId) => {
+    setSelectedApplications(prev => 
+      prev.includes(applicationId)
+        ? prev.filter(id => id !== applicationId)
+        : [...prev, applicationId]
+    );
+  };
+
+  // Select all applications
+  const selectAll = () => {
+    if (filteredApplications && filteredApplications.length > 0) {
+      const allIds = filteredApplications.map(app => app.id || app.user_id);
+      setSelectedApplications(allIds);
+    }
+  };
+
+  // Clear selection
+  const clearSelection = () => {
+    setSelectedApplications([]);
+  };
+
+  // ✅ Enhanced application answers rendering
+  const renderApplicationAnswers = (answers) => {
+    try {
+      if (!answers) {
+        return (
+          <div className="no-answers">
+            <em>No answers provided</em>
+          </div>
+        );
+      }
+
+      let parsedAnswers;
+
+      // Handle string JSON data
+      if (typeof answers === 'string') {
+        try {
+          parsedAnswers = JSON.parse(answers);
+        } catch (parseError) {
+          return (
+            <div className="invalid-answers">
+              <strong>Application Response:</strong>
+              <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
+                {answers}
+              </pre>
+            </div>
+          );
+        }
+      } else {
+        parsedAnswers = answers;
+      }
+
+      // Handle array format (most common)
+      if (Array.isArray(parsedAnswers)) {
+        return (
+          <div className="full-membership-answers">
+            {parsedAnswers.map((answer, index) => (
+              <div key={index} className="answer-item">
+                <div className="question-label">
+                  <strong>Question {index + 1}:</strong>
+                </div>
+                <div className="answer-value">
+                  {answer || 'No response provided'}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // Handle object format
+      if (typeof parsedAnswers === 'object') {
+        return (
+          <div className="full-membership-answers-object">
+            {Object.entries(parsedAnswers).map(([key, value], index) => (
+              <div key={index} className="answer-item">
+                <div className="question-label">
+                  <strong>{formatQuestionLabel(key)}:</strong>
+                </div>
+                <div className="answer-value">
+                  {formatAnswerValue(value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // Fallback
+      return (
+        <div className="fallback-answers">
+          <strong>Application Response:</strong>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
+            {JSON.stringify(parsedAnswers, null, 2)}
+          </pre>
+        </div>
+      );
+
+    } catch (error) {
+      console.error('❌ Error rendering answers:', error);
+      return (
+        <div className="error-answers">
+          <em style={{ color: 'red' }}>Error displaying answers: {error.message}</em>
+        </div>
+      );
+    }
+  };
+
+  // Helper function to format question labels
+  const formatQuestionLabel = (questionKey) => {
+    const labelMap = {
+      whyFullMembership: 'Why do you want full membership?',
+      contributionPlans: 'How will you contribute as a full member?',
+      educationalGoals: 'What are your educational goals?',
+      communityInvolvement: 'How do you plan to be involved in the community?',
+      previousExperience: 'Previous relevant experience?',
+      availability: 'What is your availability?',
+      specialSkills: 'What special skills do you bring?',
+      mentorshipInterest: 'Interest in mentoring others?',
+      researchInterests: 'Research interests and areas of expertise?',
+      collaborationStyle: 'Preferred collaboration style?'
+    };
+
+    return labelMap[questionKey] || 
+           questionKey.charAt(0).toUpperCase() + questionKey.slice(1);
+  };
+
+  // Helper function to format answer values
+  const formatAnswerValue = (answer) => {
+    if (answer === true || answer === 'true') {
+      return <span style={{ color: 'green' }}>✅ Yes</span>;
+    }
+    if (answer === false || answer === 'false') {
+      return <span style={{ color: 'red' }}>❌ No</span>;
+    }
+    if (!answer || answer === '') {
+      return <em style={{ color: '#888' }}>Not provided</em>;
+    }
+    return answer;
+  };
+
+  // ✅ Filter applications
+  const filteredApplications = React.useMemo(() => {
+    if (!Array.isArray(applications)) {
+      return [];
+    }
+    
+    return applications.filter(app => {
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      
+      // Check various possible field names for compatibility
+      const searchableFields = [
+        app?.email,
+        app?.username,
+        app?.membership_ticket
+      ].filter(Boolean);
+      
+      // Check if any field contains the search term
+      const fieldMatch = searchableFields.some(field => 
+        field.toLowerCase().includes(searchLower)
+      );
+      
+      return fieldMatch;
+    });
+  }, [applications, searchTerm]);
+
+  if (applicationsLoading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading membership applications...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="membership-review-container">
+      {/* Context-aware header */}
+      <div className="review-header">
+        <h2>Full Membership Review</h2>
+        {isInAdminContext && (
+          <small style={{ fontSize: '0.8rem', color: '#666', marginLeft: '10px' }}>
+            (Admin Panel - Pre-member → Member Applications)
+          </small>
+        )}
+        
+        {/* ✅ Enhanced error display with debugging info */}
+        {applicationsError && (
+          <div style={{ backgroundColor: '#fee', padding: '10px', borderRadius: '5px', marginTop: '10px', border: '1px solid #fcc' }}>
+            <details>
+              <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
+                ⚠️ API Error: {applicationsError.message}
+              </summary>
+              <div style={{ marginTop: '10px', fontSize: '0.9em' }}>
+                <p><strong>Debugging Information:</strong></p>
+                <ul>
+                  <li>Error Type: {applicationsError.name}</li>
+                  <li>Error Message: {applicationsError.message}</li>
+                  <li>Status Code: {applicationsError.status}</li>
+                  <li>URL: {applicationsError.url}</li>
+                  <li>Applications Count: {applications.length}</li>
+                  <li>Current Filter: {filterStatus}</li>
+                </ul>
+                <button 
+                  onClick={() => refetchApplications()} 
+                  style={{ marginTop: '10px', padding: '5px 10px' }}
+                >
+                  🔄 Retry Fetch
+                </button>
+              </div>
+            </details>
+          </div>
+        )}
+        
+        {/* Stats Overview */}
+        {stats && !statsError && (
+          <div className="stats-overview">
+            <div className="stat-card">
+              <h4>Pending</h4>
+              <span className="stat-number">{stats?.pending || 0}</span>
+            </div>
+            <div className="stat-card">
+              <h4>Approved</h4>
+              <span className="stat-number approved">{stats?.approved || 0}</span>
+            </div>
+            <div className="stat-card">
+              <h4>Declined</h4>
+              <span className="stat-number declined">{stats?.declined || 0}</span>
+            </div>
+            <div className="stat-card">
+              <h4>Total</h4>
+              <span className="stat-number">{stats?.total || 0}</span>
+            </div>
+          </div>
+        )}
+
+        {statsError && (
+          <div style={{ backgroundColor: '#fff3cd', padding: '10px', borderRadius: '5px', marginTop: '10px' }}>
+            <small>⚠️ Stats temporarily unavailable: {statsError.message}</small>
+          </div>
+        )}
+      </div>
+
+      {/* Enhanced Controls */}
+      <div className="review-controls">
+        <div className="control-group">
+          <label>Filter by Status:</label>
+          <select 
+            value={filterStatus} 
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="status-filter"
+          >
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="declined">Declined</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+
+        <div className="control-group">
+          <label>Search Applications:</label>
+          <input
+            type="text"
+            placeholder="Search by email, name, ticket..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Bulk Actions */}
+        {selectedApplications.length > 0 && (
+          <div className="bulk-actions">
+            <span className="selection-count">
+              {selectedApplications.length} selected
+            </span>
+            <button 
+              onClick={() => handleBulkReview('approved')}
+              className="bulk-btn approve-btn"
+              disabled={bulkReviewMutation.isPending}
+            >
+              Approve Selected
+            </button>
+            <button 
+              onClick={() => handleBulkReview('declined')}
+              className="bulk-btn decline-btn"
+              disabled={bulkReviewMutation.isPending}
+            >
+              Decline Selected
+            </button>
+            <button onClick={clearSelection} className="bulk-btn clear-btn">
+              Clear Selection
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Selection Controls */}
+      <div className="selection-controls">
+        <button onClick={selectAll} className="select-all-btn">
+          Select All ({filteredApplications.length})
+        </button>
+        <button onClick={clearSelection} className="clear-selection-btn">
+          Clear Selection
+        </button>
+      </div>
+
+      {/* Applications List */}
+      <div className="applications-list">
+        {filteredApplications.length === 0 ? (
+          <div className="no-applications">
+            <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📋</div>
+            <h4>No Full Membership Applications</h4>
+            <p>No applications found for the current filters.</p>
+            <div style={{ marginTop: '20px', fontSize: '0.9em', color: '#666' }}>
+              <p><strong>Debug Info:</strong></p>
+              <ul style={{ textAlign: 'left', display: 'inline-block' }}>
+                <li>Raw applications data: {Array.isArray(applications) ? `Array(${applications.length})` : typeof applications}</li>
+                <li>Current filter: "{filterStatus}"</li>
+                <li>Search term: "{searchTerm}"</li>
+                <li>Has error: {!!applicationsError}</li>
+                <li>Is loading: {applicationsLoading}</li>
+              </ul>
+              <button 
+                onClick={() => refetchApplications()}
+                style={{ marginTop: '10px', padding: '5px 10px', fontSize: '0.8em' }}
+              >
+                🔄 Retry Fetch
+              </button>
+              <button 
+                onClick={() => testAdminEndpoints()}
+                style={{ marginTop: '10px', marginLeft: '10px', padding: '5px 10px', fontSize: '0.8em' }}
+              >
+                🧪 Test Admin APIs
+              </button>
+            </div>
+          </div>
+        ) : (
+          filteredApplications.map((application) => (
+            <EnhancedApplicationCard
+              key={application.id || application.user_id}
+              application={application}
+              isSelected={selectedApplications.includes(application.id || application.user_id)}
+              onToggleSelection={() => toggleSelection(application.id || application.user_id)}
+              onReview={handleReview}
+              isReviewing={reviewMutation.isPending}
+              renderAnswers={renderApplicationAnswers}
+              selectedForDetails={selectedApplication}
+              onToggleDetails={setSelectedApplication}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Loading states */}
+      {(reviewMutation.isPending || bulkReviewMutation.isPending) && (
+        <div className="review-loading-overlay">
+          <div className="loading-spinner"></div>
+          <p>
+            {reviewMutation.isPending && 'Processing review...'}
+            {bulkReviewMutation.isPending && 'Processing bulk review...'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ✅ Enhanced Application Card Component
+const EnhancedApplicationCard = ({ 
+  application, 
+  isSelected, 
+  onToggleSelection, 
+  onReview, 
+  isReviewing,
+  renderAnswers,
+  selectedForDetails,
+  onToggleDetails
+}) => {
+  const [reviewNotes, setReviewNotes] = useState('');
+  const applicationId = application.id || application.user_id;
+  const showDetails = selectedForDetails === applicationId;
+
+  return (
+    <div className={`application-card ${isSelected ? 'selected' : ''}`}>
+      <div className="application-header">
+        <div className="application-info">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onToggleSelection}
+            className="selection-checkbox"
+          />
+          <div className="user-info">
+            <h4>
+              {application.username || 'Unknown User'}
+              <span style={{ fontSize: '0.8em', color: '#666', marginLeft: '10px' }}>
+                #{applicationId}
+              </span>
+            </h4>
+            <p className="user-email">{application.email}</p>
+            <p className="submission-date">
+              Submitted: {
+                application.submittedAt ? new Date(application.submittedAt).toLocaleDateString() : 
+                'Unknown date'
+              }
+            </p>
+            {application.membership_ticket && (
+              <p style={{ margin: '0', color: '#666', fontSize: '0.8em' }}>
+                <strong>Ticket:</strong> 
+                <span style={{ 
+                  fontFamily: 'monospace', 
+                  backgroundColor: '#f0f0f0', 
+                  padding: '2px 6px', 
+                  borderRadius: '3px',
+                  marginLeft: '5px'
+                }}>
+                  {application.membership_ticket}
+                </span>
+              </p>
+            )}
+          </div>
+        </div>
+        
+        <div className="application-status">
+          <span className={`status-badge ${application.status || 'pending'}`}>
+            {(application.status || 'pending').toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      {/* Enhanced application answers display */}
+      <div className="application-answers-section">
+        <h5>📝 Application Responses:</h5>
+        {renderAnswers(application.answers)}
+      </div>
+
+      <div className="application-actions">
+        <button 
+          onClick={() => onToggleDetails(showDetails ? null : applicationId)}
+          className="toggle-details-btn"
+        >
+          {showDetails ? 'Hide Details' : 'Show Details'}
+        </button>
+        
+        {(application.status === 'pending' || !application.status) && (
+          <div className="review-actions">
+            <button 
+              onClick={() => onReview(applicationId, 'approved', reviewNotes)}
+              className="approve-btn"
+              disabled={isReviewing}
+            >
+              {isReviewing ? '⏳ Processing...' : '✅ Approve'}
+            </button>
+            <button 
+              onClick={() => onReview(applicationId, 'declined', reviewNotes)}
+              className="decline-btn"
+              disabled={isReviewing}
+            >
+              {isReviewing ? '⏳ Processing...' : '❌ Decline'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {showDetails && (
+        <div className="application-details">
+          <h5>Full Application Details:</h5>
+          <div className="review-notes-section">
+            <label>Review Notes:</label>
+            <textarea
+              value={reviewNotes}
+              onChange={(e) => setReviewNotes(e.target.value)}
+              placeholder="Add notes for this review..."
+              className="review-notes-input"
+            />
+          </div>
+          <details style={{ marginTop: '15px' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>Raw Application Data</summary>
+            <pre style={{ 
+              whiteSpace: 'pre-wrap', 
+              fontSize: '0.85em',
+              maxHeight: '300px',
+              overflow: 'auto',
+              backgroundColor: '#f8f9fa',
+              padding: '10px',
+              borderRadius: '4px',
+              marginTop: '10px'
+            }}>
+              {JSON.stringify(application, null, 2)}
+            </pre>
+          </details>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default FullMembershipReviewControls;
+
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+// ikootaclient/src/components/admin/Dashboard.jsx
+import KeyStats from './KeyStats';
+import PendingReports from './PendingReports';
+import Analytics from './Analytics';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import api from '../service/api';
+
+// Update your API functions to handle errors better
+const fetchMembershipAnalytics = async (period = '30d') => {
+  try {
+    const { data } = await api.get(`/membership/admin/analytics?period=${period}&detailed=true`);
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch membership analytics:', error);
+    // Return empty structure instead of throwing
+    return {
+      conversionFunnel: {
+        total_registrations: 0,
+        started_application: 0,
+        approved_initial: 0,
+        full_members: 0
+      },
+      timeSeries: []
+    };
+  }
+};
+
+const fetchMembershipStats = async () => {
+  try {
+    const { data } = await api.get('/membership/admin/membership-stats');
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch membership stats:', error);
+    return {
+      stats: {
+        total_users: 0,
+        new_registrations: 0,
+        conversion_to_pre_member: 0,
+        conversion_to_full_member: 0,
+        avg_approval_days: 0
+      }
+    };
+  }
+};
+
+// ✅ ADD: Fetch full membership specific stats
+const fetchFullMembershipStats = async () => {
+  try {
+    const { data } = await api.get('/admin/membership/full-membership-stats');
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch full membership stats:', error);
+    return {
+      pendingCount: 0,
+      approvedCount: 0,
+      declinedCount: 0,
+      totalApplications: 0,
+      avgReviewTime: 0
+    };
+  }
+};
+
+// Update your queries to handle errors better
+const Dashboard = () => {
+  const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
+
+  // Legacy audit logs query with error handling
+  const { data: auditLogs, isLoading: auditLoading, error: auditError } = useQuery({
+    queryKey: ['auditLogs'],
+    queryFn: async () => {
+      try {
+        const { data } = await api.get('/admin/audit-logs');
+        return data;
+      } catch (error) {
+        console.error('Failed to fetch audit logs:', error);
+        return []; // Return empty array instead of throwing
+      }
+    },
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+  });
+
+  // Membership analytics queries with error handling
+  const { data: membershipAnalytics, isLoading: analyticsLoading, error: analyticsError } = useQuery({
+    queryKey: ['membershipAnalytics', analyticsPeriod],
+    queryFn: () => fetchMembershipAnalytics(analyticsPeriod),
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+  });
+
+  const { data: membershipStats, isLoading: statsLoading, error: statsError } = useQuery({
+    queryKey: ['membershipStats'],
+    queryFn: fetchMembershipStats,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+  });
+
+  // ✅ ADD: Full membership stats query
+  const { data: fullMembershipStats, isLoading: fullMembershipLoading, error: fullMembershipError } = useQuery({
+    queryKey: ['fullMembershipStats'],
+    queryFn: fetchFullMembershipStats,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchInterval: 60000 // Refresh every minute
+  });
+
+  // Helper function for safe access
+  const safeAccess = (obj, path, fallback = 0) => {
+    try {
+      return path.split('.').reduce((current, key) => current?.[key], obj) ?? fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  return (
+    <div className="dashboard">
+      <h2>Admin Dashboard</h2>
+      
+      {/* Existing components */}
+      <KeyStats />
+      
+      {/* ✅ ADD: Full Membership Stats Section */}
+      <div className="full-membership-stats-section">
+        <h3>Full Membership Overview</h3>
+        
+        {fullMembershipError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Full membership stats temporarily unavailable.</span>
+          </div>
+        )}
+
+        {fullMembershipLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading full membership stats...</p>
+          </div>
+        ) : (
+          <div className="full-membership-cards">
+            <div className="stat-card pending">
+              <div className="stat-icon">⏳</div>
+              <div className="stat-content">
+                <h4>Pending Full Membership</h4>
+                <span className="stat-number">{fullMembershipStats?.pendingCount || 0}</span>
+                <small>Applications awaiting review</small>
+              </div>
+            </div>
+            
+            <div className="stat-card approved">
+              <div className="stat-icon">✅</div>
+              <div className="stat-content">
+                <h4>Approved This Month</h4>
+                <span className="stat-number">{fullMembershipStats?.approvedCount || 0}</span>
+                <small>New full members</small>
+              </div>
+            </div>
+            
+            <div className="stat-card declined">
+              <div className="stat-icon">❌</div>
+              <div className="stat-content">
+                <h4>Declined This Month</h4>
+                <span className="stat-number">{fullMembershipStats?.declinedCount || 0}</span>
+                <small>Applications declined</small>
+              </div>
+            </div>
+            
+            <div className="stat-card total">
+              <div className="stat-icon">📊</div>
+              <div className="stat-content">
+                <h4>Total Applications</h4>
+                <span className="stat-number">{fullMembershipStats?.totalApplications || 0}</span>
+                <small>All time applications</small>
+              </div>
+            </div>
+            
+            <div className="stat-card review-time">
+              <div className="stat-icon">⏱️</div>
+              <div className="stat-content">
+                <h4>Avg Review Time</h4>
+                <span className="stat-number">{(fullMembershipStats?.avgReviewTime || 0).toFixed(1)}</span>
+                <small>Days to review</small>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Quick Actions */}
+        <div className="quick-actions">
+          <h4>Quick Actions</h4>
+          <div className="action-buttons">
+            <a href="/admin/full-membership-review" className="action-btn primary">
+              🎓 Review Applications ({fullMembershipStats?.pendingCount || 0})
+            </a>
+            <a href="/admin/usermanagement" className="action-btn secondary">
+              👥 Manage Users
+            </a>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="action-btn tertiary"
+            >
+              🔄 Refresh Stats
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced Membership Analytics Section with Error Handling */}
+      <div className="membership-analytics-section">
+        <h3>Membership Analytics</h3>
+        
+        <div className="period-selector">
+          <label>Time Period:</label>
+          <select 
+            value={analyticsPeriod} 
+            onChange={(e) => setAnalyticsPeriod(e.target.value)}
+          >
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="90d">Last 90 Days</option>
+            <option value="1y">Last Year</option>
+          </select>
+        </div>
+
+        {/* Error States */}
+        {analyticsError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Analytics temporarily unavailable. Some features may be limited.</span>
+          </div>
+        )}
+
+        {analyticsLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading analytics...</p>
+          </div>
+        ) : (
+          <div className="analytics-grid">
+            {/* Safe Conversion Funnel */}
+            <div className="funnel-chart">
+              <h4>Membership Conversion Funnel</h4>
+              <div className="funnel-steps">
+                <div className="funnel-step">
+                  <span className="step-label">Total Registrations</span>
+                  <span className="step-value">
+                    {safeAccess(membershipAnalytics, 'conversionFunnel.total_registrations')}
+                  </span>
+                </div>
+                <div className="funnel-step">
+                  <span className="step-label">Started Application</span>
+                  <span className="step-value">
+                    {safeAccess(membershipAnalytics, 'conversionFunnel.started_application')}
+                  </span>
+                  <span className="step-percentage">
+                    {membershipAnalytics?.conversionFunnel?.total_registrations > 0 
+                      ? ((safeAccess(membershipAnalytics, 'conversionFunnel.started_application') / 
+                          safeAccess(membershipAnalytics, 'conversionFunnel.total_registrations')) * 100).toFixed(1)
+                      : 0}%
+                  </span>
+                </div>
+                <div className="funnel-step">
+                  <span className="step-label">Approved Initial</span>
+                  <span className="step-value">
+                    {safeAccess(membershipAnalytics, 'conversionFunnel.approved_initial')}
+                  </span>
+                  <span className="step-percentage">
+                    {membershipAnalytics?.conversionFunnel?.started_application > 0 
+                      ? ((safeAccess(membershipAnalytics, 'conversionFunnel.approved_initial') / 
+                          safeAccess(membershipAnalytics, 'conversionFunnel.started_application')) * 100).toFixed(1)
+                      : 0}%
+                  </span>
+                </div>
+                <div className="funnel-step">
+                  <span className="step-label">Full Members</span>
+                  <span className="step-value">
+                    {safeAccess(membershipAnalytics, 'conversionFunnel.full_members')}
+                  </span>
+                  <span className="step-percentage">
+                    {membershipAnalytics?.conversionFunnel?.approved_initial > 0 
+                      ? ((safeAccess(membershipAnalytics, 'conversionFunnel.full_members') / 
+                          safeAccess(membershipAnalytics, 'conversionFunnel.approved_initial')) * 100).toFixed(1)
+                      : 0}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Safe Time Series Chart */}
+            <div className="time-series-chart">
+              <h4>Registration & Approval Trends</h4>
+              <div className="chart-container">
+                <div className="simple-chart">
+                  {membershipAnalytics?.timeSeries?.length > 0 ? (
+                    membershipAnalytics.timeSeries.map((point, index) => (
+                      <div key={index} className="chart-point">
+                        <span>{new Date(point.date).toLocaleDateString()}</span>
+                        <span>Registrations: {point.registrations || 0}</span>
+                        <span>Approvals: {point.approvals || 0}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="no-data">No trend data available</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Safe Membership Stats Overview */}
+        {statsError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Stats temporarily unavailable.</span>
+          </div>
+        )}
+
+        {statsLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading stats...</p>
+          </div>
+        ) : (
+          <div className="membership-stats">
+            <h4>Current Status Distribution</h4>
+            <div className="stats-breakdown">
+              <div className="stat-item">
+                <span>Total Users:</span>
+                <span>{safeAccess(membershipStats, 'stats.total_users')}</span>
+              </div>
+              <div className="stat-item">
+                <span>New Registrations ({analyticsPeriod}):</span>
+                <span>{safeAccess(membershipStats, 'stats.new_registrations')}</span>
+              </div>
+              <div className="stat-item">
+                <span>Pre-Members:</span>
+                <span>{safeAccess(membershipStats, 'stats.conversion_to_pre_member')}</span>
+              </div>
+              <div className="stat-item">
+                <span>Full Members:</span>
+                <span>{safeAccess(membershipStats, 'stats.conversion_to_full_member')}</span>
+              </div>
+              <div className="stat-item">
+                <span>Avg. Approval Time:</span>
+                <span>{safeAccess(membershipStats, 'stats.avg_approval_days', 0).toFixed(1)} days</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Existing components */}
+      <Analytics />
+      <PendingReports />
+
+      {/* Safe Audit Logs */}
+      <div className="audit-logs-section">
+        <h3>Audit Logs</h3>
+        
+        {auditError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Audit logs temporarily unavailable.</span>
+          </div>
+        )}
+
+        {auditLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading audit logs...</p>
+          </div>
+        ) : (
+          <div className="audit-table-container">
+            {auditLogs?.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Details</th>
+                    <th>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.map(log => (
+                    <tr key={log.id}>
+                      <td>{log.action || 'N/A'}</td>
+                      <td>{log.target_id || 'N/A'}</td>
+                      <td>{log.details || 'N/A'}</td>
+                      <td>{log.updatedAt ? new Date(log.updatedAt).toLocaleString() : 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="no-data">No audit logs available</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
+
+
+
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+
+
+// ikootaclient/src/components/admin/AudienceClassMgr.jsx
+// Updated for 10-character format (OTU#XXXXXX)
+
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../service/api';
+import './audienceclassmgr.css';
+import { generateUniqueClassId, validateIdFormat } from '../service/idGenerationService';
+import './converseId.css';
+
+
+const AudienceClassMgr = () => {
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    class_id: '',
+    name: '',
+    description: '',
+  });
+
+  const { data: classes, isLoading, isError } = useQuery({
+    queryKey: ['classes'],
+    queryFn: async () => {
+      const { data } = await api.get('/classes');
+      return data;
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (classData) => {
+      // Validate ID format before sending
+      if (!validateIdFormat(classData.class_id, 'class')) {
+        throw new Error('Invalid class ID format. Must be OTU# followed by 6 alphanumeric characters.');
+      }
+      
+      if (classData.id) {
+        return await api.put(`/classes/${classData.id}`, classData);
+      } else {
+        return await api.post('/classes', classData);
+      }
+    },
+    onSuccess: () => {
+      alert('Class saved successfully!');
+      queryClient.invalidateQueries(['classes']);
+      setFormData({ class_id: '', name: '', description: '' });
+    },
+    onError: (error) => {
+      alert(`Failed to save the class: ${error.message}`);
+    },
+  });
+
+  const handleGenerateNewClassId = async () => {
+    try {
+      const newId = await generateUniqueClassId();
+      setFormData((prev) => ({ ...prev, class_id: newId }));
+    } catch (error) {
+      console.error('Failed to generate class ID:', error);
+      alert('Failed to generate unique class ID. Please try again.');
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    mutation.mutate(formData);
+  };
+
+  return (
+    <div className="audience-class-mgr-container">
+      <h2>Manage Classes</h2>
+      
+      <form onSubmit={handleSubmit} className="audience-class-form">
+        <label>
+          Class ID:
+          <input
+            type="text"
+            name="class_id"
+            value={formData.class_id}
+            onChange={handleInputChange}
+            placeholder="OTU#XXXXXX (10 characters)"
+            pattern="^OTU#[A-Z0-9]{6}$"
+            title="Class ID must be OTU# followed by 6 alphanumeric characters (total 10 characters)"
+            maxLength="10"
+            readOnly
+          />
+          <button type="button" onClick={handleGenerateNewClassId}>
+            Generate Class ID
+          </button>
+          {formData.class_id && (
+            <span className={validateIdFormat(formData.class_id, 'class') ? 'valid' : 'invalid'}>
+              {validateIdFormat(formData.class_id, 'class') ? '✓ Valid format (OTU#XXXXXX)' : '✗ Invalid format'}
+            </span>
+          )}
+        </label>
+        
+        <label>
+          Class Name:
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleInputChange}
+            placeholder="Enter class name"
+            required
+          />
+        </label>
+        
+        <label>
+          Description:
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleInputChange}
+            placeholder="Enter class description"
+          />
+        </label>
+        
+        <button type="submit" disabled={mutation.isLoading}>
+          {mutation.isLoading ? 'Saving...' : 'Save Class'}
+        </button>
+      </form>
+
+      <div className="class-list">
+        <h3>Existing Classes</h3>
+        {isLoading && <p>Loading classes...</p>}
+        {isError && <p>Error loading classes.</p>}
+        <ul>
+          {classes?.map((cls) => (
+            <li key={cls.class_id}>
+              <strong>{cls.name}</strong> ({cls.class_id}) - {cls.description}
+              <div className="id-info">
+                <small>Format: {cls.class_id.length === 10 ? '✓ 10 chars' : '✗ Invalid length'}</small>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+};
+
+export default AudienceClassMgr;
+
+
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+

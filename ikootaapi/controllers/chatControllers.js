@@ -1,4 +1,4 @@
-// ikootaapi/controllers/chatsControllers.js
+// ikootaapi/controllers/chatControllers.js
 import {
   getAllChats,
   getChatsByUserId,

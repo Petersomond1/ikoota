@@ -229,7 +229,64 @@ export const generateMultipleUniqueIds = async (type, count) => {
     return ids;
 };
 
+// ID generation and validation utilities
 
+/**
+ * Validate ID format
+ */
+// export const validateIdFormat = (id, type) => {
+//   if (!id || typeof id !== 'string') return false;
+  
+//   switch (type) {
+//     case 'class':
+//       return /^OTU#[A-Z0-9]{6}$/.test(id) || id === 'OTU#Public';
+      
+//     case 'user':
+//       return /^OTO#[A-Z0-9]{6}$/.test(id);
+      
+//     case 'content':
+//       return /^[tc][0-9]+$/.test(id); // t123 for teaching, c123 for chat
+      
+//     default:
+//       return false;
+//   }
+// };
+
+/**
+ * Generate random ID
+ */
+// export const generateRandomId = (length = 6) => {
+//   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+//   let result = '';
+  
+//   for (let i = 0; i < length; i++) {
+//     result += chars.charAt(Math.floor(Math.random() * chars.length));
+//   }
+  
+//   return result;
+// };
+
+/**
+ * Generate class ID
+ */
+export const generateClassId = () => {
+  return `OTU#${generateRandomId(6)}`;
+};
+
+/**
+ * Generate user ID  
+ */
+export const generateUserId = () => {
+  return `OTO#${generateRandomId(6)}`;
+};
+
+/**
+ * Generate prefixed content ID
+ */
+export const generateContentId = (type, numericId) => {
+  const prefix = type === 'teaching' ? 't' : 'c';
+  return `${prefix}${numericId}`;
+};
 
 
 //new file below but incomplete

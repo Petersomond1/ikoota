@@ -26,7 +26,7 @@ const FullMembershipInfo = () => {
 
   const checkMembershipEligibility = async () => {
     try {
-      const response = await api.get('/membership/full-membership-status');
+      const response = await api.get('/api/membership/full-membership/status');
       const { hasAccessed, hasSubmitted, status, isPreMember } = response.data;
       
       if (!isPreMember) {
@@ -41,7 +41,7 @@ const FullMembershipInfo = () => {
 
       // Log first-time access
       if (!hasAccessed) {
-        await api.post('/membership/log-full-membership-access');
+        await api.post('/api/membership/full-membership/log-access');
       }
     } catch (error) {
       console.error('Error checking membership status:', error);

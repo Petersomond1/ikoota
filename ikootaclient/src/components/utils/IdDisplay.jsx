@@ -26,7 +26,7 @@ export const EntityIdDisplay = ({ id, entityName }) => {
 export const useBulkIdOperations = () => {
   const handleBulkIdGeneration = async (count, type) => {
     try {
-      const response = await api.post('/admin/generate-bulk-ids', {
+      const response = await api.post('/admin/identity/generate-bulk-ids', {
         count,
         type
       });

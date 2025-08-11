@@ -28,7 +28,7 @@ import {
 
 const fetchMembershipOverview = async () => {
   try {
-    const { data } = await api.get('/membership/admin/membership-overview');
+    const { data } = await api.get('/admin/membership/overview');
     return data?.overview || {};
   } catch (error) {
     console.error('❌ Error fetching membership overview:', error);
@@ -47,7 +47,8 @@ const fetchMembershipOverview = async () => {
 const fetchPendingApplications = async (filters = {}) => {
   try {
     const params = new URLSearchParams(filters);
-    const { data } = await api.get(`/membership/admin/pending-applications?${params}`);
+    //  const { data } = await api.get(`/membership/admin/pending-applications?${params}`);
+    const { data } = await api.get(`/admin/membership/applications?${params}`);
     return data || { applications: [], pagination: { total: 0, page: 1, totalPages: 1 } };
   } catch (error) {
     console.error('❌ Error fetching pending applications:', error);
@@ -57,7 +58,7 @@ const fetchPendingApplications = async (filters = {}) => {
 
 
 const bulkApproveApplications = async ({ userIds, action, adminNotes }) => {
-  const { data } = await api.post('/membership/admin/bulk-approve', {
+  const { data } = await api.post('/admin/membership/applications/bulk-review', {
     userIds,
     action,
     adminNotes
@@ -66,7 +67,7 @@ const bulkApproveApplications = async ({ userIds, action, adminNotes }) => {
 };
 // THis fxn also exist at membershipcontroller.js
 const updateApplicationStatus = async ({ userId, status, adminNotes }) => {
-  const { data } = await api.put(`/membership/admin/update-user-status/${userId}`, {
+  const { data } = await api.put(`/admin/membership/applications/${userId}/review`, {
     status,
     adminNotes
   });
@@ -103,7 +104,7 @@ const updateApplicationStatus = async ({ userId, status, adminNotes }) => {
 
 const fetchUsers = async () => {
   try {
-    const { data } = await api.get('/admin/users');
+    const { data } = await api.get('/admin/users/');
     console.log('👤 Users API Response:', data);
     
     // Handle different response formats safely
@@ -133,7 +134,7 @@ const fetchUsers = async () => {
 
 const fetchClasses = async () => {
   try {
-    const { data } = await api.get('/classes');
+    const { data } = await api.get('/classes/');
     return Array.isArray(data?.classes) ? data.classes : [];
   } catch (error) {
     console.error('❌ Error fetching classes:', error);
@@ -149,7 +150,7 @@ const fetchClasses = async () => {
 
 const fetchMentors = async () => {
   try {
-    const { data } = await api.get('/admin/mentors');
+    const { data } = await api.get('/admin/users/mentors');
     return Array.isArray(data?.mentors) ? data.mentors : [];
   } catch (error) {
     console.error('❌ Error fetching mentors:', error);
@@ -165,7 +166,7 @@ const fetchMentors = async () => {
 
 const fetchReports = async () => {
   try {
-    const { data } = await api.get('/admin/reports');
+    const { data } = await api.get('/content/admin/reports');
     console.log('📊 Reports API Response:', data);
     
     // Handle different response formats safely
@@ -189,12 +190,12 @@ const fetchReports = async () => {
 };
 
 const updateUser = async ({ id, formData }) => {
-  const { data } = await api.put(`/admin/update-user/${id}`, formData);
+  const { data } = await api.put(`/admin/users/${id}`, formData);
   return data;
 };
 
 const maskUserIdentity = async ({ userId, adminConverseId, mentorConverseId, classId }) => {
-  const { data } = await api.post('/admin/mask-identity', {
+  const { data } = await api.post('/admin/identity/mask-identity', {
     userId,
     adminConverseId,
     mentorConverseId,
@@ -204,17 +205,17 @@ const maskUserIdentity = async ({ userId, adminConverseId, mentorConverseId, cla
 };
 
 const deleteUser = async (userId) => {
-  const { data } = await api.delete(`/admin/delete-user/${userId}`);
+  const { data } = await api.delete(`/admin/users/${userId}`);
   return data;
 };
 
 const createUser = async (userData) => {
-  const { data } = await api.post('/admin/create-user', userData);
+  const { data } = await api.post('/admin/users/create', userData);
   return data;
 };
 
 const sendNotification = async ({ userId, message, type }) => {
-  const { data } = await api.post('/admin/send-notification', {
+  const { data } = await api.post('/communication/notification', {
     userId,
     message,
     type
@@ -223,7 +224,7 @@ const sendNotification = async ({ userId, message, type }) => {
 };
 
 const updateReportStatus = async ({ reportId, status, adminNotes }) => {
-  const { data } = await api.put(`/admin/update-report/${reportId}`, {
+  const { data } = await api.put(`/content/admin/reports/${reportId}/status`, {
     status,
     adminNotes
   });
@@ -232,7 +233,7 @@ const updateReportStatus = async ({ reportId, status, adminNotes }) => {
 
 const exportUserData = async (filters = {}) => {
   const params = new URLSearchParams(filters);
-  const { data } = await api.get(`/admin/export-users?${params}`);
+  const { data } = await api.get(`/admin/users/export?${params}`);
   return data;
 };
 

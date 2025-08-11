@@ -217,7 +217,7 @@ const Login = () => {
       }
 
       // Check survey status via API for edge cases
-      const response = await axios.get('http://localhost:3000/api/membership/survey/check-status', {
+      const response = await axios.get('http://localhost:3000/api/user-status/survey/check-status', {
         headers: { 'Authorization': `Bearer ${token}` },
         timeout: 5000
       });

@@ -10,7 +10,7 @@ export const useFetchTeachings = () => {
       try {
         console.log('🚀 Fetching teachings...');
         
-        const response = await api.get('/teachings');
+      const response = await api.get('/content/teachings');
         
         // Debug the response
         debugApiResponse(response, '/teachings');

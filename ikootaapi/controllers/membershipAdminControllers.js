@@ -7,15 +7,14 @@
 
 import db from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
-import { membershipService } from '../services/membershipServices.js';
+import membershipServices, { membershipService, validateApplicationData } from '../services/membershipServices.js';
 import { membershipAdminService } from '../services/membershipAdminServices.js';
 import {
   getUserById,
   successResponse,
   errorResponse,
-  executeQuery,
-  validateApplicationData,
-  sendMembershipEmail
+  executeQuery
+  // sendMembershipEmail
 } from './membershipCore.js';
 
 // =============================================================================
@@ -729,6 +728,190 @@ export const bulkReviewFullMemberships = async (req, res) => {
   }
 };
 
+
+
+// Missing functions required by membershipAdminRoutes.js
+
+export const getAllPendingMembershipApplications = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status = 'pending', applicationType = 'initial_application' } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    const [applications] = await db.query(`
+      SELECT 
+        sl.id as application_id,
+        sl.user_id,
+        sl.answers,
+        sl.createdAt as submitted_at,
+        sl.approval_status,
+        sl.admin_notes,
+        sl.application_ticket,
+        u.username,
+        u.email,
+        u.membership_stage,
+        u.is_member
+      FROM surveylog sl
+      JOIN users u ON CAST(sl.user_id AS UNSIGNED) = u.id
+      WHERE sl.approval_status = ? AND sl.application_type = ?
+      ORDER BY sl.createdAt DESC
+      LIMIT ? OFFSET ?
+    `, [status, applicationType, parseInt(limit), offset]);
+
+    const [countResult] = await db.query(`
+      SELECT COUNT(*) as total
+      FROM surveylog sl
+      WHERE sl.approval_status = ? AND sl.application_type = ?
+    `, [status, applicationType]);
+
+    return successResponse(res, {
+      applications: applications.map(app => ({
+        ...app,
+        answers: app.answers ? JSON.parse(app.answers) : null
+      })),
+      pagination: {
+        current_page: parseInt(page),
+        total_pages: Math.ceil(countResult[0].total / parseInt(limit)),
+        total_items: countResult[0].total
+      }
+    });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+};
+
+export const reviewMembershipApplication = async (req, res) => {
+  try {
+    const { id: applicationId } = req.params;
+    const { status, decision, adminNotes, sendNotification = true } = req.body;
+    const adminId = req.user.id;
+    const reviewDecision = status || decision;
+
+    if (!['approved', 'declined', 'rejected'].includes(reviewDecision)) {
+      throw new CustomError('Invalid review decision', 400);
+    }
+
+    const [applications] = await db.query(`
+      SELECT sl.*, u.username, u.email
+      FROM surveylog sl
+      JOIN users u ON CAST(sl.user_id AS UNSIGNED) = u.id
+      WHERE sl.id = ?
+    `, [applicationId]);
+
+    if (!applications.length) {
+      throw new CustomError('Application not found', 404);
+    }
+
+    const application = applications[0];
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      await connection.execute(`
+        UPDATE surveylog 
+        SET approval_status = ?, reviewed_by = ?, reviewedAt = NOW(), admin_notes = ?
+        WHERE id = ?
+      `, [reviewDecision, adminId, adminNotes, applicationId]);
+
+      let newStage = application.membership_stage;
+      let newStatus = application.is_member;
+
+      if (application.application_type === 'initial_application') {
+        if (reviewDecision === 'approved') {
+          newStage = 'pre_member';
+          newStatus = 'pre_member';
+        } else {
+          newStage = 'applicant';
+          newStatus = 'rejected';
+        }
+      }
+
+      await connection.execute(`
+        UPDATE users 
+        SET membership_stage = ?, is_member = ?, applicationReviewedAt = NOW()
+        WHERE id = ?
+      `, [newStage, newStatus, application.user_id]);
+
+      await connection.commit();
+      connection.release();
+
+      return successResponse(res, {
+        application_id: applicationId,
+        decision: reviewDecision,
+        reviewed_at: new Date().toISOString()
+      });
+    } catch (error) {
+      await connection.rollback();
+      connection.release();
+      throw error;
+    }
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+};
+
+export const getApplicationStats = async (req, res) => {
+  try {
+    const { period = '30d' } = req.query;
+    let days = 30;
+    switch (period) {
+      case '7d': days = 7; break;
+      case '90d': days = 90; break;
+      case '1y': days = 365; break;
+    }
+
+    const [stats] = await db.query(`
+      SELECT 
+        COUNT(*) as total_applications,
+        COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_count,
+        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_count,
+        COUNT(CASE WHEN approval_status IN ('declined', 'rejected') THEN 1 END) as declined_count,
+        AVG(CASE WHEN reviewedAt IS NOT NULL THEN DATEDIFF(reviewedAt, createdAt) END) as avg_processing_days
+      FROM surveylog
+      WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
+    `, [days]);
+
+    return successResponse(res, {
+      period,
+      stats: stats[0],
+      generated_at: new Date().toISOString()
+    });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+};
+
+export const getMembershipOverview = async (req, res) => {
+  try {
+    const [overview] = await db.query(`
+      SELECT 
+        COUNT(CASE WHEN membership_stage = 'none' OR membership_stage IS NULL THEN 1 END) as new_users,
+        COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END) as pre_members,
+        COUNT(CASE WHEN membership_stage = 'member' THEN 1 END) as full_members,
+        (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'pending') as pending_applications
+      FROM users
+      WHERE role = 'user' OR role IS NULL
+    `);
+
+    const [recentActivity] = await db.query(`
+      SELECT 
+        DATE(createdAt) as date,
+        COUNT(*) as applications
+      FROM surveylog
+      WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+      GROUP BY DATE(createdAt)
+      ORDER BY date DESC
+    `);
+
+    return successResponse(res, {
+      overview: overview[0],
+      recent_activity: recentActivity,
+      generated_at: new Date().toISOString()
+    });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+};
+
 // =============================================================================
 // ADMIN RESOURCES & UTILITIES
 // =============================================================================
@@ -1156,6 +1339,192 @@ export const deleteUserAccount = async (req, res) => {
     return errorResponse(res, error, error.statusCode || 500);
   }
 };
+
+
+/**
+ * Helper function to validate email format
+ */
+const isValidEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+/**
+ * Helper function to get default system configuration
+ */
+const getDefaultSystemConfig = () => {
+  return {
+    membership_settings: {
+      auto_approve_applications: false,
+      require_mentor_assignment: true,
+      max_applications_per_day: 50,
+      review_timeout_days: 7
+    },
+    notification_settings: {
+      email_notifications_enabled: true,
+      sms_notifications_enabled: false,
+      admin_notification_emails: ['admin@ikootaapi.com']
+    },
+    system_limits: {
+      max_bulk_operations: 100,
+      max_export_records: 10000,
+      session_timeout_minutes: 120
+    },
+    feature_flags: {
+      advanced_analytics: true,
+      auto_mentor_assignment: true,
+      bulk_operations: true,
+      data_export: true
+    }
+  };
+};
+
+
+/**
+ * Update system configuration (Super Admin only)
+ * PUT /admin/config
+ */
+export const updateSystemConfig = async (req, res) => {
+  try {
+    // Only super admins can update system configuration
+    if (req.user.role !== 'super_admin') {
+      throw new CustomError('Super admin privileges required to update system configuration', 403);
+    }
+
+    const {
+      membership_settings,
+      notification_settings,
+      system_limits,
+      feature_flags
+    } = req.body;
+
+    const adminId = req.user.id;
+    const adminUsername = req.user.username;
+
+    console.log('🔧 Updating system configuration by:', adminUsername);
+
+    // Validate the configuration structure
+    const validatedConfig = {};
+
+    // Validate membership settings
+    if (membership_settings) {
+      validatedConfig.membership_settings = {
+        auto_approve_applications: Boolean(membership_settings.auto_approve_applications),
+        require_mentor_assignment: Boolean(membership_settings.require_mentor_assignment),
+        max_applications_per_day: Math.max(1, Math.min(200, parseInt(membership_settings.max_applications_per_day) || 50)),
+        review_timeout_days: Math.max(1, Math.min(30, parseInt(membership_settings.review_timeout_days) || 7))
+      };
+    }
+
+    // Validate notification settings
+    if (notification_settings) {
+      validatedConfig.notification_settings = {
+        email_notifications_enabled: Boolean(notification_settings.email_notifications_enabled),
+        sms_notifications_enabled: Boolean(notification_settings.sms_notifications_enabled),
+        admin_notification_emails: Array.isArray(notification_settings.admin_notification_emails) ? 
+          notification_settings.admin_notification_emails.filter(email => 
+            typeof email === 'string' && email.includes('@')
+          ) : ['admin@ikootaapi.com']
+      };
+    }
+
+    // Validate system limits
+    if (system_limits) {
+      validatedConfig.system_limits = {
+        max_bulk_operations: Math.max(10, Math.min(500, parseInt(system_limits.max_bulk_operations) || 100)),
+        max_export_records: Math.max(100, Math.min(100000, parseInt(system_limits.max_export_records) || 10000)),
+        session_timeout_minutes: Math.max(30, Math.min(480, parseInt(system_limits.session_timeout_minutes) || 120))
+      };
+    }
+
+    // Validate feature flags
+    if (feature_flags) {
+      validatedConfig.feature_flags = {
+        advanced_analytics: Boolean(feature_flags.advanced_analytics),
+        auto_mentor_assignment: Boolean(feature_flags.auto_mentor_assignment),
+        bulk_operations: Boolean(feature_flags.bulk_operations),
+        data_export: Boolean(feature_flags.data_export)
+      };
+    }
+
+    // Start database transaction
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Get current configuration
+      const [currentConfig] = await connection.query(`
+        SELECT config_data FROM system_configuration 
+        WHERE config_key = 'membership_system' 
+        LIMIT 1
+      `);
+
+      let existingConfig = {};
+      if (currentConfig.length > 0) {
+        try {
+          existingConfig = JSON.parse(currentConfig[0].config_data);
+        } catch (parseError) {
+          console.warn('Failed to parse existing config, using defaults');
+        }
+      }
+
+      // Merge with existing configuration
+      const updatedConfig = {
+        ...existingConfig,
+        ...validatedConfig,
+        last_updated: new Date().toISOString(),
+        updated_by: adminUsername
+      };
+
+      // Update or insert configuration
+      await connection.query(`
+        INSERT INTO system_configuration (config_key, config_data, updated_by, updatedAt)
+        VALUES ('membership_system', ?, ?, NOW())
+        ON DUPLICATE KEY UPDATE 
+          config_data = VALUES(config_data),
+          updated_by = VALUES(updated_by),
+          updatedAt = VALUES(updatedAt)
+      `, [JSON.stringify(updatedConfig), adminId]);
+
+      // Log the configuration change
+      await connection.execute(`
+        INSERT INTO audit_logs (user_id, action, details, createdAt)
+        VALUES (?, 'system_config_updated', ?, NOW())
+      `, [adminId, JSON.stringify({
+        updated_sections: Object.keys(validatedConfig),
+        updated_by: adminUsername,
+        timestamp: new Date().toISOString(),
+        changes: validatedConfig
+      })]);
+
+      await connection.commit();
+      connection.release();
+
+      return successResponse(res, {
+        updated_configuration: updatedConfig,
+        updated_sections: Object.keys(validatedConfig),
+        updated_by: adminUsername,
+        updated_at: new Date().toISOString(),
+        validation_notes: [
+          'All numeric values have been validated and constrained to safe ranges',
+          'Email addresses have been validated for basic format',
+          'Boolean values have been normalized',
+          'Configuration changes are logged for audit purposes'
+        ]
+      }, 'System configuration updated successfully');
+
+    } catch (error) {
+      await connection.rollback();
+      connection.release();
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('❌ Error updating system configuration:', error);
+    return errorResponse(res, error, error.statusCode || 500);
+  }
+};
+
 
 // =============================================================================
 // SYSTEM STATUS & MONITORING
@@ -1620,6 +1989,152 @@ function convertToCSV(data) {
   return csvContent;
 }
 
+
+
+/**
+ * Get full membership statistics
+ * GET /admin/full-membership-stats
+ */
+export const getFullMembershipStats = async (req, res) => {
+  try {
+    const { period = '30d' } = req.query;
+    
+    console.log('📊 Getting full membership statistics for period:', period);
+    
+    // Determine date filter
+    let days = 30;
+    switch (period) {
+      case '7d': days = 7; break;
+      case '30d': days = 30; break;
+      case '90d': days = 90; break;
+      case '1y': days = 365; break;
+      default: days = 30;
+    }
+
+    // Get full membership application statistics
+    const [fullMembershipStats] = await db.query(`
+      SELECT 
+        COUNT(*) as total_full_applications,
+        COUNT(CASE WHEN fma.status = 'pending' THEN 1 END) as pending_full_applications,
+        COUNT(CASE WHEN fma.status = 'approved' THEN 1 END) as approved_full_applications,
+        COUNT(CASE WHEN fma.status IN ('declined', 'rejected') THEN 1 END) as declined_full_applications,
+        COUNT(CASE WHEN fma.submittedAt >= DATE_SUB(NOW(), INTERVAL ? DAY) THEN 1 END) as new_full_applications_period,
+        AVG(CASE WHEN fma.reviewedAt IS NOT NULL THEN DATEDIFF(fma.reviewedAt, fma.submittedAt) END) as avg_full_processing_days,
+        COUNT(CASE WHEN fma.status = 'pending' AND fma.submittedAt < DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as overdue_full_applications
+      FROM full_membership_applications fma
+      WHERE fma.submittedAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
+    `, [days, days]);
+
+    // Get full member user statistics
+    const [fullMemberUserStats] = await db.query(`
+      SELECT 
+        COUNT(CASE WHEN u.membership_stage = 'member' THEN 1 END) as total_full_members,
+        COUNT(CASE WHEN u.membership_stage = 'member' AND u.createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY) THEN 1 END) as new_full_members_period,
+        COUNT(CASE WHEN u.membership_stage = 'member' AND u.last_login >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_full_members_7d,
+        COUNT(CASE WHEN u.membership_stage = 'member' AND u.last_login >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as active_full_members_30d
+      FROM users u
+      WHERE u.role = 'user' OR u.role IS NULL
+    `, [days]);
+
+    // Get conversion rates
+    const [conversionRates] = await db.query(`
+      SELECT 
+        total_pre_members.count as total_pre_members,
+        applied_full.count as applied_for_full,
+        approved_full.count as approved_full_members,
+        ROUND(applied_full.count * 100.0 / NULLIF(total_pre_members.count, 0), 2) as full_application_rate,
+        ROUND(approved_full.count * 100.0 / NULLIF(applied_full.count, 0), 2) as full_approval_rate,
+        ROUND(approved_full.count * 100.0 / NULLIF(total_pre_members.count, 0), 2) as pre_to_full_conversion_rate
+      FROM
+        (SELECT COUNT(*) as count FROM users WHERE membership_stage = 'pre_member') total_pre_members,
+        (SELECT COUNT(DISTINCT user_id) as count FROM full_membership_applications) applied_full,
+        (SELECT COUNT(*) as count FROM users WHERE membership_stage = 'member') approved_full
+    `);
+
+    // Get processing performance by reviewer
+    const [reviewerPerformance] = await db.query(`
+      SELECT 
+        reviewer.username as reviewer_name,
+        reviewer.role as reviewer_role,
+        COUNT(*) as full_reviews_completed,
+        COUNT(CASE WHEN fma.status = 'approved' THEN 1 END) as full_approvals,
+        COUNT(CASE WHEN fma.status IN ('declined', 'rejected') THEN 1 END) as full_declines,
+        AVG(DATEDIFF(fma.reviewedAt, fma.submittedAt)) as avg_full_review_time_days,
+        MAX(fma.reviewedAt) as last_full_review_date
+      FROM full_membership_applications fma
+      JOIN users reviewer ON fma.reviewed_by = reviewer.id
+      WHERE fma.reviewedAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        AND fma.reviewed_by IS NOT NULL
+      GROUP BY reviewer.id, reviewer.username, reviewer.role
+      ORDER BY full_reviews_completed DESC
+    `, [days]);
+
+    // Get recent activity timeline
+    const [recentActivity] = await db.query(`
+      SELECT 
+        DATE(fma.submittedAt) as date,
+        COUNT(*) as submissions,
+        COUNT(CASE WHEN fma.reviewedAt IS NOT NULL THEN 1 END) as reviews_completed,
+        COUNT(CASE WHEN fma.status = 'approved' THEN 1 END) as approvals,
+        COUNT(CASE WHEN fma.status IN ('declined', 'rejected') THEN 1 END) as declines
+      FROM full_membership_applications fma
+      WHERE fma.submittedAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
+      GROUP BY DATE(fma.submittedAt)
+      ORDER BY date DESC
+      LIMIT 30
+    `, [days]);
+
+    // Get access statistics for full members
+    const [accessStats] = await db.query(`
+      SELECT 
+        COUNT(DISTINCT fma.user_id) as total_with_access,
+        COUNT(CASE WHEN fma.last_accessedAt >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as accessed_last_7d,
+        COUNT(CASE WHEN fma.last_accessedAt >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as accessed_last_30d,
+        AVG(fma.access_count) as avg_access_count,
+        MAX(fma.access_count) as max_access_count,
+        COUNT(CASE WHEN fma.access_count = 0 THEN 1 END) as never_accessed
+      FROM full_membership_access fma
+      JOIN users u ON fma.user_id = u.id
+      WHERE u.membership_stage = 'member'
+    `);
+
+    // Calculate engagement metrics
+    const fullMemberStats = fullMemberUserStats[0];
+    const accessMetrics = accessStats[0];
+    
+    const engagementRate = fullMemberStats.total_full_members > 0 ? 
+      Math.round((accessMetrics.accessed_last_30d / fullMemberStats.total_full_members) * 100) : 0;
+
+    return successResponse(res, {
+      period: period,
+      full_membership_applications: fullMembershipStats[0],
+      full_member_users: fullMemberStats,
+      conversion_rates: conversionRates[0],
+      reviewer_performance: reviewerPerformance,
+      recent_activity: recentActivity,
+      access_statistics: accessMetrics,
+      engagement_metrics: {
+        engagement_rate_30d: engagementRate,
+        active_rate_7d: fullMemberStats.total_full_members > 0 ? 
+          Math.round((fullMemberStats.active_full_members_7d / fullMemberStats.total_full_members) * 100) : 0,
+        never_accessed_count: accessMetrics.never_accessed || 0
+      },
+      summary: {
+        total_full_members: fullMemberStats.total_full_members,
+        pending_applications: fullMembershipStats[0].pending_full_applications,
+        overdue_applications: fullMembershipStats[0].overdue_full_applications,
+        avg_processing_time: Math.round(fullMembershipStats[0].avg_full_processing_days || 0),
+        conversion_rate: conversionRates[0].pre_to_full_conversion_rate
+      },
+      generated_at: new Date().toISOString()
+    }, 'Full membership statistics generated successfully');
+
+  } catch (error) {
+    console.error('❌ Error getting full membership statistics:', error);
+    return errorResponse(res, error, error.statusCode || 500);
+  }
+};
+
 // =============================================================================
 // EXPORT ALL FUNCTIONS
 // =============================================================================
@@ -1635,7 +2150,7 @@ export default {
   getPendingFullMemberships,
   reviewFullMembershipApplication,
   bulkReviewFullMemberships,
-  
+  getFullMembershipStats,
   // Admin Resources
   getAvailableMentors,
   getAvailableClasses,
@@ -1655,6 +2170,7 @@ export default {
   
   // System & Configuration
   getSystemConfig,
+  updateSystemConfig,
   healthCheck,
   getSystemHealth,
   

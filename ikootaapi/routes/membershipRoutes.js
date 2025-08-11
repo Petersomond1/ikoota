@@ -1,5 +1,5 @@
 // ikootaapi/routes/membershipRoutes.js
-// GENERAL MEMBERSHIP OPERATIONS
+// GENERAL MEMBERSHIP OPERATIONS - FIXED VERSION
 // User-facing membership application and status endpoints
 
 import express from 'express';
@@ -88,6 +88,28 @@ router.get('/dashboard', authenticate, getUserDashboard);
 
 // Status checking routes
 router.get('/status', authenticate, getCurrentMembershipStatus);
+
+// ✅ FIXED: Add missing parameterized status route
+router.get('/status/:id', authenticate, async (req, res) => {
+  try {
+    // Get the user ID from params
+    const userId = req.params.id;
+    
+    // For now, call the same status function but with specific user ID context
+    req.targetUserId = userId;
+    
+    // Call the existing status function
+    await getCurrentMembershipStatus(req, res);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get membership status for user',
+      userId: req.params.id,
+      message: error.message
+    });
+  }
+});
+
 router.get('/application/status', authenticate, checkApplicationStatus);
 router.get('/survey/check-status', authenticate, checkSurveyStatus);
 
@@ -179,6 +201,7 @@ router.use('*', (req, res) => {
       dashboard: [
         'GET /dashboard - User dashboard',
         'GET /status - Current membership status',
+        'GET /status/:id - Membership status for specific user', // ← ADD TO DOCS
         'GET /application/status - Application status',
         'GET /survey/check-status - Survey status',
         'GET /permissions - User permissions'
@@ -230,6 +253,7 @@ router.use((error, req, res, next) => {
 
 if (process.env.NODE_ENV === 'development') {
   console.log('📋 Membership routes loaded: applications, status, full membership workflow');
+  console.log('✅ Missing status route added: GET /status/:id');
 }
 
 export default router;

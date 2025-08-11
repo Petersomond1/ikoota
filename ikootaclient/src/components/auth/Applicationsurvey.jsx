@@ -151,7 +151,7 @@ const ApplicationSurvey = () => {
     try {
       console.log('🔍 Checking application status... (ONE TIME ONLY)');
       
-      const response = await api.get('/membership/survey/check-status');
+      const response = await api.get('/user-status/survey/check-status');
       console.log('✅ Response data:', response.data);
       
       // ✅ CRITICAL FIX: DO NOT REDIRECT IF SURVEY NOT COMPLETED

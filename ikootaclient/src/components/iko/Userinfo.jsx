@@ -30,7 +30,7 @@ const Userinfo = () => {
 
     const fetchUserInfo = async () => {
       try {
-        const response = await api.get('/users/profile', {
+        const response = await api.get('/auth/users/profile', {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },

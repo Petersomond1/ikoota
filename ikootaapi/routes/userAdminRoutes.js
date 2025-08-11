@@ -25,7 +25,7 @@ import {
   // ID generation (missing endpoints from analysis)
   generateBulkIds,
   generateConverseId,
-  generateClassId,
+ // generateClassId,
   
   // System operations
   maskUserIdentity,
@@ -97,7 +97,8 @@ router.post('/generate-bulk-ids', generateBulkIds);
 router.post('/generate-converse-id', generateConverseId);
 
 // POST /admin/users/generate-class-id - Generate class ID
-router.post('/generate-class-id', generateClassId);
+//router.post('/generate-class-id', generateClassId);
+//we already have this in classServices.js
 
 // ===============================================
 // IDENTITY MANAGEMENT

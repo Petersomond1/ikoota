@@ -20,7 +20,7 @@ const AudienceClassMgr = () => {
   const { data: classes, isLoading, isError } = useQuery({
     queryKey: ['classes'],
     queryFn: async () => {
-      const { data } = await api.get('/classes');
+      const { data } = await api.get('/classes/');
       return data;
     },
   });
@@ -35,7 +35,7 @@ const AudienceClassMgr = () => {
       if (classData.id) {
         return await api.put(`/classes/${classData.id}`, classData);
       } else {
-        return await api.post('/classes', classData);
+        return await api.post('/classes/', classData);
       }
     },
     onSuccess: () => {

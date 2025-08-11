@@ -803,6 +803,281 @@ export const getApplicationRequirements = async (req, res) => {
   }
 };
 
+/**
+ * Update initial application (Pre-Member Application)
+ * PUT /survey/update-application or PUT /application/update
+ * Allows users to update their pending initial application
+ */
+export const updateInitialApplication = async (req, res) => {
+  try {
+    console.log('🎯 updateInitialApplication called');
+    
+    // Extract user ID
+    const userId = req.user?.id || req.user?.user_id;
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID not found',
+        details: 'Authentication failed'
+      });
+    }
+    
+    const { answers, applicationTicket } = req.body;
+    
+    // Validate answers
+    if (!answers || !Array.isArray(answers)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid answers format',
+        details: 'Answers must be an array'
+      });
+    }
+    
+    console.log('📋 Updating application with', answers.length, 'answers for user:', userId);
+    
+    // Check if user has an existing initial application that can be updated
+    const existingApplicationResult = await db.query(`
+      SELECT id, approval_status, application_ticket, user_id
+      FROM surveylog 
+      WHERE user_id = ? 
+      AND application_type = 'initial_application'
+      ORDER BY createdAt DESC 
+      LIMIT 1
+    `, [userId]);
+    
+    // Handle result format (MySQL2 compatibility)
+    let existingApplication = null;
+    if (Array.isArray(existingApplicationResult)) {
+      if (Array.isArray(existingApplicationResult[0]) && existingApplicationResult[0].length > 0) {
+        existingApplication = existingApplicationResult[0][0];
+      } else if (existingApplicationResult[0] && typeof existingApplicationResult[0] === 'object') {
+        existingApplication = existingApplicationResult[0];
+      }
+    }
+    
+    // Check if application exists and can be updated
+    if (!existingApplication) {
+      return res.status(404).json({
+        success: false,
+        error: 'No initial application found to update',
+        details: 'Please submit an initial application first'
+      });
+    }
+    
+    // Check if application status allows updates
+    if (existingApplication.approval_status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot update application',
+        details: `Application has already been ${existingApplication.approval_status}. Only pending applications can be updated.`,
+        currentStatus: existingApplication.approval_status
+      });
+    }
+    
+    // Use existing application ticket if not provided
+    const finalApplicationTicket = applicationTicket || existingApplication.application_ticket;
+    
+    // Start database transaction for consistency
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+    
+    try {
+      // Update the existing application in surveylog
+      const updateResult = await connection.query(`
+        UPDATE surveylog 
+        SET 
+          answers = ?,
+          application_ticket = ?,
+          updatedAt = NOW()
+        WHERE id = ? AND user_id = ?
+      `, [JSON.stringify(answers), finalApplicationTicket, existingApplication.id, userId]);
+      
+      if (updateResult.affectedRows === 0) {
+        throw new Error('Failed to update application in surveylog');
+      }
+      
+      // Update user's application info if needed
+      await connection.query(`
+        UPDATE users 
+        SET 
+          application_ticket = ?,
+          updatedAt = NOW()
+        WHERE id = ?
+      `, [finalApplicationTicket, userId]);
+      
+      // Commit the transaction
+      await connection.commit();
+      connection.release();
+      
+      console.log('✅ Application updated successfully');
+      
+      // Get updated application data for response
+      const updatedApplicationResult = await db.query(`
+        SELECT 
+          sl.*,
+          u.username,
+          u.email
+        FROM surveylog sl
+        JOIN users u ON sl.user_id = u.id
+        WHERE sl.id = ?
+      `, [existingApplication.id]);
+      
+      let updatedApplication = null;
+      if (Array.isArray(updatedApplicationResult)) {
+        if (Array.isArray(updatedApplicationResult[0]) && updatedApplicationResult[0].length > 0) {
+          updatedApplication = updatedApplicationResult[0][0];
+        } else if (updatedApplicationResult[0] && typeof updatedApplicationResult[0] === 'object') {
+          updatedApplication = updatedApplicationResult[0];
+        }
+      }
+      
+      // Send admin notification about the update (non-blocking)
+      try {
+        const userEmail = req.user?.email || updatedApplication?.email || 'unknown@example.com';
+        const username = req.user?.username || updatedApplication?.username || 'Unknown User';
+        
+        // Notify admins of application update
+        notifyAdminsOfApplicationUpdate(userId, username, userEmail, finalApplicationTicket).catch(err => {
+          console.warn('⚠️ Admin notification failed:', err.message);
+        });
+      } catch (notificationError) {
+        console.warn('⚠️ Admin notification setup failed:', notificationError.message);
+      }
+      
+      // Success response
+      res.json({
+        success: true,
+        message: 'Initial application updated successfully',
+        data: {
+          applicationId: existingApplication.id,
+          applicationTicket: finalApplicationTicket,
+          userId: userId,
+          answersCount: answers.length,
+          status: 'pending',
+          updatedAt: new Date().toISOString(),
+          nextSteps: [
+            'Your updated application is now under review',
+            'Review process typically takes 3-5 business days',
+            'You will receive email notification once reviewed',
+            'Check your dashboard for status updates'
+          ]
+        }
+      });
+      
+    } catch (transactionError) {
+      // Rollback transaction on error
+      await connection.rollback();
+      connection.release();
+      throw transactionError;
+    }
+    
+  } catch (error) {
+    console.error('❌ updateInitialApplication error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update application',
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * Helper function to notify admins of application updates
+ * This is a non-blocking notification function
+ */
+const notifyAdminsOfApplicationUpdate = async (userId, username, email, applicationTicket) => {
+  try {
+    console.log('📧 Sending admin notifications for application update...');
+    
+    // Get all admin users
+    const [admins] = await db.query(
+      'SELECT email, username FROM users WHERE role IN ("admin", "super_admin") AND email IS NOT NULL'
+    );
+    
+    if (admins.length === 0) {
+      console.warn('⚠️ No admin users found to notify');
+      return;
+    }
+    
+    console.log(`📧 Found ${admins.length} admin(s) to notify about application update`);
+    
+    // Send notification to each admin
+    const notificationPromises = admins.map(async (admin) => {
+      try {
+        const emailContent = {
+          to: admin.email,
+          subject: '🔄 Application Updated - Review Required',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <div style="background: #f59e0b; color: white; padding: 20px; text-align: center;">
+                <h2>📝 Application Updated</h2>
+              </div>
+              <div style="padding: 20px;">
+                <p>Hello ${admin.username},</p>
+                <p>An initial application has been updated and requires review:</p>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                  <strong>Applicant:</strong> ${username}<br>
+                  <strong>Email:</strong> ${email}<br>
+                  <strong>Ticket:</strong> ${applicationTicket}<br>
+                  <strong>Updated:</strong> ${new Date().toLocaleString()}
+                </div>
+                <p>Please review the updated application in the admin panel.</p>
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/applications" 
+                     style="background: #f59e0b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                    Review Application
+                  </a>
+                </div>
+                <p>Best regards,<br>Ikoota System</p>
+              </div>
+            </div>
+          `,
+          text: `
+Application Updated - Review Required
+
+Hello ${admin.username},
+
+An initial application has been updated and requires review:
+
+Applicant: ${username}
+Email: ${email}
+Ticket: ${applicationTicket}
+Updated: ${new Date().toLocaleString()}
+
+Please review the updated application in the admin panel: ${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/applications
+
+Best regards,
+Ikoota System
+          `
+        };
+        
+        if (sendEmailWithTemplate) {
+          await sendEmailWithTemplate(emailContent);
+          console.log(`✅ Update notification sent to admin: ${admin.email}`);
+        } else if (sendEmail) {
+          await sendEmail(emailContent);
+          console.log(`✅ Update notification sent to admin: ${admin.email}`);
+        }
+      } catch (emailError) {
+        console.error(`❌ Failed to notify admin ${admin.email}:`, emailError.message);
+      }
+    });
+    
+    // Wait for all notifications to complete (but don't fail if some fail)
+    await Promise.allSettled(notificationPromises);
+    console.log('✅ Admin notification process completed for application update');
+    
+  } catch (error) {
+    console.error('❌ Admin notification error for application update:', error);
+    // Don't throw - this is a non-critical operation
+  }
+};
+
+// ADD TO YOUR EXPORTS SECTION:
+// Add 'updateInitialApplication,' to your export default object
+
+
 // =============================================================================
 // DEBUGGING & TESTING UTILITIES
 // =============================================================================

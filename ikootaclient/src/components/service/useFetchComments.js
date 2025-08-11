@@ -8,7 +8,7 @@ export const useFetchParentChatsAndTeachingsWithComments = (user_id) => {
     queryKey: ["parent-comments", user_id],
     queryFn: async () => {
       if (!user_id) return [];
-      const response = await api.get(`/comments/parent-comments`, {
+      const response = await api.get(`/content/comments/parent-comments`, {
         params: { user_id }
       });
       return response.data;
@@ -23,7 +23,7 @@ export const useFetchComments = (user_id) => {
     queryKey: ["comments", user_id],
     queryFn: async () => {
       if (!user_id) return [];
-      const response = await api.get(`/comments/parent`, {
+      const response = await api.get(`/content/comments/parent`, {
         params: {
           user_id
         }
@@ -39,7 +39,7 @@ export const useFetchAllComments = () => {
   return useQuery({
     queryKey: ["all-comments"],
     queryFn: async () => {
-      const response = await api.get(`/comments/all`);
+      const response = await api.get(`/content/comments/all`);
       return response.data;
     }
   });

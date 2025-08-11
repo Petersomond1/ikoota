@@ -22,7 +22,7 @@ import {
   fetchChatsByIds,
   fetchChatByPrefixedId,
   fetchCombinedContent
-} from '../controllers/chatsControllers.js';
+} from '../controllers/chatControllers.js';
 
 // Teaching Controllers
 import {

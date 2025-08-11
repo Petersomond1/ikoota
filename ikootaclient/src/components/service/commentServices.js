@@ -3,7 +3,7 @@ import api from './api.js';
 
 export const postComment = async ({ chatId, userId, comment, mediaData }) => {
     try {
-      const response = await api.post("/comments", {
+      const response = await api.post("/content/comments", {
         userId,
         chatId,
         comment,
@@ -20,7 +20,7 @@ export const postComment = async ({ chatId, userId, comment, mediaData }) => {
 
 export const getCommentData = async (commentId) => {
     try {
-      const response = await api.get(`/comments/${commentId}`);
+      const response = await api.get(`/content/comments/${commentId}`);
      
       return response.data;
     } catch (error) {

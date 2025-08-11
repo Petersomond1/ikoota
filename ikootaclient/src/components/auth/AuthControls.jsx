@@ -36,7 +36,7 @@ const AuthControls = () => {
     queryKey: ["fetchQuestionLabels"],
     queryFn: async () => {
       console.log('🔍 Fetching question labels...');
-      const res = await api.get("/survey/question-labels");
+      const res = await api.get("/admin/survey/question-labels");
       console.log("✅ Question labels response:", res.data);
       
       // Handle different response formats from API
@@ -66,7 +66,7 @@ const AuthControls = () => {
     queryFn: async () => {
       console.log('🔍 Fetching survey logs...');
       try {
-        const res = await api.get("/survey/logs");
+        const res = await api.get("/admin/survey/logs");
         console.log("✅ Survey logs response:", res.data);
         
         // Handle different response formats
@@ -104,7 +104,7 @@ const AuthControls = () => {
         throw new Error('Please provide at least one question label before saving');
       }
       
-      return api.put("/survey/question-labels", { labels });
+      return api.put("/admin/survey/question-labels", { labels });
     },
     onSuccess: () => {
       console.log('✅ Question labels updated successfully');
@@ -122,7 +122,7 @@ const AuthControls = () => {
   const { mutate: updateApprovalStatus, isLoading: updatingApproval } = useMutation({
     mutationFn: ({ surveyId, userId, status }) => {
       console.log('🔍 Updating approval status:', { surveyId, userId, status });
-      return api.put("/survey/approve", { surveyId, userId, status });
+      return api.put("/admin/survey/approve", { surveyId, userId, status });
     },
     onSuccess: (data, variables) => {
       console.log('✅ Approval status updated:', variables);
@@ -139,7 +139,7 @@ const AuthControls = () => {
   const { mutate: updateUserRole, isLoading: updatingRole } = useMutation({
     mutationFn: ({ userId, role }) => {
       console.log('🔍 Updating user role:', { userId, role });
-      return api.put("/users/role", { userId, role });
+      return api.put("/admin/users/role", { userId, role });
     },
     onSuccess: () => {
       console.log('✅ User role updated successfully');
@@ -244,7 +244,7 @@ const AuthControls = () => {
   const handleSendFeedback = (email, status) => {
     console.log('🔍 Sending feedback:', { email, status });
     const feedbackTemplate = status === "granted" ? "approveverifyinfo" : "suspendedverifyinfo";
-    api.post("/email/send", { email, template: feedbackTemplate, status })
+    api.post("/communication/email/send", { email, template, status })
       .then(() => {
         console.log('✅ Feedback sent successfully');
         alert('Feedback email sent successfully!');

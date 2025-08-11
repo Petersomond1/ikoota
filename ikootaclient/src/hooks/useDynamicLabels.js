@@ -41,7 +41,7 @@ export const useDynamicLabels = () => {
     const fetchLabels = async () => {
       try {
         console.log('🔍 Fetching dynamic question labels...');
-        const response = await api.get('/survey/question-labels');
+        const response = await api.get('/admin/survey/question-labels');
         
         let fetchedLabels;
         if (response.data?.success && response.data?.data) {

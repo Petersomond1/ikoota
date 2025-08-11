@@ -10,7 +10,9 @@ import {
   getUserSurveyHistory,
   updateUserSurveyResponse,
   deleteUserSurveyResponse,
-  saveDraftSurvey
+  saveDraftSurvey,
+  getUserSurveyDrafts,
+  deleteSurveyDraft
 } from '../services/surveyServices.js';
 import {
   fetchQuestionLabels,
@@ -18,6 +20,7 @@ import {
 } from '../services/questionLabelsService.js';
 import { generateToken } from '../utils/jwt.js';
 import logger from '../utils/logger.js';
+import db from '../config/db.js';
 
 // ===============================================
 // SURVEY SUBMISSION CONTROLLERS
@@ -129,6 +132,203 @@ export const submitSurvey = async (req, res, next) => {
   } catch (error) {
     console.error('❌ Error in submitSurvey controller:', error);
     logger.error('Survey submission error:', error);
+    next(error);
+  }
+};
+
+// ===============================================
+// SURVEY DRAFT CONTROLLERS (NEW)
+// ===============================================
+
+/**
+ * Save survey draft
+ * POST /survey/draft/save
+ */
+export const saveSurveyDraft = async (req, res, next) => {
+  try {
+    console.log('🔍 saveSurveyDraft controller called');
+    console.log('🔍 User:', req.user?.id, req.user?.username, req.user?.role);
+    console.log('🔍 Request body keys:', Object.keys(req.body));
+    
+    const { 
+      answers, 
+      draftId = null,
+      applicationType = 'initial_application',
+      adminNotes = null,
+      targetUserId = null // For admin use
+    } = req.body;
+    
+    // Validate required fields
+    if (!answers) {
+      return res.status(400).json({
+        success: false,
+        error: 'Survey answers are required'
+      });
+    }
+    
+    if (!req.user?.id) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+    
+    // Determine if this is an admin operation
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+    const userId = targetUserId && isAdmin ? targetUserId : req.user.id;
+    const adminId = isAdmin && targetUserId ? req.user.id : null;
+    
+    // Admin validation
+    if (targetUserId && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required to save drafts for other users'
+      });
+    }
+    
+    // Validate target user exists if admin is saving for someone else
+    if (adminId && targetUserId) {
+      const [userCheck] = await db.query(
+        'SELECT id, username FROM users WHERE id = ?',
+        [targetUserId]
+      );
+      
+      if (userCheck.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Target user not found'
+        });
+      }
+    }
+    
+    // Save the draft
+    const result = await saveDraftSurvey({
+      userId,
+      answers,
+      draftId,
+      applicationType,
+      adminId,
+      adminNotes
+    });
+    
+    console.log('✅ Survey draft saved successfully');
+    
+    res.status(200).json({
+      success: true,
+      message: 'Survey draft saved successfully',
+      data: result,
+      savedBy: adminId ? 'admin' : 'user',
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Error in saveSurveyDraft controller:', error);
+    next(error);
+  }
+};
+
+/**
+ * Get user's survey drafts
+ * GET /survey/drafts
+ */
+export const getSurveyDrafts = async (req, res, next) => {
+  try {
+    console.log('🔍 getSurveyDrafts controller called');
+    console.log('🔍 User:', req.user?.id, req.user?.username);
+    
+    const { applicationType, targetUserId } = req.query;
+    
+    if (!req.user?.id) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+    
+    // Determine if this is an admin operation
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+    const userId = targetUserId && isAdmin ? parseInt(targetUserId) : req.user.id;
+    
+    // Admin validation
+    if (targetUserId && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required to view drafts for other users'
+      });
+    }
+    
+    const drafts = await getUserSurveyDrafts(userId, applicationType);
+    
+    console.log(`✅ Retrieved ${drafts.length} survey drafts`);
+    
+    res.status(200).json({
+      success: true,
+      data: drafts,
+      count: drafts.length,
+      userId: userId,
+      applicationType: applicationType || 'all',
+      requestedBy: isAdmin && targetUserId ? 'admin' : 'user',
+      message: 'Survey drafts retrieved successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error in getSurveyDrafts controller:', error);
+    next(error);
+  }
+};
+
+/**
+ * Delete survey draft
+ * DELETE /survey/draft/:draftId
+ */
+export const deleteSurveyDraftController = async (req, res, next) => {
+  try {
+    console.log('🔍 deleteSurveyDraft controller called');
+    
+    const { draftId } = req.params;
+    const { targetUserId } = req.body;
+    
+    if (!draftId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Draft ID is required'
+      });
+    }
+    
+    if (!req.user?.id) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+    
+    // Determine if this is an admin operation
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+    const userId = targetUserId && isAdmin ? targetUserId : req.user.id;
+    const adminId = isAdmin && targetUserId ? req.user.id : null;
+    
+    // Admin validation
+    if (targetUserId && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required to delete drafts for other users'
+      });
+    }
+    
+    const result = await deleteSurveyDraft(draftId, userId, adminId);
+    
+    console.log('✅ Survey draft deleted successfully');
+    
+    res.status(200).json({
+      success: true,
+      message: 'Survey draft deleted successfully',
+      draftId: parseInt(draftId),
+      deletedBy: adminId ? 'admin' : 'user',
+      ...result
+    });
+    
+  } catch (error) {
+    console.error('❌ Error in deleteSurveyDraft controller:', error);
     next(error);
   }
 };
@@ -378,5 +578,9 @@ export default {
   getSurveyStatus,
   getSurveyHistory,
   updateSurveyResponse,
-  deleteSurveyResponse
+  deleteSurveyResponse,
+  // New draft functions
+  saveSurveyDraft,
+  getSurveyDrafts,
+  deleteSurveyDraft: deleteSurveyDraftController
 };

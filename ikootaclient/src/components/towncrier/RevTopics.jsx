@@ -27,7 +27,7 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
         setError(null);
         
         console.log('Fetching teachings from API...');
-        const response = await api.get('/teachings');
+        const response = await api.get('/content/teachings');
         
         // Debug response
         console.log('API Response type:', typeof response.data);

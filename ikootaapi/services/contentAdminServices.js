@@ -761,23 +761,60 @@ export const getAuditLogsService = async (filters = {}) => {
   }
 };
 
+// NEW: Update comment status service
+export const updateCommentStatusService = async (commentId, statusData) => {
+  try {
+    const { status, admin_notes = '', updated_by = null } = statusData;
+    
+    if (!commentId) {
+      throw new Error('Comment ID is required');
+    }
+
+    // Check if comment exists
+    const existingComment = await db.query('SELECT id FROM comments WHERE id = ?', [commentId]);
+    if (!existingComment || existingComment.length === 0) {
+      throw new Error('Comment not found');
+    }
+
+    const sql = `
+      UPDATE comments 
+      SET admin_notes = ?, updatedAt = NOW()
+      WHERE id = ?
+    `;
+    
+    const result = await db.query(sql, [admin_notes, commentId]);
+    
+    if (result.affectedRows === 0) {
+      throw new Error('Failed to update comment status');
+    }
+    
+    // Return updated comment
+    const updatedComment = await db.query('SELECT * FROM comments WHERE id = ?', [commentId]);
+    return updatedComment[0];
+    
+  } catch (error) {
+    console.error('Error in updateCommentStatusService:', error);
+    throw new Error(`Failed to update comment status: ${error.message}`);
+  }
+};
+
 // ============================================================================
 // EXPORT ALL SERVICES
 // ============================================================================
 
-export {
-  // Core content admin services
-  getPendingContentService,
-  approveContentService,
-  rejectContentService,
-  manageContentService,
-  deleteContentService,
-  updateContentStatusService,
-  getAllContentForAdmin,
+// export {
+//   // Core content admin services
+//   getPendingContentService,
+//   approveContentService,
+//   rejectContentService,
+//   manageContentService,
+//   deleteContentService,
+//   updateContentStatusService,
+//   getAllContentForAdmin,
   
-  // Reports and audit services
-  getReportsService,
-  getAllReportsService,
-  getAuditLogsService
-};
+//   // Reports and audit services
+//   getReportsService,
+//   getAllReportsService,
+//   getAuditLogsService
+// };
 

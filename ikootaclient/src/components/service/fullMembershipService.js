@@ -16,7 +16,7 @@ import api from './api';
 const submitFullMembershipApplication = async (applicationData) => {
   console.log('🔍 Submitting full membership application:', applicationData);
   
-  const res = await api.post('/full-membership/submit-full-membership', applicationData, { 
+  const res = await api.post('/membership/full-membership/submit-full-membership', applicationData, { 
     withCredentials: true 
   });
   
@@ -30,7 +30,7 @@ const submitFullMembershipApplication = async (applicationData) => {
 const reapplyFullMembership = async (applicationData) => {
   console.log('🔍 Reapplying for full membership:', applicationData);
   
-  const res = await api.post('/full-membership/reapply-full-membership', applicationData, { 
+  const res = await api.post('/membership/full-membership/reapply-full-membership', applicationData, { 
     withCredentials: true 
   });
   
@@ -44,7 +44,7 @@ const reapplyFullMembership = async (applicationData) => {
 const getFullMembershipStatus = async (userId) => {
   console.log('🔍 Fetching full membership status for user:', userId);
   
-  const res = await api.get(`/full-membership/full-membership-status/${userId}`, { 
+  const res = await api.get(`/membership/full-membership/status/${userId}`, { 
     withCredentials: true 
   });
   
@@ -87,7 +87,7 @@ const reviewFullMembershipApplication = async ({ applicationId, status, adminNot
     throw new Error('Invalid status. Must be "approved" or "declined"');
   }
   
-  const res = await api.put(`/admin/membership/review/${applicationId}`, {
+  const res = await api.put(`/admin/membership/applications/${applicationId}/review`, {
     status,
     adminNotes
   }, { 
@@ -104,7 +104,7 @@ const reviewFullMembershipApplication = async ({ applicationId, status, adminNot
 const getApplicationStatistics = async () => {
   console.log('🔍 Fetching application statistics...');
   
-  const res = await api.get('/admin/applications/stats', { 
+  const res = await api.get('/admin/membership/stats', { 
     withCredentials: true 
   });
   
@@ -118,7 +118,7 @@ const getApplicationStatistics = async () => {
 const sendApplicationFeedbackEmail = async ({ email, status, applicantName, membershipTicket, customMessage }) => {
   console.log('🔍 Sending application feedback email:', { email, status, applicantName });
   
-  const res = await api.post('/email/send-membership-feedback', {
+  const res = await api.post('/communication/email/send-membership-feedback', {
     email,
     status,
     applicantName,
@@ -139,7 +139,7 @@ const sendApplicationFeedbackEmail = async ({ email, status, applicantName, memb
 const bulkReviewApplications = async ({ applicationIds, action, adminNotes }) => {
   console.log('🔍 Bulk reviewing applications:', { applicationIds, action, adminNotes });
   
-  const res = await api.post('/admin/membership/bulk-review', {
+  const res = await api.post('/admin/membership/applications/bulk-review', {
     applicationIds,
     action,
     adminNotes
@@ -158,7 +158,7 @@ const exportApplicationsData = async (filters = {}) => {
   console.log('🔍 Exporting applications data with filters:', filters);
   
   const params = new URLSearchParams(filters);
-  const res = await api.get(`/admin/membership/export?${params}`, { 
+  const res = await api.get(`/admin/membership/applications/export?${params}`, { 
     withCredentials: true,
     responseType: 'blob' // For file download
   });

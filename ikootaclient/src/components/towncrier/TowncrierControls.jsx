@@ -8,7 +8,7 @@ import "../../components/admin/navbar.css";
 
 const TowncrierControls = () => {
   const { handleSubmit, register, reset, formState: { errors } } = useForm();
-  const { validateFiles, mutation } = useUpload("/teachings");
+  const { validateFiles, mutation } = useUpload("/content/teachings");
   const { data: teachings = [], isLoading, error, refetch } = useFetchTeachings();
   
   const [step, setStep] = useState(0);

@@ -1,14 +1,17 @@
 // ikootaapi/controllers/userControllers.js
-// USER PROFILE & SETTINGS CONTROLLER
+// USER PROFILE & SETTINGS CONTROLLER - UPDATED TO USE SERVICES
 // Handles basic user operations: profile management, settings, preferences
 
 import {
   getUserProfileService,
   updateUserProfileService,
-  getUserActivity,
-  deleteUser
+  deleteUser,
+  getUserActivity
 } from '../services/userServices.js';
-import CustomError from '../utils/CustomError.js';
+
+import {
+  getUserPermissionsService
+} from '../services/userStatusServices.js';
 
 // ===============================================
 // PROFILE MANAGEMENT
@@ -20,7 +23,7 @@ import CustomError from '../utils/CustomError.js';
  */
 export const getUserProfile = async (req, res) => {
   try {
-    const userId = req.user?.id; // Simplified - auth middleware ensures req.user exists
+    const userId = req.user?.id;
     
     if (!userId) {
       return res.status(401).json({
@@ -59,7 +62,7 @@ export const getUserProfile = async (req, res) => {
  */
 export const updateUserProfile = async (req, res) => {
   try {
-    const userId = req.user?.id; // Simplified
+    const userId = req.user?.id;
     
     if (!userId) {
       return res.status(401).json({
@@ -70,7 +73,7 @@ export const updateUserProfile = async (req, res) => {
 
     console.log('🔧 Updating profile for user:', userId, 'with data:', req.body);
 
-    // Validate email format if provided
+    // Basic validation
     if (req.body.email && !req.body.email.includes('@')) {
       return res.status(400).json({
         success: false,
@@ -78,7 +81,6 @@ export const updateUserProfile = async (req, res) => {
       });
     }
 
-    // Validate phone if provided
     if (req.body.phone && req.body.phone.length < 5) {
       return res.status(400).json({
         success: false,
@@ -116,7 +118,7 @@ export const updateUserProfile = async (req, res) => {
  */
 export const deleteUserProfile = async (req, res) => {
   try {
-    const userId = req.user?.id; // Simplified
+    const userId = req.user?.id;
     
     if (!userId) {
       return res.status(401).json({
@@ -171,7 +173,7 @@ export const deleteUserProfile = async (req, res) => {
  */
 export const updateUserSettings = async (req, res) => {
   try {
-    const userId = req.user?.id; // Simplified
+    const userId = req.user?.id;
     
     if (!userId) {
       return res.status(401).json({
@@ -233,7 +235,7 @@ export const updateUserSettings = async (req, res) => {
  */
 export const updateUserPassword = async (req, res) => {
   try {
-    const userId = req.user?.id; // Simplified
+    const userId = req.user?.id;
     const { currentPassword, newPassword } = req.body;
     
     if (!userId) {
@@ -259,7 +261,7 @@ export const updateUserPassword = async (req, res) => {
 
     console.log('🔐 Updating password for user:', userId);
 
-    // This would require a password verification service
+    // TODO: Implement password verification and update service
     // For now, return a placeholder response
     res.status(200).json({
       success: true,
@@ -289,7 +291,7 @@ export const updateUserPassword = async (req, res) => {
  */
 export const getUserPermissions = async (req, res) => {
   try {
-    const userId = req.user?.id; // Simplified
+    const userId = req.user?.id;
     const userRole = req.user?.role || 'user';
     const membershipStage = req.user?.membership_stage || 'none';
     
@@ -302,43 +304,11 @@ export const getUserPermissions = async (req, res) => {
 
     console.log('🔒 Getting permissions for user:', userId, 'role:', userRole);
 
-    const permissions = {
-      // Basic permissions
-      can_edit_profile: true,
-      can_delete_account: !['admin', 'super_admin'].includes(userRole),
-      can_change_password: true,
-      can_update_settings: true,
-      
-      // Content permissions
-      can_view_content: ['pre_member', 'member'].includes(membershipStage),
-      can_create_content: membershipStage === 'member',
-      can_comment: ['pre_member', 'member'].includes(membershipStage),
-      
-      // Membership permissions
-      can_apply_membership: membershipStage === 'none',
-      can_apply_full_membership: membershipStage === 'pre_member',
-      can_access_towncrier: membershipStage === 'pre_member',
-      can_access_iko: membershipStage === 'member',
-      
-      // Admin permissions
-      can_access_admin: ['admin', 'super_admin'].includes(userRole),
-      can_manage_users: ['admin', 'super_admin'].includes(userRole),
-      can_review_applications: ['admin', 'super_admin'].includes(userRole),
-      can_delete_users: userRole === 'super_admin',
-      
-      // System permissions
-      can_view_reports: ['admin', 'super_admin'].includes(userRole),
-      can_send_notifications: ['admin', 'super_admin'].includes(userRole)
-    };
+    const permissionsData = getUserPermissionsService(userId, userRole, membershipStage);
     
     res.status(200).json({
       success: true,
-      data: {
-        permissions,
-        role: userRole,
-        membership_stage: membershipStage,
-        user_id: userId
-      },
+      data: permissionsData,
       message: 'Permissions retrieved successfully'
     });
     
@@ -364,7 +334,7 @@ export const getUserPermissions = async (req, res) => {
  */
 export const getUserNotifications = async (req, res) => {
   try {
-    const userId = req.user?.id; // Simplified
+    const userId = req.user?.id;
     
     if (!userId) {
       return res.status(401).json({
@@ -373,8 +343,7 @@ export const getUserNotifications = async (req, res) => {
       });
     }
 
-    // For now, return a placeholder response
-    // This would integrate with a notifications service
+    // TODO: Implement notifications service
     console.log('🔔 Getting notifications for user:', userId);
     
     res.status(200).json({
@@ -405,7 +374,7 @@ export const getUserNotifications = async (req, res) => {
  */
 export const markNotificationAsRead = async (req, res) => {
   try {
-    const userId = req.user?.id; // Simplified
+    const userId = req.user?.id;
     const { id } = req.params;
     
     if (!userId) {
@@ -455,7 +424,7 @@ export const markNotificationAsRead = async (req, res) => {
  */
 export const getUserActivityHistory = async (req, res) => {
   try {
-    const userId = req.user?.id; // Simplified
+    const userId = req.user?.id;
     
     if (!userId) {
       return res.status(401).json({
@@ -492,7 +461,7 @@ export const getUserActivityHistory = async (req, res) => {
  */
 export const getUserContentHistory = async (req, res) => {
   try {
-    const userId = req.user?.id; // Simplified
+    const userId = req.user?.id;
     
     if (!userId) {
       return res.status(401).json({
@@ -536,38 +505,105 @@ export const getUserContentHistory = async (req, res) => {
  * User routes test endpoint
  * GET /api/users/test
  */
-export const testUserRoutes = async (req, res) => {
-  try {
-    const userId = req.user?.id; // Simplified
-    
-    res.status(200).json({
-      success: true,
-      message: 'User routes are working!',
-      data: {
-        user: {
-          id: userId,
-          username: req.user?.username,
-          role: req.user?.role,
-          membership_stage: req.user?.membership_stage
-        },
-        endpoint: req.path,
-        method: req.method,
-        timestamp: new Date().toISOString(),
-        server_status: 'operational'
-      }
-    });
-    
-  } catch (error) {
-    console.error('❌ Error in testUserRoutes:', error);
-    
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Test failed',
-      path: req.path,
-      timestamp: new Date().toISOString()
-    });
-  }
+export const testUserRoutes = (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'User routes are working!',
+    data: {
+      user: {
+        id: req.user?.id,
+        username: req.user?.username,
+        role: req.user?.role,
+        membership_stage: req.user?.membership_stage
+      },
+      endpoint: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString(),
+      server_status: 'operational'
+    }
+  });
 };
+
+/**
+ * Get user activity history
+ * GET /api/users/activity
+ */
+// export const getUserActivityHistory = async (req, res) => {
+//   try {
+//     const userId = req.user?.id;
+    
+//     if (!userId) {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'User authentication required'
+//       });
+//     }
+
+//     console.log('📊 Getting activity for user:', userId);
+    
+//     const activity = await getUserActivity(userId);
+    
+//     res.status(200).json({
+//       success: true,
+//       data: activity,
+//       message: 'Activity retrieved successfully'
+//     });
+    
+//   } catch (error) {
+//     console.error('❌ Error in getUserActivityHistory:', error);
+    
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Failed to get user activity',
+//       path: req.path,
+//       timestamp: new Date().toISOString()
+//     });
+//   }
+// };
+
+/**
+ * Get user's content creation history
+ * GET /api/users/content-history
+ */
+// export const getUserContentHistory = async (req, res) => {
+//   try {
+//     const userId = req.user?.id;
+    
+//     if (!userId) {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'User authentication required'
+//       });
+//     }
+
+//     console.log('📚 Getting content history for user:', userId);
+    
+//     const activity = await getUserActivity(userId);
+    
+//     res.status(200).json({
+//       success: true,
+//       data: {
+//         content_statistics: activity.statistics,
+//         recent_content: activity.recent_activity,
+//         user_id: userId
+//       },
+//       message: 'Content history retrieved successfully'
+//     });
+    
+//   } catch (error) {
+//     console.error('❌ Error in getUserContentHistory:', error);
+    
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Failed to get content history',
+//       path: req.path,
+//       timestamp: new Date().toISOString()
+//     });
+//   }
+// };
+
+
+
 
 // ===============================================
 // EXPORT ALL FUNCTIONS

@@ -16,15 +16,15 @@ const IkoControls = () => {
       let response;
       switch (type) {
         case 'messages':
-          response = await axios.get(`/api/messages?status=${filter}`);
+          response = await axios.get(`/content/messages?status=${filter}`);
           setMessages(response.data);
           break;
         case 'comments':
-          response = await axios.get(`/api/comments?status=${filter}`);
+          response = await axios.get(`/content/comments?status=${filter}`);
           setComments(response.data);
           break;
         case 'chats':
-          response = await axios.get(`/api/chats`);
+          response = await axios.get(`/content/chats`);
           setChats(response.data);
           break;
         default:
@@ -38,7 +38,7 @@ const IkoControls = () => {
   // Approve, Reject, or Delete items
   const handleAction = async (type, id, action) => {
     try {
-      await axios.put(`/api/${type}/${id}`, { status: action });
+      await axios.put(`/content/${type}/${id}`, { status: action });
       fetchData(type);
     } catch (err) {
       console.error(err);

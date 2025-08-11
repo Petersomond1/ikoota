@@ -74,3 +74,62 @@ const getRequiredFieldsForContentType = (url) => {
   }
   return [];
 };
+
+
+// Error handling utilities
+import CustomError from './CustomError.js';
+
+/**
+ * Format error response
+ */
+// export const formatErrorResponse = (error, defaultMessage = 'An error occurred') => {
+//   return {
+//     success: false,
+//     error: error.message || defaultMessage,
+//     statusCode: error.statusCode || 500,
+//     timestamp: new Date().toISOString()
+//   };
+// };
+
+/**
+ * Handle database errors
+ */
+export const handleDatabaseError = (error, operation = 'database operation') => {
+  console.error(`Database error during ${operation}:`, error);
+  
+  if (error.code === 'ER_DUP_ENTRY') {
+    throw new CustomError('Duplicate entry - record already exists', 409);
+  }
+  
+  if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+    throw new CustomError('Referenced record does not exist', 400);
+  }
+  
+  if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+    throw new CustomError('Cannot delete - record is referenced by other data', 400);
+  }
+  
+  throw new CustomError(`Failed to perform ${operation}`, 500);
+};
+
+/**
+ * Validate request parameters
+ */
+export const validateRequiredParams = (params, requiredFields) => {
+  const missing = requiredFields.filter(field => !params[field]);
+  
+  if (missing.length > 0) {
+    throw new CustomError(`Missing required parameters: ${missing.join(', ')}`, 400);
+  }
+  
+  return true;
+};
+
+/**
+ * Handle async errors
+ */
+export const asyncErrorHandler = (fn) => {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+};

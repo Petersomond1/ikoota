@@ -3,7 +3,22 @@
 // Central hub for all reorganized route modules with enhanced architecture
 
 import express from 'express';
+import { validateIdFormat } from '../utils/idGenerator.js';
 
+
+
+const validateClassId = (req, res, next) => {
+  const { id } = req.params;
+  if (id && !validateIdFormat(id, 'class')) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid class ID format. Expected OTU#XXXXXX format',
+      provided: id,
+      expected_format: 'OTU#XXXXXX'
+    });
+  }
+  next();
+};
 // ===============================================
 // IMPORT REORGANIZED ROUTE MODULES
 // ===============================================
@@ -13,31 +28,31 @@ import systemRoutes from './systemRoutes.js';
 import authRoutes from './authRoutes.js';
 
 // User Management Routes (3-tier structure)
-import userRoutes from './old.userRoutes.js';
-import userStatusRoutes from './old.userStatusRoutes.js';
+import userRoutes from './userRoutes.js';
+import userStatusRoutes from './userStatusRoutes.js';
 import userAdminRoutes from './userAdminRoutes.js';
 
 // Membership Management Routes (2-tier structure)
-import membershipRoutes from './old.membershipRoutes.js';
+import membershipRoutes from './membershipRoutes.js';
 import membershipAdminRoutes from './membershipAdminRoutes.js';
 
 // Survey Management Routes (2-tier structure)
-import surveyRoutes from './old.surveyRoutes.js';
+import surveyRoutes from './surveyRoutes.js';
 import surveyAdminRoutes from './surveyAdminRoutes.js';
 
 // Content Management Routes (unified)
-import contentRoutes from './old.contentRoutes.js';
+import contentRoutes from './contentRoutes.js';
 
 // Class Management Routes (2-tier structure)
-import classRoutes from './old.classRoutes.js';
+import classRoutes from './classRoutes.js';
 import classAdminRoutes from './classAdminRoutes.js';
 
 // Identity Management Routes (2-tier structure)
-import identityRoutes from './old.identityRoutes.js';
+import identityRoutes from './identityRoutes.js';
 import identityAdminRoutes from './identityAdminRoutes.js';
 
 // Communication Routes
-import communicationRoutes from './old.communicationRoutes.js';
+import communicationRoutes from './communicationRoutes.js';
 
 const router = express.Router();
 
@@ -74,7 +89,7 @@ router.use('/content', contentRoutes);            // /api/content/* - Chats, tea
 
 // ===== PHASE 6: CLASS MANAGEMENT (2-TIER) =====
 console.log('🎓 Phase 6: Class management (2-tier structure)...');
-router.use('/classes', classRoutes);              // /api/classes/* - General class operations
+router.use('/classes', classRoutes);              // /api/classes/* - General class operations  
 router.use('/admin/classes', classAdminRoutes);   // /api/admin/classes/* - Admin class management
 
 // ===== PHASE 7: IDENTITY MANAGEMENT (2-TIER) =====
@@ -460,6 +475,28 @@ router.use((error, req, res, next) => {
     };
   }
   
+  if (process.env.NODE_ENV === 'development') {
+  router.get('/test/classes', (req, res) => {
+    res.json({
+      success: true,
+      message: 'Class routes test endpoint',
+      available_routes: {
+        general: '/api/classes/*',
+        admin: '/api/admin/classes/*'
+      },
+      test_endpoints: {
+        get_all_classes: 'GET /api/classes',
+        get_available_classes: 'GET /api/classes/available',
+        get_user_classes: 'GET /api/classes/my-classes',
+        admin_get_management: 'GET /api/admin/classes',
+        admin_create_class: 'POST /api/admin/classes'
+      },
+      timestamp: new Date().toISOString()
+    });
+  });
+}
+
+
   // Add contextual help based on error type and route
   if (statusCode === 401) {
     errorResponse.help = {

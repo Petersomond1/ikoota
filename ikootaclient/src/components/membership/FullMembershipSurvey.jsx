@@ -195,7 +195,7 @@ const checkSubmissionStatus = async () => {
 
     console.log('🔍 Checking submission status for user:', userId);
     
-    const response = await api.get(`/membership/full-membership-status/${userId}`);
+    const response = await api.get(`/membership/full-membership/status/${user.id}`);
     
     console.log('✅ Submission status response:', response.data);
     
@@ -249,7 +249,7 @@ const checkSubmissionStatus = async () => {
     try {
       const membershipTicket = generateMembershipTicket();
       
-      const response = await api.post('/membership/submit-full-membership', {
+      const response = await api.post('/membership/full-membership/submit-full-membership', {
         answers: answers,
         membershipTicket: membershipTicket,
         userId: user.id,

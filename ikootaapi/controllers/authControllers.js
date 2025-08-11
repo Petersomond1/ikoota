@@ -382,7 +382,12 @@ export const registerWithVerification = async (req, res) => {
             console.error('⚠️ Welcome email failed:', emailError);
         }
         
-        return successResponse(res, {
+//         
+
+   return res.status(201).json({
+            success: true,
+            message: 'Registration successful',
+            // ✅ CRITICAL: Add both formats for frontend compatibility
             token,
             user: {
                 id: userId,
@@ -394,8 +399,23 @@ export const registerWithVerification = async (req, res) => {
                 converse_id: converseId,
                 role: 'user'
             },
-            redirectTo: '/applicationsurvey'
-        }, 'Registration successful', 201);
+            // ✅ ALSO include nested data format
+            data: {
+                token,
+                user: {
+                    id: userId,
+                    username,
+                    email,
+                    membership_stage: 'none',
+                    is_member: 'applied',
+                    application_ticket: applicationTicket,
+                    converse_id: converseId,
+                    role: 'user'
+                }
+            },
+            redirectTo: '/applicationsurvey',
+            timestamp: new Date().toISOString()
+        });
         
     } catch (error) {
         console.error('❌ registerWithVerification error:', error);
@@ -403,22 +423,233 @@ export const registerWithVerification = async (req, res) => {
     }
 };
 
+
+
+
 /**
  * Enhanced login with smart routing
  * POST /api/auth/login
  * Frontend: Login.jsx
  */
+// export const enhancedLogin = async (req, res) => {
+//     try {
+//         const { email, password } = req.body;
+        
+//         console.log('🔍 Login attempt for email:', email);
+        
+//         if (!email || !password) {
+//             throw new CustomError('Email and password are required', 400);
+//         }
+        
+//         // Get user from database
+//         const users = await db.query(`
+//             SELECT 
+//                 id,
+//                 username,
+//                 email,
+//                 password_hash,
+//                 role,
+//                 is_member,
+//                 membership_stage,
+//                 is_verified,
+//                 isbanned,
+//                 application_ticket,
+//                 converse_id,
+//                 full_membership_status,
+//                 application_status,
+//                 createdAt
+//             FROM users 
+//             WHERE email = ?
+//         `, [email]);
+        
+//         if (!users || users.length === 0) {
+//             console.log('❌ No user found with email:', email);
+//             throw new CustomError('Invalid credentials', 401);
+//         }
+        
+//         const user = users[0];
+        
+//         // Check if user is banned
+//         if (user.isbanned) {
+//             console.log('❌ User is banned:', email);
+//             throw new CustomError('Account is banned. Contact support.', 403);
+//         }
+        
+//         // Verify password
+//         if (!user.password_hash) {
+//             console.log('❌ No password hash found for user:', email);
+//             throw new CustomError('Invalid account configuration. Contact support.', 500);
+//         }
+        
+//         const isValidPassword = await bcrypt.compare(password, user.password_hash);
+        
+//         if (!isValidPassword) {
+//             console.log('❌ Invalid password for user:', email);
+//             throw new CustomError('Invalid credentials', 401);
+//         }
+        
+//         console.log('✅ Password verified successfully');
+        
+//         // Generate JWT token
+//         const tokenPayload = { 
+//             user_id: user.id, 
+//             username: user.username, 
+//             email: user.email,
+//             membership_stage: user.membership_stage || 'none',
+//             is_member: user.is_member || 'applied',
+//             role: user.role || 'user',
+//             converse_id: user.converse_id,
+//             application_ticket: user.application_ticket,
+//             full_membership_status: user.full_membership_status,
+//             application_status: user.application_status
+//         };
+        
+//         const token = jwt.sign(
+//             tokenPayload,
+//             process.env.JWT_SECRET,
+//             { expiresIn: '7d' }
+//         );
+        
+//         console.log('✅ JWT token generated successfully');
+        
+//         // Smart redirect logic
+//         let redirectTo = '/dashboard'; // Default fallback
+        
+//         const role = user.role?.toLowerCase();
+//         const memberStatus = user.is_member?.toLowerCase();
+//         const membershipStage = user.membership_stage?.toLowerCase();
+        
+//         console.log('🔍 Determining redirect for user:', {
+//             role,
+//             memberStatus,
+//             membershipStage
+//         });
+        
+//         if (role === 'admin' || role === 'super_admin') {
+//             redirectTo = '/admin';
+//             console.log('👑 Admin user - redirecting to admin panel');
+//         } else if ((memberStatus === 'member' && membershipStage === 'member') || 
+//                    (memberStatus === 'active' && membershipStage === 'member')) {
+//             redirectTo = '/iko';
+//             console.log('💎 Full member - redirecting to Iko Chat');
+//         } else if (memberStatus === 'pre_member' || membershipStage === 'pre_member') {
+//             redirectTo = '/towncrier';
+//             console.log('👤 Pre-member - redirecting to Towncrier');
+//         } else if (membershipStage === 'applicant' || memberStatus === 'applied') {
+//             redirectTo = '/applicationsurvey';
+//             console.log('📝 Applicant - redirecting to application survey');
+//         }
+        
+//         console.log('🎯 Final redirect destination:', redirectTo);
+        
+//         // Update last login
+//         try {
+//             await db.query('UPDATE users SET updatedAt = NOW() WHERE id = ?', [user.id]);
+//         } catch (updateError) {
+//             console.warn('⚠️ Failed to update last login:', updateError);
+//         }
+        
+// //         return successResponse(res, {
+// //             token,
+// //             user: {
+// //                 id: user.id,
+// //                 username: user.username,
+// //                 email: user.email,
+// //                 membership_stage: user.membership_stage || 'none',
+// //                 is_member: user.is_member || 'applied',
+// //                 role: user.role || 'user',
+// //                 converse_id: user.converse_id,
+// //                 application_ticket: user.application_ticket,
+// //                 full_membership_status: user.full_membership_status,
+// //                 application_status: user.application_status
+// //             },
+// //             redirectTo
+// //         }, 'Login successful');
+        
+// //     } catch (error) {
+// //         console.error('❌ Enhanced login error:', error);
+// //         return errorResponse(res, error);
+// //     }
+// // };
+
+//  return res.status(200).json({
+//             success: true,
+//             message: 'Login successful',
+//             // ✅ CRITICAL: Add both formats for frontend compatibility
+//             token,
+//             user: {
+//                 id: user.id,
+//                 username: user.username,
+//                 email: user.email,
+//                 membership_stage: user.membership_stage || 'none',
+//                 is_member: user.is_member || 'applied',
+//                 role: user.role || 'user',
+//                 converse_id: user.converse_id,
+//                 application_ticket: user.application_ticket,
+//                 full_membership_status: user.full_membership_status,
+//                 application_status: user.application_status
+//             },
+//             // ✅ ALSO include nested data format for Login.jsx compatibility
+//             data: {
+//                 token,
+//                 user: {
+//                     id: user.id,
+//                     username: user.username,
+//                     email: user.email,
+//                     membership_stage: user.membership_stage || 'none',
+//                     is_member: user.is_member || 'applied',
+//                     role: user.role || 'user',
+//                     converse_id: user.converse_id,
+//                     application_ticket: user.application_ticket,
+//                     full_membership_status: user.full_membership_status,
+//                     application_status: user.application_status
+//                 }
+//             },
+//             redirectTo,
+//             timestamp: new Date().toISOString()
+//         });
+        
+//     } catch (error) {
+//         console.error('❌ Enhanced login error:', error);
+//         return errorResponse(res, error);
+//     }
+// };
+
+
 export const enhancedLogin = async (req, res) => {
     try {
+        console.log('🔍 enhancedLogin function called');
+        console.log('📥 Request body keys:', Object.keys(req.body || {}));
+        
         const { email, password } = req.body;
+        
+        // Input validation
+        if (!email || !password) {
+            console.log('❌ Missing email or password');
+            return res.status(400).json({
+                success: false,
+                error: 'Email and password are required',
+                timestamp: new Date().toISOString()
+            });
+        }
         
         console.log('🔍 Login attempt for email:', email);
         
-        if (!email || !password) {
-            throw new CustomError('Email and password are required', 400);
+        // Check database connection first
+        try {
+            await db.query('SELECT 1');
+            console.log('✅ Database connection verified');
+        } catch (dbError) {
+            console.error('❌ Database connection failed:', dbError);
+            return res.status(500).json({
+                success: false,
+                error: 'Database connection error',
+                timestamp: new Date().toISOString()
+            });
         }
         
         // Get user from database
+        console.log('🔍 Querying database for user...');
         const users = await db.query(`
             SELECT 
                 id,
@@ -439,30 +670,59 @@ export const enhancedLogin = async (req, res) => {
             WHERE email = ?
         `, [email]);
         
+        console.log('📊 Database query result:', {
+            found: users && users.length > 0,
+            count: users ? users.length : 0
+        });
+        
         if (!users || users.length === 0) {
             console.log('❌ No user found with email:', email);
-            throw new CustomError('Invalid credentials', 401);
+            return res.status(404).json({
+                success: false,
+                error: 'No account found with this email. Please sign up first.',
+                timestamp: new Date().toISOString()
+            });
         }
         
         const user = users[0];
+        console.log('✅ User found:', {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            is_member: user.is_member,
+            membership_stage: user.membership_stage
+        });
         
-        // Check if user is banned
+        // Security checks
         if (user.isbanned) {
             console.log('❌ User is banned:', email);
-            throw new CustomError('Account is banned. Contact support.', 403);
+            return res.status(403).json({
+                success: false,
+                error: 'Account is banned. Contact support.',
+                timestamp: new Date().toISOString()
+            });
         }
         
         // Verify password
         if (!user.password_hash) {
             console.log('❌ No password hash found for user:', email);
-            throw new CustomError('Invalid account configuration. Contact support.', 500);
+            return res.status(500).json({
+                success: false,
+                error: 'Invalid account configuration. Contact support.',
+                timestamp: new Date().toISOString()
+            });
         }
         
+        console.log('🔍 Verifying password...');
         const isValidPassword = await bcrypt.compare(password, user.password_hash);
         
         if (!isValidPassword) {
             console.log('❌ Invalid password for user:', email);
-            throw new CustomError('Invalid credentials', 401);
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid credentials',
+                timestamp: new Date().toISOString()
+            });
         }
         
         console.log('✅ Password verified successfully');
@@ -478,7 +738,8 @@ export const enhancedLogin = async (req, res) => {
             converse_id: user.converse_id,
             application_ticket: user.application_ticket,
             full_membership_status: user.full_membership_status,
-            application_status: user.application_status
+            application_status: user.application_status,
+            iat: Math.floor(Date.now() / 1000)
         };
         
         const token = jwt.sign(
@@ -522,11 +783,15 @@ export const enhancedLogin = async (req, res) => {
         // Update last login
         try {
             await db.query('UPDATE users SET updatedAt = NOW() WHERE id = ?', [user.id]);
+            console.log('✅ Last login updated');
         } catch (updateError) {
             console.warn('⚠️ Failed to update last login:', updateError);
         }
         
-        return successResponse(res, {
+        // ✅ FIXED: Return consistent response format
+        const responseData = {
+            success: true,
+            message: 'Login successful',
             token,
             user: {
                 id: user.id,
@@ -540,12 +805,46 @@ export const enhancedLogin = async (req, res) => {
                 full_membership_status: user.full_membership_status,
                 application_status: user.application_status
             },
-            redirectTo
-        }, 'Login successful');
+            // Also include nested data format for compatibility
+            data: {
+                token,
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    membership_stage: user.membership_stage || 'none',
+                    is_member: user.is_member || 'applied',
+                    role: user.role || 'user',
+                    converse_id: user.converse_id,
+                    application_ticket: user.application_ticket,
+                    full_membership_status: user.full_membership_status,
+                    application_status: user.application_status
+                }
+            },
+            redirectTo,
+            timestamp: new Date().toISOString()
+        };
+        
+        console.log('✅ Sending successful login response');
+        return res.status(200).json(responseData);
         
     } catch (error) {
-        console.error('❌ Enhanced login error:', error);
-        return errorResponse(res, error);
+        console.error('❌ Enhanced login error:', {
+            message: error.message,
+            stack: error.stack,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Return error response
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            error: error.message || 'Login failed due to server error',
+            errorType: error.name || 'LoginError',
+            timestamp: new Date().toISOString(),
+            ...(process.env.NODE_ENV === 'development' && { 
+                stack: error.stack 
+            })
+        });
     }
 };
 
@@ -826,9 +1125,13 @@ export const getAuthenticatedUser = async (req, res) => {
         // Set CORS headers for credentials
         res.set("Access-Control-Allow-Credentials", "true");
         
-        return res.json({ 
-            Status: "Success",
+//        
+
+
+  return res.status(200).json({ 
             success: true,
+            Status: "Success", // Keep for backward compatibility
+            message: 'User authenticated successfully',
             userData: { 
                 id: req.user.id,
                 username: req.user.username, 
@@ -838,18 +1141,31 @@ export const getAuthenticatedUser = async (req, res) => {
                 is_member: req.user.is_member,
                 converse_id: req.user.converse_id,
                 application_ticket: req.user.application_ticket
-            }, 
+            },
+            // ✅ ALSO include user data at root level
+            user: {
+                id: req.user.id,
+                username: req.user.username, 
+                email: req.user.email,
+                role: req.user.role,
+                membership_stage: req.user.membership_stage,
+                is_member: req.user.is_member,
+                converse_id: req.user.converse_id,
+                application_ticket: req.user.application_ticket
+            },
             setAuth: true,
             timestamp: new Date().toISOString()
         });
         
     } catch (error) {
         console.error('❌ Get authenticated user error:', error);
-        
         res.set("Access-Control-Allow-Credentials", "true");
         return errorResponse(res, error);
     }
 };
+
+
+
 
 // ===============================================
 // LEGACY COMPATIBILITY FUNCTIONS

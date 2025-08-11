@@ -171,6 +171,240 @@ export const submitFullMembershipApplicationService = async ({
 };
 
 // ===============================================
+// SURVEY DRAFT SERVICES (NEW)
+// ===============================================
+
+/**
+ * Save survey draft for users or admins
+ * Allows both users and admins to save incomplete survey responses
+ */
+export const saveDraftSurvey = async ({
+  userId,
+  answers,
+  draftId = null,
+  applicationType = 'initial_application',
+  adminId = null,
+  adminNotes = null
+}) => {
+  const connection = await db.getConnection();
+  
+  try {
+    console.log('🔍 Saving survey draft:', { userId, applicationType, draftId, adminId });
+    
+    await connection.beginTransaction();
+    
+    // Validate user exists
+    const [userCheck] = await connection.query(
+      'SELECT id, username, role FROM users WHERE id = ?',
+      [userId]
+    );
+    
+    if (userCheck.length === 0) {
+      throw new CustomError('User not found', 404);
+    }
+    
+    const user = userCheck[0];
+    const isAdmin = adminId && (user.role === 'admin' || user.role === 'super_admin');
+    
+    // Process answers
+    const answersJson = typeof answers === 'string' ? answers : JSON.stringify(answers);
+    
+    if (draftId) {
+      // Update existing draft
+      const [existingDraft] = await connection.query(
+        'SELECT id, user_id FROM survey_drafts WHERE id = ? AND user_id = ?',
+        [draftId, userId]
+      );
+      
+      if (existingDraft.length === 0) {
+        throw new CustomError('Draft not found or access denied', 404);
+      }
+      
+      await connection.query(
+        `UPDATE survey_drafts 
+         SET answers = ?, 
+             application_type = ?,
+             admin_notes = ?,
+             saved_by_admin_id = ?,
+             updatedAt = NOW()
+         WHERE id = ? AND user_id = ?`,
+        [answersJson, applicationType, adminNotes, adminId, draftId, userId]
+      );
+      
+      console.log('✅ Draft updated successfully');
+      
+    } else {
+      // Create new draft
+      // Check for existing draft of same type
+      const [existingCheck] = await connection.query(
+        'SELECT id FROM survey_drafts WHERE user_id = ? AND application_type = ?',
+        [userId, applicationType]
+      );
+      
+      if (existingCheck.length > 0) {
+        // Update existing draft instead
+        await connection.query(
+          `UPDATE survey_drafts 
+           SET answers = ?, 
+               admin_notes = ?,
+               saved_by_admin_id = ?,
+               updatedAt = NOW()
+           WHERE user_id = ? AND application_type = ?`,
+          [answersJson, adminNotes, adminId, userId, applicationType]
+        );
+        
+        draftId = existingCheck[0].id;
+      } else {
+        // Insert new draft
+        const [result] = await connection.query(
+          `INSERT INTO survey_drafts 
+           (user_id, answers, application_type, admin_notes, saved_by_admin_id, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+          [userId, answersJson, applicationType, adminNotes, adminId]
+        );
+        
+        draftId = result.insertId;
+      }
+      
+      console.log('✅ Draft saved successfully');
+    }
+    
+    await connection.commit();
+    
+    // Log the action
+    await connection.query(
+      `INSERT INTO audit_logs (user_id, action, details, createdAt)
+       VALUES (?, ?, ?, NOW())`,
+      [
+        adminId || userId, 
+        isAdmin ? 'admin_save_survey_draft' : 'user_save_survey_draft',
+        JSON.stringify({
+          targetUserId: userId,
+          draftId,
+          applicationType,
+          answerCount: Array.isArray(answers) ? answers.length : Object.keys(answers || {}).length,
+          savedBy: isAdmin ? 'admin' : 'user'
+        })
+      ]
+    );
+    
+    return {
+      success: true,
+      draftId,
+      userId,
+      applicationType,
+      savedBy: isAdmin ? 'admin' : 'user',
+      message: 'Draft saved successfully'
+    };
+    
+  } catch (error) {
+    await connection.rollback();
+    console.error('❌ Error saving survey draft:', error);
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * Get survey drafts for a user
+ */
+export const getUserSurveyDrafts = async (userId, applicationType = null) => {
+  try {
+    let query = `
+      SELECT 
+        id,
+        answers,
+        application_type,
+        admin_notes,
+        saved_by_admin_id,
+        createdAt,
+        updatedAt
+      FROM survey_drafts 
+      WHERE user_id = ?
+    `;
+    const params = [userId];
+    
+    if (applicationType) {
+      query += ' AND application_type = ?';
+      params.push(applicationType);
+    }
+    
+    query += ' ORDER BY updatedAt DESC';
+    
+    const [drafts] = await db.query(query, params);
+    
+    // Parse answers if JSON
+    const processedDrafts = drafts.map(draft => ({
+      ...draft,
+      answers: draft.answers ? (typeof draft.answers === 'string' ? 
+        (() => { try { return JSON.parse(draft.answers); } catch(e) { return draft.answers; } })() 
+        : draft.answers) : null
+    }));
+    
+    return processedDrafts;
+    
+  } catch (error) {
+    console.error('❌ Error fetching survey drafts:', error);
+    throw new CustomError('Failed to fetch survey drafts', 500);
+  }
+};
+
+/**
+ * Delete survey draft
+ */
+export const deleteSurveyDraft = async (draftId, userId, adminId = null) => {
+  try {
+    // Check if user owns the draft or if admin is deleting
+    const [draftCheck] = await db.query(
+      'SELECT user_id FROM survey_drafts WHERE id = ?',
+      [draftId]
+    );
+    
+    if (draftCheck.length === 0) {
+      throw new CustomError('Draft not found', 404);
+    }
+    
+    // Allow if user owns draft or if admin is deleting
+    const canDelete = draftCheck[0].user_id === userId || adminId;
+    
+    if (!canDelete) {
+      throw new CustomError('Access denied', 403);
+    }
+    
+    const [result] = await db.query(
+      'DELETE FROM survey_drafts WHERE id = ?',
+      [draftId]
+    );
+    
+    if (result.affectedRows === 0) {
+      throw new CustomError('Draft not found', 404);
+    }
+    
+    // Log the action
+    await db.query(
+      `INSERT INTO audit_logs (user_id, action, details, createdAt)
+       VALUES (?, ?, ?, NOW())`,
+      [
+        adminId || userId,
+        adminId ? 'admin_delete_survey_draft' : 'user_delete_survey_draft',
+        JSON.stringify({
+          draftId,
+          targetUserId: draftCheck[0].user_id,
+          deletedBy: adminId ? 'admin' : 'user'
+        })
+      ]
+    );
+    
+    return { success: true, affectedRows: result.affectedRows };
+    
+  } catch (error) {
+    console.error('❌ Error deleting survey draft:', error);
+    throw error;
+  }
+};
+
+// ===============================================
 // SURVEY RETRIEVAL SERVICES
 // ===============================================
 
@@ -885,5 +1119,9 @@ export default {
   getSurveyAnalyticsData,
   exportSurveyDataToCSV,
   getSurveyDetailsById,
-  deleteSurveyLogById
+  deleteSurveyLogById,
+  // New draft functions
+  saveDraftSurvey,
+  getUserSurveyDrafts,
+  deleteSurveyDraft
 };

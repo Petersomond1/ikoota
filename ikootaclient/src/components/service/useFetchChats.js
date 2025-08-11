@@ -8,7 +8,7 @@ export const useFetchChats = () => {
   return useQuery({
     queryKey: ["chats"], // Corrected to use an array
     queryFn: async () => {
-      const response = await api.get("/chats");
+      const response = await api.get("/content/chats");
       return response.data;
     },
   });

@@ -1,3 +1,5 @@
+
+
 // ikootaapi/routes/userStatusRoutes.js
 // USER STATUS & DASHBOARD ROUTES
 // User dashboard, status checks, and system health endpoints
@@ -5,7 +7,20 @@
 import express from 'express';
 import { authenticate } from '../middlewares/auth.middleware.js';
 
-// Import user status controllers
+// Fix the import in userStatusRoutes.js
+import {
+  healthCheck,
+  testSimple,
+  testAuth,
+  testDashboard,
+  checkSurveyStatus,
+  getBasicProfile,
+  getLegacyMembershipStatus,
+  getUserStatus,
+  debugApplicationStatus,
+  getSystemStatus
+} from '../controllers/userStatusControllers.js';
+
 import {
   getUserDashboard,
   getCurrentMembershipStatus,
@@ -13,19 +28,6 @@ import {
   getApplicationHistory,
   getUserPermissions
 } from '../controllers/preMemberApplicationController.js';
-
-import {
-  checkSurveyStatus,
-  getBasicProfile,
-  getLegacyMembershipStatus,
-  getUserStatus,
-  healthCheck,
-  testSimple,
-  testAuth,
-  testDashboard,
-  debugApplicationStatus,
-  getSystemStatus
-} from '../controllers/userStatusControllers.js';
 
 const router = express.Router();
 
@@ -67,6 +69,11 @@ router.get('/application/status', authenticate, checkApplicationStatus);
 
 // Survey status check (enhanced)
 router.get('/survey/check-status', authenticate, checkSurveyStatus);
+//router.get('/survey/status', authenticate, checkSurveyStatus);
+router.get('/survey/status', authenticate, (req, res) => {
+  res.json({ success: true, message: 'Survey status route working!' });
+});
+
 
 // Legacy compatibility endpoints
 router.get('/membership/status', authenticate, getLegacyMembershipStatus);

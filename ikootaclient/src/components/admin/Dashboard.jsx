@@ -9,7 +9,7 @@ import api from '../service/api';
 // Update your API functions to handle errors better
 const fetchMembershipAnalytics = async (period = '30d') => {
   try {
-    const { data } = await api.get(`/membership/admin/analytics?period=${period}&detailed=true`);
+    const { data } = await api.get(`/admin/membership/analytics?period=${period}&detailed=true`);
     return data;
   } catch (error) {
     console.error('Failed to fetch membership analytics:', error);
@@ -28,7 +28,7 @@ const fetchMembershipAnalytics = async (period = '30d') => {
 
 const fetchMembershipStats = async () => {
   try {
-    const { data } = await api.get('/membership/admin/membership-stats');
+    const { data } = await api.get('/admin/membership/stats');
     return data;
   } catch (error) {
     console.error('Failed to fetch membership stats:', error);
@@ -70,7 +70,7 @@ const Dashboard = () => {
     queryKey: ['auditLogs'],
     queryFn: async () => {
       try {
-        const { data } = await api.get('/admin/audit-logs');
+        const { data } = await api.get('/content/admin/audit-logs');
         return data;
       } catch (error) {
         console.error('Failed to fetch audit logs:', error);

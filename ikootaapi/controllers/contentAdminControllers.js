@@ -944,27 +944,27 @@ export const bulkManageContent = async (req, res) => {
 // EXPORT ALL FUNCTIONS
 // ============================================================================
 
-export {
-  // Main content admin functions
-  getPendingContent,
-  manageContent,
-  approveContent,
-  rejectContent,
-  deleteContent,
+// export {
+//   // Main content admin functions
+//   getPendingContent,
+//   manageContent,
+//   approveContent,
+//   rejectContent,
+//   deleteContent,
   
-  // Content type specific admin functions
-  getChatsForAdmin,
-  getTeachingsForAdmin,
-  getCommentsForAdmin,
-  updateContentStatus,
+//   // Content type specific admin functions
+//   getChatsForAdmin,
+//   getTeachingsForAdmin,
+//   getCommentsForAdmin,
+//   updateContentStatus,
   
-  // Reports and audit functions
-  getReports,
-  updateReportStatus,
-  getAuditLogs,
+//   // Reports and audit functions
+//   // getReports,
+//   // updateReportStatus,
+//   // getAuditLogs,
   
-  // Utility functions
-  sendNotification,
-  getContentStats,
-  bulkManageContent
-};
+//   // Utility functions
+//   // sendNotification,
+//   // getContentStats,
+//   // bulkManageContent
+// };

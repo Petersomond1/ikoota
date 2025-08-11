@@ -1,6 +1,6 @@
 // ikootaapi/services/classAdminServices.js
-// ADMIN CLASS MANAGEMENT SERVICES - NEW OTU# FORMAT ONLY
-// Strictly uses OTU#XXXXXX format for all class operations
+// ADMIN CLASS MANAGEMENT SERVICES - ENHANCED COMPLETE IMPLEMENTATION
+// Builds upon existing implementation with additional functionality and improvements
 
 import db from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
@@ -10,10 +10,31 @@ import { generateUniqueClassId, validateIdFormat } from '../utils/idGenerator.js
 // ID FORMAT VALIDATION (NEW FORMAT ONLY)
 // ===============================================
 
+
 /**
  * Validates class ID format - NEW FORMAT ONLY: OTU#XXXXXX
  * @param {string} classId - The class ID to validate
  * @returns {boolean} True if valid OTU# format
+ */
+// const validateClassIdFormat = (classId) => {
+//   if (!classId || typeof classId !== 'string') return false;
+  
+//   // Special case for public class
+//   if (classId === 'OTU#Public') return true;
+  
+//   // Standard new format: OTU#XXXXXX (10 characters total)
+//   return validateIdFormat(classId, 'class');
+// };
+
+/**
+ * Formats class ID for display
+ * @param {string} classId - The class ID (OTU# format)
+ * @returns {string} Formatted display string
+ */
+
+
+/**
+ * Validates class ID format - NEW FORMAT ONLY: OTU#XXXXXX
  */
 const validateClassIdFormat = (classId) => {
   if (!classId || typeof classId !== 'string') return false;
@@ -27,24 +48,34 @@ const validateClassIdFormat = (classId) => {
 
 /**
  * Formats class ID for display
- * @param {string} classId - The class ID (OTU# format)
- * @returns {string} Formatted display string
  */
 const formatClassIdForDisplay = (classId) => {
   if (classId === 'OTU#Public') return 'Public Community';
   return `Class ${classId}`;
 };
 
+
+
 // ===============================================
-// CLASS MANAGEMENT SERVICES (OTU# FORMAT ONLY)
+// ENHANCED CLASS MANAGEMENT SERVICES
 // ===============================================
 
 /**
- * Get comprehensive class management data for admin (OTU# format only)
+ * Get comprehensive class management data for admin (ENHANCED VERSION)
  */
 export const getClassManagementService = async (filters = {}, options = {}) => {
   try {
-    const { type, is_active, search } = filters;
+    const { 
+      type, 
+      is_active, 
+      search, 
+      date_from, 
+      date_to, 
+      created_by, 
+      min_members, 
+      max_members 
+    } = filters;
+    
     const { 
       page = 1, 
       limit = 20, 
@@ -52,11 +83,13 @@ export const getClassManagementService = async (filters = {}, options = {}) => {
       sort_order = 'DESC',
       include_stats = true 
     } = options;
+    
     const offset = (page - 1) * limit;
 
-    let whereClause = 'WHERE c.class_id LIKE "OTU#%"'; // Only OTU# format classes
+    let whereClause = 'WHERE c.class_id LIKE "OTU#%"';
     const params = [];
 
+    // Enhanced filtering
     if (type) {
       whereClause += ' AND c.class_type = ?';
       params.push(type);
@@ -68,29 +101,65 @@ export const getClassManagementService = async (filters = {}, options = {}) => {
     }
 
     if (search) {
-      whereClause += ' AND (c.class_name LIKE ? OR c.public_name LIKE ? OR c.description LIKE ?)';
+      whereClause += ' AND (c.class_name LIKE ? OR c.public_name LIKE ? OR c.description LIKE ? OR c.tags LIKE ?)';
       const searchTerm = `%${search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm);
+    }
+
+    if (date_from) {
+      whereClause += ' AND c.createdAt >= ?';
+      params.push(date_from);
+    }
+
+    if (date_to) {
+      whereClause += ' AND c.createdAt <= ?';
+      params.push(date_to);
+    }
+
+    if (created_by) {
+      whereClause += ' AND c.created_by = ?';
+      params.push(created_by);
+    }
+
+    if (min_members) {
+      whereClause += ' AND COALESCE(cm.total_members, 0) >= ?';
+      params.push(min_members);
+    }
+
+    if (max_members) {
+      whereClause += ' AND COALESCE(cm.total_members, 0) <= ?';
+      params.push(max_members);
     }
 
     // Get total count
-    const countSql = `SELECT COUNT(*) as total FROM classes c ${whereClause}`;
+    const countSql = `SELECT COUNT(*) as total FROM classes c LEFT JOIN class_member_counts cm ON c.class_id = cm.class_id ${whereClause}`;
     const [{ total }] = await db.query(countSql, params);
 
-    // Get classes with comprehensive admin info
+    // Get classes with enhanced admin info
     const sql = `
       SELECT 
         c.*,
         u.username as created_by_username,
+        u.email as created_by_email,
+        updated_by_user.username as updated_by_username,
         COALESCE(cm.total_members, 0) as total_members,
         COALESCE(cm.moderators, 0) as moderators,
         COALESCE(cm.pending_members, 0) as pending_members,
         ${include_stats ? `
         (SELECT COUNT(*) FROM class_content_access WHERE class_id = c.class_id) as content_count,
-        DATEDIFF(NOW(), c.createdAt) as days_since_creation
-        ` : '0 as content_count, 0 as days_since_creation'}
+        DATEDIFF(NOW(), c.createdAt) as days_since_creation,
+        CASE 
+          WHEN c.max_members > 0 THEN ROUND((COALESCE(cm.total_members, 0) / c.max_members) * 100, 2)
+          ELSE 0 
+        END as capacity_percentage,
+        CASE 
+          WHEN c.max_members <= COALESCE(cm.total_members, 0) THEN 1
+          ELSE 0 
+        END as is_at_capacity
+        ` : '0 as content_count, 0 as days_since_creation, 0 as capacity_percentage, 0 as is_at_capacity'}
       FROM classes c
       LEFT JOIN users u ON c.created_by = u.id
+      LEFT JOIN users updated_by_user ON c.updated_by = updated_by_user.id
       LEFT JOIN class_member_counts cm ON c.class_id = cm.class_id
       ${whereClause}
       ORDER BY 
@@ -102,14 +171,17 @@ export const getClassManagementService = async (filters = {}, options = {}) => {
     params.push(limit, offset);
     const classes = await db.query(sql, params);
 
-    // Add display formatting
+    // Add display formatting and health scoring
     const formattedClasses = classes.map(cls => ({
       ...cls,
       display_id: formatClassIdForDisplay(cls.class_id),
-      id_format: 'new_standard'
+      id_format: 'new_standard',
+      tags: cls.tags ? (typeof cls.tags === 'string' ? cls.tags.split(',') : cls.tags) : [],
+      health_score: calculateClassHealthScore(cls),
+      available_spots: cls.max_members - (cls.total_members || 0)
     }));
 
-    // Get summary statistics if requested
+    // Enhanced summary statistics
     let summary = null;
     if (include_stats) {
       const summarySql = `
@@ -121,11 +193,22 @@ export const getClassManagementService = async (filters = {}, options = {}) => {
           SUM(CASE WHEN class_type = 'public' THEN 1 ELSE 0 END) as public_classes,
           SUM(CASE WHEN class_type = 'special' THEN 1 ELSE 0 END) as special_classes,
           SUM(CASE WHEN is_public = 1 THEN 1 ELSE 0 END) as publicly_visible,
-          AVG(max_members) as avg_max_capacity
+          AVG(max_members) as avg_max_capacity,
+          AVG(COALESCE(cm.total_members, 0)) as avg_current_members,
+          SUM(CASE WHEN max_members <= COALESCE(cm.total_members, 0) THEN 1 ELSE 0 END) as classes_at_capacity
         FROM classes c
+        LEFT JOIN class_member_counts cm ON c.class_id = cm.class_id
         ${whereClause}
       `;
       [summary] = await db.query(summarySql, params.slice(0, -2)); // Remove limit/offset
+      
+      // Add calculated fields
+      if (summary) {
+        summary.avg_max_capacity = Math.round(summary.avg_max_capacity || 0);
+        summary.avg_current_members = Math.round(summary.avg_current_members || 0);
+        summary.overall_capacity_utilization = summary.avg_max_capacity > 0 ? 
+          Math.round((summary.avg_current_members / summary.avg_max_capacity) * 100) : 0;
+      }
     }
 
     return {
@@ -138,7 +221,8 @@ export const getClassManagementService = async (filters = {}, options = {}) => {
         has_next: page < Math.ceil(total / limit),
         has_previous: page > 1
       },
-      summary
+      summary,
+      filters_applied: Object.keys(filters).filter(key => filters[key] !== undefined).length
     };
 
   } catch (error) {
@@ -148,7 +232,7 @@ export const getClassManagementService = async (filters = {}, options = {}) => {
 };
 
 /**
- * Create a new class with OTU# format ID generation
+ * Create a new class with enhanced options (ENHANCED VERSION)
  */
 export const createClassService = async (classData) => {
   try {
@@ -161,7 +245,25 @@ export const createClassService = async (classData) => {
       is_public = false,
       max_members = 50,
       privacy_level = 'members_only',
-      created_by
+      created_by,
+      // Enhanced fields
+      tags,
+      category,
+      difficulty_level,
+      estimated_duration,
+      prerequisites,
+      learning_objectives,
+      auto_approve_members = false,
+      allow_self_join = true,
+      require_approval = true,
+      enable_notifications = true,
+      enable_discussions = true,
+      enable_assignments = false,
+      enable_grading = false,
+      class_schedule,
+      timezone = 'UTC',
+      requirements,
+      instructor_notes
     } = classData;
 
     // Validate required fields
@@ -171,9 +273,8 @@ export const createClassService = async (classData) => {
 
     // Generate OTU# format ID if not provided
     if (!class_id) {
-      class_id = await generateUniqueClassId(); // This generates OTU#XXXXXX format
+      class_id = await generateUniqueClassId();
     } else {
-      // Validate provided class_id is in OTU# format
       if (!validateClassIdFormat(class_id)) {
         throw new CustomError('class_id must be in OTU#XXXXXX format', 400);
       }
@@ -188,7 +289,7 @@ export const createClassService = async (classData) => {
     }
 
     // Validate class_type
-    const validTypes = ['demographic', 'subject', 'public', 'special'];
+    const validTypes = ['demographic', 'subject', 'public', 'special', 'general', 'lecture', 'workshop', 'seminar', 'discussion'];
     if (!validTypes.includes(class_type)) {
       throw new CustomError(`Invalid class_type. Must be one of: ${validTypes.join(', ')}`, 400);
     }
@@ -199,21 +300,43 @@ export const createClassService = async (classData) => {
       throw new CustomError(`Invalid privacy_level. Must be one of: ${validPrivacyLevels.join(', ')}`, 400);
     }
 
-    // Create the class
+    // Process array fields
+    const processedTags = Array.isArray(tags) ? tags.join(',') : tags;
+    const processedPrerequisites = Array.isArray(prerequisites) ? prerequisites.join(',') : prerequisites;
+    const processedObjectives = Array.isArray(learning_objectives) ? learning_objectives.join(',') : learning_objectives;
+    const processedSchedule = class_schedule ? JSON.stringify(class_schedule) : null;
+
+    // Create the class with enhanced fields
     const sql = `
       INSERT INTO classes (
         class_id, class_name, public_name, description, class_type,
         is_public, max_members, privacy_level, created_by, is_active,
+        tags, category, difficulty_level, estimated_duration, prerequisites,
+        learning_objectives, auto_approve_members, allow_self_join, require_approval,
+        enable_notifications, enable_discussions, enable_assignments, enable_grading,
+        class_schedule, timezone, requirements, instructor_notes,
         createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
     await db.query(sql, [
       class_id, class_name, public_name || class_name, description,
-      class_type, is_public, max_members, privacy_level, created_by
+      class_type, is_public, max_members, privacy_level, created_by,
+      processedTags, category, difficulty_level, estimated_duration, processedPrerequisites,
+      processedObjectives, auto_approve_members, allow_self_join, require_approval,
+      enable_notifications, enable_discussions, enable_assignments, enable_grading,
+      processedSchedule, timezone, requirements, instructor_notes
     ]);
 
-    // Return the created class
+    // Make the creator a moderator
+    const membershipSql = `
+      INSERT INTO user_class_memberships 
+      (user_id, class_id, role_in_class, membership_status, joinedAt, assigned_by, receive_notifications, can_see_class_name, createdAt, updatedAt)
+      VALUES (?, ?, 'moderator', 'active', NOW(), ?, 1, 1, NOW(), NOW())
+    `;
+    await db.query(membershipSql, [created_by, class_id, created_by]);
+
+    // Return the created class with full details
     const createdSql = `
       SELECT c.*, u.username as created_by_username
       FROM classes c
@@ -225,7 +348,11 @@ export const createClassService = async (classData) => {
     return {
       ...newClass,
       display_id: formatClassIdForDisplay(class_id),
-      id_format: 'new_standard'
+      id_format: 'new_standard',
+      tags: newClass.tags ? newClass.tags.split(',') : [],
+      prerequisites: newClass.prerequisites ? newClass.prerequisites.split(',') : [],
+      learning_objectives: newClass.learning_objectives ? newClass.learning_objectives.split(',') : [],
+      class_schedule: newClass.class_schedule ? JSON.parse(newClass.class_schedule) : null
     };
 
   } catch (error) {
@@ -236,7 +363,7 @@ export const createClassService = async (classData) => {
 };
 
 /**
- * Update class with OTU# format validation
+ * Update class with enhanced field support (ENHANCED VERSION)
  */
 export const updateClassService = async (classId, updateData, adminId) => {
   try {
@@ -253,10 +380,15 @@ export const updateClassService = async (classId, updateData, adminId) => {
       throw new CustomError('Class not found or invalid format', 404);
     }
 
-    // Build dynamic update query
+    // Enhanced allowed fields
     const allowedFields = [
       'class_name', 'public_name', 'description', 'class_type',
-      'is_public', 'max_members', 'privacy_level', 'is_active'
+      'is_public', 'max_members', 'privacy_level', 'is_active',
+      'tags', 'category', 'difficulty_level', 'estimated_duration',
+      'prerequisites', 'learning_objectives', 'auto_approve_members',
+      'allow_self_join', 'require_approval', 'enable_notifications',
+      'enable_discussions', 'enable_assignments', 'enable_grading',
+      'class_schedule', 'timezone', 'requirements', 'instructor_notes'
     ];
     
     const updateFields = [];
@@ -264,8 +396,29 @@ export const updateClassService = async (classId, updateData, adminId) => {
     
     Object.keys(updateData).forEach(field => {
       if (allowedFields.includes(field) && updateData[field] !== undefined) {
-        updateFields.push(`${field} = ?`);
-        params.push(updateData[field]);
+        // Process special fields
+        if (field === 'tags' && Array.isArray(updateData[field])) {
+          updateFields.push(`${field} = ?`);
+          params.push(updateData[field].join(','));
+        } else if (field === 'prerequisites' && Array.isArray(updateData[field])) {
+          updateFields.push(`${field} = ?`);
+          params.push(updateData[field].join(','));
+        } else if (field === 'learning_objectives' && Array.isArray(updateData[field])) {
+          updateFields.push(`${field} = ?`);
+          params.push(updateData[field].join(','));
+        } else if (field === 'class_schedule' && typeof updateData[field] === 'object') {
+          updateFields.push(`${field} = ?`);
+          params.push(JSON.stringify(updateData[field]));
+        } else if (['is_public', 'auto_approve_members', 'allow_self_join', 'require_approval', 'enable_notifications', 'enable_discussions', 'enable_assignments', 'enable_grading', 'is_active'].includes(field)) {
+          updateFields.push(`${field} = ?`);
+          params.push(Boolean(updateData[field]));
+        } else if (['max_members', 'estimated_duration'].includes(field)) {
+          updateFields.push(`${field} = ?`);
+          params.push(parseInt(updateData[field]));
+        } else {
+          updateFields.push(`${field} = ?`);
+          params.push(updateData[field]);
+        }
       }
     });
 
@@ -273,8 +426,10 @@ export const updateClassService = async (classId, updateData, adminId) => {
       throw new CustomError('No valid fields provided for update', 400);
     }
 
-    // Add updatedAt
+    // Add metadata
     updateFields.push('updatedAt = NOW()');
+    updateFields.push('updated_by = ?');
+    params.push(adminId);
     params.push(classId);
 
     const sql = `
@@ -287,9 +442,10 @@ export const updateClassService = async (classId, updateData, adminId) => {
 
     // Return updated class
     const updatedSql = `
-      SELECT c.*, u.username as created_by_username
+      SELECT c.*, u.username as created_by_username, updated_by_user.username as updated_by_username
       FROM classes c
       LEFT JOIN users u ON c.created_by = u.id
+      LEFT JOIN users updated_by_user ON c.updated_by = updated_by_user.id
       WHERE c.class_id = ?
     `;
     const [updatedClass] = await db.query(updatedSql, [classId]);
@@ -297,7 +453,11 @@ export const updateClassService = async (classId, updateData, adminId) => {
     return {
       ...updatedClass,
       display_id: formatClassIdForDisplay(classId),
-      id_format: 'new_standard'
+      id_format: 'new_standard',
+      tags: updatedClass.tags ? updatedClass.tags.split(',') : [],
+      prerequisites: updatedClass.prerequisites ? updatedClass.prerequisites.split(',') : [],
+      learning_objectives: updatedClass.learning_objectives ? updatedClass.learning_objectives.split(',') : [],
+      class_schedule: updatedClass.class_schedule ? JSON.parse(updatedClass.class_schedule) : null
     };
 
   } catch (error) {
@@ -306,6 +466,492 @@ export const updateClassService = async (classId, updateData, adminId) => {
     throw new CustomError('Failed to update class', 500);
   }
 };
+
+// ===============================================
+// MISSING SERVICES FROM ORIGINAL FILE
+// ===============================================
+
+/**
+ * Archive class service (MISSING FROM ORIGINAL)
+ */
+export const archiveClassService = async (classId, options = {}) => {
+  try {
+    if (!validateClassIdFormat(classId)) {
+      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
+    }
+
+    const { archived_by, archive_reason } = options;
+
+    // Check if class exists
+    const classSql = 'SELECT * FROM classes WHERE class_id = ? AND class_id LIKE "OTU#%"';
+    const [classData] = await db.query(classSql, [classId]);
+    
+    if (!classData) {
+      throw new CustomError('Class not found', 404);
+    }
+
+    // Archive the class
+    const archiveSql = `
+      UPDATE classes 
+      SET is_active = 0, archived_at = NOW(), archived_by = ?, archive_reason = ?, updatedAt = NOW()
+      WHERE class_id = ?
+    `;
+    await db.query(archiveSql, [archived_by, archive_reason, classId]);
+
+    return {
+      archived_class_id: classId,
+      class_name: classData.class_name,
+      display_id: formatClassIdForDisplay(classId),
+      archived_by,
+      archived_at: new Date().toISOString(),
+      archive_reason
+    };
+
+  } catch (error) {
+    console.error('❌ archiveClassService error:', error);
+    if (error instanceof CustomError) throw error;
+    throw new CustomError('Failed to archive class', 500);
+  }
+};
+
+/**
+ * Restore class service (MISSING FROM ORIGINAL)
+ */
+export const restoreClassService = async (classId, options = {}) => {
+  try {
+    if (!validateClassIdFormat(classId)) {
+      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
+    }
+
+    const { restore_members = true, restored_by } = options;
+
+    // Check if class exists and is archived
+    const classSql = 'SELECT * FROM classes WHERE class_id = ? AND is_active = 0 AND class_id LIKE "OTU#%"';
+    const [classData] = await db.query(classSql, [classId]);
+    
+    if (!classData) {
+      throw new CustomError('Archived class not found', 404);
+    }
+
+    // Restore the class
+    const restoreSql = `
+      UPDATE classes 
+      SET is_active = 1, restored_at = NOW(), restored_by = ?, archived_at = NULL, archived_by = NULL, archive_reason = NULL, updatedAt = NOW()
+      WHERE class_id = ?
+    `;
+    await db.query(restoreSql, [restored_by, classId]);
+
+    // Optionally restore members
+    if (restore_members) {
+      const restoreMembersSql = `
+        UPDATE user_class_memberships 
+        SET membership_status = 'active', updatedAt = NOW()
+        WHERE class_id = ? AND membership_status = 'expired'
+      `;
+      await db.query(restoreMembersSql, [classId]);
+    }
+
+    return {
+      restored_class_id: classId,
+      class_name: classData.class_name,
+      display_id: formatClassIdForDisplay(classId),
+      restored_by,
+      restored_at: new Date().toISOString(),
+      members_restored: restore_members
+    };
+
+  } catch (error) {
+    console.error('❌ restoreClassService error:', error);
+    if (error instanceof CustomError) throw error;
+    throw new CustomError('Failed to restore class', 500);
+  }
+};
+
+/**
+ * Duplicate class service (MISSING FROM ORIGINAL)
+ */
+export const duplicateClassService = async (classId, options = {}) => {
+  try {
+    if (!validateClassIdFormat(classId)) {
+      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
+    }
+
+    const { 
+      new_name, 
+      copy_members = false, 
+      copy_content = true, 
+      copy_schedule = false,
+      duplicated_by 
+    } = options;
+
+    // Get original class
+    const originalSql = 'SELECT * FROM classes WHERE class_id = ? AND class_id LIKE "OTU#%"';
+    const [original] = await db.query(originalSql, [classId]);
+    
+    if (!original) {
+      throw new CustomError('Class not found', 404);
+    }
+
+    // Create duplicate class data
+    const duplicateData = {
+      ...original,
+      class_id: undefined, // Will be generated
+      class_name: new_name || `${original.class_name} (Copy)`,
+      public_name: new_name || `${original.public_name} (Copy)`,
+      created_by: duplicated_by,
+      createdAt: undefined,
+      updatedAt: undefined
+    };
+
+    // Remove fields that shouldn't be copied
+    delete duplicateData.id;
+    delete duplicateData.archived_at;
+    delete duplicateData.archived_by;
+    delete duplicateData.archive_reason;
+    delete duplicateData.restored_at;
+    delete duplicateData.restored_by;
+
+    const newClass = await createClassService(duplicateData);
+
+    // Copy content if requested
+    if (copy_content) {
+      const contentSql = `
+        INSERT INTO class_content_access (content_id, content_type, class_id, access_level, createdAt)
+        SELECT content_id, content_type, ?, access_level, NOW()
+        FROM class_content_access
+        WHERE class_id = ?
+      `;
+      await db.query(contentSql, [newClass.class_id, classId]);
+    }
+
+    // Copy members if requested
+    if (copy_members) {
+      const membersSql = `
+        INSERT INTO user_class_memberships (user_id, class_id, role_in_class, membership_status, joinedAt, receive_notifications, can_see_class_name, createdAt, updatedAt)
+        SELECT user_id, ?, role_in_class, membership_status, NOW(), receive_notifications, can_see_class_name, NOW(), NOW()
+        FROM user_class_memberships
+        WHERE class_id = ? AND membership_status = 'active'
+      `;
+      await db.query(membersSql, [newClass.class_id, classId]);
+    }
+
+    return {
+      original_class_id: classId,
+      new_class_id: newClass.class_id,
+      new_class_name: newClass.class_name,
+      display_id: formatClassIdForDisplay(newClass.class_id),
+      duplicated_by,
+      duplicated_at: new Date().toISOString(),
+      copied_features: {
+        content: copy_content,
+        members: copy_members,
+        schedule: copy_schedule
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ duplicateClassService error:', error);
+    if (error instanceof CustomError) throw error;
+    throw new CustomError('Failed to duplicate class', 500);
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ikootaapi/services/classAdminServices.js
+// ADMIN CLASS MANAGEMENT SERVICES - NEW OTU# FORMAT ONLY
+// Strictly uses OTU#XXXXXX format for all class operations
+
+// ===============================================
+// ID FORMAT VALIDATION (NEW FORMAT ONLY)
+// ===============================================
+
+// const formatClassIdForDisplay = (classId) => {
+//   if (classId === 'OTU#Public') return 'Public Community';
+//   return `Class ${classId}`;
+// };
+
+// ===============================================
+// CLASS MANAGEMENT SERVICES (OTU# FORMAT ONLY)
+// ===============================================
+
+/**
+ * Get comprehensive class management data for admin (OTU# format only)
+ */
+// export const getClassManagementService = async (filters = {}, options = {}) => {
+//   try {
+//     const { type, is_active, search } = filters;
+//     const { 
+//       page = 1, 
+//       limit = 20, 
+//       sort_by = 'createdAt', 
+//       sort_order = 'DESC',
+//       include_stats = true 
+//     } = options;
+//     const offset = (page - 1) * limit;
+
+//     let whereClause = 'WHERE c.class_id LIKE "OTU#%"'; // Only OTU# format classes
+//     const params = [];
+
+//     if (type) {
+//       whereClause += ' AND c.class_type = ?';
+//       params.push(type);
+//     }
+
+//     if (is_active !== undefined) {
+//       whereClause += ' AND c.is_active = ?';
+//       params.push(is_active);
+//     }
+
+//     if (search) {
+//       whereClause += ' AND (c.class_name LIKE ? OR c.public_name LIKE ? OR c.description LIKE ?)';
+//       const searchTerm = `%${search}%`;
+//       params.push(searchTerm, searchTerm, searchTerm);
+//     }
+
+//     // Get total count
+//     const countSql = `SELECT COUNT(*) as total FROM classes c ${whereClause}`;
+//     const [{ total }] = await db.query(countSql, params);
+
+//     // Get classes with comprehensive admin info
+//     const sql = `
+//       SELECT 
+//         c.*,
+//         u.username as created_by_username,
+//         COALESCE(cm.total_members, 0) as total_members,
+//         COALESCE(cm.moderators, 0) as moderators,
+//         COALESCE(cm.pending_members, 0) as pending_members,
+//         ${include_stats ? `
+//         (SELECT COUNT(*) FROM class_content_access WHERE class_id = c.class_id) as content_count,
+//         DATEDIFF(NOW(), c.createdAt) as days_since_creation
+//         ` : '0 as content_count, 0 as days_since_creation'}
+//       FROM classes c
+//       LEFT JOIN users u ON c.created_by = u.id
+//       LEFT JOIN class_member_counts cm ON c.class_id = cm.class_id
+//       ${whereClause}
+//       ORDER BY 
+//         CASE WHEN c.class_id = 'OTU#Public' THEN 0 ELSE 1 END,
+//         c.${sort_by} ${sort_order}
+//       LIMIT ? OFFSET ?
+//     `;
+    
+//     params.push(limit, offset);
+//     const classes = await db.query(sql, params);
+
+//     // Add display formatting
+//     const formattedClasses = classes.map(cls => ({
+//       ...cls,
+//       display_id: formatClassIdForDisplay(cls.class_id),
+//       id_format: 'new_standard'
+//     }));
+
+//     // Get summary statistics if requested
+//     let summary = null;
+//     if (include_stats) {
+//       const summarySql = `
+//         SELECT 
+//           COUNT(*) as total_classes,
+//           SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_classes,
+//           SUM(CASE WHEN class_type = 'demographic' THEN 1 ELSE 0 END) as demographic_classes,
+//           SUM(CASE WHEN class_type = 'subject' THEN 1 ELSE 0 END) as subject_classes,
+//           SUM(CASE WHEN class_type = 'public' THEN 1 ELSE 0 END) as public_classes,
+//           SUM(CASE WHEN class_type = 'special' THEN 1 ELSE 0 END) as special_classes,
+//           SUM(CASE WHEN is_public = 1 THEN 1 ELSE 0 END) as publicly_visible,
+//           AVG(max_members) as avg_max_capacity
+//         FROM classes c
+//         ${whereClause}
+//       `;
+//       [summary] = await db.query(summarySql, params.slice(0, -2)); // Remove limit/offset
+//     }
+
+//     return {
+//       data: formattedClasses,
+//       pagination: {
+//         current_page: page,
+//         total_pages: Math.ceil(total / limit),
+//         total_records: total,
+//         per_page: limit,
+//         has_next: page < Math.ceil(total / limit),
+//         has_previous: page > 1
+//       },
+//       summary
+//     };
+
+//   } catch (error) {
+//     console.error('❌ getClassManagementService error:', error);
+//     throw new CustomError('Failed to fetch class management data', 500);
+//   }
+// };
+
+/**
+ * Create a new class with OTU# format ID generation
+ */
+// export const createClassService = async (classData) => {
+//   try {
+//     let {
+//       class_id,
+//       class_name,
+//       public_name,
+//       description,
+//       class_type = 'demographic',
+//       is_public = false,
+//       max_members = 50,
+//       privacy_level = 'members_only',
+//       created_by
+//     } = classData;
+
+//     // Validate required fields
+//     if (!class_name) {
+//       throw new CustomError('class_name is required', 400);
+//     }
+
+//     // Generate OTU# format ID if not provided
+//     if (!class_id) {
+//       class_id = await generateUniqueClassId(); // This generates OTU#XXXXXX format
+//     } else {
+//       // Validate provided class_id is in OTU# format
+//       if (!validateClassIdFormat(class_id)) {
+//         throw new CustomError('class_id must be in OTU#XXXXXX format', 400);
+//       }
+
+//       // Check if class_id already exists
+//       const existingSql = 'SELECT class_id FROM classes WHERE class_id = ?';
+//       const [existing] = await db.query(existingSql, [class_id]);
+      
+//       if (existing) {
+//         throw new CustomError('Class ID already exists', 400);
+//       }
+//     }
+
+//     // Validate class_type
+//     const validTypes = ['demographic', 'subject', 'public', 'special'];
+//     if (!validTypes.includes(class_type)) {
+//       throw new CustomError(`Invalid class_type. Must be one of: ${validTypes.join(', ')}`, 400);
+//     }
+
+//     // Validate privacy_level
+//     const validPrivacyLevels = ['public', 'members_only', 'admin_only'];
+//     if (!validPrivacyLevels.includes(privacy_level)) {
+//       throw new CustomError(`Invalid privacy_level. Must be one of: ${validPrivacyLevels.join(', ')}`, 400);
+//     }
+
+//     // Create the class
+//     const sql = `
+//       INSERT INTO classes (
+//         class_id, class_name, public_name, description, class_type,
+//         is_public, max_members, privacy_level, created_by, is_active,
+//         createdAt, updatedAt
+//       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+//     `;
+
+//     await db.query(sql, [
+//       class_id, class_name, public_name || class_name, description,
+//       class_type, is_public, max_members, privacy_level, created_by
+//     ]);
+
+//     // Return the created class
+//     const createdSql = `
+//       SELECT c.*, u.username as created_by_username
+//       FROM classes c
+//       LEFT JOIN users u ON c.created_by = u.id
+//       WHERE c.class_id = ?
+//     `;
+//     const [newClass] = await db.query(createdSql, [class_id]);
+
+//     return {
+//       ...newClass,
+//       display_id: formatClassIdForDisplay(class_id),
+//       id_format: 'new_standard'
+//     };
+
+//   } catch (error) {
+//     console.error('❌ createClassService error:', error);
+//     if (error instanceof CustomError) throw error;
+//     throw new CustomError('Failed to create class', 500);
+//   }
+// };
+
+/**
+ * Update class with OTU# format validation
+ */
+// export const updateClassService = async (classId, updateData, adminId) => {
+//   try {
+//     // Validate class ID format
+//     if (!validateClassIdFormat(classId)) {
+//       throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
+//     }
+
+//     // Check if class exists (OTU# format only)
+//     const existingSql = 'SELECT * FROM classes WHERE class_id = ? AND class_id LIKE "OTU#%"';
+//     const [existing] = await db.query(existingSql, [classId]);
+    
+//     if (!existing) {
+//       throw new CustomError('Class not found or invalid format', 404);
+//     }
+
+//     // Build dynamic update query
+//     const allowedFields = [
+//       'class_name', 'public_name', 'description', 'class_type',
+//       'is_public', 'max_members', 'privacy_level', 'is_active'
+//     ];
+    
+//     const updateFields = [];
+//     const params = [];
+    
+//     Object.keys(updateData).forEach(field => {
+//       if (allowedFields.includes(field) && updateData[field] !== undefined) {
+//         updateFields.push(`${field} = ?`);
+//         params.push(updateData[field]);
+//       }
+//     });
+
+//     if (updateFields.length === 0) {
+//       throw new CustomError('No valid fields provided for update', 400);
+//     }
+
+//     // Add updatedAt
+//     updateFields.push('updatedAt = NOW()');
+//     params.push(classId);
+
+//     const sql = `
+//       UPDATE classes 
+//       SET ${updateFields.join(', ')}
+//       WHERE class_id = ? AND class_id LIKE "OTU#%"
+//     `;
+
+//     await db.query(sql, params);
+
+//     // Return updated class
+//     const updatedSql = `
+//       SELECT c.*, u.username as created_by_username
+//       FROM classes c
+//       LEFT JOIN users u ON c.created_by = u.id
+//       WHERE c.class_id = ?
+//     `;
+//     const [updatedClass] = await db.query(updatedSql, [classId]);
+
+//     return {
+//       ...updatedClass,
+//       display_id: formatClassIdForDisplay(classId),
+//       id_format: 'new_standard'
+//     };
+
+//   } catch (error) {
+//     console.error('❌ updateClassService error:', error);
+//     if (error instanceof CustomError) throw error;
+//     throw new CustomError('Failed to update class', 500);
+//   }
+// };
 
 /**
  * Delete class with OTU# format validation
@@ -1630,3 +2276,202 @@ export const bulkDeleteClassesService = async (classIds, options = {}) => {
     throw new CustomError('Failed to bulk delete classes', 500);
   }
 };
+
+
+
+// ===============================================
+// PLACEHOLDER STUB FUNCTIONS
+// ===============================================
+// These are placeholder functions to prevent import errors
+// They should be implemented properly based on your requirements
+
+// export const manageClassParticipantsService = async (...args) => {
+//   throw new CustomError('manageClassParticipantsService not implemented yet', 501);
+// };
+
+// export const addParticipantToClassService = async (...args) => {
+//   throw new CustomError('addParticipantToClassService not implemented yet', 501);
+// };
+
+// export const removeParticipantFromClassService = async (...args) => {
+//   throw new CustomError('removeParticipantFromClassService not implemented yet', 501);
+// };
+
+// export const getClassEnrollmentStatsService = async (...args) => {
+//   throw new CustomError('getClassEnrollmentStatsService not implemented yet', 501);
+// };
+
+// export const manageClassContentService = async (...args) => {
+//   throw new CustomError('manageClassContentService not implemented yet', 501);
+// };
+
+// export const addClassContentService = async (...args) => {
+//   throw new CustomError('addClassContentService not implemented yet', 501);
+// };
+
+// export const updateClassContentService = async (...args) => {
+//   throw new CustomError('updateClassContentService not implemented yet', 501);
+// };
+
+// export const deleteClassContentService = async (...args) => {
+//   throw new CustomError('deleteClassContentService not implemented yet', 501);
+// };
+
+// export const getClassAnalyticsService = async (...args) => {
+//   throw new CustomError('getClassAnalyticsService not implemented yet', 501);
+// };
+
+// export const getClassStatsService = async (...args) => {
+//   throw new CustomError('getClassStatsService not implemented yet', 501);
+// };
+
+// export const exportClassDataService = async (...args) => {
+//   throw new CustomError('exportClassDataService not implemented yet', 501);
+// };
+
+// export const getClassConfigurationService = async (...args) => {
+//   throw new CustomError('getClassConfigurationService not implemented yet', 501);
+// };
+
+// export const updateClassConfigurationService = async (...args) => {
+//   throw new CustomError('updateClassConfigurationService not implemented yet', 501);
+// };
+
+// export const bulkCreateClassesService = async (...args) => {
+//   throw new CustomError('bulkCreateClassesService not implemented yet', 501);
+// };
+
+// export const bulkUpdateClassesService = async (...args) => {
+//   throw new CustomError('bulkUpdateClassesService not implemented yet', 501);
+// };
+
+// export const bulkDeleteClassesService = async (...args) => {
+//   throw new CustomError('bulkDeleteClassesService not implemented yet', 501);
+// };
+
+// ===============================================
+// MODULE METADATA
+// ===============================================
+
+export const moduleInfo = {
+  name: 'Class Admin Services',
+  version: '2.0.0',
+  description: 'Administrative class management services with OTU# format support',
+  supported_formats: ['OTU#XXXXXX'],
+  features: [
+    'comprehensive_class_management',
+    'class_creation_and_updates',
+    'class_archival_and_restoration',
+    'class_duplication',
+    'health_scoring'
+  ],
+  implemented_functions: [
+    'getClassManagementService',
+    'createClassService', 
+    'updateClassService',
+    'archiveClassService',
+    'restoreClassService',
+    'duplicateClassService',
+    'calculateClassHealthScore'
+  ],
+  stub_functions: [
+    // 'manageClassParticipantsService',
+    // 'addParticipantToClassService',
+    //'removeParticipantFromClassService',
+    // 'getClassEnrollmentStatsService',
+    // 'manageClassContentService',
+    // 'addClassContentService',
+    // 'updateClassContentService',
+   // 'deleteClassContentService',
+    //'getClassAnalyticsService',
+   // 'getClassStatsService',
+   // 'exportClassDataService',
+   // 'getClassConfigurationService',
+   // 'updateClassConfigurationService',
+   // 'bulkCreateClassesService',
+   // 'bulkUpdateClassesService',
+    //'bulkDeleteClassesService'
+  ],
+  last_updated: new Date().toISOString()
+};
+
+
+
+
+
+
+
+
+
+
+
+
+// ===============================================
+// HELPER FUNCTIONS
+// ===============================================
+
+/**
+ * Calculate class health score based on various metrics
+ */
+export const calculateClassHealthScore = (classData) => {
+  let score = 0;
+  let maxScore = 100;
+
+  // Capacity utilization (30 points)
+  if (classData.max_members > 0) {
+    const utilization = (classData.total_members || 0) / classData.max_members;
+    if (utilization >= 0.7 && utilization <= 0.9) score += 30;
+    else if (utilization >= 0.5) score += 20;
+    else if (utilization >= 0.3) score += 10;
+  }
+
+  // Activity level (25 points)
+  if (classData.days_since_creation > 0) {
+    const memberGrowthRate = (classData.total_members || 0) / classData.days_since_creation;
+    if (memberGrowthRate > 1) score += 25;
+    else if (memberGrowthRate > 0.5) score += 20;
+    else if (memberGrowthRate > 0.1) score += 15;
+    else if (memberGrowthRate > 0) score += 10;
+  }
+
+  // Content availability (20 points)
+  if (classData.content_count > 10) score += 20;
+  else if (classData.content_count > 5) score += 15;
+  else if (classData.content_count > 0) score += 10;
+
+  // Moderation (15 points)
+  if ((classData.moderators || 0) >= 2) score += 15;
+  else if ((classData.moderators || 0) >= 1) score += 10;
+
+  // Completion (10 points)
+  if (classData.description && classData.description.length > 50) score += 5;
+  if (classData.tags && classData.tags.length > 0) score += 3;
+  if (classData.difficulty_level) score += 2;
+
+  return Math.min(score, maxScore);
+};
+
+// ===============================================
+// EXPORT ALL EXISTING + NEW SERVICES
+// ===============================================
+
+// Export all services from the original file
+// export {
+//   // Original services (keeping all existing functionality)
+//   manageClassParticipantsService,
+//  addParticipantToClassService,
+//   removeParticipantFromClassService,
+//   getClassEnrollmentStatsService,
+//   manageClassContentService,
+//   addClassContentService,
+//   updateClassContentService,
+//   deleteClassContentService,
+//   getClassAnalyticsService,
+//   getClassStatsService,
+//   exportClassDataService,
+//   getClassConfigurationService,
+//   updateClassConfigurationService,
+//   bulkCreateClassesService,
+//   bulkUpdateClassesService,
+//  bulkDeleteClassesService
+// };

@@ -48,7 +48,7 @@ export const generatePreviewClassId = () => {
  */
 export const generateUniqueConverseId = async () => {
     try {
-        const response = await api.post('/admin/generate-converse-id');
+        const response = await api.post('/admin/identity/generate-converse-id');
         return response.data.converseId;
     } catch (error) {
         console.error('Failed to generate unique converse ID:', error);
@@ -63,7 +63,7 @@ export const generateUniqueConverseId = async () => {
  */
 export const generateUniqueClassId = async () => {
     try {
-        const response = await api.post('/admin/generate-class-id');
+        const response = await api.post('/admin/identity/generate-class-id');
         return response.data.classId;
     } catch (error) {
         console.error('Failed to generate unique class ID:', error);

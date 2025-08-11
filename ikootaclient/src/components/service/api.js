@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // ✅ CRITICAL CHANGE: Use /api instead of full URL to use proxy
 const api = axios.create({
-  baseURL: '/api', // This will use the Vite proxy to forward to localhost:3000/api
+  baseURL: 'http://localhost:3000/api', // This will use the Vite proxy to forward to localhost:3000/api
   timeout: 15000,
   withCredentials: true, // Important for session cookies
   headers: {

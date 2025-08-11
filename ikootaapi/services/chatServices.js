@@ -310,3 +310,59 @@ export const mapUserIdToConverseId = async (user_id) => {
     throw new CustomError(`Failed to map user_id to converse_id: ${error.message}`);
   }
 };
+
+
+// NEW: Get chat statistics
+export const getChatStats = async (filters = {}) => {
+  try {
+    const { user_id, timeframe = '30days', startDate, endDate } = filters;
+
+    let whereConditions = [];
+    let params = [];
+
+    if (user_id) {
+      whereConditions.push('user_id = ?');
+      params.push(user_id);
+    }
+
+    // Handle timeframe filtering
+    if (timeframe && !startDate && !endDate) {
+      const days = parseInt(timeframe.replace('days', '')) || 30;
+      whereConditions.push('createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)');
+      params.push(days);
+    }
+
+    if (startDate) {
+      whereConditions.push('createdAt >= ?');
+      params.push(startDate);
+    }
+
+    if (endDate) {
+      whereConditions.push('createdAt <= ?');
+      params.push(endDate);
+    }
+
+    const whereClause = whereConditions.length > 0 ? 
+      `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    const query = `
+      SELECT 
+        COUNT(*) as total_chats,
+        COUNT(DISTINCT user_id) as unique_users,
+        COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_chats,
+        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_chats,
+        COUNT(CASE WHEN approval_status = 'rejected' THEN 1 END) as rejected_chats,
+        COUNT(CASE WHEN is_flagged = 1 THEN 1 END) as flagged_chats,
+        COUNT(CASE WHEN media_url1 IS NOT NULL OR media_url2 IS NOT NULL OR media_url3 IS NOT NULL THEN 1 END) as chats_with_media,
+        MIN(createdAt) as first_chat,
+        MAX(updatedAt) as latest_update
+      FROM chats ${whereClause}
+    `;
+
+    const rows = await db.query(query, params);
+    return rows[0];
+  } catch (error) {
+    console.error('Error in getChatStats:', error);
+    throw new CustomError('Failed to get chat statistics');
+  }
+};

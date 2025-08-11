@@ -106,7 +106,7 @@ export const testTeachingsEndpoint = async (api) => {
   
   try {
     console.log('📡 Making request to /teachings...');
-    const response = await api.get('/teachings');
+    const response = await api.get('/content/teachings');
     
     debugApiResponse(response, '/teachings');
     

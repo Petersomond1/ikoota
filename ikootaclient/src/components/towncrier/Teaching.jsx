@@ -28,7 +28,7 @@ const Teaching = ({ setActiveItem, deactivateListChats }) => {
         setLoading(true);
         setError(null);
         
-        const response = await api.get('/teachings');
+        const response = await api.get('/content/teachings');
         const teachingsData = response.data.map(teaching => ({ 
           ...teaching, 
           content_type: 'teaching',
@@ -129,7 +129,7 @@ const Teaching = ({ setActiveItem, deactivateListChats }) => {
       setAddMode(false);
       
       // Refresh teachings list
-      const updatedResponse = await api.get('/teachings');
+      const updatedResponse = await api.get('/content/teachings');
       const updatedTeachings = updatedResponse.data.map(teaching => ({ 
         ...teaching, 
         content_type: 'teaching',

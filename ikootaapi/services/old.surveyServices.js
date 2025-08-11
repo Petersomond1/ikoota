@@ -1,4 +1,4 @@
-//ikootaapi\services\surveyServices.js
+//ikootaapi\services\old.surveyServices.js
 import db from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
 import { sendEmail } from '../utils/email.js';

@@ -101,7 +101,7 @@ const RevTeaching = ({ teaching, allTeachings = [], onSelectNext }) => {
 
   // Helper functions
   const getContentIdentifier = (teaching) => {
-    return teaching?.prefixed_id || `t${teaching?.id}` || 'Unknown';
+    return teaching?.prefixed_id || `${teaching?.id}` || 'Unknown';
   };
 
   const formatDate = (dateString) => {

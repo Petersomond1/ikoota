@@ -883,6 +883,429 @@ export const logFullMembershipAccess = async (req, res) => {
   }
 };
 
+
+// =============================================================================
+// ANALYTICS & STATISTICS FUNCTIONS
+// Add these two functions to your existing membershipControllers.js file
+// =============================================================================
+
+/**
+ * Get comprehensive membership analytics
+ * GET /api/membership/analytics
+ */
+export const getMembershipAnalytics = async (req, res) => {
+  try {
+    const { timeframe = '30d', include_trends = 'true' } = req.query;
+    const requestingUser = req.user;
+    
+    console.log('🔍 Fetching membership analytics for timeframe:', timeframe);
+    
+    // Authorization check - only admins can view analytics
+    if (!['admin', 'super_admin'].includes(requestingUser.role)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied',
+        message: 'Administrative privileges required to view analytics'
+      });
+    }
+
+    // Calculate date range based on timeframe
+    let dateCondition = '';
+    let dateParams = [];
+    
+    switch (timeframe) {
+      case '7d':
+        dateCondition = 'WHERE u.createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+        break;
+      case '30d':
+        dateCondition = 'WHERE u.createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+        break;
+      case '90d':
+        dateCondition = 'WHERE u.createdAt >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
+        break;
+      case '1y':
+        dateCondition = 'WHERE u.createdAt >= DATE_SUB(NOW(), INTERVAL 1 YEAR)';
+        break;
+      case 'all':
+      default:
+        dateCondition = '';
+        break;
+    }
+
+    // 1. Overall membership statistics
+    const [membershipStats] = await db.query(`
+      SELECT 
+        COUNT(*) as total_users,
+        COUNT(CASE WHEN membership_stage = 'applicant' THEN 1 END) as applicants,
+        COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END) as pre_members,
+        COUNT(CASE WHEN membership_stage = 'member' THEN 1 END) as full_members,
+        COUNT(CASE WHEN is_member = 'pending' THEN 1 END) as pending_applications,
+        COUNT(CASE WHEN is_member = 'rejected' OR is_member = 'declined' THEN 1 END) as rejected_applications,
+        COUNT(CASE WHEN role = 'admin' THEN 1 END) as admins,
+        COUNT(CASE WHEN role = 'super_admin' THEN 1 END) as super_admins,
+        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 END) as new_users_24h,
+        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as new_users_7d,
+        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as new_users_30d
+      FROM users u
+      ${dateCondition}
+    `, dateParams);
+
+    // 2. Application flow analytics
+    const [applicationFlow] = await db.query(`
+      SELECT 
+        COUNT(*) as total_applications,
+        COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_reviews,
+        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_applications,
+        COUNT(CASE WHEN approval_status = 'rejected' THEN 1 END) as rejected_applications,
+        COUNT(CASE WHEN approval_status = 'granted' THEN 1 END) as granted_applications,
+        COUNT(CASE WHEN application_type = 'initial_application' THEN 1 END) as initial_applications,
+        COUNT(CASE WHEN application_type = 'full_membership' THEN 1 END) as full_membership_applications,
+        AVG(CASE 
+          WHEN reviewedAt IS NOT NULL AND createdAt IS NOT NULL 
+          THEN TIMESTAMPDIFF(HOUR, createdAt, reviewedAt) 
+        END) as avg_review_time_hours
+      FROM surveylog
+      WHERE createdAt >= COALESCE(
+        CASE 
+          WHEN '${timeframe}' = '7d' THEN DATE_SUB(NOW(), INTERVAL 7 DAY)
+          WHEN '${timeframe}' = '30d' THEN DATE_SUB(NOW(), INTERVAL 30 DAY)
+          WHEN '${timeframe}' = '90d' THEN DATE_SUB(NOW(), INTERVAL 90 DAY)
+          WHEN '${timeframe}' = '1y' THEN DATE_SUB(NOW(), INTERVAL 1 YEAR)
+          ELSE '1970-01-01'
+        END, '1970-01-01'
+      )
+    `);
+
+    // 3. Full membership statistics
+    const [fullMembershipStats] = await db.query(`
+      SELECT 
+        COUNT(*) as total_full_applications,
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_full_applications,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_full_applications,
+        COUNT(CASE WHEN status = 'declined' THEN 1 END) as declined_full_applications,
+        AVG(CASE 
+          WHEN reviewedAt IS NOT NULL AND submittedAt IS NOT NULL 
+          THEN TIMESTAMPDIFF(HOUR, submittedAt, reviewedAt) 
+        END) as avg_full_review_time_hours
+      FROM full_membership_applications
+      WHERE submittedAt >= COALESCE(
+        CASE 
+          WHEN '${timeframe}' = '7d' THEN DATE_SUB(NOW(), INTERVAL 7 DAY)
+          WHEN '${timeframe}' = '30d' THEN DATE_SUB(NOW(), INTERVAL 30 DAY)
+          WHEN '${timeframe}' = '90d' THEN DATE_SUB(NOW(), INTERVAL 90 DAY)
+          WHEN '${timeframe}' = '1y' THEN DATE_SUB(NOW(), INTERVAL 1 YEAR)
+          ELSE '1970-01-01'
+        END, '1970-01-01'
+      )
+    `);
+
+    // 4. Activity metrics
+    const [activityMetrics] = await db.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM chats WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as chats_7d,
+        (SELECT COUNT(*) FROM teachings WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as teachings_7d,
+        (SELECT COUNT(*) FROM comments WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as comments_7d,
+        (SELECT COUNT(DISTINCT user_id) FROM chats WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as active_chat_creators,
+        (SELECT COUNT(DISTINCT user_id) FROM teachings WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as active_teaching_creators,
+        (SELECT COUNT(DISTINCT user_id) FROM comments WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as active_commenters
+    `);
+
+    // 5. Registration trends (if requested)
+    let registrationTrends = null;
+    if (include_trends === 'true') {
+      const [trends] = await db.query(`
+        SELECT 
+          DATE(createdAt) as date,
+          COUNT(*) as registrations,
+          COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END) as pre_member_promotions,
+          COUNT(CASE WHEN membership_stage = 'member' THEN 1 END) as full_member_promotions
+        FROM users 
+        WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        GROUP BY DATE(createdAt)
+        ORDER BY date DESC
+        LIMIT 30
+      `);
+      registrationTrends = trends;
+    }
+
+    // 6. Membership conversion rates
+    const [conversionRates] = await db.query(`
+      SELECT 
+        COUNT(CASE WHEN membership_stage = 'none' OR membership_stage IS NULL THEN 1 END) as new_users,
+        COUNT(CASE WHEN membership_stage = 'applicant' THEN 1 END) as applicants,
+        COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END) as pre_members,
+        COUNT(CASE WHEN membership_stage = 'member' THEN 1 END) as full_members,
+        ROUND(
+          (COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END) / 
+           NULLIF(COUNT(CASE WHEN membership_stage IN ('applicant', 'pre_member', 'member') THEN 1 END), 0)) * 100, 2
+        ) as application_to_premember_rate,
+        ROUND(
+          (COUNT(CASE WHEN membership_stage = 'member' THEN 1 END) / 
+           NULLIF(COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END), 0)) * 100, 2
+        ) as premember_to_member_rate
+      FROM users
+    `);
+
+    // 7. Geographic or demographic insights (if available)
+    const [demographics] = await db.query(`
+      SELECT 
+        COUNT(CASE WHEN role = 'user' THEN 1 END) as regular_users,
+        COUNT(CASE WHEN role = 'admin' THEN 1 END) as admins,
+        COUNT(CASE WHEN role = 'super_admin' THEN 1 END) as super_admins,
+        COUNT(CASE WHEN is_identity_masked = 1 THEN 1 END) as masked_identities,
+        COUNT(CASE WHEN is_verified = 1 THEN 1 END) as verified_users,
+        COUNT(CASE WHEN isbanned = 1 THEN 1 END) as banned_users
+      FROM users
+    `);
+
+    // Calculate success rates and metrics
+    const stats = membershipStats[0];
+    const appFlow = applicationFlow[0];
+    const fullStats = fullMembershipStats[0];
+    const activity = activityMetrics[0];
+    const conversion = conversionRates[0];
+    const demo = demographics[0];
+
+    const analytics = {
+      summary: {
+        total_users: stats.total_users,
+        active_applications: appFlow.pending_reviews + (fullStats.pending_full_applications || 0),
+        conversion_rate: conversion.application_to_premember_rate,
+        avg_review_time_days: Math.round((appFlow.avg_review_time_hours || 0) / 24 * 10) / 10,
+        growth_rate_30d: stats.total_users > 0 ? 
+          Math.round((stats.new_users_30d / stats.total_users) * 100 * 100) / 100 : 0
+      },
+      
+      membership_distribution: {
+        new_users: conversion.new_users,
+        applicants: stats.applicants,
+        pre_members: stats.pre_members,
+        full_members: stats.full_members,
+        admins: stats.admins + stats.super_admins
+      },
+      
+      application_metrics: {
+        total_applications: appFlow.total_applications,
+        pending_reviews: appFlow.pending_reviews,
+        approved_applications: appFlow.approved_applications,
+        rejected_applications: appFlow.rejected_applications,
+        approval_rate: appFlow.total_applications > 0 ? 
+          Math.round((appFlow.approved_applications / appFlow.total_applications) * 100 * 100) / 100 : 0,
+        avg_review_time_hours: Math.round((appFlow.avg_review_time_hours || 0) * 10) / 10
+      },
+      
+      full_membership_metrics: {
+        total_applications: fullStats.total_full_applications || 0,
+        pending_applications: fullStats.pending_full_applications || 0,
+        approved_applications: fullStats.approved_full_applications || 0,
+        declined_applications: fullStats.declined_full_applications || 0,
+        approval_rate: (fullStats.total_full_applications || 0) > 0 ? 
+          Math.round(((fullStats.approved_full_applications || 0) / fullStats.total_full_applications) * 100 * 100) / 100 : 0,
+        avg_review_time_hours: Math.round((fullStats.avg_full_review_time_hours || 0) * 10) / 10
+      },
+      
+      activity_metrics: {
+        recent_chats: activity.chats_7d || 0,
+        recent_teachings: activity.teachings_7d || 0,
+        recent_comments: activity.comments_7d || 0,
+        active_content_creators: (activity.active_chat_creators || 0) + (activity.active_teaching_creators || 0),
+        engagement_rate: stats.total_users > 0 ? 
+          Math.round(((activity.active_commenters || 0) / stats.total_users) * 100 * 100) / 100 : 0
+      },
+      
+      conversion_funnel: {
+        new_to_applicant_rate: conversion.new_users > 0 ? 
+          Math.round((conversion.applicants / (conversion.new_users + conversion.applicants)) * 100 * 100) / 100 : 0,
+        applicant_to_premember_rate: conversion.application_to_premember_rate || 0,
+        premember_to_member_rate: conversion.premember_to_member_rate || 0
+      },
+      
+      user_demographics: {
+        verified_users: demo.verified_users || 0,
+        masked_identities: demo.masked_identities || 0,
+        banned_users: demo.banned_users || 0,
+        verification_rate: stats.total_users > 0 ? 
+          Math.round(((demo.verified_users || 0) / stats.total_users) * 100 * 100) / 100 : 0
+      },
+      
+      growth_metrics: {
+        new_users_24h: stats.new_users_24h,
+        new_users_7d: stats.new_users_7d,
+        new_users_30d: stats.new_users_30d,
+        daily_growth_rate: stats.total_users > 0 ? 
+          Math.round((stats.new_users_24h / stats.total_users) * 100 * 10000) / 100 : 0
+      }
+    };
+
+    // Add trends if requested
+    if (registrationTrends) {
+      analytics.registration_trends = registrationTrends;
+    }
+
+    return successResponse(res, {
+      analytics,
+      timeframe,
+      generated_at: new Date().toISOString(),
+      trends_included: include_trends === 'true'
+    }, 'Membership analytics retrieved successfully');
+
+  } catch (error) {
+    console.error('❌ Error in getMembershipAnalytics:', error);
+    return errorResponse(res, error, error.statusCode || 500);
+  }
+};
+
+/**
+ * Get basic membership statistics
+ * GET /api/membership/stats
+ */
+export const getMembershipStats = async (req, res) => {
+  try {
+    const { format = 'json' } = req.query;
+    const requestingUser = req.user;
+    
+    console.log('🔍 Fetching membership stats for user:', requestingUser.role);
+    
+    // Basic authorization - users can see basic stats, admins see detailed stats
+    const isAdmin = ['admin', 'super_admin'].includes(requestingUser.role);
+
+    // 1. Basic membership counts
+    const [membershipCounts] = await db.query(`
+      SELECT 
+        COUNT(*) as total_users,
+        COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END) as pre_members,
+        COUNT(CASE WHEN membership_stage = 'member' THEN 1 END) as full_members,
+        COUNT(CASE WHEN role IN ('admin', 'super_admin') THEN 1 END) as staff_members,
+        COUNT(CASE WHEN is_member = 'pending' THEN 1 END) as pending_applications,
+        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as new_users_this_week
+      FROM users
+    `);
+
+    // 2. Content statistics
+    const [contentStats] = await db.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM chats WHERE approval_status = 'approved') as approved_chats,
+        (SELECT COUNT(*) FROM teachings WHERE approval_status = 'approved') as approved_teachings,
+        (SELECT COUNT(*) FROM comments) as total_comments,
+        (SELECT COUNT(*) FROM chats WHERE approval_status = 'pending') as pending_chats,
+        (SELECT COUNT(*) FROM teachings WHERE approval_status = 'pending') as pending_teachings
+    `);
+
+    // 3. Recent activity (last 7 days)
+    const [recentActivity] = await db.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM chats WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as new_chats_7d,
+        (SELECT COUNT(*) FROM teachings WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as new_teachings_7d,
+        (SELECT COUNT(*) FROM comments WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as new_comments_7d,
+        (SELECT COUNT(*) FROM surveylog WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as new_applications_7d
+    `);
+
+    const membership = membershipCounts[0];
+    const content = contentStats[0];
+    const activity = recentActivity[0];
+
+    let stats = {
+      membership: {
+        total_users: membership.total_users,
+        pre_members: membership.pre_members,
+        full_members: membership.full_members,
+        new_users_this_week: membership.new_users_this_week
+      },
+      content: {
+        approved_chats: content.approved_chats || 0,
+        approved_teachings: content.approved_teachings || 0,
+        total_comments: content.total_comments || 0
+      },
+      activity: {
+        new_content_7d: (activity.new_chats_7d || 0) + (activity.new_teachings_7d || 0),
+        new_comments_7d: activity.new_comments_7d || 0
+      }
+    };
+
+    // Add admin-only statistics
+    if (isAdmin) {
+      const [adminStats] = await db.query(`
+        SELECT 
+          (SELECT COUNT(*) FROM chats WHERE approval_status = 'pending') as pending_chats,
+          (SELECT COUNT(*) FROM teachings WHERE approval_status = 'pending') as pending_teachings,
+          (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'pending') as pending_applications,
+          (SELECT COUNT(*) FROM full_membership_applications WHERE status = 'pending') as pending_full_applications,
+          (SELECT COUNT(*) FROM reports WHERE status = 'pending') as pending_reports
+      `);
+
+      const adminData = adminStats[0];
+
+      stats.admin = {
+        pending_review: {
+          chats: adminData.pending_chats || 0,
+          teachings: adminData.pending_teachings || 0,
+          applications: adminData.pending_applications || 0,
+          full_applications: adminData.pending_full_applications || 0,
+          reports: adminData.pending_reports || 0,
+          total_pending: (adminData.pending_chats || 0) + 
+                        (adminData.pending_teachings || 0) + 
+                        (adminData.pending_applications || 0) + 
+                        (adminData.pending_full_applications || 0) + 
+                        (adminData.pending_reports || 0)
+        },
+        staff_count: membership.staff_members
+      };
+      
+      // Add detailed membership breakdown for admins
+      stats.membership.pending_applications = membership.pending_applications;
+      stats.activity.new_applications_7d = activity.new_applications_7d || 0;
+    }
+
+    // Add metadata
+    stats._meta = {
+      generated_at: new Date().toISOString(),
+      user_level: isAdmin ? 'admin' : 'user',
+      version: '1.0.0'
+    };
+
+    // Handle different response formats
+    if (format === 'csv' && isAdmin) {
+      // Convert to CSV for admin export
+      const csvData = convertToCSV([{
+        total_users: membership.total_users,
+        pre_members: membership.pre_members,
+        full_members: membership.full_members,
+        pending_applications: membership.pending_applications,
+        approved_chats: content.approved_chats,
+        approved_teachings: content.approved_teachings,
+        total_comments: content.total_comments,
+        new_users_this_week: membership.new_users_this_week,
+        generated_at: new Date().toISOString()
+      }]);
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="membership_stats.csv"');
+      return res.send(csvData);
+    }
+
+    return successResponse(res, {
+      stats,
+      summary: {
+        total_users: membership.total_users,
+        active_members: membership.pre_members + membership.full_members,
+        content_items: (content.approved_chats || 0) + (content.approved_teachings || 0),
+        weekly_growth: membership.new_users_this_week
+      }
+    }, 'Membership statistics retrieved successfully');
+
+  } catch (error) {
+    console.error('❌ Error in getMembershipStats:', error);
+    return errorResponse(res, error, error.statusCode || 500);
+  }
+};
+
+// =============================================================================
+// TO UPDATE YOUR EXPORTS: Add these two functions to your existing export
+// =============================================================================
+
+// Add these to your existing export object:
+// getMembershipAnalytics,
+// getMembershipStats,
 // =============================================================================
 // HEALTH & TESTING FUNCTIONS
 // =============================================================================

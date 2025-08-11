@@ -1,297 +1,285 @@
 // ikootaapi/routes/identityAdminRoutes.js
-// ADMIN IDENTITY CONTROL ROUTES
-// Administrative control over converse IDs and mentor IDs
+// IDENTITY ADMIN ROUTES - Super Admin Identity Management
+// Handles identity masking, unmasking, and comprehensive identity administration
 
 import express from 'express';
-import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+import { authenticate, requireAdmin, requireSuperAdmin } from '../middlewares/auth.middleware.js';
 
 // Import identity admin controllers
 import {
-  // General identity administration
-  getAllIdentities,
-  getIdentityById,
-  resetUserIdentity,
   maskUserIdentity,
   unmaskUserIdentity,
-  
-  // Converse ID administration
-  getAllConverseIds,
-  resetConverseId,
-  manageConverseId,
-  
-  // Mentor ID administration
-  getAllMentorIds,
-  resetMentorId,
-  manageMentorId,
-  
-  // Identity verification
-  verifyIdentity,
-  approveIdentityVerification,
-  rejectIdentityVerification,
-  
-  // Analytics and reporting
-  getIdentityAnalytics,
-  getIdentityStats,
-  exportIdentityData
+  getIdentityAuditTrail,
+  getIdentityOverview,
+  searchMaskedIdentities,
+  generateBulkConverseIds,
+  verifyIdentityIntegrity,
+  getMentorAnalytics,
+  bulkAssignMentors,
+  getIdentityDashboard,
+  exportIdentityData,
+  manageMentorAssignment,
+  generateUniqueConverseId,
+  getCompleteUserIdentity,
+  updateMaskingSettings
 } from '../controllers/identityAdminControllers.js';
 
 const router = express.Router();
 
 // ===============================================
-// APPLY ADMIN AUTHENTICATION TO ALL ROUTES
-// ===============================================
-router.use(authenticate);
-router.use(authorize(['admin', 'super_admin']));
-
-// ===============================================
-// GENERAL IDENTITY ADMINISTRATION
+// CORE IDENTITY MASKING OPERATIONS (Admin Only)
 // ===============================================
 
-// GET /admin/identity - Get all user identities
-router.get('/', getAllIdentities);
+// POST /admin/identity/mask-identity - Mask user identity when granting membership
+router.post('/mask-identity', authenticate, requireAdmin, maskUserIdentity);
 
-// GET /admin/identity/:userId - Get specific user's identity
-router.get('/:userId', getIdentityById);
-
-// POST /admin/identity/mask-identity - Mask user identity
-router.post('/mask-identity', maskUserIdentity);
-
-// POST /admin/identity/unmask-identity - Unmask user identity (super admin only)
-router.post('/unmask-identity', authorize(['super_admin']), unmaskUserIdentity);
-
-// POST /admin/identity/:userId/reset - Reset user identity (super admin only)
-router.post('/:userId/reset', authorize(['super_admin']), resetUserIdentity);
+// POST /admin/identity/unmask - Unmask user identity (Super Admin only)
+router.post('/unmask', authenticate, requireSuperAdmin, unmaskUserIdentity);
 
 // ===============================================
-// CONVERSE ID ADMINISTRATION
+// IDENTITY AUDIT & MONITORING (Super Admin Only)
 // ===============================================
 
-// GET /admin/identity/converse - Get all converse IDs
-router.get('/converse', getAllConverseIds);
+// GET /admin/identity/audit-trail - Get identity masking audit trail
+router.get('/audit-trail', authenticate, requireSuperAdmin, getIdentityAuditTrail);
 
-// GET /admin/identity/converse/:userId - Get user's converse ID
-router.get('/converse/:userId', (req, res, next) => {
-  req.identityType = 'converse';
-  req.userId = req.params.userId;
-  getIdentityById(req, res, next);
+// GET /admin/identity/overview - Get identity system overview
+router.get('/overview', authenticate, requireSuperAdmin, getIdentityOverview);
+
+// GET /admin/identity/verify-integrity - Verify identity system integrity
+router.get('/verify-integrity', authenticate, requireSuperAdmin, verifyIdentityIntegrity);
+
+// GET /admin/identity/dashboard - Get identity management dashboard
+router.get('/dashboard', authenticate, requireAdmin, getIdentityDashboard);
+
+// ===============================================
+// IDENTITY SEARCH & LOOKUP (Super Admin Only)
+// ===============================================
+
+// GET /admin/identity/search - Search masked identities
+router.get('/search', authenticate, requireSuperAdmin, searchMaskedIdentities);
+
+// GET /admin/identity/user/:userId/complete - Get complete user identity
+router.get('/user/:userId/complete', authenticate, requireSuperAdmin, getCompleteUserIdentity);
+
+// ===============================================
+// CONVERSE ID GENERATION (Admin Only)
+// ===============================================
+
+// POST /admin/identity/generate-converse-id - Generate unique converse ID
+router.post('/generate-converse-id', authenticate, requireAdmin, generateUniqueConverseId);
+
+// POST /admin/identity/generate-bulk-ids - Generate bulk converse IDs
+router.post('/generate-bulk-ids', authenticate, requireAdmin, generateBulkConverseIds);
+
+// ===============================================
+// MENTOR ASSIGNMENT MANAGEMENT (Admin Only)
+// ===============================================
+
+// GET /admin/identity/mentor-analytics - Get mentor assignment analytics
+router.get('/mentor-analytics', authenticate, requireAdmin, getMentorAnalytics);
+
+// POST /admin/identity/bulk-assign-mentors - Bulk assign mentors to mentees
+router.post('/bulk-assign-mentors', authenticate, requireAdmin, bulkAssignMentors);
+
+// PUT /admin/identity/mentor-assignments/:menteeConverseId - Manage mentor assignments
+router.put('/mentor-assignments/:menteeConverseId', authenticate, requireAdmin, manageMentorAssignment);
+
+// ===============================================
+// SYSTEM CONFIGURATION (Super Admin Only)
+// ===============================================
+
+// PUT /admin/identity/masking-settings - Update identity masking settings
+router.put('/masking-settings', authenticate, requireSuperAdmin, updateMaskingSettings);
+
+// GET /admin/identity/export - Export identity data
+router.get('/export', authenticate, requireSuperAdmin, exportIdentityData);
+
+// ===============================================
+// LEGACY COMPATIBILITY ROUTES
+// ===============================================
+
+// POST /admin/mask-identity - Legacy route (maps to new structure)
+router.post('/mask-identity-legacy', authenticate, requireAdmin, (req, res, next) => {
+  console.log('🔄 Legacy identity masking route accessed - redirecting to new structure');
+  maskUserIdentity(req, res, next);
 });
 
-// PUT /admin/identity/converse/:userId - Manage user's converse ID
-router.put('/converse/:userId', manageConverseId);
-
-// POST /admin/identity/converse/:userId/reset - Reset converse ID
-router.post('/converse/:userId/reset', resetConverseId);
-
 // ===============================================
-// MENTOR ID ADMINISTRATION
+// UTILITY & TESTING ENDPOINTS
 // ===============================================
 
-// GET /admin/identity/mentor - Get all mentor IDs
-router.get('/mentor', getAllMentorIds);
-
-// GET /admin/identity/mentor/:userId - Get user's mentor ID
-router.get('/mentor/:userId', (req, res, next) => {
-  req.identityType = 'mentor';
-  req.userId = req.params.userId;
-  getIdentityById(req, res, next);
+// GET /admin/identity/health - Identity system health check
+router.get('/health', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const healthMetrics = {
+      encryptionStatus: process.env.IDENTITY_ENCRYPTION_KEY ? 'active' : 'missing',
+      databaseConnection: 'checking...',
+      timestamp: new Date().toISOString()
+    };
+    
+    // Test database connection
+    try {
+      await db.query('SELECT 1');
+      healthMetrics.databaseConnection = 'healthy';
+    } catch (dbError) {
+      healthMetrics.databaseConnection = 'error';
+      healthMetrics.dbError = dbError.message;
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Identity system health check',
+      health: healthMetrics,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Health check failed',
+      details: error.message
+    });
+  }
 });
 
-// PUT /admin/identity/mentor/:userId - Manage user's mentor ID
-router.put('/mentor/:userId', manageMentorId);
-
-// POST /admin/identity/mentor/:userId/reset - Reset mentor ID
-router.post('/mentor/:userId/reset', resetMentorId);
+// GET /admin/identity/stats - Quick identity statistics
+router.get('/stats', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const maskedCount = await db.query('SELECT COUNT(*) as count FROM users WHERE is_identity_masked = 1');
+    const mentorCount = await db.query('SELECT COUNT(DISTINCT mentor_converse_id) as count FROM mentors WHERE is_active = 1');
+    const unassignedCount = await db.query('SELECT COUNT(*) as count FROM users WHERE is_member = "granted" AND mentor_id IS NULL');
+    
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalMaskedUsers: maskedCount[0]?.count || 0,
+        totalMentors: mentorCount[0]?.count || 0,
+        unassignedMembers: unassignedCount[0]?.count || 0,
+        lastUpdated: new Date().toISOString()
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get identity stats',
+      details: error.message
+    });
+  }
+});
 
 // ===============================================
-// IDENTITY VERIFICATION MANAGEMENT
+// TESTING ENDPOINTS (Development Only)
 // ===============================================
 
-// GET /admin/identity/verification/pending - Get pending verifications
-router.get('/verification/pending', async (req, res) => {
-  res.json({
-    success: true,
-    message: 'Pending identity verifications endpoint - implement with identity admin service',
-    timestamp: new Date().toISOString()
+if (process.env.NODE_ENV === 'development') {
+  // Test identity admin functionality
+  router.get('/test', authenticate, requireAdmin, (req, res) => {
+    res.json({
+      success: true,
+      message: 'Identity admin routes are working!',
+      timestamp: new Date().toISOString(),
+      admin: {
+        id: req.user?.id,
+        username: req.user?.username,
+        role: req.user?.role,
+        converseId: req.user?.converse_id
+      },
+      availableOperations: [
+        'POST /mask-identity - Mask user identity',
+        'POST /unmask - Unmask user identity (Super Admin)',
+        'GET /audit-trail - View audit trail (Super Admin)',
+        'GET /overview - System overview (Super Admin)',
+        'GET /search - Search identities (Super Admin)',
+        'POST /generate-converse-id - Generate converse ID',
+        'POST /bulk-assign-mentors - Bulk mentor assignment',
+        'GET /mentor-analytics - Mentor analytics',
+        'GET /dashboard - Identity dashboard',
+        'GET /export - Export identity data (Super Admin)'
+      ],
+      endpoint: '/api/admin/identity/test'
+    });
   });
-});
-
-// PUT /admin/identity/verification/:id/approve - Approve identity verification
-router.put('/verification/:id/approve', approveIdentityVerification);
-
-// PUT /admin/identity/verification/:id/reject - Reject identity verification
-router.put('/verification/:id/reject', rejectIdentityVerification);
-
-// POST /admin/identity/verification/:userId/verify - Manually verify identity
-router.post('/verification/:userId/verify', verifyIdentity);
-
-// ===============================================
-// ANALYTICS & REPORTING
-// ===============================================
-
-// GET /admin/identity/analytics - Get identity analytics
-router.get('/analytics', getIdentityAnalytics);
-
-// GET /admin/identity/stats - Get identity statistics
-router.get('/stats', getIdentityStats);
-
-// GET /admin/identity/usage-stats - Get identity usage statistics
-router.get('/usage-stats', async (req, res) => {
-  res.json({
-    success: true,
-    message: 'Identity usage statistics endpoint - implement with identity admin service',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// ===============================================
-// DATA EXPORT
-// ===============================================
-
-// GET /admin/identity/export - Export identity data (super admin only)
-router.get('/export', authorize(['super_admin']), exportIdentityData);
-
-// GET /admin/identity/export/converse - Export converse ID data
-router.get('/export/converse', authorize(['super_admin']), (req, res, next) => {
-  req.exportType = 'converse';
-  exportIdentityData(req, res, next);
-});
-
-// GET /admin/identity/export/mentor - Export mentor ID data
-router.get('/export/mentor', authorize(['super_admin']), (req, res, next) => {
-  req.exportType = 'mentor';
-  exportIdentityData(req, res, next);
-});
-
-// ===============================================
-// BULK OPERATIONS
-// ===============================================
-
-// POST /admin/identity/bulk-reset - Bulk reset identities (super admin only)
-router.post('/bulk-reset', authorize(['super_admin']), async (req, res) => {
-  res.json({
-    success: true,
-    message: 'Bulk reset identities endpoint - implement with identity admin service',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// POST /admin/identity/bulk-verify - Bulk verify identities
-router.post('/bulk-verify', async (req, res) => {
-  res.json({
-    success: true,
-    message: 'Bulk verify identities endpoint - implement with identity admin service',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// ===============================================
-// TESTING ENDPOINTS
-// ===============================================
-
-// Identity admin test
-router.get('/test', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Admin identity routes are working!',
-    timestamp: new Date().toISOString(),
-    user: {
-      id: req.user?.id,
-      username: req.user?.username,
-      role: req.user?.role
-    },
-    availableOperations: [
-      'identity administration',
-      'converse ID management',
-      'mentor ID management',
-      'verification control'
-    ],
-    endpoint: '/api/admin/identity/test'
-  });
-});
+}
 
 // ===============================================
 // ERROR HANDLING
 // ===============================================
 
-// 404 handler
+// 404 handler for identity admin routes
 router.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    error: 'Admin identity route not found',
+    error: 'Identity admin route not found',
     path: req.path,
     method: req.method,
     availableRoutes: {
-      generalAdministration: [
-        'GET / - Get all user identities',
-        'GET /:userId - Get specific user identity',
-        'POST /mask-identity - Mask user identity',
-        'POST /unmask-identity - Unmask user identity (super admin)',
-        'POST /:userId/reset - Reset user identity (super admin)'
+      coreOperations: [
+        'POST /mask-identity - Mask user identity (Admin)',
+        'POST /unmask - Unmask user identity (Super Admin)',
+        'GET /overview - System overview (Super Admin)',
+        'GET /dashboard - Management dashboard (Admin)'
       ],
-      converseIdAdmin: [
-        'GET /converse - Get all converse IDs',
-        'GET /converse/:userId - Get user converse ID',
-        'PUT /converse/:userId - Manage converse ID',
-        'POST /converse/:userId/reset - Reset converse ID'
+      auditAndMonitoring: [
+        'GET /audit-trail - Identity audit trail (Super Admin)',
+        'GET /verify-integrity - System integrity check (Super Admin)',
+        'GET /health - System health check (Admin)',
+        'GET /stats - Quick statistics (Admin)'
       ],
-      mentorIdAdmin: [
-        'GET /mentor - Get all mentor IDs',
-        'GET /mentor/:userId - Get user mentor ID',
-        'PUT /mentor/:userId - Manage mentor ID',
-        'POST /mentor/:userId/reset - Reset mentor ID'
+      searchAndLookup: [
+        'GET /search - Search masked identities (Super Admin)',
+        'GET /user/:userId/complete - Complete user identity (Super Admin)'
       ],
-      verification: [
-        'GET /verification/pending - Pending verifications',
-        'PUT /verification/:id/approve - Approve verification',
-        'PUT /verification/:id/reject - Reject verification',
-        'POST /verification/:userId/verify - Manually verify'
+      idGeneration: [
+        'POST /generate-converse-id - Generate converse ID (Admin)',
+        'POST /generate-bulk-ids - Generate bulk IDs (Admin)'
       ],
-      analytics: [
-        'GET /analytics - Identity analytics',
-        'GET /stats - Identity statistics',
-        'GET /usage-stats - Usage statistics'
+      mentorManagement: [
+        'GET /mentor-analytics - Mentor analytics (Admin)',
+        'POST /bulk-assign-mentors - Bulk mentor assignment (Admin)',
+        'PUT /mentor-assignments/:menteeConverseId - Manage assignments (Admin)'
       ],
-      dataExport: [
-        'GET /export - Export identity data (super admin)',
-        'GET /export/converse - Export converse data (super admin)',
-        'GET /export/mentor - Export mentor data (super admin)'
-      ],
-      bulkOperations: [
-        'POST /bulk-reset - Bulk reset identities (super admin)',
-        'POST /bulk-verify - Bulk verify identities'
-      ],
-      testing: [
-        'GET /test - Admin identity routes test'
+      systemConfig: [
+        'PUT /masking-settings - Update masking settings (Super Admin)',
+        'GET /export - Export identity data (Super Admin)'
       ]
     },
-    adminNote: 'All routes require admin or super_admin role',
+    accessLevels: {
+      admin: 'Can mask identities, generate IDs, manage mentors',
+      super_admin: 'Can unmask identities, view audit trails, export data'
+    },
     timestamp: new Date().toISOString()
   });
 });
 
-// Error handler
+// Error handler for identity admin routes
 router.use((error, req, res, next) => {
-  console.error('❌ Admin identity route error:', {
+  console.error('❌ Identity admin route error:', {
     error: error.message,
     path: req.path,
     method: req.method,
-    user: req.user?.username || 'unauthenticated',
-    userRole: req.user?.role,
+    admin: req.user?.username || 'unknown',
+    role: req.user?.role || 'unknown',
     timestamp: new Date().toISOString()
   });
   
   res.status(error.statusCode || 500).json({
     success: false,
-    error: error.message || 'Admin identity operation error',
+    error: error.message || 'Identity admin operation error',
     path: req.path,
     method: req.method,
-    userRole: req.user?.role,
-    timestamp: new Date().toISOString()
+    errorType: 'identity_admin_error',
+    timestamp: new Date().toISOString(),
+    help: {
+      documentation: '/api/info',
+      adminRoutes: '/api/admin/identity/',
+      support: 'Contact system administrator'
+    }
   });
 });
 
 if (process.env.NODE_ENV === 'development') {
-  console.log('🔐 Admin identity routes loaded: converse/mentor ID control, verification, analytics');
+  console.log('🔐 Identity admin routes loaded: masking, unmasking, mentor management, audit trails');
 }
 
 export default router;

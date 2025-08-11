@@ -1,23 +1,30 @@
 // ikootaapi/controllers/userAdminControllers.js
-// ADMIN USER MANAGEMENT CONTROLLER - CORRECTED VERSION
+// ADMIN USER MANAGEMENT CONTROLLER - UPDATED TO USE SERVICES
 // Administrative control over user accounts and permissions
 
 import {
-  getAllUsers,
+  getAllUsersService,
+  createUserService,
+  updateUserByAdminService,
+  deleteUserService,
+  banUserService,
+  unbanUserService,
+  generateBulkIdsService,
+  generateConverseIdService,
+  maskUserIdentityService,
+  exportUsersDataService,
+  generateClassIdService
+} from '../services/userAdminServices.js';
+
+import {
   getUserProfileService,
-  updateUser,
-  deleteUser,
-  getUserStats,
-  getAllUsersForAdmin,
+  //getAllUsers,
   getAllMentorsForAdmin,
-  updateUserByAdmin,
-  getMembershipOverviewStats,
+  getUserStats,
   getAllClasses
 } from '../services/userServices.js';
-import { generateUniqueConverseId, generateUniqueClassId } from '../utils/idGenerator.js';
-import { sendEmail, sendSMS } from '../utils/notifications.js';
-import { hashPassword } from '../utils/passwordUtils.js';
-import db from '../config/db.js';
+
+import { generateUniqueClassId } from '../utils/idGenerator.js';
 
 // ===============================================
 // USER MANAGEMENT
@@ -51,7 +58,7 @@ export const getAllUsers = async (req, res) => {
       offset: (parseInt(page) - 1) * parseInt(limit)
     };
 
-    const result = await getAllUsers(filters);
+    const result = await getAllUsersService(filters);
     
     res.status(200).json({
       success: true,
@@ -124,72 +131,9 @@ export const getUserById = async (req, res) => {
  */
 export const createUser = async (req, res) => {
   try {
-    const {
-      username,
-      email,
-      phone,
-      password,
-      role = 'user',
-      is_member = 'applied',
-      membership_stage = 'none'
-    } = req.body;
+    console.log('👤 Admin creating new user:', req.body.username);
 
-    console.log('👤 Admin creating new user:', { username, email, role });
-
-    // Validate required fields
-    if (!username || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Username, email, and password are required'
-      });
-    }
-
-    // Validate email format
-    if (!email.includes('@')) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid email format'
-      });
-    }
-
-    // Validate role
-    const validRoles = ['user', 'admin', 'super_admin'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid role. Valid roles: ${validRoles.join(', ')}`
-      });
-    }
-
-    // Only super admins can create other admins
-    if (['admin', 'super_admin'].includes(role) && req.user.role !== 'super_admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only super administrators can create admin accounts'
-      });
-    }
-
-    // Hash password
-    const password_hash = await hashPassword(password);
-
-    const query = `
-      INSERT INTO users (
-        username, email, phone, password_hash, role, 
-        is_member, membership_stage, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-    `;
-    
-    const [result] = await db.query(query, [
-      username, email, phone, password_hash, 
-      role, is_member, membership_stage
-    ]);
-
-    const newUserId = result.insertId;
-    
-    // Get the created user
-    const newUser = await getUserProfileService(newUserId);
-    
-    console.log('✅ User created successfully:', newUserId);
+    const newUser = await createUserService(req.body, req.user);
     
     res.status(201).json({
       success: true,
@@ -200,14 +144,13 @@ export const createUser = async (req, res) => {
   } catch (error) {
     console.error('❌ Error creating user:', error);
     
-    if (error.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({
-        success: false,
-        error: 'Username or email already exists'
-      });
-    }
+    let statusCode = 500;
+    if (error.message.includes('already exists')) statusCode = 409;
+    if (error.message.includes('required')) statusCode = 400;
+    if (error.message.includes('Invalid')) statusCode = 400;
+    if (error.message.includes('super administrator')) statusCode = 403;
     
-    res.status(500).json({
+    res.status(statusCode).json({
       success: false,
       error: error.message || 'Failed to create user',
       path: req.path,
@@ -239,26 +182,9 @@ export const updateUser = async (req, res) => {
       });
     }
 
-    console.log('🔧 Admin updating user:', id, 'with data:', updateData);
+    console.log('🔧 Admin updating user:', id);
 
-    // Check if trying to update admin roles
-    if (updateData.role && ['admin', 'super_admin'].includes(updateData.role)) {
-      if (req.user.role !== 'super_admin') {
-        return res.status(403).json({
-          success: false,
-          error: 'Only super administrators can assign admin roles'
-        });
-      }
-    }
-
-    const updatedUser = await updateUserByAdmin(id, updateData);
-    
-    if (!updatedUser) {
-      return res.status(404).json({
-        success: false,
-        error: 'User not found'
-      });
-    }
+    const updatedUser = await updateUserByAdminService(id, updateData, req.user);
     
     res.status(200).json({
       success: true,
@@ -268,10 +194,16 @@ export const updateUser = async (req, res) => {
     
   } catch (error) {
     console.error('❌ Error updating user:', error);
-    res.status(500).json({
+    
+    let statusCode = 500;
+    if (error.message.includes('not found')) statusCode = 404;
+    if (error.message.includes('required')) statusCode = 400;
+    if (error.message.includes('super administrator')) statusCode = 403;
+    if (error.message.includes('Cannot demote')) statusCode = 403;
+    
+    res.status(statusCode).json({
       success: false,
-      error: 'Failed to update user',
-      details: error.message,
+      error: error.message || 'Failed to update user',
       path: req.path,
       timestamp: new Date().toISOString()
     });
@@ -282,7 +214,7 @@ export const updateUser = async (req, res) => {
  * Delete user (Super Admin only)
  * DELETE /api/admin/users/:id
  */
-export const deleteUser = async (req, res) => {
+export const deleteUserAdmin = async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -294,55 +226,24 @@ export const deleteUser = async (req, res) => {
       });
     }
 
-    // Only super admins can delete users
-    if (req.user.role !== 'super_admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Super administrator privileges required'
-      });
-    }
+    console.log('🗑️ Super admin deleting user:', id);
 
-    // Prevent self-deletion
-    if (parseInt(id) === req.user.id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cannot delete your own account'
-      });
-    }
-
-    console.log('🗑️ Super admin deleting user:', id, 'reason:', reason);
-
-    // Get user details before deletion
-    const user = await getUserProfileService(id);
-    
-    // Prevent deletion of other admins unless explicitly confirmed
-    if (['admin', 'super_admin'].includes(user.role) && !req.body.confirmAdminDeletion) {
-      return res.status(400).json({
-        success: false,
-        error: 'Admin account deletion requires confirmAdminDeletion flag',
-        warning: 'This will delete an administrator account'
-      });
-    }
-
-    const result = await deleteUser(id);
-    
-    console.log('✅ User deleted successfully:', result);
+    const result = await deleteUserService(id, req.user, reason);
     
     res.status(200).json({
       success: true,
-      message: `User account deleted successfully`,
-      data: {
-        deleted_user: result.username,
-        deleted_by: req.user.username,
-        reason: reason || 'Admin deletion',
-        deleted_at: new Date().toISOString()
-      }
+      message: 'User account deleted successfully',
+      data: result
     });
     
   } catch (error) {
     console.error('❌ Error deleting user:', error);
     
-    const statusCode = error.message.includes('not found') ? 404 : 500;
+    let statusCode = 500;
+    if (error.message.includes('not found')) statusCode = 404;
+    if (error.message.includes('Super administrator')) statusCode = 403;
+    if (error.message.includes('Cannot delete')) statusCode = 400;
+    
     res.status(statusCode).json({
       success: false,
       error: error.message || 'Failed to delete user',
@@ -376,7 +277,7 @@ export const searchUsers = async (req, res) => {
       offset: (parseInt(page) - 1) * parseInt(limit)
     };
 
-    const result = await getAllUsers(filters);
+    const result = await getAllUsersService(filters);
     
     res.status(200).json({
       success: true,
@@ -424,23 +325,6 @@ export const updateUserRole = async (req, res) => {
       });
     }
 
-    // Validate role if provided
-    const validRoles = ['user', 'admin', 'super_admin'];
-    if (role && !validRoles.includes(role)) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid role. Valid roles: ${validRoles.join(', ')}`
-      });
-    }
-
-    // Authorization check for admin role assignment
-    if (['admin', 'super_admin'].includes(role) && req.user.role !== 'super_admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Only super administrators can assign admin roles'
-      });
-    }
-
     console.log('👑 Admin updating user role:', { userId, role, is_member });
 
     const updateData = {
@@ -457,14 +341,7 @@ export const updateUserRole = async (req, res) => {
       Object.entries(updateData).filter(([_, v]) => v !== undefined)
     );
 
-    const updatedUser = await updateUserByAdmin(userId, cleanData);
-    
-    if (!updatedUser) {
-      return res.status(404).json({
-        success: false,
-        error: 'User not found'
-      });
-    }
+    const updatedUser = await updateUserByAdminService(userId, cleanData, req.user);
     
     res.status(200).json({
       success: true,
@@ -474,7 +351,7 @@ export const updateUserRole = async (req, res) => {
     
   } catch (error) {
     console.error('❌ Error updating user role:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message || 'Failed to update user role',
       path: req.path,
@@ -500,14 +377,14 @@ export const grantPostingRights = async (req, res) => {
 
     console.log('📝 Admin granting posting rights:', { userId, rights });
 
-    // For now, this is a placeholder
-    // You would implement specific posting rights logic based on your requirements
+    // Update user with posting rights
     const updateData = {
-      // Add specific posting rights fields here
       can_post: true,
       posting_rights_granted_at: new Date(),
       posting_rights_granted_by: req.user.id
     };
+
+    const updatedUser = await updateUserByAdminService(userId, updateData, req.user);
 
     res.status(200).json({
       success: true,
@@ -516,7 +393,8 @@ export const grantPostingRights = async (req, res) => {
         userId,
         rights_granted: rights,
         granted_by: req.user.username,
-        granted_at: new Date().toISOString()
+        granted_at: new Date().toISOString(),
+        user: updatedUser
       }
     });
     
@@ -539,72 +417,32 @@ export const banUser = async (req, res) => {
   try {
     const { userId, reason, duration } = req.body;
     
-    if (!userId) {
+    if (!userId || !reason) {
       return res.status(400).json({
         success: false,
-        error: 'User ID is required'
-      });
-    }
-
-    if (!reason) {
-      return res.status(400).json({
-        success: false,
-        error: 'Ban reason is required'
+        error: 'User ID and reason are required'
       });
     }
 
     console.log('🚫 Admin banning user:', { userId, reason, duration });
 
-    // Check if user exists
-    const user = await getUserProfileService(userId);
-    
-    // Prevent banning other admins
-    if (['admin', 'super_admin'].includes(user.role) && req.user.role !== 'super_admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Cannot ban administrator accounts'
-      });
-    }
-
-    // Update user ban status
-    const updateData = {
-      isbanned: true,
-      ban_reason: reason,
-      banned_at: new Date(),
-      banned_by: req.user.id,
-      ban_duration: duration
-    };
-
-    const updatedUser = await updateUserByAdmin(userId, updateData);
-    
-    // Log the ban action
-    await db.query(`
-      INSERT INTO audit_logs (user_id, action, details, createdAt)
-      VALUES (?, 'user_banned', ?, NOW())
-    `, [req.user.id, JSON.stringify({
-      targetUserId: userId,
-      targetUsername: user.username,
-      reason,
-      duration,
-      bannedBy: req.user.username
-    })]);
+    const result = await banUserService(userId, { reason, duration }, req.user);
     
     res.status(200).json({
       success: true,
       message: 'User banned successfully',
-      data: {
-        userId,
-        username: user.username,
-        reason,
-        duration,
-        banned_by: req.user.username,
-        banned_at: new Date().toISOString()
-      }
+      data: result
     });
     
   } catch (error) {
     console.error('❌ Error banning user:', error);
-    res.status(500).json({
+    
+    let statusCode = 500;
+    if (error.message.includes('not found')) statusCode = 404;
+    if (error.message.includes('Cannot ban')) statusCode = 403;
+    if (error.message.includes('your own')) statusCode = 400;
+    
+    res.status(statusCode).json({
       success: false,
       error: error.message || 'Failed to ban user',
       path: req.path,
@@ -630,45 +468,22 @@ export const unbanUser = async (req, res) => {
 
     console.log('✅ Admin unbanning user:', { userId, reason });
 
-    // Get user details
-    const user = await getUserProfileService(userId);
-    
-    // Update user ban status
-    const updateData = {
-      isbanned: false,
-      unban_reason: reason,
-      unbanned_at: new Date(),
-      unbanned_by: req.user.id
-    };
-
-    const updatedUser = await updateUserByAdmin(userId, updateData);
-    
-    // Log the unban action
-    await db.query(`
-      INSERT INTO audit_logs (user_id, action, details, createdAt)
-      VALUES (?, 'user_unbanned', ?, NOW())
-    `, [req.user.id, JSON.stringify({
-      targetUserId: userId,
-      targetUsername: user.username,
-      reason,
-      unbannedBy: req.user.username
-    })]);
+    const result = await unbanUserService(userId, reason, req.user);
     
     res.status(200).json({
       success: true,
       message: 'User unbanned successfully',
-      data: {
-        userId,
-        username: user.username,
-        reason,
-        unbanned_by: req.user.username,
-        unbanned_at: new Date().toISOString()
-      }
+      data: result
     });
     
   } catch (error) {
     console.error('❌ Error unbanning user:', error);
-    res.status(500).json({
+    
+    let statusCode = 500;
+    if (error.message.includes('not found')) statusCode = 404;
+    if (error.message.includes('not banned')) statusCode = 400;
+    
+    res.status(statusCode).json({
       success: false,
       error: error.message || 'Failed to unban user',
       path: req.path,
@@ -689,52 +504,19 @@ export const generateBulkIds = async (req, res) => {
   try {
     const { count = 10, type = 'user' } = req.body;
     
-    if (count > 100) {
-      return res.status(400).json({
-        success: false,
-        error: 'Maximum 100 IDs can be generated at once'
-      });
-    }
-
     console.log('🆔 Admin generating bulk IDs:', { count, type });
 
-    const generatedIds = [];
-    
-    for (let i = 0; i < count; i++) {
-      let newId;
-      if (type === 'user') {
-        newId = await generateUniqueConverseId();
-      } else if (type === 'class') {
-        newId = await generateUniqueClassId();
-      } else {
-        // Fallback to simple generation
-        newId = `${type.toUpperCase()}_${Date.now()}_${i}`;
-      }
-      
-      generatedIds.push(newId);
-      
-      // Log the generation
-      await db.query(`
-        INSERT INTO id_generation_log (generated_id, id_type, generated_by, purpose)
-        VALUES (?, ?, ?, 'bulk_generation')
-      `, [newId, type, req.user.converse_id || req.user.id]);
-    }
+    const result = await generateBulkIdsService(count, type, req.user);
     
     res.status(200).json({
       success: true,
       message: `Generated ${count} ${type} IDs`,
-      data: {
-        generated_ids: generatedIds,
-        count,
-        type,
-        generated_by: req.user.username,
-        generated_at: new Date().toISOString()
-      }
+      data: result
     });
     
   } catch (error) {
     console.error('❌ Error generating bulk IDs:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message || 'Failed to generate bulk IDs',
       path: req.path,
@@ -760,45 +542,22 @@ export const generateConverseId = async (req, res) => {
 
     console.log('🆔 Admin generating converse ID for user:', userId);
 
-    // Check if user already has a converse ID
-    const user = await getUserProfileService(userId);
-    
-    if (user.converse_id && user.converse_id !== '000000') {
-      return res.status(400).json({
-        success: false,
-        error: 'User already has a converse ID',
-        current_id: user.converse_id
-      });
-    }
-
-    // Generate new converse ID
-    const converseId = await generateUniqueConverseId();
-    
-    // Update user with new converse ID
-    const updateData = { converse_id: converseId };
-    await updateUserByAdmin(userId, updateData);
-    
-    // Log the generation
-    await db.query(`
-      INSERT INTO id_generation_log (generated_id, id_type, generated_by, purpose)
-      VALUES (?, 'user', ?, 'converse_id_generation')
-    `, [converseId, req.user.converse_id || req.user.id]);
+    const result = await generateConverseIdService(userId, req.user);
     
     res.status(200).json({
       success: true,
       message: 'Converse ID generated successfully',
-      data: {
-        userId,
-        username: user.username,
-        converse_id: converseId,
-        generated_by: req.user.username,
-        generated_at: new Date().toISOString()
-      }
+      data: result
     });
     
   } catch (error) {
     console.error('❌ Error generating converse ID:', error);
-    res.status(500).json({
+    
+    let statusCode = 500;
+    if (error.message.includes('not found')) statusCode = 404;
+    if (error.message.includes('already has')) statusCode = 400;
+    
+    res.status(statusCode).json({
       success: false,
       error: error.message || 'Failed to generate converse ID',
       path: req.path,
@@ -827,7 +586,8 @@ export const generateClassIdForAdmin = async (req, res) => {
     // Generate class ID using the utility function
     const newClassId = await generateUniqueClassId();
     
-    // Create the class
+    // Create the class using database directly (could be moved to service)
+    const db = (await import('../config/db.js')).default;
     await db.query(`
       INSERT INTO classes (class_id, class_name, class_type, created_by, createdAt, updatedAt)
       VALUES (?, ?, ?, ?, NOW(), NOW())
@@ -835,8 +595,8 @@ export const generateClassIdForAdmin = async (req, res) => {
     
     // Log the generation
     await db.query(`
-      INSERT INTO id_generation_log (generated_id, id_type, generated_by, purpose)
-      VALUES (?, 'class', ?, 'class_creation')
+      INSERT INTO id_generation_log (generated_id, id_type, generated_by, purpose, createdAt)
+      VALUES (?, 'class', ?, 'class_creation', NOW())
     `, [newClassId, req.user.converse_id || req.user.id]);
     
     res.status(200).json({
@@ -883,44 +643,22 @@ export const maskUserIdentity = async (req, res) => {
 
     console.log('🎭 Admin masking user identity:', { userId, reason });
 
-    // Get user details before masking
-    const user = await getUserProfileService(userId);
-    
-    // Update user with masked identity
-    const updateData = {
-      converse_id: adminConverseId,
-      mentor_id: mentorConverseId,
-      primary_class_id: classId,
-      is_identity_masked: true
-    };
-
-    await updateUserByAdmin(userId, updateData);
-    
-    // Log identity masking
-    await db.query(`
-      INSERT INTO identity_masking_audit (
-        user_id, converse_id, masked_by_admin_id, original_username, reason, createdAt
-      ) VALUES (?, ?, ?, ?, ?, NOW())
-    `, [userId, adminConverseId, req.user.converse_id || req.user.id, user.username, reason]);
+    const result = await maskUserIdentityService(req.body, req.user);
     
     res.status(200).json({
       success: true,
       message: 'User identity masked successfully',
-      data: {
-        userId,
-        original_username: user.username,
-        new_converse_id: adminConverseId,
-        mentor_id: mentorConverseId,
-        class_id: classId,
-        masked_by: req.user.username,
-        masked_at: new Date().toISOString(),
-        reason
-      }
+      data: result
     });
     
   } catch (error) {
     console.error('❌ Error masking identity:', error);
-    res.status(500).json({
+    
+    let statusCode = 500;
+    if (error.message.includes('not found')) statusCode = 404;
+    if (error.message.includes('already masked')) statusCode = 400;
+    
+    res.status(statusCode).json({
       success: false,
       error: error.message || 'Failed to mask identity',
       path: req.path,
@@ -939,31 +677,19 @@ export const maskUserIdentity = async (req, res) => {
  */
 export const exportUserData = async (req, res) => {
   try {
-    const { format = 'json', filters = {} } = req.query;
+    const { format = 'json', includePersonalData = false } = req.query;
     
-    console.log('📊 Admin exporting user data:', { format, filters });
+    console.log('📊 Admin exporting user data:', { format, includePersonalData });
 
-    // Get all users for export
-    const result = await getAllUsersForAdmin();
-    
-    // Filter sensitive data for export
-    const exportData = result.map(user => ({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      membership_stage: user.membership_stage,
-      is_member: user.is_member,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      isblocked: user.isblocked,
-      isbanned: user.isbanned
-    }));
+    const result = await exportUsersDataService({ 
+      format, 
+      includePersonalData: includePersonalData === 'true' 
+    }, req.user);
     
     if (format === 'csv') {
       // Convert to CSV format
-      const csvHeaders = Object.keys(exportData[0]).join(',');
-      const csvRows = exportData.map(user => 
+      const csvHeaders = Object.keys(result.users[0] || {}).join(',');
+      const csvRows = result.users.map(user => 
         Object.values(user).map(value => 
           typeof value === 'string' ? `"${value}"` : value
         ).join(',')
@@ -976,18 +702,18 @@ export const exportUserData = async (req, res) => {
     } else {
       res.status(200).json({
         success: true,
-        data: exportData,
-        metadata: {
-          total_records: exportData.length,
-          exported_at: new Date().toISOString(),
-          exported_by: req.user.username,
-          format
-        }
+        data: result.users,
+        metadata: result.metadata
       });
     }
     
   } catch (error) {
-    res.status(500).json({
+    console.error('❌ Error exporting user data:', error);
+    
+    let statusCode = 500;
+    if (error.message.includes('Super administrator')) statusCode = 403;
+    
+    res.status(statusCode).json({
       success: false,
       error: error.message || 'Failed to export user data',
       path: req.path,
@@ -1004,7 +730,7 @@ export const exportUserData = async (req, res) => {
  * Get user statistics (Admin)
  * GET /api/admin/users/stats
  */
-export const getUserStats = async (req, res) => {
+export const getUserStatsAdmin = async (req, res) => {
   try {
     console.log('📊 Admin fetching user statistics');
     
@@ -1080,20 +806,11 @@ export const assignMentorRole = async (req, res) => {
 
     console.log('👨‍🏫 Admin assigning mentor role:', { userId, maxMentees });
 
-    // Update user role
+    // Update user role to mentor
     const updateData = { role: 'mentor' };
-    const updatedUser = await updateUserByAdmin(userId, updateData);
+    const updatedUser = await updateUserByAdminService(userId, updateData, req.user);
     
-    // Add to mentors table if exists
-    try {
-      await db.query(`
-        INSERT INTO mentors (mentor_converse_id, max_mentees, current_mentees, is_active)
-        VALUES (?, ?, 0, 1)
-        ON DUPLICATE KEY UPDATE max_mentees = ?, is_active = 1
-      `, [updatedUser.converse_id, maxMentees, maxMentees]);
-    } catch (mentorError) {
-      console.warn('Could not update mentors table:', mentorError.message);
-    }
+    // TODO: Add to mentors table if exists (could be moved to service)
     
     res.status(200).json({
       success: true,
@@ -1110,7 +827,7 @@ export const assignMentorRole = async (req, res) => {
     
   } catch (error) {
     console.error('❌ Error assigning mentor role:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message || 'Failed to assign mentor role',
       path: req.path,
@@ -1136,23 +853,12 @@ export const removeMentorRole = async (req, res) => {
 
     console.log('❌ Admin removing mentor role:', id);
 
-    // Get user details
+    // Get user details first
     const user = await getUserProfileService(id);
     
     // Update user role back to regular user
     const updateData = { role: 'user' };
-    const updatedUser = await updateUserByAdmin(id, updateData);
-    
-    // Deactivate in mentors table if exists
-    try {
-      await db.query(`
-        UPDATE mentors 
-        SET is_active = 0 
-        WHERE mentor_converse_id = ?
-      `, [user.converse_id]);
-    } catch (mentorError) {
-      console.warn('Could not update mentors table:', mentorError.message);
-    }
+    await updateUserByAdminService(id, updateData, req.user);
     
     res.status(200).json({
       success: true,
@@ -1169,7 +875,7 @@ export const removeMentorRole = async (req, res) => {
     
   } catch (error) {
     console.error('❌ Error removing mentor role:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message || 'Failed to remove mentor role',
       path: req.path,
@@ -1186,65 +892,91 @@ export const removeMentorRole = async (req, res) => {
  * Admin user routes test
  * GET /api/admin/users/test
  */
-export const testAdminUserRoutes = async (req, res) => {
+export const testAdminUserRoutes = (req, res) => {
+  const testData = {
+    success: true,
+    message: 'Admin user routes are working!',
+    timestamp: new Date().toISOString(),
+    admin_user: {
+      id: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role
+    },
+    endpoint_info: {
+      path: req.path,
+      method: req.method,
+      access_level: 'admin_required'
+    },
+    available_endpoints: {
+      user_management: [
+        'GET / - Get all users',
+        'GET /:id - Get specific user',
+        'POST /create - Create new user',
+        'PUT /:id - Update user',
+        'DELETE /:id - Delete user (super admin)'
+      ],
+      permissions: [
+        'PUT /role - Update user role',
+        'POST /grant-posting-rights - Grant posting rights',
+        'POST /ban - Ban user',
+        'POST /unban - Unban user'
+      ],
+      id_generation: [
+        'POST /generate-bulk-ids - Generate bulk IDs',
+        'POST /generate-converse-id - Generate converse ID',
+        'POST /generate-class-id - Generate class ID'
+      ],
+      identity: [
+        'POST /mask-identity - Mask user identity'
+      ],
+      data_export: [
+        'GET /export - Export user data (super admin)'
+      ],
+      mentors: [
+        'GET /mentors - Get all mentors',
+        'POST /mentors/assign - Assign mentor role',
+        'DELETE /mentors/:id/remove - Remove mentor role'
+      ],
+      statistics: [
+        'GET /stats - Get user statistics'
+      ]
+    }
+  };
+  
+  res.status(200).json(testData);
+};
+
+export const deleteUser = async (req, res) => {
   try {
-    const testData = {
-      success: true,
-      message: 'Admin user routes are working!',
-      timestamp: new Date().toISOString(),
-      admin_user: {
-        id: req.user?.id,
-        username: req.user?.username,
-        role: req.user?.role
-      },
-      endpoint_info: {
-        path: req.path,
-        method: req.method,
-        access_level: 'admin_required'
-      },
-      available_endpoints: {
-        user_management: [
-          'GET / - Get all users',
-          'GET /:id - Get specific user',
-          'POST /create - Create new user',
-          'PUT /:id - Update user',
-          'DELETE /:id - Delete user (super admin)'
-        ],
-        permissions: [
-          'PUT /role - Update user role',
-          'POST /grant-posting-rights - Grant posting rights',
-          'POST /ban - Ban user',
-          'POST /unban - Unban user'
-        ],
-        id_generation: [
-          'POST /generate-bulk-ids - Generate bulk IDs',
-          'POST /generate-converse-id - Generate converse ID',
-          'POST /generate-class-id - Generate class ID'
-        ],
-        identity: [
-          'POST /mask-identity - Mask user identity'
-        ],
-        data_export: [
-          'GET /export - Export user data (super admin)'
-        ],
-        mentors: [
-          'GET /mentors - Get all mentors',
-          'POST /mentors/assign - Assign mentor role',
-          'DELETE /mentors/:id/remove - Remove mentor role'
-        ],
-        statistics: [
-          'GET /stats - Get user statistics'
-        ]
-      }
-    };
+    const { id } = req.params;
     
-    res.status(200).json(testData);
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+    }
+
+    console.log('🗑️ Admin deleting user:', id);
+
+    const result = await deleteUserService(id, req.user);
+    
+    res.status(200).json({
+      success: true,
+      message: 'User deleted successfully',
+      data: result
+    });
     
   } catch (error) {
-    console.error('❌ Error in admin user routes test:', error);
-    res.status(500).json({
+    console.error('❌ Error deleting user:', error);
+    
+    let statusCode = 500;
+    if (error.message.includes('not found')) statusCode = 404;
+    if (error.message.includes('Super administrator')) statusCode = 403;
+    
+    res.status(statusCode).json({
       success: false,
-      error: error.message || 'Admin user routes test failed',
+      error: error.message || 'Failed to delete user',
       path: req.path,
       timestamp: new Date().toISOString()
     });
@@ -1256,24 +988,25 @@ export const testAdminUserRoutes = async (req, res) => {
 // ===============================================
 
 export {
-  getAllUsers,
-  getUserById,
-  createUser,
-  updateUser,
-  deleteUser,
-  searchUsers,
-  updateUserRole,
-  grantPostingRights,
-  banUser,
-  unbanUser,
-  generateBulkIds,
-  generateConverseId,
-  generateClassIdForAdmin,
-  maskUserIdentity,
-  exportUserData,
-  getUserStats,
-  getMentors,
-  assignMentorRole,
-  removeMentorRole,
-  testAdminUserRoutes
+  //getAllUsers,
+  //getUserById,
+  //createUser,
+  //updateUser,
+  //deleteUserAdmin as deleteUser,
+  //deleteUser,
+  //searchUsers,
+  //updateUserRole,
+  //grantPostingRights,
+  //banUser,
+  //unbanUser,
+  //generateBulkIds,
+  //generateConverseId,,
+  //generateClassIdForAdmin,
+  //maskUserIdentity,
+  //exportUserData,
+  getUserStatsAdmin as getUserStats,
+  //getMentors,
+  //assignMentorRole,
+ // removeMentorRole,
+  //testAdminUserRoutes
 };

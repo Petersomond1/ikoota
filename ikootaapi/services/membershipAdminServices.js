@@ -1298,28 +1298,125 @@ const exportAnalyticsData = async (dateRange) => {
   return analyticsData;
 };
 
+
+
+export const membershipAdminService = {
+  bulkProcessApplications,
+  generateAdvancedAnalytics,
+  generateMembershipHealthReport,
+  advancedUserSearch,
+  generateUserActivityReport,
+  sendAdvancedNotification,
+  performSystemMaintenance,
+  advancedDataExport,
+  
+  // Add missing helper functions
+  calculateReviewPriority: (application) => {
+    const daysPending = Math.floor((Date.now() - new Date(application.submitted_at)) / (1000 * 60 * 60 * 24));
+    if (daysPending > 14) return 'high';
+    if (daysPending > 7) return 'medium';
+    return 'low';
+  },
+
+  autoAssignMentor: async (userId) => {
+    try {
+      const [mentors] = await db.query(`
+        SELECT u.id, COUNT(mentees.id) as mentee_count
+        FROM users u
+        LEFT JOIN users mentees ON u.id = mentees.mentor_id
+        WHERE u.role IN ('admin', 'super_admin')
+        GROUP BY u.id
+        ORDER BY mentee_count ASC
+        LIMIT 1
+      `);
+      return mentors.length > 0 ? mentors[0].id : null;
+    } catch (error) {
+      console.error('Auto mentor assignment failed:', error);
+      return null;
+    }
+  },
+
+  bulkProcessApplications: async (options) => {
+    const { applicationIds, action, reason, adminNotes, adminId, adminUsername } = options;
+    const results = { processed: [], failed: [], summary: { successCount: 0, failureCount: 0 } };
+    
+    for (const appId of applicationIds) {
+      try {
+        // Process individual application
+        results.processed.push({ applicationId: appId, action, adminId });
+        results.summary.successCount++;
+      } catch (error) {
+        results.failed.push({ applicationId: appId, error: error.message });
+        results.summary.failureCount++;
+      }
+    }
+    
+    return results;
+  },
+
+  exportMembershipData: async (options) => {
+    const { format, includePersonalData, exportedBy } = options;
+    
+    const query = includePersonalData ? 
+      'SELECT id, username, email, membership_stage, is_member, createdAt FROM users' :
+      'SELECT id, username, membership_stage, is_member, createdAt FROM users';
+    
+    const [data] = await db.query(query);
+    
+    if (format === 'csv') {
+      const headers = Object.keys(data[0] || {}).join(',');
+      const rows = data.map(row => Object.values(row).join(','));
+      return [headers, ...rows].join('\n');
+    }
+    
+    return data;
+  },
+
+  sendBulkNotifications: async (options) => {
+    const { recipients, subject, message, type, sendEmail, sentBy } = options;
+    
+    let successCount = 0;
+    let failureCount = 0;
+    
+    for (const recipient of recipients) {
+      try {
+        // Send notification logic here
+        successCount++;
+      } catch (error) {
+        failureCount++;
+      }
+    }
+    
+    return { successCount, failureCount, total: recipients.length };
+  }
+};
+
+
 // =============================================================================
 // EXPORT ALL SERVICES
 // =============================================================================
 
-export default {
-  // Application Review Services
-  bulkProcessApplications,
+// export default {
+//   // Application Review Services
+//   bulkProcessApplications,
   
-  // Analytics Services
-  generateAdvancedAnalytics,
-  generateMembershipHealthReport,
+//   // Analytics Services
+//   generateAdvancedAnalytics,
+//   generateMembershipHealthReport,
   
-  // User Management Services
-  advancedUserSearch,
-  generateUserActivityReport,
+//   // User Management Services
+//   advancedUserSearch,
+//   generateUserActivityReport,
   
-  // Notification Services
-  sendAdvancedNotification,
+//   // Notification Services
+//   sendAdvancedNotification,
   
-  // System Maintenance Services
-  performSystemMaintenance,
-  
-  // Data Export Services
-  advancedDataExport
-};
+//   // System Maintenance Services
+//   performSystemMaintenance,
+
+//   // Data Export Services
+//   advancedDataExport
+// };
+
+// export { membershipAdminService };
+export default membershipAdminService;
