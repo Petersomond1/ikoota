@@ -36,19 +36,33 @@ const AuthControls = () => {
     queryKey: ["fetchQuestionLabels"],
     queryFn: async () => {
       console.log('🔍 Fetching question labels...');
-      const res = await api.get("/admin/survey/question-labels");
-      console.log("✅ Question labels response:", res.data);
-      
-      // Handle different response formats from API
-      if (res.data?.success && res.data?.data) {
-        return res.data.data; // New format: {success: true, data: {...}}
-      } else if (res.data?.labels) {
-        return res.data.labels; // Backup format with labels field
-      } else if (typeof res.data === 'object') {
-        return res.data; // Direct object format
-      } else {
-        console.warn('⚠️ Unexpected labels format:', res.data);
-        return {}; // Fallback to empty object
+      try {
+        const res = await api.get("/admin/survey/question-labels");
+        console.log("✅ Question labels response:", res.data);
+        
+        // Handle different response formats from API
+        if (res.data?.success && res.data?.data) {
+          return res.data.data; // New format: {success: true, data: {...}}
+        } else if (res.data?.labels) {
+          return res.data.labels; // Backup format with labels field
+        } else if (Array.isArray(res.data)) {
+          // Convert array to object format if needed
+          const labelsObj = {};
+          res.data.forEach((item, index) => {
+            if (typeof item === 'object' && item.label) {
+              labelsObj[item.id || `field_${index}`] = item.label;
+            }
+          });
+          return labelsObj;
+        } else if (typeof res.data === 'object') {
+          return res.data; // Direct object format
+        } else {
+          console.warn('⚠️ Unexpected labels format:', res.data);
+          return {}; // Fallback to empty object
+        }
+      } catch (error) {
+        console.error('❌ Error fetching question labels:', error);
+        return {};
       }
     },
     retry: 2,
@@ -71,11 +85,11 @@ const AuthControls = () => {
         
         // Handle different response formats
         if (res.data?.success && res.data?.data) {
-          return res.data.data; // New format with success wrapper
+          return Array.isArray(res.data.data) ? res.data.data : [];
         } else if (Array.isArray(res.data)) {
           return res.data; // Direct array format
         } else if (res.data?.logs) {
-          return res.data.logs; // Alternative format
+          return Array.isArray(res.data.logs) ? res.data.logs : [];
         } else {
           console.warn('⚠️ Unexpected survey logs format:', res.data);
           return [];
@@ -160,7 +174,7 @@ const AuthControls = () => {
       if (typeof questionLabels === 'object') {
         const labelsArray = Object.entries(questionLabels).map(([field, label]) => ({
           field,
-          label
+          label: typeof label === 'string' ? label : String(label)
         }));
         setSurveyQuestions(labelsArray.length > 0 ? labelsArray : [{ field: '', label: '' }]);
       } else {
@@ -244,7 +258,7 @@ const AuthControls = () => {
   const handleSendFeedback = (email, status) => {
     console.log('🔍 Sending feedback:', { email, status });
     const feedbackTemplate = status === "granted" ? "approveverifyinfo" : "suspendedverifyinfo";
-    api.post("/communication/email/send", { email, template, status })
+    api.post("/communication/email/send", { email, template: feedbackTemplate, status })
       .then(() => {
         console.log('✅ Feedback sent successfully');
         alert('Feedback email sent successfully!');
@@ -255,7 +269,7 @@ const AuthControls = () => {
       });
   };
 
-  // ✅ Enhanced survey answers rendering with proper formatting
+  // ✅ FIXED: Enhanced survey answers rendering with proper error handling
   const renderSurveyAnswers = (answers) => {
     try {
       console.log('🔍 Raw answers data:', answers, typeof answers);
@@ -280,7 +294,7 @@ const AuthControls = () => {
             <div className="invalid-answers">
               <strong>Raw Answer Data:</strong>
               <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
-                {answers}
+                {String(answers)}
               </pre>
             </div>
           );
@@ -300,7 +314,7 @@ const AuthControls = () => {
               {parsedAnswers.map((item, index) => (
                 <div key={index} className="answer-item">
                   <div className="question-label">
-                    <strong>{formatQuestionLabel(item.question)}:</strong>
+                    <strong>{formatQuestionLabel(String(item.question))}:</strong>
                   </div>
                   <div className="answer-value">
                     {formatAnswerValue(item.answer)}
@@ -317,7 +331,7 @@ const AuthControls = () => {
               <div className="answer-list">
                 {parsedAnswers.map((answer, index) => (
                   <div key={index} className="simple-answer">
-                    <strong>Answer {index + 1}:</strong> {answer || 'No response'}
+                    <strong>Answer {index + 1}:</strong> {String(answer || 'No response')}
                   </div>
                 ))}
               </div>
@@ -327,13 +341,13 @@ const AuthControls = () => {
       }
 
       // Handle object format (alternative format)
-      if (typeof parsedAnswers === 'object') {
+      if (typeof parsedAnswers === 'object' && parsedAnswers !== null) {
         return (
           <div className="survey-answers-object">
             {Object.entries(parsedAnswers).map(([key, value], index) => (
               <div key={index} className="answer-item">
                 <div className="question-label">
-                  <strong>{formatQuestionLabel(key)}:</strong>
+                  <strong>{formatQuestionLabel(String(key))}:</strong>
                 </div>
                 <div className="answer-value">
                   {formatAnswerValue(value)}
@@ -372,6 +386,10 @@ const AuthControls = () => {
 
   // ✅ Helper function to format question labels
   const formatQuestionLabel = (questionKey) => {
+    if (!questionKey || typeof questionKey !== 'string') {
+      return 'Unknown Question';
+    }
+
     const labelMap = {
       fullName: 'Full Name',
       dateOfBirth: 'Date of Birth',
@@ -402,18 +420,34 @@ const AuthControls = () => {
     return labelMap[questionKey] || questionKey.charAt(0).toUpperCase() + questionKey.slice(1);
   };
 
-  // ✅ Helper function to format answer values
+  // ✅ FIXED: Helper function to format answer values - prevent object rendering
   const formatAnswerValue = (answer) => {
+    if (answer === null || answer === undefined) {
+      return <em style={{ color: '#888' }}>Not provided</em>;
+    }
+
     if (answer === true || answer === 'true') {
       return <span style={{ color: 'green' }}>✅ Yes</span>;
     }
     if (answer === false || answer === 'false') {
       return <span style={{ color: 'red' }}>❌ No</span>;
     }
-    if (!answer || answer === '') {
+    if (answer === '' || (typeof answer === 'string' && answer.trim() === '')) {
       return <em style={{ color: '#888' }}>Not provided</em>;
     }
-    return answer;
+
+    // CRITICAL FIX: Handle objects and arrays properly
+    if (typeof answer === 'object') {
+      if (Array.isArray(answer)) {
+        return <span>{answer.join(', ')}</span>;
+      } else {
+        // Don't render objects directly - convert to string
+        return <span>{JSON.stringify(answer)}</span>;
+      }
+    }
+
+    // Convert everything else to string safely
+    return <span>{String(answer)}</span>;
   };
 
   return (
@@ -648,7 +682,7 @@ const AuthControls = () => {
         )}
 
         {/* ✅ Display survey submissions */}
-        {surveys && surveys.length > 0 ? (
+        {surveys && Array.isArray(surveys) && surveys.length > 0 ? (
           <div className="surveys-list">
             {surveys.map((survey, index) => (
               <div key={survey.id || index} className="survey-item" style={{
@@ -930,5 +964,3 @@ const AuthControls = () => {
 };
 
 export default AuthControls;
-
-
