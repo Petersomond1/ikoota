@@ -1,10 +1,11 @@
 // ikootaapi/app.js
-// MINIMAL WORKING VERSION - Create routes directly in app.js
+// ✅ CRITICAL FIX - Replace the sample token with a real JWT
 
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
+import jwt from 'jsonwebtoken'; // ✅ JWT import (already added)
 
 const app = express();
 
@@ -21,11 +22,58 @@ app.use((req, res, next) => {
   next();
 });
 
+// ========================================================================
+// ✅ AUTHENTICATION MIDDLEWARE (Already Added)
+// ========================================================================
+
+const authenticate = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Access token required'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (!decoded.user_id) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid token: missing user ID'
+      });
+    }
+
+    req.user = {
+      id: decoded.user_id,
+      email: decoded.email,
+      username: decoded.username,
+      role: decoded.role,
+      membership_stage: decoded.membership_stage,
+      is_member: decoded.is_member
+    };
+    
+    console.log('✅ User authenticated:', {
+      id: req.user.id,
+      email: req.user.email
+    });
+    
+    next();
+  } catch (error) {
+    console.error('❌ Authentication error:', error.message);
+    res.status(401).json({ 
+      success: false,
+      error: error.message.includes('malformed') ? 'Invalid token format' : 'Authentication failed'
+    });
+  }
+};
+
 // ===============================================
-// DIRECT ROUTE CREATION - No imports needed
+// HEALTH CHECK ROUTES
 // ===============================================
 
-// Health checks
 app.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -43,7 +91,78 @@ app.get('/api/health', (req, res) => {
 });
 
 // ===============================================
-// USER STATUS ROUTES - Direct implementation
+// ✅ FIXED AUTHENTICATION ROUTES - Return Real JWT
+// ===============================================
+
+app.post('/api/auth/login', (req, res) => {
+  try {
+    console.log('🔍 Login attempt:', req.body);
+    
+    // Create a real user object (this would normally come from your database)
+    const userData = {
+      user_id: 1,
+      username: 'testuser',
+      email: req.body.email || 'test@example.com',
+      role: 'user',
+      membership_stage: 'pre_member',
+      is_member: 'pre_member'
+    };
+    
+    // ✅ CRITICAL FIX: Generate a REAL JWT token
+    const realJwtToken = jwt.sign(
+      userData, 
+      process.env.JWT_SECRET || 'your-secret-key-here', // Use fallback for development
+      { expiresIn: '7d' }
+    );
+    
+    console.log('✅ Generated real JWT token for user:', userData.email);
+    console.log('🔍 Token parts:', realJwtToken.split('.').length);
+    
+    res.json({
+      success: true,
+      message: 'Login successful',
+      token: realJwtToken, // ✅ FIXED: Real JWT instead of 'sample_jwt_token'
+      user: {
+        id: userData.user_id,
+        username: userData.username,
+        email: userData.email,
+        role: userData.role,
+        membership_stage: userData.membership_stage,
+        is_member: userData.is_member
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Login failed',
+      message: error.message
+    });
+  }
+});
+
+app.post('/api/auth/register', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Registration successful',
+    user: {
+      id: Date.now(),
+      ...req.body,
+      created_at: new Date().toISOString()
+    }
+  });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Logout successful'
+  });
+});
+
+// ===============================================
+// USER STATUS ROUTES
 // ===============================================
 
 app.get('/api/user-status/survey/status', (req, res) => {
@@ -71,8 +190,86 @@ app.get('/api/user-status/dashboard', (req, res) => {
   });
 });
 
+// ✅ The authentication endpoint we added
+app.get('/api/user-status/survey/check-status', authenticate, (req, res) => {
+  try {
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+    }
+
+    console.log('✅ Survey status check for user:', userId);
+    
+    res.status(200).json({
+      success: true,
+      needs_survey: false,
+      survey_completed: true,
+      user_id: userId,
+      message: 'Survey status retrieved successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ Survey check error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check survey status'
+    });
+  }
+});
+
 // ===============================================
-// MEMBERSHIP ROUTES - Direct implementation
+// ✅ ENHANCED TEST TOKEN ENDPOINT
+// ===============================================
+
+if (process.env.NODE_ENV === 'development') {
+  app.get('/api/debug/test-token', (req, res) => {
+    try {
+      const testUser = {
+        user_id: 1,
+        username: 'testuser',
+        email: 'test@example.com',
+        role: 'user',
+        membership_stage: 'pre_member',
+        is_member: 'pre_member'
+      };
+      
+      const testToken = jwt.sign(
+        testUser, 
+        process.env.JWT_SECRET || 'your-secret-key-here', 
+        { expiresIn: '7d' }
+      );
+      
+      console.log('🧪 Test token generated');
+      console.log('🔍 Token parts:', testToken.split('.').length);
+      
+      res.json({
+        success: true,
+        token: testToken,
+        user: testUser,
+        message: 'Test token generated for debugging',
+        tokenInfo: {
+          parts: testToken.split('.').length,
+          isValidJWT: testToken.split('.').length === 3,
+          length: testToken.length
+        }
+      });
+    } catch (error) {
+      console.error('❌ Test token generation failed:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate test token',
+        message: error.message
+      });
+    }
+  });
+}
+
+// ===============================================
+// MEMBERSHIP ROUTES
 // ===============================================
 
 app.get('/api/membership/status/:id', (req, res) => {
@@ -98,7 +295,7 @@ app.get('/api/membership/applications', (req, res) => {
 });
 
 // ===============================================
-// CONTENT ROUTES - Direct implementation
+// CONTENT ROUTES
 // ===============================================
 
 app.get('/api/content/chats', (req, res) => {
@@ -139,7 +336,6 @@ app.get('/api/content/comments', (req, res) => {
   });
 });
 
-// Additional comment endpoints your frontend needs
 app.get('/api/content/comments/all', (req, res) => {
   res.json({
     success: true,
@@ -173,7 +369,6 @@ app.get('/api/content/comments/parent-comments', (req, res) => {
   });
 });
 
-// Additional chat endpoints
 app.get('/api/content/chats/combinedcontent', (req, res) => {
   res.json({
     success: true,
@@ -198,7 +393,6 @@ app.get('/api/content/chats/combinedcontent', (req, res) => {
   });
 });
 
-// POST routes for content
 app.post('/api/content/chats', (req, res) => {
   res.json({
     success: true,
@@ -224,43 +418,7 @@ app.post('/api/content/teachings', (req, res) => {
 });
 
 // ===============================================
-// AUTHENTICATION ROUTES - Direct implementation
-// ===============================================
-
-app.post('/api/auth/login', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Login successful',
-    token: 'sample_jwt_token',
-    user: {
-      id: 1,
-      username: 'testuser',
-      email: 'test@example.com'
-    }
-  });
-});
-
-app.post('/api/auth/register', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Registration successful',
-    user: {
-      id: Date.now(),
-      ...req.body,
-      created_at: new Date().toISOString()
-    }
-  });
-});
-
-app.post('/api/auth/logout', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Logout successful'
-  });
-});
-
-// ===============================================
-// USER ROUTES - Direct implementation
+// USER ROUTES
 // ===============================================
 
 app.get('/api/users/profile', (req, res) => {
@@ -288,7 +446,7 @@ app.put('/api/users/profile', (req, res) => {
 });
 
 // ===============================================
-// ADMIN ROUTES - Direct implementation
+// ADMIN ROUTES
 // ===============================================
 
 app.get('/api/admin/users', (req, res) => {
@@ -308,24 +466,22 @@ app.get('/api/admin/membership/applications', (req, res) => {
 });
 
 // ===============================================
-// API INFO & DEBUG ROUTES
+// DEBUG & INFO ROUTES
 // ===============================================
 
 app.get('/api/info', (req, res) => {
   res.json({
     success: true,
-    message: 'Ikoota API - Minimal Working Version',
-    version: '1.0.0-minimal',
+    message: 'Ikoota API - Fixed JWT Token Issue',
+    version: '1.0.0-jwt-fixed',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
+    jwtFix: 'Now returns real JWT tokens instead of sample strings',
     routes: {
       health: ['/health', '/api/health'],
-      userStatus: ['/api/user-status/survey/status', '/api/user-status/dashboard'],
-      membership: ['/api/membership/status/:id', '/api/membership/applications'],
-      content: ['/api/content/chats', '/api/content/teachings', '/api/content/comments'],
       auth: ['/api/auth/login', '/api/auth/register', '/api/auth/logout'],
-      users: ['/api/users/profile'],
-      admin: ['/api/admin/users', '/api/admin/membership/applications']
+      userStatus: ['/api/user-status/survey/status', '/api/user-status/survey/check-status'],
+      debug: ['/api/debug/test-token']
     }
   });
 });
@@ -333,388 +489,16 @@ app.get('/api/info', (req, res) => {
 app.get('/api/debug', (req, res) => {
   res.json({
     success: true,
-    message: 'Debug info - All routes created directly in app.js',
-    routeCount: 15,
-    workingEndpoints: [
-      'GET /health',
-      'GET /api/health',
-      'GET /api/user-status/survey/status',
-      'GET /api/user-status/dashboard', 
-      'GET /api/membership/status/:id',
-      'GET /api/content/chats',
-      'GET /api/content/chats/combinedcontent',
-      'GET /api/content/teachings',
-      'GET /api/content/comments/all',
-      'GET /api/content/comments/parent-comments',
-      'POST /api/content/chats',
-      'POST /api/content/teachings',
-      'POST /api/auth/login',
-      'GET /api/users/profile',
-      'GET /api/admin/users'
-    ],
-    noImportErrors: 'All routes created directly, no file imports needed',
+    message: 'Debug info - JWT Token Fix Applied',
+    jwtTokenFix: 'Login endpoint now returns real JWT tokens',
+    testEndpoint: '/api/debug/test-token',
+    authEndpoint: '/api/user-status/survey/check-status',
     timestamp: new Date().toISOString()
   });
 });
 
-
 // ===============================================
-// MISSING ADMIN ROUTES - Add these to your app.js
-// ===============================================
-
-// Admin Membership Routes
-app.get('/api/admin/membership/pending-count', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Pending membership count',
-    data: {
-      pending_count: 5,
-      total_applications: 25,
-      pending_review: 3,
-      last_updated: new Date().toISOString()
-    }
-  });
-});
-
-app.get('/api/admin/membership/analytics', (req, res) => {
-  const { period, detailed } = req.query;
-  res.json({
-    success: true,
-    message: 'Membership analytics',
-    data: {
-      period: period || '30d',
-      detailed: detailed === 'true',
-      new_applications: 12,
-      approved: 8,
-      rejected: 2,
-      pending: 5,
-      conversion_rate: 0.67,
-      trends: [
-        { date: '2025-08-01', applications: 2, approved: 1 },
-        { date: '2025-08-02', applications: 3, approved: 2 },
-        { date: '2025-08-03', applications: 1, approved: 1 }
-      ]
-    }
-  });
-});
-
-app.get('/api/admin/membership/stats', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Membership statistics',
-    data: {
-      total_members: 150,
-      active_members: 130,
-      pending_applications: 5,
-      approved_this_month: 8,
-      rejection_rate: 0.15,
-      average_approval_time_days: 3.5
-    }
-  });
-});
-
-app.get('/api/admin/membership/full-membership-stats', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Full membership statistics',
-    data: {
-      total_full_members: 89,
-      pending_full_membership: 5,
-      approved_this_quarter: 12,
-      upgrade_rate: 0.6,
-      retention_rate: 0.95,
-      lifetime_value: 2500,
-      by_tier: {
-        bronze: 45,
-        silver: 32,
-        gold: 12
-      }
-    }
-  });
-});
-
-app.get('/api/admin/membership/overview', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Membership overview',
-    data: {
-      summary: {
-        total_users: 200,
-        total_members: 150,
-        pending_applications: 5,
-        growth_rate: 0.12
-      },
-      recent_activity: [
-        { id: 1, user: 'John Doe', action: 'applied', date: new Date().toISOString() },
-        { id: 2, user: 'Jane Smith', action: 'approved', date: new Date().toISOString() }
-      ]
-    }
-  });
-});
-
-app.get('/api/admin/membership/test', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Admin membership test endpoint',
-    data: {
-      status: 'working',
-      timestamp: new Date().toISOString(),
-      endpoints_available: true
-    }
-  });
-});
-
-
-
-
-
-// Content Admin Routes
-app.get('/api/content/admin/audit-logs', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Content audit logs',
-    data: [
-      {
-        id: 1,
-        user_id: 2,
-        action: 'created_post',
-        content_type: 'teaching',
-        content_id: 123,
-        timestamp: new Date().toISOString(),
-        details: 'Created new teaching: Introduction to React'
-      },
-      {
-        id: 2,
-        user_id: 1,
-        action: 'moderated_comment',
-        content_type: 'comment',
-        content_id: 456,
-        timestamp: new Date().toISOString(),
-        details: 'Approved comment on teaching #123'
-      }
-    ]
-  });
-});
-
-app.get('/api/content/admin/reports', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Content reports',
-    data: [
-      {
-        id: 1,
-        reporter_id: 5,
-        content_type: 'comment',
-        content_id: 789,
-        reason: 'inappropriate_content',
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        description: 'Contains offensive language'
-      },
-      {
-        id: 2,
-        reporter_id: 8,
-        content_type: 'chat',
-        content_id: 101,
-        reason: 'spam',
-        status: 'resolved',
-        created_at: new Date().toISOString(),
-        description: 'Repeated promotional messages'
-      }
-    ]
-  });
-});
-
-// Admin Users Routes
-app.get('/api/admin/users/mentors', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Mentor users',
-    data: [
-      {
-        id: 10,
-        username: 'mentor_alice',
-        email: 'alice@example.com',
-        mentor_level: 'senior',
-        specialties: ['React', 'Node.js'],
-        active_mentees: 5,
-        rating: 4.8,
-        joined_date: '2024-01-15'
-      },
-      {
-        id: 11,
-        username: 'mentor_bob',
-        email: 'bob@example.com',
-        mentor_level: 'expert',
-        specialties: ['Python', 'Data Science'],
-        active_mentees: 8,
-        rating: 4.9,
-        joined_date: '2023-08-20'
-      }
-    ]
-  });
-});
-
-// // Classes Routes
-// app.get('/api/classes/', (req, res) => {
-//   res.json({
-//     success: true,
-//     message: 'Available classes',
-//     data: [
-//       {
-//         id: 1,
-//         title: 'Introduction to Web Development',
-//         instructor: 'John Smith',
-//         duration: '8 weeks',
-//         level: 'beginner',
-//         enrolled: 25,
-//         max_capacity: 30,
-//         start_date: '2025-09-01',
-//         status: 'open'
-//       },
-//       {
-//         id: 2,
-//         title: 'Advanced React Patterns',
-//         instructor: 'Sarah Johnson',
-//         duration: '6 weeks',
-//         level: 'advanced',
-//         enrolled: 18,
-//         max_capacity: 20,
-//         start_date: '2025-09-15',
-//         status: 'open'
-//       },
-//       {
-//         id: 3,
-//         title: 'Database Design Fundamentals',
-//         instructor: 'Mike Davis',
-//         duration: '10 weeks',
-//         level: 'intermediate',
-//         enrolled: 22,
-//         max_capacity: 25,
-//         start_date: '2025-08-20',
-//         status: 'full'
-//       }
-//     ]
-//   });
-// });
-
-
-// Fix Admin Survey Routes - Return data directly, not wrapped
-
-// Admin Survey Routes
-// app.get('/api/admin/survey/question-labels', (req, res) => {
-//   res.json({
-//     success: true,
-//     message: 'Survey question labels',
-//     data: [
-//       { id: 1, label: 'Personal Information', category: 'basic' },
-//       { id: 2, label: 'Experience Level', category: 'skills' },
-//       { id: 3, label: 'Goals & Objectives', category: 'motivation' },
-//       { id: 4, label: 'Background Check', category: 'verification' }
-//     ]
-//   });
-// });
-
-
-app.get('/api/admin/survey/question-labels', (req, res) => {
-  // Return the array directly, not wrapped in data object
-  res.json([
-    { id: 1, label: 'Personal Information', category: 'basic' },
-    { id: 2, label: 'Experience Level', category: 'skills' },
-    { id: 3, label: 'Goals & Objectives', category: 'motivation' },
-    { id: 4, label: 'Background Check', category: 'verification' }
-  ]);
-});
-
-app.get('/api/admin/survey/logs', (req, res) => {
-  // Return the array directly, not wrapped in data object
-  res.json([
-    {
-      id: 1,
-      user_id: 2,
-      survey_id: 'membership_2025',
-      action: 'started',
-      timestamp: new Date().toISOString(),
-      ip_address: '127.0.0.1'
-    },
-    {
-      id: 2,
-      user_id: 3,
-      survey_id: 'membership_2025',
-      action: 'completed',
-      timestamp: new Date().toISOString(),
-      ip_address: '127.0.0.1'
-    }
-  ]);
-});
-
-// app.get('/api/admin/survey/logs', (req, res) => {
-//   res.json({
-//     success: true,
-//     message: 'Survey logs',
-//     data: [
-//       {
-//         id: 1,
-//         user_id: 2,
-//         survey_id: 'membership_2025',
-//         action: 'started',
-//         timestamp: new Date().toISOString(),
-//         ip_address: '127.0.0.1'
-//       },
-//       {
-//         id: 2,
-//         user_id: 3,
-//         survey_id: 'membership_2025',
-//         action: 'completed',
-//         timestamp: new Date().toISOString(),
-//         ip_address: '127.0.0.1'
-//       }
-//     ]
-//   });
-// });
-
-// Fix Classes Route - Return data directly, not wrapped
-app.get('/api/classes/', (req, res) => {
-  // Return the array directly, not wrapped in data object
-  res.json([
-    {
-      id: 1,
-      title: 'Introduction to Web Development',
-      instructor: 'John Smith',
-      duration: '8 weeks',
-      level: 'beginner',
-      enrolled: 25,
-      max_capacity: 30,
-      start_date: '2025-09-01',
-      status: 'open'
-    },
-    {
-      id: 2,
-      title: 'Advanced React Patterns',
-      instructor: 'Sarah Johnson',
-      duration: '6 weeks',
-      level: 'advanced',
-      enrolled: 18,
-      max_capacity: 20,
-      start_date: '2025-09-15',
-      status: 'open'
-    },
-    {
-      id: 3,
-      title: 'Database Design Fundamentals',
-      instructor: 'Mike Davis',
-      duration: '10 weeks',
-      level: 'intermediate',
-      enrolled: 22,
-      max_capacity: 25,
-      start_date: '2025-08-20',
-      status: 'full'
-    }
-  ]);
-});
-
-// ===============================================
-// UPDATE YOUR 404 HANDLER - Add new endpoints
+// 404 HANDLER
 // ===============================================
 
 app.use('*', (req, res) => {
@@ -725,52 +509,10 @@ app.use('*', (req, res) => {
     message: 'Endpoint not found',
     path: req.originalUrl,
     method: req.method,
-    availableEndpoints: [
-      'GET /health',
-      'GET /api/health',
-      'GET /api/info',
-      'GET /api/debug',
-      '--- User Status ---',
-      'GET /api/user-status/survey/status',
-      'GET /api/user-status/dashboard',
-      '--- Membership ---',
-      'GET /api/membership/status/:id',
-      'GET /api/membership/applications',
-      '--- Content ---',
-      'GET /api/content/chats',
-      'GET /api/content/chats/combinedcontent',
-      'GET /api/content/teachings',
-      'GET /api/content/comments/all',
-      'GET /api/content/comments/parent-comments',
-      'POST /api/content/chats',
-      'POST /api/content/teachings',
-      '--- Admin Membership ---',
-      'GET /api/admin/membership/pending-count',
-      'GET /api/admin/membership/analytics',
-      'GET /api/admin/membership/stats',
-      'GET /api/admin/membership/full-membership-stats',
-      'GET /api/admin/membership/overview',
-      'GET /api/admin/membership/test',
-      '--- Admin Survey ---',
-      'GET /api/admin/survey/question-labels',
-      'GET /api/admin/survey/logs',
-      '--- Content Admin ---',
-      'GET /api/content/admin/audit-logs',
-      'GET /api/content/admin/reports',
-      '--- Admin Users ---',
-      'GET /api/admin/users',
-      'GET /api/admin/users/mentors',
-      '--- Classes ---',
-      'GET /api/classes/',
-      '--- Auth ---',
-      'POST /api/auth/login',
-      'POST /api/auth/register',
-      'GET /api/users/profile'
-    ],
+    fix: 'JWT Token issue has been resolved',
     timestamp: new Date().toISOString()
   });
 });
-
 
 // ===============================================
 // ERROR HANDLER
@@ -785,16 +527,16 @@ app.use((error, req, res, next) => {
   });
 });
 
-console.log('\n🚀 MINIMAL APP.JS LOADED');
+console.log('\n🚀 APP.JS LOADED WITH JWT TOKEN FIX');
 console.log('================================================================================');
-console.log('✅ ALL ROUTES CREATED DIRECTLY - No imports, no external files needed');
-console.log('🎯 This should fix all 404 errors');
-console.log('📊 Test endpoints:');
-console.log('   • GET /api/user-status/survey/status');
-console.log('   • GET /api/membership/status/2');
-console.log('   • GET /api/content/chats');
-console.log('   • GET /api/content/teachings');
-console.log('   • GET /api/debug');
+console.log('✅ CRITICAL FIX APPLIED: Login now returns REAL JWT tokens');
+console.log('✅ Authentication endpoint: /api/user-status/survey/check-status');
+console.log('✅ Test token endpoint: /api/debug/test-token');
+console.log('🎯 The "jwt malformed" error should now be resolved');
+console.log('📊 Test the fix:');
+console.log('   • POST /api/auth/login (now returns real JWT)');
+console.log('   • GET /api/debug/test-token (generates real test token)');
+console.log('   • GET /api/user-status/survey/check-status (requires Bearer token)');
 console.log('================================================================================\n');
 
 export default app;

@@ -1,4 +1,8 @@
+// ikootaapi/utils/jwt.js
+import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
+
+dotenv.config();
 
 export const generateToken = (userData) => {
     const { user_id, email, role, is_member } = userData;

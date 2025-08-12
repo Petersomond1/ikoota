@@ -1,12 +1,11 @@
 // ikootaclient/src/components/auth/Login.jsx
-// ✅ FIXED VERSION - Proper routing based on user status and privileges
+// ✅ MINIMAL FIX - Only fix token handling, keep existing routing logic
 
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useUser } from "./UserStatus";
 import './login.css';
-import { getUserAccess } from '../config/accessMatrix';
 
 const Login = () => {
   const [values, setValues] = useState({
@@ -27,6 +26,67 @@ const Login = () => {
       navigate('/');
     }
   }, [isAuthenticated, navigate]);
+
+  // ========================================================================
+  // ✅ ENHANCED TOKEN EXTRACTION AND CLEANING
+  // ========================================================================
+
+  const extractTokenAndUser = (responseData) => {
+    let token, user;
+    
+    console.log('🔍 Extracting token from response:', responseData);
+    
+    // Try different response formats
+    if (responseData.token && responseData.user) {
+      token = responseData.token;
+      user = responseData.user;
+    } else if (responseData.data?.token && responseData.data?.user) {
+      token = responseData.data.token;
+      user = responseData.data.user;
+    } else if (responseData.access_token || responseData.accessToken) {
+      token = responseData.access_token || responseData.accessToken;
+      user = responseData.user || responseData.data?.user;
+    } else if (responseData.success && responseData.data) {
+      token = responseData.data.token || responseData.data.access_token;
+      user = responseData.data.user;
+    } else {
+      user = responseData.user || responseData.data || responseData;
+      token = responseData.token || responseData.access_token || responseData.accessToken;
+    }
+    
+    console.log('🔍 Raw token extracted:', token);
+    console.log('🔍 Token type:', typeof token);
+    
+    // Clean and validate token
+    if (token) {
+      if (typeof token !== 'string') {
+        console.error('❌ Token is not a string:', typeof token, token);
+        return { token: null, user: null, error: 'Invalid token type received' };
+      }
+      
+      // ✅ ENHANCED CLEANING: Remove quotes, whitespace, newlines
+      const cleanToken = token
+        .replace(/^["']|["']$/g, '')  // Remove quotes
+        .replace(/^\s+|\s+$/g, '')    // Remove whitespace
+        .replace(/\r?\n|\r/g, '');    // Remove newlines
+      
+      console.log('🔍 Cleaned token:', cleanToken.substring(0, 20) + '...');
+      
+      // Basic JWT format validation (must have 3 parts separated by dots)
+      if (cleanToken.split('.').length !== 3) {
+        console.error('❌ Token does not have JWT format:', {
+          parts: cleanToken.split('.').length,
+          tokenStart: cleanToken.substring(0, 20),
+          originalToken: token.substring(0, 20)
+        });
+        return { token: null, user: null, error: 'Invalid token format received' };
+      }
+      
+      token = cleanToken;
+    }
+    
+    return { token, user, error: null };
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -52,28 +112,15 @@ const Login = () => {
 
       if (response.status === 200) {
         const responseData = response.data;
-        let token, user;
+        
+        // ✅ ENHANCED: Use the improved token extraction
+        const { token, user, error: extractionError } = extractTokenAndUser(responseData);
 
-        // Handle multiple response formats
-        if (responseData.token && responseData.user) {
-          token = responseData.token;
-          user = responseData.user;
-        } else if (responseData.data?.token && responseData.data?.user) {
-          token = responseData.data.token;
-          user = responseData.data.user;
-        } else if (responseData.access_token || responseData.accessToken) {
-          token = responseData.access_token || responseData.accessToken;
-          user = responseData.user || responseData.data?.user;
-        } else if (responseData.success && responseData.data) {
-          token = responseData.data.token || responseData.data.access_token;
-          user = responseData.data.user;
-        } else {
-          user = responseData.user || responseData.data || responseData;
-          token = responseData.token || responseData.access_token || responseData.accessToken;
+        if (extractionError) {
+          console.error('❌ Token extraction error:', extractionError);
+          setError('Login failed: ' + extractionError);
+          return;
         }
-
-        console.log('🔍 Extracted token:', token ? 'Present' : 'Missing');
-        console.log('🔍 Extracted user:', user);
 
         if (!user) {
           console.error('❌ No user data received from login response');
@@ -81,10 +128,22 @@ const Login = () => {
           return;
         }
 
-        // Store token properly
-        if (token) {
+        // ✅ ENHANCED: Store token with validation
+        if (token && typeof token === 'string' && token.trim() !== '') {
+          console.log('🔍 Storing token:', token.substring(0, 20) + '...');
+          
+          // Store the clean token
           localStorage.setItem("token", token);
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          
+          // ✅ ADD: Debug token storage
+          console.log('🔍 Token stored successfully');
+          console.log('🔍 Token parts count:', token.split('.').length);
+          
+        } else {
+          console.error('❌ Invalid token received:', token);
+          setError('Login failed: Invalid token received from server');
+          return;
         }
         
         // Update user context first
@@ -98,7 +157,7 @@ const Login = () => {
           console.warn('⚠️ Failed to update user context:', updateError);
         }
         
-        // ✅ FIXED: Smart routing based on user status
+        // ✅ KEEP EXISTING: Your original routing logic (unchanged)
         await handleUserRouting(user, token);
       }
     } catch (err) {
@@ -127,7 +186,7 @@ const Login = () => {
     }
   };
 
-  // ✅ COMPLETELY REWRITTEN: Smart user routing based on membership status
+  // ✅ KEEP EXISTING: Your original routing logic (unchanged from paste-3.txt)
   const handleUserRouting = async (userData, token) => {
     if (!userData) {
       console.error('❌ No user data provided to handleUserRouting');
@@ -197,7 +256,7 @@ const Login = () => {
     }
   };
 
-  // ✅ NEW: More precise check for application survey requirement
+  // ✅ KEEP EXISTING: Your original survey check logic (unchanged from paste-3.txt)
   const checkIfUserNeedsApplication = async (token, userData) => {
     try {
       console.log('🔍 Checking if user needs application survey...');
@@ -216,7 +275,7 @@ const Login = () => {
         return false;
       }
 
-      // Check survey status via API for edge cases
+      // ✅ FIXED: Use the endpoint we just added to server.js
       const response = await axios.get('http://localhost:3000/api/user-status/survey/check-status', {
         headers: { 'Authorization': `Bearer ${token}` },
         timeout: 5000
@@ -259,6 +318,7 @@ const Login = () => {
     }
   };
 
+  // ✅ KEEP EXISTING: All other functions unchanged
   const handlePendingUser = (data) => {
     const { applicationStatus, applicationTicket } = data;
     
@@ -290,6 +350,7 @@ const Login = () => {
     setValues({ ...values, [e.target.name]: e.target.value });
   };
 
+  // ✅ KEEP EXISTING: All JSX unchanged from your original
   return (
     <div className="login-container">
       <div className="login-form">
@@ -410,5 +471,3 @@ const Login = () => {
 };
 
 export default Login;
-
-
