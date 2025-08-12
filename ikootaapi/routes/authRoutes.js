@@ -1,203 +1,224 @@
-// ikootaapi/routes/authRoutes.js
-// FIXED VERSION - Proper route handling and middleware order
-
+// routes/authRoutes.js - COMPLETE AUTH ROUTES
 import express from 'express';
-import { authenticate } from '../middlewares/auth.middleware.js';
-
-// Import authentication controllers
-import {
-  sendVerificationCode,
-  registerWithVerification,
-  enhancedLogin,
-  logoutUser,
-  requestPasswordReset,
-  resetPassword,
-  verifyPasswordReset,
-  verifyUser,
-  getAuthenticatedUser
-} from '../controllers/authControllers.js';
+import { AuthController } from '../controllers/authController.js';
+import { validateLogin, validateRegistration } from '../middleware/validation.js';
 
 const router = express.Router();
 
-// ===============================================
-// MIDDLEWARE SETUP
-// ===============================================
+// Real login with database verification
+router.post('/login', validateLogin, AuthController.login);
 
-// Add request logging middleware
-router.use((req, res, next) => {
-  console.log(`📥 ${new Date().toISOString()} - ${req.method} ${req.path}`, {
-    ip: req.ip,
-    userAgent: req.get('User-Agent')?.substring(0, 50) + '...',
-    body: req.method === 'POST' ? Object.keys(req.body || {}) : undefined
-  });
-  next();
-});
-
-// ===============================================
-// PRIMARY AUTHENTICATION ENDPOINTS
-// ===============================================
-
-// Email verification and registration flow
-router.post('/send-verification', sendVerificationCode);
-router.post('/register', registerWithVerification);
-
-// ✅ FIXED: Login endpoint with proper error handling
-router.post('/login', async (req, res, next) => {
-  try {
-    console.log('🔍 Login route hit with body:', Object.keys(req.body || {}));
-    await enhancedLogin(req, res);
-  } catch (error) {
-    console.error('❌ Login route error:', error);
-    next(error);
-  }
-});
+// Real registration with database
+router.post('/register', validateRegistration, AuthController.register);
 
 // Logout
-router.get('/logout', logoutUser);
-
-// ===============================================
-// PASSWORD RESET ENDPOINTS
-// ===============================================
-
-router.post('/passwordreset/request', requestPasswordReset);
-router.post('/passwordreset/reset', resetPassword);
-router.post('/passwordreset/verify', verifyPasswordReset);
-
-// ===============================================
-// USER VERIFICATION ENDPOINTS
-// ===============================================
-
-router.get('/verify/:token', verifyUser);
-
-// ===============================================
-// AUTHENTICATED USER ENDPOINTS
-// ===============================================
-
-router.get('/', authenticate, getAuthenticatedUser);
-
-// ===============================================
-// TESTING ENDPOINTS
-// ===============================================
-
-// Simple connectivity test
-router.get('/test-simple', (req, res) => {
-  console.log('✅ Test simple endpoint hit');
-  res.json({
-    success: true,
-    message: 'Authentication routes are working!',
-    timestamp: new Date().toISOString(),
-    endpoint: '/api/auth/test-simple'
-  });
-});
-
-// Authentication test
-router.get('/test-auth', authenticate, (req, res) => {
-  console.log('✅ Test auth endpoint hit');
-  res.json({
-    success: true,
-    message: 'Authentication middleware is working!',
-    user: {
-      id: req.user?.id,
-      username: req.user?.username,
-      role: req.user?.role
-    },
-    timestamp: new Date().toISOString(),
-    endpoint: '/api/auth/test-auth'
-  });
-});
-
-// ✅ NEW: Route debugging endpoint
-router.get('/routes', (req, res) => {
-  const routes = [];
-  router.stack.forEach((middlewares) => {
-    if (middlewares.route) {
-      const methods = Object.keys(middlewares.route.methods);
-      routes.push({
-        path: middlewares.route.path,
-        methods: methods.map(m => m.toUpperCase())
-      });
-    }
-  });
-  
-  res.json({
-    success: true,
-    message: 'Available authentication routes',
-    routes,
-    totalRoutes: routes.length,
-    timestamp: new Date().toISOString()
-  });
-});
-
-// ===============================================
-// ERROR HANDLING MIDDLEWARE
-// ===============================================
-
-// 404 handler for unmatched auth routes
-router.use('*', (req, res) => {
-  console.log(`❌ 404 - Auth route not found: ${req.method} ${req.originalUrl}`);
-  
-  res.status(404).json({
-    success: false,
-    error: 'Authentication route not found',
-    path: req.path,
-    method: req.method,
-    availableRoutes: {
-      primary: [
-        'POST /send-verification - Send email verification code',
-        'POST /register - Register with verification',
-        'POST /login - User login',
-        'GET /logout - User logout'
-      ],
-      passwordReset: [
-        'POST /passwordreset/request - Request password reset',
-        'POST /passwordreset/reset - Reset password',
-        'POST /passwordreset/verify - Verify reset token'
-      ],
-      verification: [
-        'GET /verify/:token - Verify email token'
-      ],
-      user: [
-        'GET / - Get authenticated user info'
-      ],
-      testing: [
-        'GET /test-simple - Simple connectivity test',
-        'GET /test-auth - Authentication test',
-        'GET /routes - List all routes'
-      ]
-    },
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Error handler middleware
-router.use((error, req, res, next) => {
-  console.error('❌ Authentication route error:', {
-    error: error.message,
-    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-    path: req.path,
-    method: req.method,
-    timestamp: new Date().toISOString()
-  });
-  
-  const statusCode = error.statusCode || error.status || 500;
-  
-  res.status(statusCode).json({
-    success: false,
-    error: error.message || 'Authentication error',
-    errorType: error.name || 'AuthError',
-    path: req.path,
-    method: req.method,
-    timestamp: new Date().toISOString(),
-    ...(process.env.NODE_ENV === 'development' && { 
-      stack: error.stack,
-      details: error 
-    })
-  });
-});
-
-console.log('🔐 Authentication routes loaded: verification, login, password reset');
+router.post('/logout', AuthController.logout);
 
 export default router;
+
+
+
+
+// // ikootaapi/routes/authRoutes.js
+// // FIXED VERSION - Proper route handling and middleware order
+
+// import express from 'express';
+// import { authenticate } from '../middlewares/auth.middleware.js';
+
+// // Import authentication controllers
+// import {
+//   sendVerificationCode,
+//   registerWithVerification,
+//   enhancedLogin,
+//   logoutUser,
+//   requestPasswordReset,
+//   resetPassword,
+//   verifyPasswordReset,
+//   verifyUser,
+//   getAuthenticatedUser
+// } from '../controllers/authControllers.js';
+
+// const router = express.Router();
+
+// // ===============================================
+// // MIDDLEWARE SETUP
+// // ===============================================
+
+// // Add request logging middleware
+// router.use((req, res, next) => {
+//   console.log(`📥 ${new Date().toISOString()} - ${req.method} ${req.path}`, {
+//     ip: req.ip,
+//     userAgent: req.get('User-Agent')?.substring(0, 50) + '...',
+//     body: req.method === 'POST' ? Object.keys(req.body || {}) : undefined
+//   });
+//   next();
+// });
+
+// // ===============================================
+// // PRIMARY AUTHENTICATION ENDPOINTS
+// // ===============================================
+
+// // Email verification and registration flow
+// router.post('/send-verification', sendVerificationCode);
+// router.post('/register', registerWithVerification);
+
+// // ✅ FIXED: Login endpoint with proper error handling
+// router.post('/login', async (req, res, next) => {
+//   try {
+//     console.log('🔍 Login route hit with body:', Object.keys(req.body || {}));
+//     await enhancedLogin(req, res);
+//   } catch (error) {
+//     console.error('❌ Login route error:', error);
+//     next(error);
+//   }
+// });
+
+// // Logout
+// router.get('/logout', logoutUser);
+
+// // ===============================================
+// // PASSWORD RESET ENDPOINTS
+// // ===============================================
+
+// router.post('/passwordreset/request', requestPasswordReset);
+// router.post('/passwordreset/reset', resetPassword);
+// router.post('/passwordreset/verify', verifyPasswordReset);
+
+// // ===============================================
+// // USER VERIFICATION ENDPOINTS
+// // ===============================================
+
+// router.get('/verify/:token', verifyUser);
+
+// // ===============================================
+// // AUTHENTICATED USER ENDPOINTS
+// // ===============================================
+
+// router.get('/', authenticate, getAuthenticatedUser);
+
+// // ===============================================
+// // TESTING ENDPOINTS
+// // ===============================================
+
+// // Simple connectivity test
+// router.get('/test-simple', (req, res) => {
+//   console.log('✅ Test simple endpoint hit');
+//   res.json({
+//     success: true,
+//     message: 'Authentication routes are working!',
+//     timestamp: new Date().toISOString(),
+//     endpoint: '/api/auth/test-simple'
+//   });
+// });
+
+// // Authentication test
+// router.get('/test-auth', authenticate, (req, res) => {
+//   console.log('✅ Test auth endpoint hit');
+//   res.json({
+//     success: true,
+//     message: 'Authentication middleware is working!',
+//     user: {
+//       id: req.user?.id,
+//       username: req.user?.username,
+//       role: req.user?.role
+//     },
+//     timestamp: new Date().toISOString(),
+//     endpoint: '/api/auth/test-auth'
+//   });
+// });
+
+// // ✅ NEW: Route debugging endpoint
+// router.get('/routes', (req, res) => {
+//   const routes = [];
+//   router.stack.forEach((middlewares) => {
+//     if (middlewares.route) {
+//       const methods = Object.keys(middlewares.route.methods);
+//       routes.push({
+//         path: middlewares.route.path,
+//         methods: methods.map(m => m.toUpperCase())
+//       });
+//     }
+//   });
+  
+//   res.json({
+//     success: true,
+//     message: 'Available authentication routes',
+//     routes,
+//     totalRoutes: routes.length,
+//     timestamp: new Date().toISOString()
+//   });
+// });
+
+// // ===============================================
+// // ERROR HANDLING MIDDLEWARE
+// // ===============================================
+
+// // 404 handler for unmatched auth routes
+// router.use('*', (req, res) => {
+//   console.log(`❌ 404 - Auth route not found: ${req.method} ${req.originalUrl}`);
+  
+//   res.status(404).json({
+//     success: false,
+//     error: 'Authentication route not found',
+//     path: req.path,
+//     method: req.method,
+//     availableRoutes: {
+//       primary: [
+//         'POST /send-verification - Send email verification code',
+//         'POST /register - Register with verification',
+//         'POST /login - User login',
+//         'GET /logout - User logout'
+//       ],
+//       passwordReset: [
+//         'POST /passwordreset/request - Request password reset',
+//         'POST /passwordreset/reset - Reset password',
+//         'POST /passwordreset/verify - Verify reset token'
+//       ],
+//       verification: [
+//         'GET /verify/:token - Verify email token'
+//       ],
+//       user: [
+//         'GET / - Get authenticated user info'
+//       ],
+//       testing: [
+//         'GET /test-simple - Simple connectivity test',
+//         'GET /test-auth - Authentication test',
+//         'GET /routes - List all routes'
+//       ]
+//     },
+//     timestamp: new Date().toISOString()
+//   });
+// });
+
+// // Error handler middleware
+// router.use((error, req, res, next) => {
+//   console.error('❌ Authentication route error:', {
+//     error: error.message,
+//     stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+//     path: req.path,
+//     method: req.method,
+//     timestamp: new Date().toISOString()
+//   });
+  
+//   const statusCode = error.statusCode || error.status || 500;
+  
+//   res.status(statusCode).json({
+//     success: false,
+//     error: error.message || 'Authentication error',
+//     errorType: error.name || 'AuthError',
+//     path: req.path,
+//     method: req.method,
+//     timestamp: new Date().toISOString(),
+//     ...(process.env.NODE_ENV === 'development' && { 
+//       stack: error.stack,
+//       details: error 
+//     })
+//   });
+// });
+
+// console.log('🔐 Authentication routes loaded: verification, login, password reset');
+
+// export default router;
 
 
 

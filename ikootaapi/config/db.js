@@ -1,89 +1,59 @@
-//ikootaapi/config/db.js
+// config/db.js - MYSQL ONLY VERSION
 import mysql2 from 'mysql2/promise';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const pool = mysql2.createPool({
-  host: process.env.DB_HOST,
+  host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  database: process.env.DB_NAME || 'ikoota_db',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  // REMOVE these invalid options:
-  // acquireTimeout: 60000,
-  // timeout: 60000
+  timeout: 15000,
+  acquireTimeout: 15000
 });
 
-// Test function to check if DB is connected
+// Test connection
 async function testDBConnection() {
   try {
-    const connection = await pool.getConnection();
-    console.log('Database connected successfully!');
-    connection.release();
+    const [rows] = await pool.execute('SELECT 1 as test');
+    console.log('✅ MySQL Database connected successfully!');
   } catch (error) {
-    console.error('Error connecting to the database:', error.message);
+    console.error('❌ MySQL connection failed:', error.message);
     process.exit(1);
   }
 }
 
-// Call the test function when starting the server
 testDBConnection();
 
-// Enhanced export with backward compatibility
+// SIMPLE MySQL export
 export default {
-  // Direct pool access (for legacy code)
   pool,
-
- 
+  
   query: async (sql, params = []) => {
     try {
+      console.log('🔍 MySQL Query:', sql.substring(0, 80) + '...');
+      console.log('🔍 Params:', params);
+      
       const [rows] = await pool.execute(sql, params);
-      return rows;
+      
+      console.log('✅ MySQL Query success, rows:', Array.isArray(rows) ? rows.length : 1);
+      
+      // Return in format your code expects
+      return { rows: Array.isArray(rows) ? rows : [rows] };
     } catch (err) {
-      console.error('Database query failed:', err);
-      throw new Error(`Database query failed: ${err.message}`);
+      console.error('❌ MySQL Error:', err.message);
+      console.error('❌ Failed SQL:', sql);
+      throw new Error(`MySQL query failed: ${err.message}`);
     }
   },
 
-  // Get connection method (for identityMaskingService)
-  getConnection: async () => {
-    return await pool.getConnection();
-  },
-
-  // Transaction helper method
-  transaction: async (callback) => {
-    const connection = await pool.getConnection();
-    try {
-      await connection.beginTransaction();
-      const result = await callback(connection);
-      await connection.commit();
-      return result;
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
-    }
-  },
-
-  // Health check method
-  healthCheck: async () => {
-    try {
-      const [rows] = await pool.execute('SELECT 1 as test');
-      return { status: 'healthy', timestamp: new Date().toISOString() };
-    } catch (error) {
-      return { status: 'unhealthy', error: error.message, timestamp: new Date().toISOString() };
-    }
-  },
-
-  // Close pool gracefully
   close: async () => {
     await pool.end();
   }
 };
 
-// Export the testDBConnection function for your test file
 export { testDBConnection };
