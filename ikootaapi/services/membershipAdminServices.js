@@ -395,8 +395,8 @@ export const generateMembershipHealthReport = async () => {
     // User satisfaction indicators
     const [satisfactionMetrics] = await db.query(`
       SELECT 
-        COUNT(CASE WHEN u.membership_stage = 'pre_member' AND u.last_login >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_pre_members,
-        COUNT(CASE WHEN u.membership_stage = 'member' AND u.last_login >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_full_members,
+        COUNT(CASE WHEN u.membership_stage = 'pre_member' AND u.lastLogin >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_pre_members,
+        COUNT(CASE WHEN u.membership_stage = 'member' AND u.lastLogin >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_full_members,
         COUNT(CASE WHEN fma.access_count > 0 THEN 1 END) as users_accessing_content,
         AVG(fma.access_count) as avg_content_access_count
       FROM users u
@@ -502,7 +502,7 @@ export const advancedUserSearch = async (searchCriteria) => {
     }
 
     if (!includeInactive) {
-      whereConditions.push('(u.last_login >= DATE_SUB(NOW(), INTERVAL 90 DAY) OR u.last_login IS NULL)');
+      whereConditions.push('(u.lastLogin >= DATE_SUB(NOW(), INTERVAL 90 DAY) OR u.lastLogin IS NULL)');
     }
 
     const whereClause = whereConditions.join(' AND ');
@@ -518,7 +518,7 @@ export const advancedUserSearch = async (searchCriteria) => {
         u.is_member,
         u.role,
         u.createdAt,
-        u.last_login,
+        u.lastLogin,
         u.converse_id,
         
         -- Latest application info
@@ -533,7 +533,7 @@ export const advancedUserSearch = async (searchCriteria) => {
         fma.last_accessedAt as last_content_access,
         
         -- Flags
-        CASE WHEN u.last_login < DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END as is_inactive,
+        CASE WHEN u.lastLogin < DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END as is_inactive,
         CASE WHEN latest_app.approval_status = 'pending' AND latest_app.createdAt < DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END as has_overdue_application
         
       FROM users u
@@ -600,7 +600,7 @@ export const generateUserActivityReport = async (userId) => {
       SELECT 
         u.*,
         DATEDIFF(NOW(), u.createdAt) as days_since_registration,
-        DATEDIFF(NOW(), u.last_login) as days_since_last_login
+        DATEDIFF(NOW(), u.lastLogin) as days_since_lastLogin
       FROM users u
       WHERE u.id = ?
     `, [userId]);
@@ -693,7 +693,7 @@ const calculateMembershipJourneyStage = (user, timeline) => {
  * Calculate user activity level
  */
 const calculateActivityLevel = (user, accessPatterns) => {
-  const daysSinceLogin = user.days_since_last_login;
+  const daysSinceLogin = user.days_since_lastLogin;
   const accessCount = accessPatterns?.access_count || 0;
   
   if (daysSinceLogin <= 1 && accessCount > 10) return 'very_active';
@@ -1212,7 +1212,7 @@ const exportUserData = async (filters, includePersonalData, dateRange) => {
 
   // Select fields based on privacy settings
   const selectFields = includePersonalData ? 
-    'u.id, u.username, u.email, u.phone, u.membership_stage, u.is_member, u.role, u.createdAt, u.last_login' :
+    'u.id, u.username, u.email, u.phone, u.membership_stage, u.is_member, u.role, u.createdAt, u.lastLogin' :
     'u.id, u.username, u.membership_stage, u.is_member, u.role, u.createdAt';
 
   const [users] = await db.query(`

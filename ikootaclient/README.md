@@ -65204,6 +65204,9216 @@ export default setupSocket;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+our present work-in-progress AUTHENTICATION and Related files
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+//ikootaapi\server.js
+import http from 'http';
+import dotenv from 'dotenv';
+import app from './app.js';
+import setupSocket from './socket.js';
+import logger from './utils/logger.js';
+import db from './config/db.js';
+
+dotenv.config();
+
+const server = http.createServer(app);
+const PORT = process.env.PORT || 5000;
+
+// Setup socket.io
+setupSocket(server);
+
+// Database connection test
+const testDatabaseConnection = async () => {
+  try {
+    await db.query('SELECT 1');
+    logger.info('Database connection established successfully');
+  } catch (error) {
+    logger.error('Database connection failed:', error);
+    process.exit(1);
+  }
+};
+
+// Enhanced graceful shutdown
+const gracefulShutdown = () => {
+  const signals = ['SIGTERM', 'SIGINT'];
+  
+  signals.forEach(signal => {
+    process.on(signal, async () => {
+      logger.info(`${signal} signal received: starting graceful shutdown`);
+      
+      // Close server
+      server.close(async () => {
+        logger.info('HTTP server closed');
+        
+        // Close database connections
+        try {
+          await db.end();
+          logger.info('Database connections closed');
+        } catch (error) {
+          logger.error('Error closing database connections:', error);
+        }
+        
+        process.exit(0);
+      });
+    });
+  });
+};
+
+// Start server
+const startServer = async () => {
+  try {
+    await testDatabaseConnection();
+    
+    server.listen(PORT, () => {
+      logger.info(`Server running on port ${PORT}`);
+      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      logger.info(`API Documentation: http://localhost:${PORT}/api/docs`);
+      
+      // ✅ Log admin-specific endpoints
+      logger.info(`🔗 Admin API available at: http://localhost:${PORT}/api/admin`);
+      logger.info(`🎓 Full membership review: http://localhost:${PORT}/api/admin/membership/applications`);
+      logger.info(`📊 Admin dashboard stats: http://localhost:${PORT}/api/admin/membership/full-membership-stats`);
+      logger.info(`👥 User management: http://localhost:${PORT}/api/admin/applications/stats`);
+      
+      // ✅ Development-only route documentation
+      if (process.env.NODE_ENV === 'development') {
+        logger.info(`📋 Admin routes list: http://localhost:${PORT}/api/admin/routes`);
+      }
+      
+      // ✅ Health check endpoint
+      logger.info(`❤️ Health check: http://localhost:${PORT}/health`);
+    });
+    
+    gracefulShutdown();
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+// ikootaapi/app.js - OPTIMIZED WITH REAL DATABASE INTEGRATION
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import jwt from 'jsonwebtoken';
+
+// Import real route handlers
+import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/enhanced/user.routes.js';
+import applicationRoutes from './routes/enhanced/application.routes.js';
+import contentRoutes from './routes/enhanced/content.routes.js';
+import adminRoutes from './routes/enhanced/admin.routes.js';
+
+// Import middleware
+import { authenticate, requireMembership } from './middleware/auth.js';
+import db from './config/db.js';
+
+const app = express();
+
+// Basic middleware
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+app.use(cors({ origin: true, credentials: true }));
+app.use(compression());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Request logging
+app.use((req, res, next) => {
+  console.log(`📥 ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// ===============================================
+// HEALTH CHECK ROUTES
+// ===============================================
+
+app.get('/health', async (req, res) => {
+  try {
+    // Test database connection
+    await db.query('SELECT 1');
+    res.json({
+      success: true,
+      message: 'Server is healthy',
+      database: 'connected',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server unhealthy',
+      database: 'disconnected',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+app.get('/api/health', async (req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.json({
+      success: true,
+      message: 'API is healthy',
+      database: 'connected',
+      routes: 'enhanced_with_real_database',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'API unhealthy',
+      database: 'disconnected',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// ===============================================
+// REAL ROUTE INTEGRATION - NO MORE MOCK DATA
+// ===============================================
+
+// Authentication routes (real database)
+app.use('/api/auth', authRoutes);
+
+// User management routes (real database)
+app.use('/api/user', userRoutes);
+
+// Application system routes (real database)
+app.use('/api/applications', applicationRoutes);
+
+// Content management routes (real database)
+app.use('/api/content', contentRoutes);
+
+// Admin panel routes (real database)
+app.use('/api/admin', authenticate, adminRoutes);
+
+// ===============================================
+// LEGACY SURVEY ENDPOINTS - REAL DATABASE
+// ===============================================
+
+// Survey status check - now with real database
+app.get('/api/user-status/survey/check-status', authenticate, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+    }
+
+    // Check if user has completed initial application
+    const result = await db.query(`
+      SELECT approval_status, created_at 
+      FROM surveylog 
+      WHERE user_id = $1 AND survey_data->>'type' = 'initial'
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `, [userId]);
+
+    const hasApplication = result.rows.length > 0;
+    const applicationStatus = hasApplication ? result.rows[0].approval_status : null;
+
+    console.log('✅ Real survey status check for user:', userId);
+    
+    res.status(200).json({
+      success: true,
+      needs_survey: !hasApplication,
+      survey_completed: hasApplication,
+      application_status: applicationStatus,
+      user_id: userId,
+      message: 'Survey status retrieved from database'
+    });
+    
+  } catch (error) {
+    console.error('❌ Survey check error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check survey status'
+    });
+  }
+});
+
+// Legacy survey status - redirect to new endpoint
+app.get('/api/user-status/survey/status', authenticate, (req, res) => {
+  res.json({
+    success: true,
+    message: 'This endpoint has been updated. Use /api/applications/initial/status',
+    redirect: '/api/applications/initial/status',
+    data: {
+      status: 'migrated_to_enhanced_routes',
+      survey_id: null,
+      last_updated: new Date().toISOString()
+    }
+  });
+});
+
+// Legacy dashboard - redirect to new endpoint
+app.get('/api/user-status/dashboard', authenticate, (req, res) => {
+  res.json({
+    success: true,
+    message: 'This endpoint has been updated. Use /api/user/dashboard',
+    redirect: '/api/user/dashboard',
+    data: {
+      user_id: req.user.id,
+      membership_status: req.user.membership_stage,
+      notifications: [],
+      last_login: new Date().toISOString(),
+      message: 'Please use the enhanced dashboard endpoint'
+    }
+  });
+});
+
+// ===============================================
+// MIGRATION INFO & DEBUG ENDPOINTS
+// ===============================================
+
+app.get('/api/info', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Ikoota API - Enhanced with Real Database Integration',
+    version: '2.0.0-real-database',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    database_status: 'connected_to_real_database',
+    migration: {
+      status: 'completed',
+      changes: [
+        'All routes now use real database queries',
+        'Mock data completely removed',
+        'Enhanced controllers and services added',
+        'Proper validation middleware implemented',
+        'Admin functionality fully integrated'
+      ]
+    },
+    enhanced_routes: {
+      authentication: '/api/auth/*',
+      user_management: '/api/user/*',
+      applications: '/api/applications/*',
+      content: '/api/content/*',
+      admin: '/api/admin/*'
+    },
+    legacy_routes: {
+      survey_check: '/api/user-status/survey/check-status (updated)',
+      health: ['/health', '/api/health']
+    }
+  });
+});
+
+app.get('/api/debug', authenticate, async (req, res) => {
+  try {
+    // Test database connection
+    const dbTest = await db.query('SELECT COUNT(*) as user_count FROM users');
+    
+    res.json({
+      success: true,
+      message: 'Debug info - Real Database Integration Active',
+      database: {
+        status: 'connected',
+        user_count: dbTest.rows[0].user_count,
+        connection: 'real_postgresql_database'
+      },
+      current_user: {
+        id: req.user.id,
+        email: req.user.email,
+        membership: req.user.membership_stage,
+        role: req.user.role
+      },
+      enhanced_features: [
+        'Real JWT authentication with database verification',
+        'Membership progression system',
+        'Content access control (Towncrier/Iko)',
+        'Application review system',
+        'Admin user management',
+        'Teaching creation and management'
+      ],
+      test_endpoints: {
+        user_profile: 'GET /api/user/profile',
+        user_dashboard: 'GET /api/user/dashboard',
+        content_access: 'GET /api/content/towncrier',
+        admin_panel: 'GET /api/admin/users (admin only)'
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Debug check failed',
+      database: 'connection_error',
+      message: error.message
+    });
+  }
+});
+
+// Development-only test token endpoint (real JWT)
+if (process.env.NODE_ENV === 'development') {
+  app.get('/api/debug/test-token', async (req, res) => {
+    try {
+      // Get a real user from database or create test data
+      let testUser;
+      const existingUser = await db.query('SELECT * FROM users LIMIT 1');
+      
+      if (existingUser.rows.length > 0) {
+        testUser = existingUser.rows[0];
+      } else {
+        testUser = {
+          user_id: 1,
+          username: 'testuser',
+          email: 'test@example.com',
+          role: 'user',
+          membership_stage: 'pre_member',
+          is_member: 'pre_member'
+        };
+      }
+      
+      const testToken = jwt.sign({
+        user_id: testUser.id || testUser.user_id,
+        username: testUser.username,
+        email: testUser.email,
+        role: testUser.role,
+        membership_stage: testUser.membership_stage,
+        is_member: testUser.is_member
+      }, process.env.JWT_SECRET || 'your-secret-key-here', { expiresIn: '7d' });
+      
+      console.log('🧪 Real test token generated from database user');
+      
+      res.json({
+        success: true,
+        token: testToken,
+        user: {
+          id: testUser.id || testUser.user_id,
+          username: testUser.username,
+          email: testUser.email,
+          role: testUser.role,
+          membership_stage: testUser.membership_stage,
+          is_member: testUser.is_member
+        },
+        message: 'Test token generated from real database user',
+        tokenInfo: {
+          parts: testToken.split('.').length,
+          isValidJWT: testToken.split('.').length === 3,
+          length: testToken.length,
+          source: 'real_database_user'
+        }
+      });
+    } catch (error) {
+      console.error('❌ Test token generation failed:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate test token',
+        message: error.message
+      });
+    }
+  });
+}
+
+// ===============================================
+// REMOVED ENDPOINTS (Previously Mock Data)
+// ===============================================
+
+// These endpoints have been removed and replaced with enhanced routes:
+// - /api/content/chats (replaced with /api/content/teachings)
+// - /api/content/teachings (enhanced with real database)
+// - /api/content/comments (integrated into teachings)
+// - /api/membership/* (replaced with /api/applications/*)
+// - /api/users/profile (replaced with /api/user/profile)
+// - /api/admin/* (enhanced with real functionality)
+
+// ===============================================
+// COMPATIBILITY ENDPOINTS
+// ===============================================
+
+// Check overall system compatibility
+app.get('/api/compatibility', authenticate, async (req, res) => {
+  try {
+    const checks = {
+      database: false,
+      authentication: false,
+      user_routes: false,
+      content_routes: false,
+      admin_routes: false
+    };
+
+    // Test database
+    try {
+      await db.query('SELECT 1');
+      checks.database = true;
+    } catch (e) {
+      console.error('Database check failed:', e.message);
+    }
+
+    // Test authentication (already passed if we're here)
+    checks.authentication = true;
+
+    // Test user access
+    try {
+      const user = await db.query('SELECT id FROM users WHERE id = $1', [req.user.id]);
+      checks.user_routes = user.rows.length > 0;
+    } catch (e) {
+      console.error('User routes check failed:', e.message);
+    }
+
+    // Test content access based on membership
+    checks.content_routes = ['pre_member', 'member', 'admin', 'super_admin'].includes(req.user.membership_stage);
+
+    // Test admin access
+    checks.admin_routes = ['admin', 'super_admin'].includes(req.user.membership_stage);
+
+    const allPassed = Object.values(checks).every(check => check === true);
+
+    res.json({
+      success: true,
+      compatibility: allPassed ? 'fully_compatible' : 'partial_compatibility',
+      checks,
+      user_info: {
+        id: req.user.id,
+        membership: req.user.membership_stage,
+        role: req.user.role
+      },
+      recommendations: allPassed ? [] : [
+        !checks.database && 'Database connection needs attention',
+        !checks.user_routes && 'User data access issues detected',
+        !checks.content_routes && 'Content access restricted - check membership level',
+        !checks.admin_routes && 'Admin access not available - requires admin role'
+      ].filter(Boolean)
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Compatibility check failed',
+      message: error.message
+    });
+  }
+});
+
+// ===============================================
+// 404 HANDLER
+// ===============================================
+
+app.use('*', (req, res) => {
+  console.log(`❌ 404: ${req.method} ${req.originalUrl}`);
+  
+  const suggestions = [];
+  const path = req.originalUrl.toLowerCase();
+  
+  // Suggest migration paths for old endpoints
+  if (path.includes('/content/chats')) {
+    suggestions.push('Try /api/content/teachings instead');
+  }
+  if (path.includes('/membership/')) {
+    suggestions.push('Try /api/applications/ instead');
+  }
+  if (path.includes('/users/profile')) {
+    suggestions.push('Try /api/user/profile instead');
+  }
+  
+  res.status(404).json({
+    success: false,
+    message: 'Endpoint not found',
+    path: req.originalUrl,
+    method: req.method,
+    system_status: 'Enhanced routes with real database integration active',
+    suggestions: suggestions.length > 0 ? suggestions : [
+      'Check /api/info for available endpoints',
+      'Use /api/compatibility to test your access level'
+    ],
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// ERROR HANDLER
+// ===============================================
+
+app.use((error, req, res, next) => {
+  console.error('🚨 Error:', error.message);
+  
+  // Database connection errors
+  if (error.code === 'ECONNREFUSED') {
+    return res.status(503).json({
+      success: false,
+      error: 'Database connection failed',
+      message: 'Please check database configuration',
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // JWT errors
+  if (error.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid authentication token',
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // Generic error response
+  res.status(500).json({
+    success: false,
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ===============================================
+// STARTUP MESSAGE
+// ===============================================
+
+console.log('\n🚀 ENHANCED APP.JS LOADED - REAL DATABASE INTEGRATION');
+console.log('================================================================================');
+console.log('✅ MAJOR UPGRADE COMPLETED:');
+console.log('   • All mock data removed');
+console.log('   • Real database queries implemented');
+console.log('   • Enhanced route system active');
+console.log('   • Proper authentication with database verification');
+console.log('   • Content access control (Towncrier/Iko)');
+console.log('   • Application system with real workflow');
+console.log('   • Admin panel with user management');
+console.log('');
+console.log('🔗 Enhanced API Endpoints:');
+console.log('   • POST /api/auth/login (real database authentication)');
+console.log('   • GET /api/user/dashboard (comprehensive user data)');
+console.log('   • GET /api/content/towncrier (pre-member content)');
+console.log('   • GET /api/content/iko (full member content)');
+console.log('   • POST /api/applications/initial (application system)');
+console.log('   • GET /api/admin/users (admin user management)');
+console.log('');
+console.log('🧪 Testing Endpoints:');
+console.log('   • GET /api/info (system information)');
+console.log('   • GET /api/compatibility (test your access)');
+console.log('   • GET /api/debug (authenticated debug info)');
+console.log('');
+console.log('📊 Migration Complete - No More Sample Data!');
+console.log('================================================================================\n');
+
+export default app;
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+// ikootaapi/socket.js
+// ENHANCED SOCKET.IO - Combines your existing simplicity with security and features
+// Supports both authenticated and guest users
+
+import { Server } from 'socket.io';
+import jwt from 'jsonwebtoken';
+import logger from './utils/logger.js';
+
+const setupSocket = (server) => {
+    const io = new Server(server, {
+        cors: {
+            // ✅ ENHANCED: Support both development and production
+            origin: process.env.NODE_ENV === 'production' 
+                ? (process.env.ALLOWED_ORIGINS?.split(',') || [process.env.PUBLIC_CLIENT_URL])
+                : true,
+            credentials: true,
+            methods: ['GET', 'POST']
+        },
+        transports: ['websocket', 'polling']
+    });
+
+    // ✅ ENHANCED: Optional authentication middleware
+    // Unlike the strict version, this allows both authenticated and guest users
+    io.use((socket, next) => {
+        try {
+            // Try to get token from multiple sources
+            const token = socket.handshake.auth?.token || 
+                         socket.handshake.headers?.authorization?.split(' ')[1] ||
+                         socket.handshake.query?.token;
+            
+            if (token) {
+                // If token provided, validate it
+                try {
+                    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                    socket.userId = decoded.user_id;
+                    socket.userRole = decoded.role;
+                    socket.username = decoded.username || decoded.email;
+                    socket.email = decoded.email;
+                    socket.isAuthenticated = true;
+
+                    logger.info('Authenticated user connected to socket', {
+                        socketId: socket.id,
+                        userId: decoded.user_id,
+                        username: socket.username,
+                        role: decoded.role
+                    });
+                } catch (tokenError) {
+                    // Invalid token, treat as guest
+                    logger.warn('Invalid token provided, treating as guest', {
+                        socketId: socket.id,
+                        error: tokenError.message
+                    });
+                    socket.isAuthenticated = false;
+                    socket.userId = null;
+                    socket.username = 'Guest';
+                    socket.userRole = 'guest';
+                }
+            } else {
+                // No token provided, treat as guest
+                socket.isAuthenticated = false;
+                socket.userId = null;
+                socket.username = 'Guest';
+                socket.userRole = 'guest';
+                
+                logger.debug('Guest user connected to socket', {
+                    socketId: socket.id
+                });
+            }
+
+            next();
+        } catch (error) {
+            logger.error('Socket authentication middleware error', error);
+            // Don't block connection, just treat as guest
+            socket.isAuthenticated = false;
+            socket.userId = null;
+            socket.username = 'Guest';
+            socket.userRole = 'guest';
+            next();
+        }
+    });
+
+    io.on('connection', (socket) => {
+        const connectionInfo = {
+            socketId: socket.id,
+            userId: socket.userId,
+            username: socket.username,
+            role: socket.userRole,
+            isAuthenticated: socket.isAuthenticated,
+            timestamp: new Date().toISOString()
+        };
+
+        logger.info('Socket connection established', connectionInfo);
+
+        // ✅ ENHANCED: Smart room management
+        // Join user to appropriate rooms based on authentication status
+        if (socket.isAuthenticated) {
+            // Authenticated users get personal rooms
+            socket.join(`user_${socket.userId}`);
+            socket.join('authenticated_users');
+            
+            // Admin users get admin room
+            if (socket.userRole === 'admin' || socket.userRole === 'super_admin') {
+                socket.join('admin_room');
+                logger.adminActivity('Admin joined socket admin room', socket.userId);
+            }
+            
+            // Member users get member room
+            if (socket.userRole === 'member' || socket.userRole === 'pre_member') {
+                socket.join('members_room');
+            }
+        } else {
+            // Guest users join public room
+            socket.join('public_room');
+        }
+
+        // Join everyone to general room (for global announcements)
+        socket.join('general');
+
+        // ✅ PRESERVED: Your existing sendMessage functionality (enhanced)
+        socket.on('sendMessage', async (data) => {
+            try {
+                // ✅ ENHANCED: Add user info and validation
+                const messageData = {
+                    ...data,
+                    from: socket.userId || 'guest',
+                    fromUsername: socket.username,
+                    fromRole: socket.userRole,
+                    isAuthenticated: socket.isAuthenticated,
+                    socketId: socket.id,
+                    timestamp: new Date().toISOString()
+                };
+
+                // ✅ ENHANCED: Smart message routing
+                if (data.room) {
+                    // Send to specific room
+                    socket.to(data.room).emit('receiveMessage', messageData);
+                    logger.debug('Message sent to room', {
+                        from: socket.username,
+                        room: data.room,
+                        messageId: data.id || 'unknown'
+                    });
+                } else {
+                    // ✅ PRESERVED: Your original broadcast behavior
+                    io.emit('receiveMessage', messageData);
+                    logger.debug('Message broadcast to all users', {
+                        from: socket.username,
+                        messageId: data.id || 'unknown'
+                    });
+                }
+
+            } catch (err) {
+                logger.error('Error processing sendMessage', err, {
+                    socketId: socket.id,
+                    userId: socket.userId,
+                    data
+                });
+                
+                // Send error back to sender
+                socket.emit('messageError', {
+                    error: 'Failed to process message',
+                    originalData: data,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        });
+
+        // ✅ NEW: Enhanced messaging with different types
+        socket.on('sendChatMessage', async (data) => {
+            try {
+                if (!socket.isAuthenticated) {
+                    socket.emit('error', { message: 'Authentication required for chat messages' });
+                    return;
+                }
+
+                const chatMessage = {
+                    id: data.id || Date.now().toString(),
+                    from: socket.userId,
+                    fromUsername: socket.username,
+                    to: data.to,
+                    message: data.message,
+                    type: 'chat',
+                    timestamp: new Date().toISOString()
+                };
+
+                if (data.to) {
+                    // Private message
+                    socket.to(`user_${data.to}`).emit('receiveChatMessage', chatMessage);
+                    socket.emit('receiveChatMessage', { ...chatMessage, sent: true });
+                } else {
+                    // Public chat
+                    socket.to('authenticated_users').emit('receiveChatMessage', chatMessage);
+                }
+
+                logger.userAction('Chat message sent', socket.userId, {
+                    to: data.to || 'public',
+                    messageLength: data.message?.length || 0
+                });
+
+            } catch (err) {
+                logger.error('Error processing chat message', err);
+                socket.emit('chatError', { error: 'Failed to send chat message' });
+            }
+        });
+
+        // ✅ NEW: Admin messaging
+        socket.on('adminMessage', (data) => {
+            if (socket.userRole === 'admin' || socket.userRole === 'super_admin') {
+                const adminMessage = {
+                    from: socket.username,
+                    message: data.message,
+                    type: data.type || 'announcement',
+                    priority: data.priority || 'normal',
+                    timestamp: new Date().toISOString()
+                };
+
+                // Send to specified room or all users
+                const targetRoom = data.room || 'general';
+                socket.to(targetRoom).emit('adminMessage', adminMessage);
+
+                logger.adminActivity('Admin message sent', socket.userId, null, {
+                    room: targetRoom,
+                    type: data.type,
+                    priority: data.priority
+                });
+            } else {
+                socket.emit('error', { message: 'Admin privileges required' });
+            }
+        });
+
+        // ✅ NEW: User status updates
+        socket.on('updateStatus', (data) => {
+            if (socket.isAuthenticated) {
+                const statusUpdate = {
+                    userId: socket.userId,
+                    username: socket.username,
+                    status: data.status,
+                    message: data.message,
+                    timestamp: new Date().toISOString()
+                };
+
+                socket.broadcast.emit('userStatusUpdate', statusUpdate);
+                
+                logger.userAction('Status updated', socket.userId, { status: data.status });
+            }
+        });
+
+        // ✅ NEW: Typing indicators
+        socket.on('typing', (data) => {
+            if (socket.isAuthenticated) {
+                if (data.to) {
+                    socket.to(`user_${data.to}`).emit('userTyping', {
+                        from: socket.userId,
+                        fromUsername: socket.username,
+                        isTyping: data.isTyping
+                    });
+                } else {
+                    socket.broadcast.emit('userTyping', {
+                        from: socket.userId,
+                        fromUsername: socket.username,
+                        isTyping: data.isTyping
+                    });
+                }
+            }
+        });
+
+        // ✅ NEW: Join/leave rooms dynamically
+        socket.on('joinRoom', (roomName) => {
+            if (socket.isAuthenticated) {
+                socket.join(roomName);
+                socket.emit('roomJoined', { room: roomName });
+                logger.userAction('Joined room', socket.userId, { room: roomName });
+            }
+        });
+
+        socket.on('leaveRoom', (roomName) => {
+            socket.leave(roomName);
+            socket.emit('roomLeft', { room: roomName });
+            if (socket.isAuthenticated) {
+                logger.userAction('Left room', socket.userId, { room: roomName });
+            }
+        });
+
+        // ✅ PRESERVED: Your existing disconnect handling (enhanced)
+        socket.on('disconnect', (reason) => {
+            const disconnectInfo = {
+                socketId: socket.id,
+                userId: socket.userId,
+                username: socket.username,
+                reason,
+                duration: Date.now() - (socket.connectedAt || Date.now()),
+                timestamp: new Date().toISOString()
+            };
+
+            logger.info('Socket disconnected', disconnectInfo);
+
+            // Notify others if it was an authenticated user
+            if (socket.isAuthenticated) {
+                socket.broadcast.emit('userDisconnected', {
+                    userId: socket.userId,
+                    username: socket.username,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        });
+
+        // ✅ ENHANCED: Better error handling
+        socket.on('error', (error) => {
+            logger.error('Socket error', error, {
+                socketId: socket.id,
+                userId: socket.userId,
+                username: socket.username
+            });
+        });
+
+        // ✅ NEW: Ping/pong for connection health
+        socket.on('ping', () => {
+            socket.emit('pong', { timestamp: new Date().toISOString() });
+        });
+
+        // Store connection time for duration calculation
+        socket.connectedAt = Date.now();
+
+        // Send welcome message
+        socket.emit('connected', {
+            message: 'Connected to Ikoota Socket Server',
+            socketId: socket.id,
+            isAuthenticated: socket.isAuthenticated,
+            username: socket.username,
+            role: socket.userRole,
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    // ✅ ENHANCED: Global error handling
+    io.engine.on('connection_error', (error) => {
+        logger.error('Socket.IO connection error', error, {
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    // ✅ NEW: Monitor connection count
+    setInterval(() => {
+        const socketCount = io.engine.clientsCount;
+        if (socketCount > 0) {
+            logger.debug('Active socket connections', { count: socketCount });
+        }
+    }, 60000); // Every minute
+
+    logger.startup('Socket.IO server initialized successfully', null, {
+        corsOrigin: process.env.NODE_ENV === 'production' 
+            ? process.env.ALLOWED_ORIGINS 
+            : 'development (all origins)',
+        transports: ['websocket', 'polling'],
+        authenticationMode: 'optional'
+    });
+    
+    return io;
+};
+
+export default setupSocket;
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+ 
+// config/db.js - MYSQL ONLY VERSION
+import mysql2 from 'mysql2/promise';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const pool = mysql2.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME || 'ikoota_db',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  timeout: 15000,
+  acquireTimeout: 15000
+});
+
+// Test connection
+async function testDBConnection() {
+  try {
+    const [rows] = await pool.execute('SELECT 1 as test');
+    console.log('✅ MySQL Database connected successfully!');
+  } catch (error) {
+    console.error('❌ MySQL connection failed:', error.message);
+    process.exit(1);
+  }
+}
+
+testDBConnection();
+
+// SIMPLE MySQL export
+export default {
+  pool,
+  
+  query: async (sql, params = []) => {
+    try {
+      console.log('🔍 MySQL Query:', sql.substring(0, 80) + '...');
+      console.log('🔍 Params:', params);
+      
+      const [rows] = await pool.execute(sql, params);
+      
+      console.log('✅ MySQL Query success, rows:', Array.isArray(rows) ? rows.length : 1);
+      
+      // Return in format your code expects
+      return { rows: Array.isArray(rows) ? rows : [rows] };
+    } catch (err) {
+      console.error('❌ MySQL Error:', err.message);
+      console.error('❌ Failed SQL:', sql);
+      throw new Error(`MySQL query failed: ${err.message}`);
+    }
+  },
+
+  close: async () => {
+    await pool.end();
+  }
+};
+
+export { testDBConnection };
+
+
+
+ 
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+// ikootaapi/routes/index.js
+// ENHANCED BASE ROUTING - Integrates existing routes with new functionality
+// Preserves all existing functionality while adding new organized routes
+
+import express from 'express';
+
+// Import existing routes (preserve current functionality)
+import authRoutes from './authRoutes.js'; // Your existing auth routes
+// Import any other existing routes you currently have
+
+// Import new enhanced routes
+import enhancedUserRoutes from './enhanced/user.routes.js';
+import enhancedApplicationRoutes from './enhanced/application.routes.js';
+import enhancedAdminRoutes from './enhanced/admin.routes.js';
+import enhancedContentRoutes from './enhanced/content.routes.js';
+
+// Import middleware
+import { tracingMiddleware } from '../middleware/tracingMiddleware.js';
+import { authenticate } from '../middleware/auth.middleware.js';
+
+const router = express.Router();
+
+// ===============================================
+// GLOBAL MIDDLEWARE FOR ALL ROUTES
+// ===============================================
+
+// Add tracing to all routes
+router.use(tracingMiddleware);
+
+// Add request metadata
+router.use((req, res, next) => {
+  req.requestTime = new Date().toISOString();
+  req.apiVersion = '3.0';
+  next();
+});
+
+// ===============================================
+// EXISTING ROUTES (PRESERVED)
+// ===============================================
+
+// Keep your existing authentication routes exactly as they are
+router.use('/auth', authRoutes);
+
+// Add any other existing routes here to preserve functionality
+// router.use('/existing-route', existingRoutes);
+
+// ===============================================
+// NEW ENHANCED ROUTES (ADDITIVE)
+// ===============================================
+
+// Enhanced user management (extends existing functionality)
+router.use('/user', enhancedUserRoutes);
+
+// New application system (adds new functionality)
+router.use('/applications', enhancedApplicationRoutes);
+
+// New admin system (adds administrative capabilities)
+router.use('/admin', enhancedAdminRoutes);
+
+// New content system (adds Towncrier/Iko access and content management)
+router.use('/content', enhancedContentRoutes);
+
+// ===============================================
+// API INFORMATION ENDPOINTS
+// ===============================================
+
+// API status and documentation
+router.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Ikoota API v3.0 - Enhanced with backward compatibility',
+    version: '3.0.0',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    
+    // Show both existing and new endpoints
+    endpoints: {
+      // Existing preserved endpoints
+      existing: {
+        auth: '/api/auth/* (preserved from v2.x)',
+        // Add other existing endpoints here
+      },
+      
+      // New enhanced endpoints
+      enhanced: {
+        user: '/api/user/* (enhanced user management)',
+        applications: '/api/applications/* (new membership system)',
+        admin: '/api/admin/* (new admin panel)',
+        content: '/api/content/* (Towncrier/Iko access & content management)'
+      }
+    },
+    
+    migration: {
+      status: 'backward_compatible',
+      existing_routes: 'fully_preserved',
+      new_features: 'additive_only',
+      breaking_changes: 'none'
+    }
+  });
+});
+
+// Health check endpoint
+router.get('/health', async (req, res) => {
+  try {
+    const healthData = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: '3.0.0',
+      uptime: Math.floor(process.uptime()),
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
+      },
+      routes: {
+        existing: 'operational',
+        enhanced: 'operational'
+      }
+    };
+    
+    res.json(healthData);
+  } catch (error) {
+    res.status(503).json({
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+export default router;
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+// routes/authRoutes.js - COMPLETE AUTH ROUTES
+import express from 'express';
+import { AuthController } from '../controllers/authController.js';
+import { validateLogin, validateRegistration } from '../middleware/validation.js';
+
+const router = express.Router();
+
+// Real login with database verification
+router.post('/login', validateLogin, AuthController.login);
+
+// Real registration with database
+router.post('/register', validateRegistration, AuthController.register);
+
+// Logout
+router.post('/logout', AuthController.logout);
+
+export default router;
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+// controllers/authController.js - WORKING VERSION (sends response properly)
+import jwt from 'jsonwebtoken';
+import { UserService } from '../services/userService.js';
+
+export class AuthController {
+  
+  // Fixed login that ACTUALLY sends response
+ static async login(req, res) {
+  try {
+    const { email, password } = req.body;
+    
+    console.log('🔍 LOGIN: Starting for:', email);
+    
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email and password are required'
+      });
+    }
+
+    console.log('🔍 LOGIN: Calling getUserByEmail...');
+    const user = await UserService.getUserByEmail(email);
+
+    if (!user) {
+      console.log('❌ LOGIN: User not found');
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+    }
+
+    console.log('✅ LOGIN: User found, checking ban status...');
+
+    // CORRECT: Check isbanned field (not is_banned)
+    if (user.isbanned) {
+      console.log('❌ LOGIN: User is banned');
+      return res.status(403).json({
+        success: false,
+        error: 'Account is banned'
+      });
+    }
+
+    console.log('🔍 LOGIN: User not banned, verifying password...');
+    console.log('🔍 LOGIN: Password hash available:', !!user.password_hash);
+
+    // CORRECT: Use password_hash field
+    const passwordMatch = await UserService.verifyPassword(password, user.password_hash);
+    
+    if (!passwordMatch) {
+      console.log('❌ LOGIN: Password verification failed');
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+    }
+
+    console.log('✅ LOGIN: Password verified, creating token...');
+
+    // Generate JWT token
+    const tokenPayload = {
+      user_id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role || 'user',
+      membership_stage: user.membership_stage || 'none',
+      is_member: user.is_member || 'applied'
+    };
+
+    const token = jwt.sign(
+      tokenPayload,
+      process.env.JWT_SECRET || 'your-secret-key-here',
+      { expiresIn: '7d' }
+    );
+
+    console.log('✅ LOGIN: Token generated, sending response...');
+
+    return res.json({
+      success: true,
+      message: 'Login successful',
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        membership_stage: user.membership_stage,
+        is_member: user.is_member
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ LOGIN: Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Login failed',
+      message: error.message
+    });
+  }
+}
+
+  // Working registration
+  static async register(req, res) {
+    try {
+      const { username, email, password } = req.body;
+      
+      if (!username || !email || !password) {
+        return res.status(400).json({
+          success: false,
+          error: 'Username, email, and password are required'
+        });
+      }
+
+      // Check if user already exists
+      const userExists = await UserService.userExists(email, username);
+      if (userExists) {
+        return res.status(409).json({
+          success: false,
+          error: 'User already exists with this email or username'
+        });
+      }
+
+      // Create user
+      const newUser = await UserService.createUser({
+        username,
+        email,
+        password
+      });
+
+      console.log('✅ New user registered:', newUser.email);
+
+      res.status(201).json({
+        success: true,
+        message: 'Registration successful',
+        user: {
+          id: newUser.id,
+          username: newUser.username,
+          email: newUser.email,
+          role: newUser.role,
+          membership_stage: newUser.membership_stage,
+          is_member: newUser.is_member,
+          created_at: newUser.createdAt
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Registration error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Registration failed',
+        message: error.message
+      });
+    }
+  }
+
+  // Logout
+  static async logout(req, res) {
+    console.log('🔄 LOGOUT: Processing logout request...');
+    res.json({
+      success: true,
+      message: 'Logout successful'
+    });
+    console.log('✅ LOGOUT: Response sent successfully!');
+  }
+}
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+// ikootaapi/controllers/authControllers.js
+// REORGANIZED & ENHANCED AUTHENTICATION CONTROLLERS
+// Aligned with database schema, frontend API calls, and new route structure
+
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import db from '../config/db.js';
+import CustomError from '../utils/CustomError.js';
+import { sendEmail } from '../utils/email.js';
+import { sendSMS } from '../utils/sms.js';
+
+// ===============================================
+// UTILITY FUNCTIONS
+// ===============================================
+
+const generateApplicationTicket = (username, email, type = 'INITIAL') => {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substr(2, 5);
+    const prefix = type === 'FULL' ? 'FMA' : 'APP';
+    return `${prefix}-${username.substr(0, 3).toUpperCase()}-${timestamp}-${random}`.toUpperCase();
+};
+
+const generateConverseId = () => {
+    const prefix = 'OTO#';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    
+    try {
+        for (let i = 0; i < 6; i++) {
+            result += chars[crypto.randomInt(0, chars.length)];
+        }
+    } catch (error) {
+        console.warn('⚠️ Crypto not available, using Math.random fallback');
+        for (let i = 0; i < 6; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+    }
+    
+    return prefix + result;
+};
+
+const ensureUniqueConverseId = async () => {
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+        const candidateId = generateConverseId();
+        
+        try {
+            const existingUsers = await db.query('SELECT id FROM users WHERE converse_id = ?', [candidateId]);
+            
+            if (!existingUsers || existingUsers.length === 0) {
+                console.log('✅ Generated unique converse ID:', candidateId);
+                return candidateId;
+            }
+            
+            console.log('⚠️ Converse ID collision, retrying...', candidateId);
+            attempts++;
+        } catch (error) {
+            console.error('❌ Error checking converse ID uniqueness:', error);
+            return candidateId;
+        }
+    }
+    
+    console.warn('⚠️ Max attempts reached, using last generated ID');
+    return generateConverseId();
+};
+
+const successResponse = (res, data = {}, message = 'Operation successful', statusCode = 200) => {
+    return res.status(statusCode).json({
+        success: true,
+        message,
+        ...data,
+        timestamp: new Date().toISOString()
+    });
+};
+
+const errorResponse = (res, error, statusCode = 500) => {
+    console.error('❌ Auth Controller Error:', {
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        statusCode: error.statusCode || statusCode,
+        timestamp: new Date().toISOString()
+    });
+    
+    return res.status(error.statusCode || statusCode).json({
+        success: false,
+        error: error.message || 'Authentication error',
+        errorType: error.name || 'AuthError',
+        timestamp: new Date().toISOString(),
+        ...(process.env.NODE_ENV === 'development' && { debug: error.stack })
+    });
+};
+
+// ===============================================
+// MAIN AUTHENTICATION CONTROLLERS
+// ===============================================
+
+/**
+ * Send verification code via email or SMS
+ * POST /api/auth/send-verification
+ * Frontend: Signup.jsx, Login.jsx
+ */
+export const sendVerificationCode = async (req, res) => {
+    try {
+        const { email, phone, method = 'email' } = req.body;
+        
+        console.log('🔍 sendVerificationCode called:', { email, phone, method });
+        
+        // Validation
+        if (!email && !phone) {
+            throw new CustomError('Email or phone number is required', 400);
+        }
+        
+        if (!['email', 'phone'].includes(method)) {
+            throw new CustomError('Invalid verification method. Must be email or phone', 400);
+        }
+        
+        // Generate 6-digit verification code
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        console.log('✅ Generated verification code:', verificationCode);
+        
+        // Clean up expired codes first
+        await db.query(`
+            DELETE FROM verification_codes 
+            WHERE ${method === 'email' ? 'email' : 'phone'} = ? 
+            AND expiresAt < NOW()
+        `, [method === 'email' ? email : phone]);
+        
+        // Insert new verification code
+        await db.query(`
+            INSERT INTO verification_codes (email, phone, code, method, expiresAt, createdAt) 
+            VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), NOW())
+        `, [email || null, phone || null, verificationCode, method]);
+        
+        console.log('✅ Verification code stored in database');
+        
+        // Send verification code
+        try {
+            if (method === 'email' && email) {
+                await sendEmail(email, 'Verification Code', `Your Ikoota verification code is: ${verificationCode}. Valid for 10 minutes.`);
+                console.log('✅ Email sent successfully');
+            } else if (method === 'phone' && phone) {
+                await sendSMS(phone, `Your Ikoota verification code is: ${verificationCode}. Valid for 10 minutes.`);
+                console.log('✅ SMS sent successfully');
+            }
+        } catch (notificationError) {
+            console.error('❌ Notification sending failed:', notificationError);
+            // Continue anyway in development
+            if (process.env.NODE_ENV === 'production') {
+                throw new CustomError('Failed to send verification code', 500);
+            }
+        }
+        
+        return successResponse(res, {
+            expiresIn: 600,
+            method,
+            target: method === 'email' ? email : phone,
+            ...(process.env.NODE_ENV === 'development' && { 
+                devCode: verificationCode,
+                devNote: 'Verification code shown in development mode only'
+            })
+        }, `Verification code sent to ${method === 'email' ? email : phone}`);
+        
+    } catch (error) {
+        console.error('❌ sendVerificationCode error:', error);
+        return errorResponse(res, error);
+    }
+};
+
+/**
+ * Register user with verification
+ * POST /api/auth/register
+ * Frontend: Signup.jsx
+ */
+export const registerWithVerification = async (req, res) => {
+    try {
+        const {
+            username,
+            email,
+            password,
+            phone,
+            verificationCode,
+            verificationMethod = 'email'
+        } = req.body;
+        
+        console.log('🔍 registerWithVerification called:', { 
+            username, 
+            email, 
+            phone, 
+            verificationMethod,
+            hasVerificationCode: !!verificationCode 
+        });
+        
+        // Input validation
+        if (!username || !email || !password || !verificationCode) {
+            throw new CustomError('Username, email, password, and verification code are required', 400);
+        }
+        
+        if (username.length < 2 || username.length > 50) {
+            throw new CustomError('Username must be between 2 and 50 characters', 400);
+        }
+        
+        if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+            throw new CustomError('Username can only contain letters, numbers, underscores, and hyphens', 400);
+        }
+        
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            throw new CustomError('Invalid email format', 400);
+        }
+        
+        if (password.length < 8) {
+            throw new CustomError('Password must be at least 8 characters long', 400);
+        }
+        
+        // Verify verification code
+        const verificationTarget = verificationMethod === 'email' ? email : phone;
+        
+        const verificationRows = await db.query(`
+            SELECT id, code, method, createdAt, expiresAt
+            FROM verification_codes 
+            WHERE ${verificationMethod === 'email' ? 'email' : 'phone'} = ? 
+                AND code = ? 
+                AND method = ? 
+                AND expiresAt > NOW()
+            ORDER BY createdAt DESC
+            LIMIT 1
+        `, [verificationTarget, verificationCode.trim(), verificationMethod]);
+        
+        if (!verificationRows || verificationRows.length === 0) {
+            console.log('❌ Invalid verification code for:', verificationTarget);
+            throw new CustomError('Invalid or expired verification code', 400);
+        }
+        
+        console.log('✅ Verification code validated');
+        
+        // Check for existing users
+        const existingUsers = await db.query(`
+            SELECT id, email, username, is_verified 
+            FROM users 
+            WHERE email = ? OR username = ?
+        `, [email, username]);
+        
+        if (existingUsers && existingUsers.length > 0) {
+            const existingUser = existingUsers[0];
+            if (existingUser.email === email) {
+                throw new CustomError('User with this email already exists', 409);
+            }
+            if (existingUser.username === username) {
+                throw new CustomError('Username is already taken', 409);
+            }
+        }
+        
+        console.log('✅ User uniqueness validated');
+        
+        // Hash password
+        const saltRounds = 12;
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        
+        // Generate user identifiers
+        const applicationTicket = generateApplicationTicket(username, email);
+        const converseId = await ensureUniqueConverseId();
+        
+        console.log('🔍 Creating user with identifiers:', {
+            username,
+            email,
+            applicationTicket,
+            converseId
+        });
+        
+        // Insert user
+        const insertResult = await db.query(`
+            INSERT INTO users (
+                username, 
+                email, 
+                password_hash, 
+                phone, 
+                application_ticket,
+                converse_id,
+                verification_method,
+                is_verified,
+                role,
+                is_member,
+                membership_stage,
+                full_membership_status,
+                application_status,
+                createdAt
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'user', 'applied', 'none', 'not_applied', 'not_submitted', NOW())
+        `, [
+            username, 
+            email, 
+            passwordHash, 
+            phone || null, 
+            applicationTicket,
+            converseId,
+            verificationMethod
+        ]);
+        
+        const userId = insertResult.insertId;
+        
+        if (!userId) {
+            throw new Error('Failed to create user - no ID returned');
+        }
+        
+        console.log('✅ User created with ID:', userId);
+        
+        // Assign to default public class
+        try {
+            // Ensure OTU#Public class exists
+            await db.query(`
+                INSERT IGNORE INTO classes (class_id, class_name, description, class_type, is_public, created_by, createdAt)
+                VALUES ('OTU#Public', 'Public Class', 'Default public class for all users', 'public', 1, 1, NOW())
+            `);
+            
+            // Add user to public class
+            await db.query(`
+                INSERT INTO user_class_memberships (user_id, class_id, membership_status, role_in_class)
+                VALUES (?, 'OTU#Public', 'active', 'member')
+                ON DUPLICATE KEY UPDATE membership_status = 'active'
+            `, [userId]);
+            
+            // Update user with class info
+            await db.query(`
+                UPDATE users 
+                SET total_classes = 1, primary_class_id = 'OTU#Public'
+                WHERE id = ?
+            `, [userId]);
+            
+            console.log('✅ User assigned to public class');
+            
+        } catch (classError) {
+            console.error('⚠️ Class assignment error:', classError);
+            // Continue without failing the registration
+        }
+        
+        // Clean up verification codes
+        await db.query(`
+            DELETE FROM verification_codes 
+            WHERE ${verificationMethod === 'email' ? 'email' : 'phone'} = ?
+        `, [verificationTarget]);
+        
+        console.log('✅ Verification codes cleaned up');
+        
+        // Generate JWT token
+        const tokenPayload = {
+            user_id: userId,
+            username,
+            email,
+            membership_stage: 'none',
+            is_member: 'applied',
+            role: 'user',
+            converse_id: converseId,
+            application_ticket: applicationTicket,
+            iat: Math.floor(Date.now() / 1000)
+        };
+        
+        const token = jwt.sign(
+            tokenPayload,
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        
+        console.log('✅ JWT token generated');
+        
+        // Send welcome email
+        try {
+            await sendEmail(email, 'Welcome to Ikoota', `
+                Welcome ${username}!
+                
+                Your account has been created successfully.
+                Application Ticket: ${applicationTicket}
+                
+                Next step: Complete your application survey to be considered for membership.
+                
+                Best regards,
+                The Ikoota Team
+            `);
+            console.log('✅ Welcome email sent');
+        } catch (emailError) {
+            console.error('⚠️ Welcome email failed:', emailError);
+        }
+        
+//         
+
+   return res.status(201).json({
+            success: true,
+            message: 'Registration successful',
+            // ✅ CRITICAL: Add both formats for frontend compatibility
+            token,
+            user: {
+                id: userId,
+                username,
+                email,
+                membership_stage: 'none',
+                is_member: 'applied',
+                application_ticket: applicationTicket,
+                converse_id: converseId,
+                role: 'user'
+            },
+            // ✅ ALSO include nested data format
+            data: {
+                token,
+                user: {
+                    id: userId,
+                    username,
+                    email,
+                    membership_stage: 'none',
+                    is_member: 'applied',
+                    application_ticket: applicationTicket,
+                    converse_id: converseId,
+                    role: 'user'
+                }
+            },
+            redirectTo: '/applicationsurvey',
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ registerWithVerification error:', error);
+        return errorResponse(res, error);
+    }
+};
+
+
+
+
+/**
+ * Enhanced login with smart routing
+ * POST /api/auth/login
+ * Frontend: Login.jsx
+ */
+
+
+export const enhancedLogin = async (req, res) => {
+    try {
+        console.log('🔍 enhancedLogin function called');
+        console.log('📥 Request body keys:', Object.keys(req.body || {}));
+        
+        const { email, password } = req.body;
+        
+        // Input validation
+        if (!email || !password) {
+            console.log('❌ Missing email or password');
+            return res.status(400).json({
+                success: false,
+                error: 'Email and password are required',
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        console.log('🔍 Login attempt for email:', email);
+        
+        // Check database connection first
+        try {
+            await db.query('SELECT 1');
+            console.log('✅ Database connection verified');
+        } catch (dbError) {
+            console.error('❌ Database connection failed:', dbError);
+            return res.status(500).json({
+                success: false,
+                error: 'Database connection error',
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        // Get user from database
+        console.log('🔍 Querying database for user...');
+        const users = await db.query(`
+            SELECT 
+                id,
+                username,
+                email,
+                password_hash,
+                role,
+                is_member,
+                membership_stage,
+                is_verified,
+                isbanned,
+                application_ticket,
+                converse_id,
+                full_membership_status,
+                application_status,
+                createdAt
+            FROM users 
+            WHERE email = ?
+        `, [email]);
+        
+        console.log('📊 Database query result:', {
+            found: users && users.length > 0,
+            count: users ? users.length : 0
+        });
+        
+        if (!users || users.length === 0) {
+            console.log('❌ No user found with email:', email);
+            return res.status(404).json({
+                success: false,
+                error: 'No account found with this email. Please sign up first.',
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        const user = users[0];
+        console.log('✅ User found:', {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            is_member: user.is_member,
+            membership_stage: user.membership_stage
+        });
+        
+        // Security checks
+        if (user.isbanned) {
+            console.log('❌ User is banned:', email);
+            return res.status(403).json({
+                success: false,
+                error: 'Account is banned. Contact support.',
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        // Verify password
+        if (!user.password_hash) {
+            console.log('❌ No password hash found for user:', email);
+            return res.status(500).json({
+                success: false,
+                error: 'Invalid account configuration. Contact support.',
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        console.log('🔍 Verifying password...');
+        const isValidPassword = await bcrypt.compare(password, user.password_hash);
+        
+        if (!isValidPassword) {
+            console.log('❌ Invalid password for user:', email);
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid credentials',
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        console.log('✅ Password verified successfully');
+        
+        // Generate JWT token
+        const tokenPayload = { 
+            user_id: user.id, 
+            username: user.username, 
+            email: user.email,
+            membership_stage: user.membership_stage || 'none',
+            is_member: user.is_member || 'applied',
+            role: user.role || 'user',
+            converse_id: user.converse_id,
+            application_ticket: user.application_ticket,
+            full_membership_status: user.full_membership_status,
+            application_status: user.application_status,
+            iat: Math.floor(Date.now() / 1000)
+        };
+        
+        const token = jwt.sign(
+            tokenPayload,
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        
+        console.log('✅ JWT token generated successfully');
+        
+        // Smart redirect logic
+        let redirectTo = '/dashboard'; // Default fallback
+        
+        const role = user.role?.toLowerCase();
+        const memberStatus = user.is_member?.toLowerCase();
+        const membershipStage = user.membership_stage?.toLowerCase();
+        
+        console.log('🔍 Determining redirect for user:', {
+            role,
+            memberStatus,
+            membershipStage
+        });
+        
+        if (role === 'admin' || role === 'super_admin') {
+            redirectTo = '/admin';
+            console.log('👑 Admin user - redirecting to admin panel');
+        } else if ((memberStatus === 'member' && membershipStage === 'member') || 
+                   (memberStatus === 'active' && membershipStage === 'member')) {
+            redirectTo = '/iko';
+            console.log('💎 Full member - redirecting to Iko Chat');
+        } else if (memberStatus === 'pre_member' || membershipStage === 'pre_member') {
+            redirectTo = '/towncrier';
+            console.log('👤 Pre-member - redirecting to Towncrier');
+        } else if (membershipStage === 'applicant' || memberStatus === 'applied') {
+            redirectTo = '/applicationsurvey';
+            console.log('📝 Applicant - redirecting to application survey');
+        }
+        
+        console.log('🎯 Final redirect destination:', redirectTo);
+        
+        // Update last login
+        try {
+            await db.query('UPDATE users SET updatedAt = NOW() WHERE id = ?', [user.id]);
+            console.log('✅ Last login updated');
+        } catch (updateError) {
+            console.warn('⚠️ Failed to update last login:', updateError);
+        }
+        
+        // ✅ FIXED: Return consistent response format
+        const responseData = {
+            success: true,
+            message: 'Login successful',
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                membership_stage: user.membership_stage || 'none',
+                is_member: user.is_member || 'applied',
+                role: user.role || 'user',
+                converse_id: user.converse_id,
+                application_ticket: user.application_ticket,
+                full_membership_status: user.full_membership_status,
+                application_status: user.application_status
+            },
+            // Also include nested data format for compatibility
+            data: {
+                token,
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    membership_stage: user.membership_stage || 'none',
+                    is_member: user.is_member || 'applied',
+                    role: user.role || 'user',
+                    converse_id: user.converse_id,
+                    application_ticket: user.application_ticket,
+                    full_membership_status: user.full_membership_status,
+                    application_status: user.application_status
+                }
+            },
+            redirectTo,
+            timestamp: new Date().toISOString()
+        };
+        
+        console.log('✅ Sending successful login response');
+        return res.status(200).json(responseData);
+        
+    } catch (error) {
+        console.error('❌ Enhanced login error:', {
+            message: error.message,
+            stack: error.stack,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Return error response
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            error: error.message || 'Login failed due to server error',
+            errorType: error.name || 'LoginError',
+            timestamp: new Date().toISOString(),
+            ...(process.env.NODE_ENV === 'development' && { 
+                stack: error.stack 
+            })
+        });
+    }
+};
+
+/**
+ * Logout user
+ * GET /api/auth/logout
+ * Frontend: Various components
+ */
+export const logoutUser = async (req, res) => {
+    try {
+        // Clear cookies
+        res.clearCookie('access_token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict'
+        });
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict'
+        });
+        
+        console.log('✅ User logged out successfully');
+        
+        return successResponse(res, {}, 'Logged out successfully');
+    } catch (error) {
+        console.error('❌ Logout error:', error);
+        return errorResponse(res, error);
+    }
+};
+
+/**
+ * Request password reset
+ * POST /api/auth/passwordreset/request
+ * Frontend: Passwordreset.jsx
+ */
+export const requestPasswordReset = async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        if (!email) {
+            throw new CustomError('Email is required', 400);
+        }
+        
+        console.log('🔍 Password reset requested for:', email);
+        
+        // Check if user exists
+        const users = await db.query('SELECT id, email, username FROM users WHERE email = ?', [email]);
+        
+        if (!users || users.length === 0) {
+            // Don't reveal if email exists for security
+            return successResponse(res, {}, 'If an account with that email exists, you will receive a password reset email.');
+        }
+        
+        const user = users[0];
+        
+        // Generate reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenExpiry = Date.now() + 3600000; // 1 hour
+        
+        // Store reset token
+        await db.query(`
+            UPDATE users 
+            SET resetToken = ?, resetTokenExpiry = ?, updatedAt = NOW() 
+            WHERE email = ?
+        `, [resetToken, resetTokenExpiry, email]);
+        
+        // Send reset email
+        const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+        
+        try {
+            await sendEmail(email, 'Password Reset Request', `
+                Hello ${user.username},
+                
+                You requested a password reset for your Ikoota account.
+                
+                Click the link below to reset your password:
+                ${resetLink}
+                
+                This link will expire in 1 hour.
+                
+                If you didn't request this reset, please ignore this email.
+                
+                Best regards,
+                The Ikoota Team
+            `);
+            
+            console.log('✅ Password reset email sent');
+        } catch (emailError) {
+            console.error('❌ Failed to send reset email:', emailError);
+            throw new CustomError('Failed to send reset email', 500);
+        }
+        
+        return successResponse(res, {}, 'If an account with that email exists, you will receive a password reset email.');
+        
+    } catch (error) {
+        console.error('❌ Password reset request error:', error);
+        return errorResponse(res, error);
+    }
+};
+
+/**
+ * Reset password with token
+ * POST /api/auth/passwordreset/reset
+ * Frontend: Passwordreset.jsx
+ */
+export const resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword, confirmPassword } = req.body;
+        
+        if (!token || !newPassword || !confirmPassword) {
+            throw new CustomError('Token, new password, and confirmation are required', 400);
+        }
+        
+        if (newPassword !== confirmPassword) {
+            throw new CustomError('Passwords do not match', 400);
+        }
+        
+        if (newPassword.length < 8) {
+            throw new CustomError('Password must be at least 8 characters long', 400);
+        }
+        
+        console.log('🔍 Password reset attempt with token');
+        
+        // Find user with valid reset token
+        const users = await db.query(`
+            SELECT id, email, username, resetToken, resetTokenExpiry 
+            FROM users 
+            WHERE resetToken = ? AND resetTokenExpiry > ?
+        `, [token, Date.now()]);
+        
+        if (!users || users.length === 0) {
+            throw new CustomError('Invalid or expired reset token', 400);
+        }
+        
+        const user = users[0];
+        
+        // Hash new password
+        const saltRounds = 12;
+        const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+        
+        // Update password and clear reset token
+        await db.query(`
+            UPDATE users 
+            SET password_hash = ?, resetToken = NULL, resetTokenExpiry = NULL, updatedAt = NOW()
+            WHERE id = ?
+        `, [passwordHash, user.id]);
+        
+        console.log('✅ Password reset successful for user:', user.email);
+        
+        // Send confirmation email
+        try {
+            await sendEmail(user.email, 'Password Reset Successful', `
+                Hello ${user.username},
+                
+                Your password has been successfully reset.
+                
+                If you didn't make this change, please contact our support team immediately.
+                
+                Best regards,
+                The Ikoota Team
+            `);
+        } catch (emailError) {
+            console.warn('⚠️ Failed to send confirmation email:', emailError);
+        }
+        
+        return successResponse(res, {}, 'Password reset successful. You can now log in with your new password.');
+        
+    } catch (error) {
+        console.error('❌ Password reset error:', error);
+        return errorResponse(res, error);
+    }
+};
+
+/**
+ * Verify password reset token
+ * POST /api/auth/passwordreset/verify
+ * Frontend: Passwordreset.jsx
+ */
+export const verifyPasswordReset = async (req, res) => {
+    try {
+        const { token } = req.body;
+        
+        if (!token) {
+            throw new CustomError('Reset token is required', 400);
+        }
+        
+        console.log('🔍 Verifying password reset token');
+        
+        // Check if token is valid and not expired
+        const users = await db.query(`
+            SELECT id, email, username, resetTokenExpiry,
+                   TIMESTAMPDIFF(SECOND, NOW(), FROM_UNIXTIME(resetTokenExpiry/1000)) as seconds_until_expiry
+            FROM users 
+            WHERE resetToken = ? AND resetTokenExpiry > ?
+        `, [token, Date.now()]);
+        
+        if (!users || users.length === 0) {
+            throw new CustomError('Invalid or expired reset token', 400);
+        }
+        
+        const user = users[0];
+        const minutesRemaining = Math.floor(user.seconds_until_expiry / 60);
+        
+        console.log('✅ Password reset token verified');
+        
+        return successResponse(res, {
+            valid: true,
+            email: user.email,
+            expiresIn: minutesRemaining > 0 ? `${minutesRemaining} minutes` : 'Less than 1 minute'
+        }, 'Reset token is valid');
+        
+    } catch (error) {
+        console.error('❌ Token verification error:', error);
+        return errorResponse(res, error);
+    }
+};
+
+/**
+ * Verify user email with token
+ * GET /api/auth/verify/:token
+ * Frontend: Email verification links
+ */
+export const verifyUser = async (req, res) => {
+    try {
+        const { token } = req.params;
+        
+        if (!token) {
+            return res.status(400).json({ error: "Verification token is required" });
+        }
+        
+        console.log('🔍 Email verification attempt with token');
+        
+        // In this context, token is likely the email address for backward compatibility
+        const users = await db.query('SELECT id, email, username, is_verified FROM users WHERE email = ?', [token]);
+        
+        if (!users || users.length === 0) {
+            return res.status(404).json({ error: "Invalid verification token" });
+        }
+        
+        const user = users[0];
+        
+        // Update user verification status
+        await db.query(`
+            UPDATE users 
+            SET is_verified = 1, is_member = 'pending', updatedAt = NOW()
+            WHERE email = ?
+        `, [token]);
+        
+        console.log('✅ Email verification successful for:', user.email);
+        
+        // Redirect to application survey
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/applicationsurvey/${token}`);
+        
+    } catch (error) {
+        console.error('❌ Email verification error:', error);
+        return res.status(500).json({ error: error.message || "Error verifying email" });
+    }
+};
+
+/**
+ * Get authenticated user info
+ * GET /api/auth/
+ * Frontend: Various components via useAuth hook
+ */
+export const getAuthenticatedUser = async (req, res) => {
+    try {
+        if (!req.user) {
+            throw new CustomError('No authenticated user found', 401);
+        }
+        
+        console.log('✅ Returning authenticated user info:', {
+            id: req.user.id,
+            email: req.user.email,
+            role: req.user.role
+        });
+        
+        // Set CORS headers for credentials
+        res.set("Access-Control-Allow-Credentials", "true");
+        
+//        
+
+
+  return res.status(200).json({ 
+            success: true,
+            Status: "Success", // Keep for backward compatibility
+            message: 'User authenticated successfully',
+            userData: { 
+                id: req.user.id,
+                username: req.user.username, 
+                email: req.user.email,
+                role: req.user.role,
+                membership_stage: req.user.membership_stage,
+                is_member: req.user.is_member,
+                converse_id: req.user.converse_id,
+                application_ticket: req.user.application_ticket
+            },
+            // ✅ ALSO include user data at root level
+            user: {
+                id: req.user.id,
+                username: req.user.username, 
+                email: req.user.email,
+                role: req.user.role,
+                membership_stage: req.user.membership_stage,
+                is_member: req.user.is_member,
+                converse_id: req.user.converse_id,
+                application_ticket: req.user.application_ticket
+            },
+            setAuth: true,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Get authenticated user error:', error);
+        res.set("Access-Control-Allow-Credentials", "true");
+        return errorResponse(res, error);
+    }
+};
+
+
+
+
+// ===============================================
+// LEGACY COMPATIBILITY FUNCTIONS
+// ===============================================
+
+/**
+ * Legacy register function for backward compatibility
+ * @deprecated Use registerWithVerification instead
+ */
+export const registerUser = async (req, res, next) => {
+    try {
+        const { username, email, password, phone } = req.body;
+        
+        if (!username || !email || !password || !phone) {
+            return res.status(400).json({ error: 'All fields are required' });
+        }
+        
+        console.log('⚠️ DEPRECATED: registerUser called - use registerWithVerification instead');
+        
+        // Check if user exists
+        const existingUsers = await db.query('SELECT id FROM users WHERE email = ?', [email]);
+        if (existingUsers && existingUsers.length > 0) {
+            return res.status(409).json({ error: 'User already exists' });
+        }
+        
+        // Hash password
+        const saltRounds = 12;
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        
+        // Generate identifiers
+        const applicationTicket = generateApplicationTicket(username, email);
+        const converseId = await ensureUniqueConverseId();
+        
+        // Insert user
+        const result = await db.query(`
+            INSERT INTO users (username, email, password_hash, phone, application_ticket, converse_id, role, is_member, membership_stage, is_verified) 
+            VALUES (?, ?, ?, ?, ?, ?, 'user', 'applied', 'none', 0)
+        `, [username, email, passwordHash, phone, applicationTicket, converseId]);
+        
+        const userId = result.insertId;
+        
+        // Generate token
+        const tokenPayload = { 
+            user_id: userId, 
+            email, 
+            username,
+            is_member: 'applied',
+            membership_stage: 'none',
+            role: 'user',
+            converse_id: converseId
+        };
+        const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
+        
+        // Set cookie
+        res.cookie('access_token', token, { httpOnly: true });
+        
+        // Send welcome email
+        try {
+            await sendEmail(email, 'Welcome to Ikoota', `Welcome ${username}! Please complete your application survey.`);
+        } catch (emailError) {
+            console.warn('⚠️ Welcome email failed:', emailError);
+        }
+        
+        res.status(201).json({
+            message: 'Registration in progress; please take the Application survey to complete registration',
+            redirectTo: '/applicationsurvey',
+            user: { id: userId, username, email, application_ticket: applicationTicket }
+        });
+        
+    } catch (error) {
+        console.error('❌ Legacy register error:', error);
+        next(error);
+    }
+};
+
+/**
+ * Legacy login function for backward compatibility
+ * @deprecated Use enhancedLogin instead
+ */
+export const loginUser = async (req, res, next) => {
+    try {
+        const { email, password } = req.body;
+        
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+        
+        console.log('⚠️ DEPRECATED: loginUser called - use enhancedLogin instead');
+        
+        // Get user
+        const users = await db.query(`
+            SELECT id, username, email, password_hash, role, is_member, membership_stage, isbanned
+            FROM users WHERE email = ?
+        `, [email]);
+        
+        if (!users || users.length === 0) {
+            throw new CustomError('Invalid credentials', 401);
+        }
+        
+        const user = users[0];
+        
+        if (user.isbanned) {
+            throw new CustomError('Account is banned', 403);
+        }
+        
+        const isValidPassword = await bcrypt.compare(password, user.password_hash);
+        if (!isValidPassword) {
+            throw new CustomError('Invalid credentials', 401);
+        }
+        
+        // Generate token
+        const tokenPayload = {
+            user_id: user.id,
+            email: user.email,
+            username: user.username,
+            role: user.role,
+            is_member: user.is_member,
+            membership_stage: user.membership_stage
+        };
+        
+        const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
+        
+        res.cookie('access_token', token, { httpOnly: true });
+        
+        res.status(200).json({ 
+            message: 'Login successful', 
+            token, 
+            Status: "Success",
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                is_member: user.is_member,
+                membership_stage: user.membership_stage
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Legacy login error:', error);
+        next(error);
+    }
+};
+
+// ===============================================
+// ADDITIONAL UTILITY CONTROLLERS
+// ===============================================
+
+/**
+ * Health check for auth system
+ * GET /api/auth/health
+ */
+export const authHealthCheck = async (req, res) => {
+    try {
+        // Test database connection
+        const result = await db.query('SELECT COUNT(*) as user_count FROM users LIMIT 1');
+        
+        return successResponse(res, {
+            status: 'healthy',
+            database: 'connected',
+            userCount: result[0].user_count,
+            timestamp: new Date().toISOString()
+        }, 'Authentication system is healthy');
+        
+    } catch (error) {
+        console.error('❌ Auth health check failed:', error);
+        return res.status(503).json({
+            success: false,
+            status: 'unhealthy',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+};
+
+/**
+ * Get auth system statistics
+ * GET /api/auth/stats (Admin only)
+ */
+export const getAuthStats = async (req, res) => {
+    try {
+        const stats = await db.query(`
+            SELECT 
+                COUNT(*) as total_users,
+                SUM(CASE WHEN is_verified = 1 THEN 1 ELSE 0 END) as verified_users,
+                SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) as admin_users,
+                SUM(CASE WHEN isbanned = 1 THEN 1 ELSE 0 END) as banned_users,
+                SUM(CASE WHEN DATE(createdAt) = CURDATE() THEN 1 ELSE 0 END) as new_users_today,
+                SUM(CASE WHEN DATE(createdAt) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) as new_users_week
+            FROM users
+        `);
+        
+        const verificationStats = await db.query(`
+            SELECT 
+                COUNT(*) as pending_verifications,
+                SUM(CASE WHEN method = 'email' THEN 1 ELSE 0 END) as email_verifications,
+                SUM(CASE WHEN method = 'phone' THEN 1 ELSE 0 END) as phone_verifications,
+                SUM(CASE WHEN expiresAt < NOW() THEN 1 ELSE 0 END) as expired_codes
+            FROM verification_codes
+        `);
+        
+        return successResponse(res, {
+            users: stats[0],
+            verifications: verificationStats[0],
+            generatedAt: new Date().toISOString()
+        }, 'Authentication statistics retrieved');
+        
+    } catch (error) {
+        console.error('❌ Auth stats error:', error);
+        return errorResponse(res, error);
+    }
+};
+
+// ===============================================
+// EXPORT DEFAULT CONTROLLER OBJECT
+// ===============================================
+
+export default {
+    // Main authentication functions
+    sendVerificationCode,
+    registerWithVerification,
+    enhancedLogin,
+    logoutUser,
+    requestPasswordReset,
+    resetPassword,
+    verifyPasswordReset,
+    verifyUser,
+    getAuthenticatedUser,
+    
+    // Legacy compatibility
+    registerUser,
+    loginUser,
+    
+    // Utility functions
+    authHealthCheck,
+    getAuthStats
+};
+
+
+
+
+
+
+
+
+//==========================================================================================================
+
+
+
+// ikootaapi/services/authServices.js
+// ENHANCED & REORGANIZED AUTHENTICATION SERVICES
+// Aligned with new database schema and reorganized architecture
+
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import db from '../config/db.js';
+import CustomError from '../utils/CustomError.js';
+import { sendEmail } from '../utils/email.js';
+import { sendSMS } from '../utils/sms.js';
+
+// ===============================================
+// UTILITY FUNCTIONS
+// ===============================================
+
+const generateApplicationTicket = (username, email, type = 'INITIAL') => {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substr(2, 5);
+    const prefix = type === 'FULL' ? 'FMA' : 'APP';
+    return `${prefix}-${username.substr(0, 3).toUpperCase()}-${timestamp}-${random}`.toUpperCase();
+};
+
+const generateConverseId = () => {
+    const prefix = 'OTO#';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    
+    try {
+        for (let i = 0; i < 6; i++) {
+            result += chars[crypto.randomInt(0, chars.length)];
+        }
+    } catch (error) {
+        console.warn('⚠️ Crypto not available, using Math.random fallback');
+        for (let i = 0; i < 6; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+    }
+    
+    return prefix + result;
+};
+
+const ensureUniqueConverseId = async () => {
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+        const candidateId = generateConverseId();
+        
+        try {
+            const [existingUsers] = await db.query('SELECT id FROM users WHERE converse_id = ?', [candidateId]);
+            
+            if (!existingUsers || existingUsers.length === 0) {
+                console.log('✅ Generated unique converse ID:', candidateId);
+                return candidateId;
+            }
+            
+            console.log('⚠️ Converse ID collision, retrying...', candidateId);
+            attempts++;
+        } catch (error) {
+            console.error('❌ Error checking converse ID uniqueness:', error);
+            return candidateId;
+        }
+    }
+    
+    console.warn('⚠️ Max attempts reached, using last generated ID');
+    return generateConverseId();
+};
+
+// ===============================================
+// MAIN AUTHENTICATION SERVICES
+// ===============================================
+
+/**
+ * Register user with verification
+ * Enhanced version with proper transaction handling
+ */
+export const registerUserService = async (userData) => {
+    const { username, email, password, phone, verificationCode, verificationMethod = 'email' } = userData;
+    
+    try {
+        console.log('🔍 registerUserService called for:', { username, email, verificationMethod });
+        
+        // Input validation
+        if (!username || !email || !password || !verificationCode) {
+            throw new CustomError('All required fields must be provided', 400);
+        }
+        
+        // Check for existing users
+        const existingUsers = await db.query('SELECT email, username FROM users WHERE email = ? OR username = ?', [email, username]);
+        
+        if (existingUsers && existingUsers.length > 0) {
+            const existing = existingUsers[0];
+            if (existing.email === email) {
+                throw new CustomError('User with this email already exists', 409);
+            }
+            if (existing.username === username) {
+                throw new CustomError('Username is already taken', 409);
+            }
+        }
+        
+        // Verify verification code
+        const verificationTarget = verificationMethod === 'email' ? email : phone;
+        const verificationRows = await db.query(`
+            SELECT id, code, method, expiresAt
+            FROM verification_codes 
+            WHERE ${verificationMethod === 'email' ? 'email' : 'phone'} = ? 
+                AND code = ? 
+                AND method = ? 
+                AND expiresAt > NOW()
+            ORDER BY createdAt DESC
+            LIMIT 1
+        `, [verificationTarget, verificationCode.trim(), verificationMethod]);
+        
+        if (!verificationRows || verificationRows.length === 0) {
+            throw new CustomError('Invalid or expired verification code', 400);
+        }
+        
+        console.log('✅ Verification code validated');
+        
+        // Hash password
+        const saltRounds = 12;
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        
+        // Generate identifiers
+        const applicationTicket = generateApplicationTicket(username, email);
+        const converseId = await ensureUniqueConverseId();
+        
+        console.log('🔍 Creating user with identifiers:', { applicationTicket, converseId });
+        
+        // Insert user
+        const insertResult = await db.query(`
+            INSERT INTO users (
+                username, email, password_hash, phone, application_ticket, converse_id,
+                verification_method, is_verified, role, is_member, membership_stage,
+                full_membership_status, application_status, createdAt, updatedAt
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'user', 'applied', 'none', 'not_applied', 'not_submitted', NOW(), NOW())
+        `, [username, email, passwordHash, phone || null, applicationTicket, converseId, verificationMethod]);
+        
+        const userId = insertResult.insertId;
+        
+        if (!userId) {
+            throw new Error('Failed to create user - no ID returned');
+        }
+        
+        console.log('✅ User created with ID:', userId);
+        
+        // Clean up verification codes
+        await db.query(`
+            DELETE FROM verification_codes 
+            WHERE ${verificationMethod === 'email' ? 'email' : 'phone'} = ?
+        `, [verificationTarget]);
+        
+        console.log('✅ Registration completed successfully');
+        
+        // Send welcome email
+        try {
+            await sendEmail(email, 'Welcome to Ikoota', `
+                Welcome ${username}!
+                
+                Your account has been created successfully.
+                Application Ticket: ${applicationTicket}
+                
+                Next step: Complete your application survey to be considered for membership.
+                
+                Best regards,
+                The Ikoota Team
+            `);
+        } catch (emailError) {
+            console.warn('⚠️ Welcome email failed:', emailError);
+        }
+        
+        return {
+            userId,
+            username,
+            email,
+            applicationTicket,
+            converseId,
+            membershipStage: 'none',
+            isMember: 'applied'
+        };
+        
+    } catch (error) {
+        console.error('❌ registerUserService error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Enhanced login service with comprehensive user data
+ */
+export const loginUserService = async (email, password) => {
+    try {
+        console.log('🔍 loginUserService called for:', email);
+        
+        if (!email || !password) {
+            throw new CustomError('Email and password are required', 400);
+        }
+        
+        // Get user from database with all necessary fields
+        const users = await db.query(`
+            SELECT 
+                id, username, email, password_hash, role, is_member, membership_stage,
+                is_verified, isbanned, application_ticket, converse_id, 
+                full_membership_status, application_status, phone, createdAt, updatedAt
+            FROM users 
+            WHERE email = ?
+        `, [email]);
+        
+        if (!users || users.length === 0) {
+            console.log('❌ No user found with email:', email);
+            throw new CustomError('Invalid credentials', 401);
+        }
+        
+        const user = users[0];
+        
+        // Security checks
+        if (user.isbanned) {
+            console.log('❌ User is banned:', email);
+            throw new CustomError('Account is banned', 403);
+        }
+        
+        if (!user.password_hash) {
+            console.log('❌ No password hash found for user:', email);
+            throw new CustomError('Invalid account configuration', 500);
+        }
+        
+        // Verify password
+        const isValidPassword = await bcrypt.compare(password, user.password_hash);
+        
+        if (!isValidPassword) {
+            console.log('❌ Invalid password for user:', email);
+            throw new CustomError('Invalid credentials', 401);
+        }
+        
+        console.log('✅ Password verified successfully');
+        
+        // Update last login
+        try {
+            await db.query('UPDATE users SET updatedAt = NOW() WHERE id = ?', [user.id]);
+        } catch (updateError) {
+            console.warn('⚠️ Failed to update last login:', updateError);
+        }
+        
+        // Create JWT payload
+        const tokenPayload = {
+            user_id: user.id,
+            email: user.email,
+            username: user.username,
+            role: user.role,
+            is_member: user.is_member,
+            membership_stage: user.membership_stage,
+            is_verified: user.is_verified,
+            full_membership_status: user.full_membership_status,
+            application_status: user.application_status,
+            converse_id: user.converse_id,
+            application_ticket: user.application_ticket
+        };
+        
+        const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
+        
+        console.log('✅ Login successful for user:', {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            membership_stage: user.membership_stage
+        });
+        
+        return {
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                is_member: user.is_member,
+                membership_stage: user.membership_stage,
+                is_verified: user.is_verified,
+                full_membership_status: user.full_membership_status,
+                application_status: user.application_status,
+                converse_id: user.converse_id,
+                application_ticket: user.application_ticket
+            }
+        };
+        
+    } catch (error) {
+        console.error('❌ loginUserService error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Send verification code service
+ */
+export const sendVerificationCodeService = async (email, phone, method = 'email') => {
+    try {
+        console.log('🔍 sendVerificationCodeService called:', { email, phone, method });
+        
+        if (!email && !phone) {
+            throw new CustomError('Email or phone number is required', 400);
+        }
+        
+        if (!['email', 'phone'].includes(method)) {
+            throw new CustomError('Invalid verification method', 400);
+        }
+        
+        // Generate 6-digit code
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Clean up expired codes
+        const target = method === 'email' ? email : phone;
+        await db.query(`
+            DELETE FROM verification_codes 
+            WHERE ${method === 'email' ? 'email' : 'phone'} = ? 
+            AND expiresAt < NOW()
+        `, [target]);
+        
+        // Insert new verification code
+        await db.query(`
+            INSERT INTO verification_codes (email, phone, code, method, expiresAt, createdAt) 
+            VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), NOW())
+        `, [email || null, phone || null, verificationCode, method]);
+        
+        console.log('✅ Verification code stored in database');
+        
+        // Send verification code
+        if (method === 'email' && email) {
+            await sendEmail(email, 'Verification Code', `Your Ikoota verification code is: ${verificationCode}. Valid for 10 minutes.`);
+            console.log('✅ Verification email sent');
+        } else if (method === 'phone' && phone) {
+            await sendSMS(phone, `Your Ikoota verification code is: ${verificationCode}. Valid for 10 minutes.`);
+            console.log('✅ Verification SMS sent');
+        }
+        
+        return {
+            success: true,
+            method,
+            target,
+            expiresIn: 600,
+            ...(process.env.NODE_ENV === 'development' && { devCode: verificationCode })
+        };
+        
+    } catch (error) {
+        console.error('❌ sendVerificationCodeService error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Password reset request service
+ */
+export const sendPasswordResetService = async (email) => {
+    try {
+        console.log('🔍 sendPasswordResetService called for:', email);
+        
+        if (!email) {
+            throw new CustomError('Email is required', 400);
+        }
+        
+        // Check if user exists
+        const users = await db.query('SELECT id, email, username FROM users WHERE email = ?', [email]);
+        
+        if (!users || users.length === 0) {
+            // For security, don't reveal if email exists
+            console.log('⚠️ Password reset requested for non-existent email:', email);
+            return { success: true, message: 'If account exists, reset email will be sent' };
+        }
+        
+        const user = users[0];
+        
+        // Generate reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenExpiry = Date.now() + 3600000; // 1 hour
+        
+        // Store reset token
+        await db.query(`
+            UPDATE users 
+            SET resetToken = ?, resetTokenExpiry = ?, updatedAt = NOW() 
+            WHERE email = ?
+        `, [resetToken, resetTokenExpiry, email]);
+        
+        // Send reset email
+        const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+        
+        await sendEmail(email, 'Password Reset Request', `
+            Hello ${user.username},
+            
+            You requested a password reset for your Ikoota account.
+            
+            Click the link below to reset your password:
+            ${resetLink}
+            
+            This link will expire in 1 hour.
+            
+            If you didn't request this reset, please ignore this email.
+            
+            Best regards,
+            The Ikoota Team
+        `);
+        
+        console.log('✅ Password reset email sent for:', email);
+        
+        return {
+            success: true,
+            message: 'Password reset email sent',
+            resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined
+        };
+        
+    } catch (error) {
+        console.error('❌ sendPasswordResetService error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Password reset service
+ */
+export const resetPasswordService = async (token, newPassword) => {
+    try {
+        console.log('🔍 resetPasswordService called with token');
+        
+        if (!token || !newPassword) {
+            throw new CustomError('Token and new password are required', 400);
+        }
+        
+        if (newPassword.length < 8) {
+            throw new CustomError('Password must be at least 8 characters long', 400);
+        }
+        
+        // Find user with valid reset token
+        const users = await db.query(`
+            SELECT id, email, username, resetToken, resetTokenExpiry 
+            FROM users 
+            WHERE resetToken = ? AND resetTokenExpiry > ?
+        `, [token, Date.now()]);
+        
+        if (!users || users.length === 0) {
+            throw new CustomError('Invalid or expired reset token', 400);
+        }
+        
+        const user = users[0];
+        
+        // Hash new password
+        const saltRounds = 12;
+        const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+        
+        // Update password and clear reset token
+        await db.query(`
+            UPDATE users 
+            SET password_hash = ?, resetToken = NULL, resetTokenExpiry = NULL, updatedAt = NOW()
+            WHERE id = ?
+        `, [passwordHash, user.id]);
+        
+        console.log('✅ Password reset successful for user:', user.email);
+        
+        // Send confirmation email
+        try {
+            await sendEmail(user.email, 'Password Reset Successful', `
+                Hello ${user.username},
+                
+                Your password has been successfully reset.
+                
+                If you didn't make this change, please contact our support team immediately.
+                
+                Best regards,
+                The Ikoota Team
+            `);
+        } catch (emailError) {
+            console.warn('⚠️ Confirmation email failed:', emailError);
+        }
+        
+        return {
+            success: true,
+            message: 'Password reset successful',
+            userId: user.id
+        };
+        
+    } catch (error) {
+        console.error('❌ resetPasswordService error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Verify reset token service
+ */
+export const verifyResetTokenService = async (token) => {
+    try {
+        console.log('🔍 verifyResetTokenService called');
+        
+        if (!token) {
+            throw new CustomError('Reset token is required', 400);
+        }
+        
+        // Check if token is valid and not expired
+        const users = await db.query(`
+            SELECT id, email, username, resetTokenExpiry,
+                   TIMESTAMPDIFF(SECOND, NOW(), FROM_UNIXTIME(resetTokenExpiry/1000)) as seconds_until_expiry
+            FROM users 
+            WHERE resetToken = ? AND resetTokenExpiry > ?
+        `, [token, Date.now()]);
+        
+        if (!users || users.length === 0) {
+            throw new CustomError('Invalid or expired reset token', 400);
+        }
+        
+        const user = users[0];
+        const minutesRemaining = Math.floor(user.seconds_until_expiry / 60);
+        
+        console.log('✅ Reset token verified for user:', user.email);
+        
+        return {
+            valid: true,
+            email: user.email,
+            username: user.username,
+            expiresIn: minutesRemaining > 0 ? `${minutesRemaining} minutes` : 'Less than 1 minute'
+        };
+        
+    } catch (error) {
+        console.error('❌ verifyResetTokenService error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Get user by ID service
+ */
+export const getUserByIdService = async (userId) => {
+    try {
+        console.log('🔍 getUserByIdService called for ID:', userId);
+        
+        if (!userId) {
+            throw new CustomError('User ID is required', 400);
+        }
+        
+        const users = await db.query(`
+            SELECT 
+                id, username, email, role, is_member, membership_stage,
+                is_verified, isbanned, application_ticket, converse_id,
+                full_membership_status, application_status, phone, 
+                createdAt, updatedAt
+            FROM users 
+            WHERE id = ?
+        `, [userId]);
+        
+        if (!users || users.length === 0) {
+            throw new CustomError('User not found', 404);
+        }
+        
+        const user = users[0];
+        
+        // Remove sensitive information
+        delete user.password_hash;
+        delete user.resetToken;
+        delete user.resetTokenExpiry;
+        
+        console.log('✅ User retrieved:', { id: user.id, email: user.email });
+        
+        return user;
+        
+    } catch (error) {
+        console.error('❌ getUserByIdService error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Update user verification status
+ */
+export const updateUserVerificationService = async (email, isVerified = true) => {
+    try {
+        console.log('🔍 updateUserVerificationService called for:', email);
+        
+        if (!email) {
+            throw new CustomError('Email is required', 400);
+        }
+        
+        const result = await db.query(`
+            UPDATE users 
+            SET is_verified = ?, updatedAt = NOW() 
+            WHERE email = ?
+        `, [isVerified ? 1 : 0, email]);
+        
+        if (result.affectedRows === 0) {
+            throw new CustomError('User not found', 404);
+        }
+        
+        console.log('✅ User verification status updated for:', email);
+        
+        return {
+            success: true,
+            email,
+            isVerified,
+            updatedAt: new Date().toISOString()
+        };
+        
+    } catch (error) {
+        console.error('❌ updateUserVerificationService error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Generate verification code utility
+ */
+export const generateVerificationCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+/**
+ * Validate JWT token service
+ */
+export const validateTokenService = async (token) => {
+    try {
+        if (!token) {
+            throw new CustomError('Token is required', 400);
+        }
+        
+        // Verify JWT token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        // Get fresh user data
+        const user = await getUserByIdService(decoded.user_id);
+        
+        if (user.isbanned) {
+            throw new CustomError('User account is banned', 403);
+        }
+        
+        return {
+            valid: true,
+            user,
+            decoded
+        };
+        
+    } catch (error) {
+        if (error.name === 'JsonWebTokenError') {
+            throw new CustomError('Invalid token', 401);
+        } else if (error.name === 'TokenExpiredError') {
+            throw new CustomError('Token expired', 401);
+        } else {
+            throw error;
+        }
+    }
+};
+
+/**
+ * Cleanup expired verification codes
+ */
+export const cleanupExpiredCodesService = async () => {
+    try {
+        console.log('🔍 cleanupExpiredCodesService called');
+        
+        const result = await db.query(`
+            DELETE FROM verification_codes 
+            WHERE expiresAt < NOW()
+        `);
+        
+        const deletedCount = result.affectedRows || 0;
+        
+        console.log(`✅ Cleaned up ${deletedCount} expired verification codes`);
+        
+        return {
+            success: true,
+            deletedCount,
+            cleanedAt: new Date().toISOString()
+        };
+        
+    } catch (error) {
+        console.error('❌ cleanupExpiredCodesService error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Get authentication statistics
+ */
+export const getAuthStatsService = async () => {
+    try {
+        console.log('🔍 getAuthStatsService called');
+        
+        // User statistics
+        const userStats = await db.query(`
+            SELECT 
+                COUNT(*) as total_users,
+                SUM(CASE WHEN is_verified = 1 THEN 1 ELSE 0 END) as verified_users,
+                SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) as admin_users,
+                SUM(CASE WHEN role = 'super_admin' THEN 1 ELSE 0 END) as super_admin_users,
+                SUM(CASE WHEN isbanned = 1 THEN 1 ELSE 0 END) as banned_users,
+                SUM(CASE WHEN DATE(createdAt) = CURDATE() THEN 1 ELSE 0 END) as new_users_today,
+                SUM(CASE WHEN DATE(createdAt) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) as new_users_week,
+                SUM(CASE WHEN DATE(createdAt) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as new_users_month
+            FROM users
+        `);
+        
+        // Verification code statistics
+        const verificationStats = await db.query(`
+            SELECT 
+                COUNT(*) as pending_verifications,
+                SUM(CASE WHEN method = 'email' THEN 1 ELSE 0 END) as email_verifications,
+                SUM(CASE WHEN method = 'phone' THEN 1 ELSE 0 END) as phone_verifications,
+                SUM(CASE WHEN expiresAt < NOW() THEN 1 ELSE 0 END) as expired_codes,
+                SUM(CASE WHEN DATE(createdAt) = CURDATE() THEN 1 ELSE 0 END) as codes_sent_today
+            FROM verification_codes
+        `);
+        
+        // Membership statistics
+        const membershipStats = await db.query(`
+            SELECT 
+                SUM(CASE WHEN membership_stage = 'none' THEN 1 ELSE 0 END) as stage_none,
+                SUM(CASE WHEN membership_stage = 'applicant' THEN 1 ELSE 0 END) as stage_applicant,
+                SUM(CASE WHEN membership_stage = 'pre_member' THEN 1 ELSE 0 END) as stage_pre_member,
+                SUM(CASE WHEN membership_stage = 'member' THEN 1 ELSE 0 END) as stage_member,
+                SUM(CASE WHEN is_member = 'applied' THEN 1 ELSE 0 END) as status_applied,
+                SUM(CASE WHEN is_member = 'pending' THEN 1 ELSE 0 END) as status_pending,
+                SUM(CASE WHEN is_member = 'pre_member' THEN 1 ELSE 0 END) as status_pre_member,
+                SUM(CASE WHEN is_member = 'member' THEN 1 ELSE 0 END) as status_member
+            FROM users
+        `);
+        
+        console.log('✅ Authentication statistics retrieved');
+        
+        return {
+            users: userStats[0],
+            verifications: verificationStats[0],
+            membership: membershipStats[0],
+            generatedAt: new Date().toISOString()
+        };
+        
+    } catch (error) {
+        console.error('❌ getAuthStatsService error:', error);
+        throw error;
+    }
+};
+
+// ===============================================
+// LEGACY COMPATIBILITY SERVICES
+// ===============================================
+
+/**
+ * Legacy send password reset email or SMS
+ * @deprecated Use sendPasswordResetService instead
+ */
+export const sendPasswordResetEmailOrSMS = async (emailOrPhone) => {
+    try {
+        console.log('⚠️ DEPRECATED: sendPasswordResetEmailOrSMS called - use sendPasswordResetService instead');
+        
+        const isEmail = emailOrPhone.includes('@');
+        
+        if (isEmail) {
+            return await sendPasswordResetService(emailOrPhone);
+        } else {
+            // For phone-based reset, we'd need SMS implementation
+            throw new CustomError('Phone-based password reset not yet implemented', 501);
+        }
+        
+    } catch (error) {
+        console.error('❌ sendPasswordResetEmailOrSMS error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Legacy update password
+ * @deprecated Use resetPasswordService instead
+ */
+export const updatePassword = async (emailOrPhone, newPassword) => {
+    try {
+        console.log('⚠️ DEPRECATED: updatePassword called - use resetPasswordService instead');
+        
+        const isEmail = emailOrPhone.includes('@');
+        
+        // Find user
+        const users = await db.query(`
+            SELECT id, email, username 
+            FROM users 
+            WHERE ${isEmail ? 'email' : 'phone'} = ?
+        `, [emailOrPhone]);
+        
+        if (!users || users.length === 0) {
+            throw new CustomError('User not found', 404);
+        }
+        
+        const user = users[0];
+        
+        // Hash new password
+        const saltRounds = 12;
+        const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+        
+        // Update password
+        await db.query(`
+            UPDATE users 
+            SET password_hash = ?, resetToken = NULL, resetTokenExpiry = NULL, updatedAt = NOW()
+            WHERE id = ?
+        `, [passwordHash, user.id]);
+        
+        console.log('✅ Password updated for user:', user.email);
+        
+        return {
+            success: true,
+            message: 'Password updated successfully',
+            userId: user.id
+        };
+        
+    } catch (error) {
+        console.error('❌ updatePassword error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Legacy verify reset code
+ * @deprecated Use verifyResetTokenService instead
+ */
+export const verifyResetCode = async (emailOrPhone, verificationCode) => {
+    try {
+        console.log('⚠️ DEPRECATED: verifyResetCode called - use verifyResetTokenService instead');
+        
+        const isEmail = emailOrPhone.includes('@');
+        
+        // Find user
+        const users = await db.query(`
+            SELECT id, email, username, verification_code, codeExpiry 
+            FROM users 
+            WHERE ${isEmail ? 'email' : 'phone'} = ?
+        `, [emailOrPhone]);
+        
+        if (!users || users.length === 0) {
+            throw new CustomError('User not found', 404);
+        }
+        
+        const user = users[0];
+        
+        if (user.verification_code !== verificationCode || user.codeExpiry < Date.now()) {
+            throw new CustomError('Invalid or expired verification code', 400);
+        }
+        
+        // Clear verification code
+        await db.query(`
+            UPDATE users 
+            SET verification_code = NULL, codeExpiry = NULL, updatedAt = NOW()
+            WHERE id = ?
+        `, [user.id]);
+        
+        console.log('✅ Reset code verified for user:', user.email);
+        
+        return {
+            success: true,
+            message: 'Verification code validated',
+            userId: user.id
+        };
+        
+    } catch (error) {
+        console.error('❌ verifyResetCode error:', error);
+        throw error;
+    }
+};
+
+// ===============================================
+// EXPORT ALL SERVICES
+// ===============================================
+
+export default {
+    // Main services
+    registerUserService,
+    loginUserService,
+    sendVerificationCodeService,
+    sendPasswordResetService,
+    resetPasswordService,
+    verifyResetTokenService,
+    getUserByIdService,
+    updateUserVerificationService,
+    validateTokenService,
+    cleanupExpiredCodesService,
+    getAuthStatsService,
+    
+    // Utility functions
+    generateVerificationCode,
+    generateApplicationTicket,
+    generateConverseId,
+    ensureUniqueConverseId,
+    
+    // Legacy compatibility
+    sendPasswordResetEmailOrSMS,
+    updatePassword,
+    verifyResetCode
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+//============================================================================================================
+
+
+
+
+
+// ikootaapi/middlewares/auth.middleware.js (FIXED VERSION)
+import jwt from 'jsonwebtoken';
+import db from '../config/db.js';
+import CustomError from '../utils/CustomError.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+export const authenticate = async (req, res, next) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        
+        if (!token) {
+            throw new CustomError('Access token required', 401);
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        // ✅ FIX 1: Check if decoded.user_id exists and is valid
+        if (!decoded.user_id) {
+            console.error('Token missing user_id:', decoded);
+            throw new CustomError('Invalid token: missing user ID', 401);
+        }
+
+        // ✅ FIX 2: Proper database query with error handling
+        const users = await db.query(`
+            SELECT id, username, email, converse_id, role, is_member, 
+                   membership_stage, is_identity_masked, isbanned
+            FROM users 
+            WHERE id = ?
+        `, [decoded.user_id]);
+
+        // ✅ FIX 3: Robust array checking
+        if (!users || !Array.isArray(users) || users.length === 0) {
+            console.error('User not found in database:', decoded.user_id);
+            throw new CustomError('User not found', 404);
+        }
+
+        const user = users[0]; // Now safe to access
+
+        // ✅ FIX 4: Check ban status
+        if (user.isbanned) {
+            console.warn('Banned user attempted access:', user.id);
+            throw new CustomError('User is banned', 403);
+        }
+
+        // ✅ FIX 5: Add decoded token data to user object for consistency
+        req.user = {
+            ...user,
+            // Add token data for backward compatibility
+            user_id: decoded.user_id,
+            token_role: decoded.role,
+            token_membership_stage: decoded.membership_stage,
+            token_is_member: decoded.is_member
+        };
+        
+        console.log('✅ User authenticated successfully:', {
+            id: user.id,
+            email: user.email,
+            role: user.role
+        });
+        
+        next();
+    } catch (error) {
+        console.error('❌ Authentication error:', {
+            message: error.message,
+            token: req.headers.authorization ? 'Present' : 'Missing',
+            timestamp: new Date().toISOString()
+        });
+        
+        // ✅ FIX 6: Better error responses
+        let statusCode = error.statusCode || 401;
+        let errorMessage = error.message || 'Authentication failed';
+        
+        if (error.name === 'JsonWebTokenError') {
+            statusCode = 401;
+            errorMessage = 'Invalid token';
+        } else if (error.name === 'TokenExpiredError') {
+            statusCode = 401;
+            errorMessage = 'Token expired';
+        }
+        
+        res.status(statusCode).json({ 
+            success: false,
+            error: errorMessage,
+            errorType: 'authentication_error',
+            timestamp: new Date().toISOString()
+        });
+    }
+};
+
+export const requireAdmin = (req, res, next) => {
+    if (!req.user || !['admin', 'super_admin'].includes(req.user.role)) {
+        return res.status(403).json({
+            success: false,
+            error: 'Admin access required',
+            errorType: 'authorization_error'
+        });
+    }
+    next();
+};
+
+export const requireSuperAdmin = (req, res, next) => {
+    if (!req.user || req.user.role !== 'super_admin') {
+        return res.status(403).json({
+            success: false,
+            error: 'Super admin access required',
+            errorType: 'authorization_error'
+        });
+    }
+    next();
+};
+
+export const authorize = (requiredRoles) => {
+    return async (req, res, next) => {
+        try {
+            const user = req.user;
+            
+            if (!user) {
+                return res.status(401).json({ 
+                    success: false,
+                    error: 'Authorization failed. No user found.',
+                    errorType: 'authorization_error'
+                });
+            }
+
+            // ✅ FIX 7: Use the user object directly (it already has the role)
+            if (!requiredRoles.includes(user.role)) {
+                return res.status(403).json({ 
+                    success: false,
+                    error: 'Authorization failed. Insufficient permissions.',
+                    errorType: 'authorization_error',
+                    requiredRoles,
+                    userRole: user.role
+                });
+            }
+
+            next();
+        } catch (error) {
+            console.error('Error in authorize middleware:', error.message);
+            res.status(403).json({ 
+                success: false,
+                error: 'Authorization failed.',
+                errorType: 'authorization_error'
+            });
+        }
+    };
+};
+
+export const cacheMiddleware = (duration = 300) => {
+    const cache = new Map();
+    return (req, res, next) => {
+        const key = req.originalUrl;
+        const cached = cache.get(key);
+        
+        if (cached && Date.now() - cached.timestamp < duration * 1000) {
+            return res.json(cached.data);
+        }
+        
+        const originalSend = res.json;
+        res.json = function(data) {
+            cache.set(key, { data, timestamp: Date.now() });
+            originalSend.call(this, data);
+        };
+        
+        next();
+    };
+};
+
+
+
+
+
+
+
+
+
+
+
+//============================================================================================================
+//=============================================================================================================
+
+// ikootaclient/src/hooks/useAuth.js
+import { useState, useEffect } from 'react';
+import { jwtDecode } from 'jwt-decode';
+
+export const useAuth = () => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem("token");
+      
+      if (!token) {
+        // Check for token in cookies
+        const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("access_token="));
+        if (tokenCookie) {
+          const cookieToken = tokenCookie.split("=")[1];
+          try {
+            const decoded = jwtDecode(cookieToken);
+            if (decoded.exp * 1000 > Date.now()) {
+              setUser(decoded);
+            }
+          } catch (error) {
+            console.error('Invalid token in cookie');
+          }
+        }
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        const decoded = jwtDecode(token);
+        if (decoded.exp * 1000 > Date.now()) {
+          setUser(decoded);
+        } else {
+          localStorage.removeItem("token");
+        }
+      } catch (error) {
+        localStorage.removeItem("token");
+      }
+      
+      setLoading(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  const login = (token) => {
+    localStorage.setItem("token", token);
+    try {
+      const decoded = jwtDecode(token);
+      setUser(decoded);
+    } catch (error) {
+      console.error('Invalid token provided to login');
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    setUser(null);
+  };
+
+  return {
+    user,
+    loading,
+    isAuthenticated: !!user,
+    isAdmin: user?.role === 'admin' || user?.isAdmin === true,
+    login,
+    logout
+  };
+};
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+ 
+//ikootaclient\src\components\service\api.js - REPLACE YOUR EXISTING FILE WITH THIS
+import axios from 'axios';
+
+// ✅ CRITICAL CHANGE: Use /api instead of full URL to use proxy
+const api = axios.create({
+  baseURL: 'http://localhost:3000/api', // This will use the Vite proxy to forward to localhost:3000/api
+  timeout: 15000,
+  withCredentials: true, // Important for session cookies
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// ✅ SIMPLIFIED: Single request interceptor
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    console.log('🔍 API Request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      baseURL: config.baseURL,
+      fullURL: `${config.baseURL}${config.url}`,
+      hasToken: !!token,
+      headers: config.headers
+    });
+    
+    return config;
+  },
+  (error) => {
+    console.error('❌ Request interceptor error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// ✅ ENHANCED: Response interceptor with better error handling
+api.interceptors.response.use(
+  (response) => {
+    console.log('✅ API Response:', {
+      status: response.status,
+      url: response.config.url,
+      data: response.data
+    });
+    return response;
+  },
+  (error) => {
+    console.error('❌ API Response Error:', {
+      status: error.response?.status,
+      url: error.config?.url,
+      data: error.response?.data,
+      message: error.message
+    });
+    
+    // ✅ SPECIFIC: Check for HTML response (routing issue)
+    if (error.response?.data && typeof error.response.data === 'string' && error.response.data.includes('<!doctype')) {
+      console.error('❌ Received HTML instead of JSON - this is a routing/proxy issue');
+      console.error('Full HTML response:', error.response.data.substring(0, 200));
+    }
+    
+    // Handle authentication errors
+    if (error.response?.status === 401) {
+      console.log('🔐 Unauthorized - removing token');
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
+    }
+    
+    // Enhance error object with useful info
+    const enhancedError = {
+      ...error,
+      message: error.response?.data?.message || 
+               error.response?.data?.error || 
+               error.message || 
+               'Network Error',
+      status: error.response?.status,
+      url: error.config?.url
+    };
+    
+    return Promise.reject(enhancedError);
+  }
+);
+
+export default api;
+
+
+
+
+
+
+ 
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+// ikootaclient/src/components/config/accessMatrix.js
+// ✅ STANDARDIZED VERSION - Two Clear Levels: pre_member and member
+
+const ACCESS_MATRIX = {
+  // Super Admin - Full access to everything
+  super_admin: {
+    routes: ['/', '/admin/*', '/iko', '/towncrier', '/application-survey', '/dashboard', '/full-membership/*'],
+    api_endpoints: ['ALL'],
+    default_redirect: '/admin',
+    dashboard_redirect: '/dashboard',
+    permissions: ['admin', 'iko', 'towncrier', 'dashboard', 'membership_management', 'all'],
+    userType: 'admin',
+    canAccess: {
+      iko: true,
+      towncrier: true,
+      admin: true,
+      dashboard: true,
+      membershipApplication: true
+    }
+  },
+
+  // Admin - Most access
+  admin: {
+    routes: ['/', '/admin/*', '/iko', '/towncrier', '/dashboard', '/full-membership/*'],
+    api_endpoints: [
+      '/admin/*',
+      '/membership/*', 
+      '/users/*',
+      '/classes/*',
+      '/teachings/*',
+      '/chats/*'
+    ],
+    default_redirect: '/admin',
+    dashboard_redirect: '/dashboard',
+    permissions: ['admin', 'iko', 'towncrier', 'dashboard', 'membership_management'],
+    userType: 'admin',
+    canAccess: {
+      iko: true,
+      towncrier: true,
+      admin: true,
+      dashboard: true,
+      membershipApplication: true
+    }
+  },
+
+  // ✅ MEMBER - Full access (highest non-admin level)
+  member: {
+    conditions: {
+      membership_stage: 'member',
+      is_member: 'member',
+      status: 'member'
+    },
+    routes: ['/', '/iko', '/towncrier', '/dashboard', '/profile'],
+    api_endpoints: [
+      '/teachings/*',
+      '/chats/*',
+      '/users/profile',
+      '/membership/dashboard'
+    ],
+    default_redirect: '/iko',
+    dashboard_redirect: '/dashboard',
+    permissions: ['iko', 'towncrier', 'dashboard'],
+    userType: 'member',
+    canAccess: {
+      iko: true,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: false // Already a member
+    }
+  },
+
+  // ✅ PRE-MEMBER with Pending Membership Application
+  pre_member_pending_upgrade: {
+    conditions: {
+      status: 'pre_member_pending_upgrade',
+      membershipApplicationStatus: 'pending'
+    },
+    routes: ['/', '/towncrier', '/dashboard', '/full-membership/status', '/full-membership/pending'],
+    api_endpoints: [
+      '/teachings/*',
+      '/membership/dashboard',
+      '/membership/full-membership-status/*'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard', 'membership_status'],
+    userType: 'pre_member',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: false // Cannot apply while pending
+    },
+    statusMessage: 'Your membership application is under review'
+  },
+
+  // ✅ PRE-MEMBER with Declined Application (can reapply)
+  pre_member_can_reapply: {
+    conditions: {
+      status: 'pre_member_can_reapply',
+      membershipApplicationStatus: 'declined'
+    },
+    routes: ['/', '/towncrier', '/dashboard', '/full-membership/info', '/full-membership/apply', '/full-membership/declined'],
+    api_endpoints: [
+      '/teachings/*',
+      '/membership/dashboard',
+      '/membership/full-membership-status/*',
+      '/membership/full-membership/apply'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard', 'membership_reapply'],
+    userType: 'pre_member',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: true // Can reapply
+    },
+    statusMessage: 'You can reapply for full membership'
+  },
+
+  // ✅ PRE-MEMBER - Eligible for membership application
+  pre_member: {
+    conditions: {
+      membership_stage: 'pre_member',
+      status: 'pre_member',
+      membershipApplicationStatus: ['not_applied', null, undefined]
+    },
+    routes: ['/', '/towncrier', '/dashboard', '/full-membership/info', '/full-membership/apply'],
+    api_endpoints: [
+      '/teachings/*',
+      '/membership/dashboard',
+      '/membership/full-membership-status/*',
+      '/membership/full-membership/apply'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard', 'membership_apply'],
+    userType: 'pre_member',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: true // Can apply
+    },
+    statusMessage: 'You are eligible to apply for full membership'
+  },
+
+  // Applicant - Very limited access
+  applicant: {
+    conditions: {
+      membership_stage: 'applicant'
+    },
+    routes: ['/', '/towncrier', '/application-survey', '/application-status', '/dashboard'],
+    api_endpoints: [
+      '/membership/survey/*',
+      '/teachings/*'
+    ],
+    default_redirect: '/application-survey',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard'],
+    userType: 'applicant',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: false
+    }
+  },
+
+  // Applied/Pending users (initial application)
+  applied: {
+    conditions: {
+      is_member: ['applied', 'pending']
+    },
+    routes: ['/', '/towncrier', '/application-status', '/pending-verification', '/dashboard'],
+    api_endpoints: [
+      '/membership/survey/*',
+      '/teachings/*'
+    ],
+    default_redirect: '/towncrier',
+    dashboard_redirect: '/dashboard',
+    permissions: ['towncrier', 'dashboard'],
+    userType: 'pending',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: true,
+      membershipApplication: false
+    }
+  },
+
+  // Non-authenticated users
+  guest: {
+    routes: ['/', '/login', '/register', '/signup', '/forgot-password'],
+    api_endpoints: [
+      '/auth/*',
+      '/teachings/public'
+    ],
+    default_redirect: '/login',
+    dashboard_redirect: '/login',
+    permissions: [],
+    userType: 'guest',
+    canAccess: {
+      iko: false,
+      towncrier: true,
+      admin: false,
+      dashboard: false,
+      membershipApplication: false
+    }
+  }
+};
+
+// ✅ STANDARDIZED: Helper function with clear member/pre_member logic
+const checkUserAccess = (user, requestedRoute = null, requestedEndpoint = null) => {
+  if (!user) {
+    return ACCESS_MATRIX.guest;
+  }
+
+  console.log('🔍 Checking user access with standardized levels for:', {
+    role: user.role,
+    membership_stage: user.membership_stage,
+    is_member: user.is_member,
+    status: user.status,
+    membershipApplicationStatus: user.membershipApplicationStatus
+  });
+
+  const role = user.role?.toLowerCase();
+  const status = user.status || user.finalStatus;
+
+  // ✅ Admin checks (preserved from original)
+  if (role === 'super_admin' && ACCESS_MATRIX.super_admin) {
+    console.log('👑 Super admin access granted');
+    return ACCESS_MATRIX.super_admin;
+  }
+  
+  if (role === 'admin' && ACCESS_MATRIX.admin) {
+    console.log('👑 Admin access granted');
+    return ACCESS_MATRIX.admin;
+  }
+
+  // ✅ STANDARDIZED: Status-based access
+  switch (status) {
+    case 'member':
+      console.log('💎 Member access granted');
+      return ACCESS_MATRIX.member;
+      
+    case 'pre_member_pending_upgrade':
+      console.log('⏳ Pre-member with pending upgrade access');
+      return ACCESS_MATRIX.pre_member_pending_upgrade;
+      
+    case 'pre_member_can_reapply':
+      console.log('🔄 Pre-member can reapply access');
+      return ACCESS_MATRIX.pre_member_can_reapply;
+      
+    case 'pre_member':
+      console.log('👤 Pre-member access granted');
+      return ACCESS_MATRIX.pre_member;
+      
+    case 'pending_verification':
+    case 'applied':
+      console.log('⏳ Applied/Pending access granted');
+      return ACCESS_MATRIX.applied;
+      
+    default:
+      console.log('📝 Default applicant access granted');
+      return ACCESS_MATRIX.applicant;
+  }
+};
+
+// ✅ STANDARDIZED: Usage function (preserving original structure)
+const getUserAccess = (userData) => {
+  if (!userData) {
+    return {
+      userType: 'guest',
+      defaultRoute: '/',
+      dashboardRoute: '/login',
+      permissions: [],
+      canAccess: ACCESS_MATRIX.guest.canAccess,
+      canAccessIko: false,
+      canAccessAdmin: false,
+      canAccessTowncrier: true,
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'not_eligible',
+      allowedRoutes: ACCESS_MATRIX.guest.routes,
+      allowedEndpoints: ACCESS_MATRIX.guest.api_endpoints
+    };
+  }
+
+  const access = checkUserAccess(userData);
+  
+  return {
+    userType: access.userType,
+    defaultRoute: access.default_redirect,
+    dashboardRoute: access.dashboard_redirect,
+    permissions: access.permissions || [],
+    canAccess: access.canAccess,
+    statusMessage: access.statusMessage,
+    
+    // ✅ PRESERVED: Original properties
+    canAccessIko: access.routes.includes('/iko'),
+    canAccessAdmin: access.routes.some(route => route.startsWith('/admin')),
+    canAccessTowncrier: access.routes.includes('/towncrier'),
+    
+    // ✅ STANDARDIZED: Membership properties
+    canApplyForMembership: access.canAccess?.membershipApplication === true && 
+                          userData.membershipApplicationStatus === 'not_applied',
+    canReapplyForMembership: access.canAccess?.membershipApplication === true && 
+                            userData.membershipApplicationStatus === 'declined',
+    membershipApplicationStatus: userData.membershipApplicationStatus || 'not_applied',
+    membershipTicket: userData.membershipTicket,
+    
+    allowedRoutes: access.routes,
+    allowedEndpoints: access.api_endpoints
+  };
+};
+
+// ✅ STANDARDIZED: Membership application route function
+export const getMembershipApplicationRoute = (userData) => {
+  const access = getUserAccess(userData);
+  const status = userData?.membershipApplicationStatus;
+  
+  switch (status) {
+    case 'not_applied':
+      return access.canApplyForMembership ? '/full-membership/info' : '/towncrier';
+    case 'pending':
+      return '/full-membership/pending';
+    case 'approved':
+      return '/iko'; // Members go to Iko
+    case 'declined':
+      return '/full-membership/declined';
+    default:
+      return '/dashboard';
+  }
+};
+
+export const canAccessMembershipFeature = (userData, feature) => {
+  const access = getUserAccess(userData);
+  
+  switch (feature) {
+    case 'apply':
+      return access.canApplyForMembership;
+    case 'reapply':
+      return access.canReapplyForMembership;
+    case 'status':
+      return access.userType !== 'guest';
+    case 'iko_chat':
+      return access.canAccessIko;
+    default:
+      return false;
+  }
+};
+
+// ✅ PRESERVED: Route checking from original
+export const canAccessRoute = (userData, route) => {
+  const access = getUserAccess(userData);
+  
+  // Check direct route access
+  if (access.allowedRoutes.includes(route)) {
+    return true;
+  }
+  
+  // Check wildcard routes
+  const hasWildcardAccess = access.allowedRoutes.some(allowedRoute => {
+    if (allowedRoute.endsWith('/*')) {
+      const basePath = allowedRoute.replace('/*', '');
+      return route.startsWith(basePath);
+    }
+    return false;
+  });
+  
+  if (hasWildcardAccess) {
+    return true;
+  }
+  
+  // ✅ STANDARDIZED: Membership route checks
+  if (route.startsWith('/full-membership/')) {
+    const subRoute = route.replace('/full-membership/', '');
+    
+    switch (subRoute) {
+      case 'info':
+      case 'apply':
+        return access.canApplyForMembership || access.canReapplyForMembership;
+      case 'pending':
+        return userData?.membershipApplicationStatus === 'pending';
+      case 'approved':
+        return userData?.membershipApplicationStatus === 'approved';
+      case 'declined':
+        return userData?.membershipApplicationStatus === 'declined';
+      case 'status':
+        return access.userType !== 'guest';
+      default:
+        return access.canAccess.membershipApplication;
+    }
+  }
+  
+  // ✅ PRESERVED: Original route checks
+  switch (route) {
+    case '/admin':
+      return access.canAccess.admin;
+    case '/iko':
+      return access.canAccess.iko;
+    case '/towncrier':
+      return access.canAccess.towncrier;
+    case '/dashboard':
+      return access.canAccess.dashboard;
+    default:
+      return false;
+  }
+};
+
+// ✅ STANDARDIZED: User status with clear levels (updated for member vs full_member)
+export const getUserStatusString = (userData) => {
+  if (!userData) return 'guest';
+  
+  const role = userData.role?.toLowerCase();
+  const memberStatus = userData.is_member?.toLowerCase();
+  const membershipStage = userData.membership_stage?.toLowerCase();
+  const status = userData.status || userData.finalStatus;
+
+  // Admin users
+  if (role === 'admin' || role === 'super_admin') return 'admin';
+  
+  // ✅ STANDARDIZED: Member (no more "full_member")
+  if (status === 'member' || 
+      (memberStatus === 'member' && membershipStage === 'member')) {
+    return 'member';
+  }
+  
+  // ✅ STANDARDIZED: Pre-member states
+  if (status === 'pre_member_pending_upgrade') return 'pre_member_pending_upgrade';
+  if (status === 'pre_member_can_reapply') return 'pre_member_can_reapply';
+  
+  if (status === 'pre_member' || 
+      memberStatus === 'approved' && membershipStage === 'pre' ||
+      membershipStage === 'pre_member') {
+    return 'pre_member';
+  }
+  
+  // Pending/Applied
+  if (memberStatus === 'applied' || memberStatus === 'pending') return 'pending_verification';
+  
+  // Denied
+  if (memberStatus === 'declined' || memberStatus === 'denied') return 'denied';
+  
+  return 'authenticated';
+};
+
+// ✅ PRESERVED: Dashboard route function
+export const getDashboardRoute = (userData) => {
+  const access = getUserAccess(userData);
+  return access.dashboardRoute || '/dashboard';
+};
+
+// ✅ PRESERVED: Default route function
+export const getDefaultRoute = (userData) => {
+  const access = getUserAccess(userData);
+  return access.defaultRoute;
+};
+
+// ✅ PRESERVED: Endpoint access check
+export const canAccessEndpoint = (userData, endpoint) => {
+  const access = checkUserAccess(userData);
+  
+  if (access.api_endpoints.includes('ALL')) {
+    return true;
+  }
+  
+  if (access.api_endpoints.includes(endpoint)) {
+    return true;
+  }
+  
+  return access.api_endpoints.some(allowedEndpoint => {
+    if (allowedEndpoint.endsWith('/*')) {
+      const basePath = allowedEndpoint.replace('/*', '');
+      return endpoint.startsWith(basePath);
+    }
+    return false;
+  });
+};
+
+// ✅ PRESERVED: Export everything (maintaining backward compatibility)
+export { 
+  ACCESS_MATRIX, 
+  checkUserAccess, 
+  getUserAccess 
+};
+
+// ✅ PRESERVED: Default export for modern import styles
+export default {
+  ACCESS_MATRIX,
+  checkUserAccess,
+  getUserAccess,
+  getDefaultRoute,
+  getDashboardRoute,
+  canAccessRoute,
+  getUserStatusString,
+  canAccessEndpoint,
+  getMembershipApplicationRoute,
+  canAccessMembershipFeature
+};
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+// ikootaclient/src/components/auth/UserStatus.jsx 
+// ✅ COMPLETE VERSION - Fixed token validation, keeping all existing logic
+
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { jwtDecode } from 'jwt-decode';
+import api from '../service/api';
+
+const UserContext = createContext();
+
+export const useUser = () => {
+  const context = useContext(UserContext);
+  if (!context) {
+    throw new Error('useUser must be used within a UserProvider');
+  }
+  return context;
+};
+
+// ✅ COMPLETE: Your determineUserStatus function (unchanged from paste.txt document 5)
+const determineUserStatus = ({ 
+  role, 
+  memberStatus, 
+  membershipStage, 
+  userId, 
+  approvalStatus,
+  fullMembershipApplicationStatus,
+  fullMembershipAppliedAt 
+}) => {
+  console.log('🔍 Status determination with standardized levels:', { 
+    role, memberStatus, membershipStage, userId, approvalStatus, fullMembershipApplicationStatus 
+  });
+
+  // Normalize empty strings
+  const normalizedMemberStatus = memberStatus === '' ? null : memberStatus;
+  const normalizedMembershipStage = membershipStage === '' ? null : membershipStage;
+  const normalizedRole = role === '' ? 'user' : role;
+  const normalizedApplicationStatus = fullMembershipApplicationStatus === '' ? 'not_applied' : fullMembershipApplicationStatus;
+
+  console.log('🔧 Normalized values:', { 
+    normalizedRole, 
+    normalizedMemberStatus, 
+    normalizedMembershipStage, 
+    approvalStatus,
+    normalizedApplicationStatus
+  });
+
+  // ✅ Admin check
+  if (normalizedRole === 'admin' || normalizedRole === 'super_admin') {
+    console.log('👑 Admin user detected');
+    return {
+      isMember: true, // Admins have full access
+      isPendingMember: false,
+      userType: 'admin',
+      status: 'admin',
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'admin_exempt',
+      canAccessTowncrier: true,
+      canAccessIko: true
+    };
+  }
+
+  // ✅ FULL MEMBER CHECK (member level - highest non-admin level)
+  if (normalizedMemberStatus === 'member' && normalizedMembershipStage === 'member') {
+    console.log('💎 Full member detected');
+    return {
+      isMember: true,
+      isPendingMember: false,
+      userType: 'member',
+      status: 'member',
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'approved', // They already are members
+      canAccessTowncrier: true,
+      canAccessIko: true
+    };
+  }
+
+  // ✅ PRE-MEMBER WITH MEMBERSHIP APPLICATION LOGIC
+  if (normalizedMemberStatus === 'pre_member' || 
+      normalizedMembershipStage === 'pre_member' ||
+      (normalizedMemberStatus === 'granted' && normalizedMembershipStage === 'pre_member') ||
+      ((normalizedMemberStatus === 'applied' || normalizedMemberStatus === null) && 
+       (approvalStatus === 'granted' || approvalStatus === 'approved'))) {
+    
+    console.log('👤 Pre-member detected, checking membership application status...');
+    
+    // Handle different application states for pre-members
+    switch (normalizedApplicationStatus) {
+      case 'pending':
+        console.log('⏳ Pre-member with pending membership application');
+        return {
+          isMember: false,
+          isPendingMember: true,
+          userType: 'pre_member',
+          status: 'pre_member_pending_upgrade',
+          canApplyForMembership: false, // Already applied
+          membershipApplicationStatus: 'pending',
+          canAccessTowncrier: true,
+          canAccessIko: false
+        };
+        
+      case 'approved':
+        // If application approved, they should be upgraded to member
+        console.log('✅ Pre-member with approved application - should be member now');
+        return {
+          isMember: true,
+          isPendingMember: false,
+          userType: 'member',
+          status: 'member',
+          canApplyForMembership: false,
+          membershipApplicationStatus: 'approved',
+          canAccessTowncrier: true,
+          canAccessIko: true
+        };
+        
+      case 'declined':
+        console.log('❌ Pre-member with declined application');
+        return {
+          isMember: false,
+          isPendingMember: true,
+          userType: 'pre_member',
+          status: 'pre_member_can_reapply',
+          canApplyForMembership: true, // Can reapply
+          membershipApplicationStatus: 'declined',
+          canAccessTowncrier: true,
+          canAccessIko: false
+        };
+        
+      case 'not_applied':
+      default:
+        console.log('📝 Pre-member eligible for membership application');
+        return {
+          isMember: false,
+          isPendingMember: true,
+          userType: 'pre_member',
+          status: 'pre_member',
+          canApplyForMembership: true,
+          membershipApplicationStatus: 'not_applied',
+          canAccessTowncrier: true,
+          canAccessIko: false
+        };
+    }
+  }
+
+  // ✅ Applied/Pending check (for initial applications)
+  if (normalizedMemberStatus === 'applied' || normalizedMemberStatus === 'pending' || normalizedMemberStatus === null) {
+    console.log('⏳ Applicant detected');
+    return {
+      isMember: false,
+      isPendingMember: true,
+      userType: 'applicant',
+      status: 'pending_verification',
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'not_eligible',
+      canAccessTowncrier: false,
+      canAccessIko: false
+    };
+  }
+  
+  // Denied/Suspended check
+  if (normalizedMemberStatus === 'denied' || normalizedMemberStatus === 'suspended' || normalizedMemberStatus === 'declined') {
+    console.log('❌ Denied user detected');
+    return {
+      isMember: false,
+      isPendingMember: false,
+      userType: 'denied',
+      status: 'denied',
+      canApplyForMembership: false,
+      membershipApplicationStatus: 'not_eligible',
+      canAccessTowncrier: false,
+      canAccessIko: false
+    };
+  }
+
+  // Default fallback
+  console.log('⚠️ Using fallback status for authenticated user');
+  return {
+    isMember: false,
+    isPendingMember: false,
+    userType: 'authenticated',
+    status: 'authenticated',
+    canApplyForMembership: false,
+    membershipApplicationStatus: 'unknown',
+    canAccessTowncrier: false,
+    canAccessIko: false
+  };
+};
+
+export const UserProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [membershipStatus, setMembershipStatus] = useState('not loaded');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const initializationRef = useRef(false);
+  const membershipFetchRef = useRef(false);
+  const lastFetchTime = useRef(0);
+  const RATE_LIMIT_MS = 5000;
+
+  console.log('🚀 Initializing UserProvider with standardized levels');
+
+  const updateUserState = (newState) => {
+    console.log('👤 User state updated:', newState);
+    setUser(newState.user || null);
+    setMembershipStatus(newState.membershipStatus || 'not loaded');
+    setLoading(newState.loading || false);
+    setError(newState.error || null);
+  };
+
+  // ✅ COMPLETE: Your fetchMembershipApplicationStatus function
+  const fetchMembershipApplicationStatus = async (userId) => {
+    try {
+      const response = await api.get(`/membership/status/${userId}`);
+      console.log('✅ Membership application status response:', response.data);
+      return {
+        membershipApplicationStatus: response.data.status || 'not_applied',
+        membershipAppliedAt: response.data.appliedAt,
+        membershipReviewedAt: response.data.reviewedAt,
+        membershipTicket: response.data.ticket,
+        membershipAdminNotes: response.data.adminNotes
+      };
+    } catch (error) {
+      console.log('⚠️ Membership application status not available:', error.message);
+      return {
+        membershipApplicationStatus: 'not_applied',
+        membershipAppliedAt: null,
+        membershipReviewedAt: null,
+        membershipTicket: null,
+        membershipAdminNotes: null
+      };
+    }
+  };
+
+  // ✅ COMPLETE: Your fetchMembershipStatus function
+  const fetchMembershipStatus = async () => {
+    const now = Date.now();
+    if (now - lastFetchTime.current < RATE_LIMIT_MS) {
+      console.log('🚫 Rate limited - skipping membership status fetch');
+      return;
+    }
+
+    if (membershipFetchRef.current) {
+      console.log('🚫 Membership fetch already in progress');
+      return;
+    }
+
+    membershipFetchRef.current = true;
+    lastFetchTime.current = now;
+
+    console.log('🔍 Fetching comprehensive membership status...');
+    
+    try {
+      const tokenData = getTokenUserData();
+      if (!tokenData) {
+        console.log('❌ No token data available');
+        membershipFetchRef.current = false;
+        return;
+      }
+
+      const [surveyResponse, membershipApplicationData] = await Promise.allSettled([
+        api.get('/user-status/survey/status'),
+        fetchMembershipApplicationStatus(tokenData.user_id)
+      ]);
+
+      let surveyData = {};
+      if (surveyResponse.status === 'fulfilled') {
+        surveyData = surveyResponse.value.data;
+      } else {
+        console.log('⚠️ Survey status fetch failed:', surveyResponse.reason?.message);
+      }
+
+      let membershipApplicationInfo = {};
+      if (membershipApplicationData.status === 'fulfilled') {
+        membershipApplicationInfo = membershipApplicationData.value;
+      } else {
+        console.log('⚠️ Membership application fetch failed:', membershipApplicationData.reason?.message);
+      }
+
+      // ✅ COMPLETE: Combine all data sources
+      const combinedUserData = {
+        user_id: tokenData.user_id,
+        username: tokenData.username,
+        email: tokenData.email,
+        membership_stage: tokenData.membership_stage,
+        is_member: tokenData.is_member,
+        role: tokenData.role,
+        // Initial membership data
+        survey_completed: surveyData.survey_completed,
+        approval_status: surveyData.approval_status,
+        needs_survey: surveyData.needs_survey,
+        survey_data: surveyData.survey_data,
+        // Membership application data
+        ...membershipApplicationInfo
+      };
+
+      console.log('✅ Combined user data with membership application status:', combinedUserData);
+
+      // ✅ COMPLETE: Status determination
+      const statusResult = determineUserStatus({
+        role: combinedUserData.role,
+        memberStatus: combinedUserData.is_member,
+        membershipStage: combinedUserData.membership_stage,
+        userId: combinedUserData.user_id,
+        approvalStatus: combinedUserData.approval_status,
+        fullMembershipApplicationStatus: combinedUserData.membershipApplicationStatus,
+        fullMembershipAppliedAt: combinedUserData.membershipAppliedAt
+      });
+
+      console.log('✅ Standardized status determined:', statusResult);
+
+      let finalStatus = statusResult.status;
+
+      // Additional checks for survey requirements (excluding admins and members)
+      if (finalStatus !== 'admin' && finalStatus !== 'member') {
+        if (surveyData.needs_survey === true || surveyData.survey_completed === false) {
+          finalStatus = 'needs_application';
+          console.log('🚨 User needs to complete initial application survey');
+        }
+      }
+
+      updateUserState({
+        user: {
+          ...combinedUserData,
+          ...statusResult,
+          finalStatus
+        },
+        membershipStatus: 'loaded',
+        status: finalStatus,
+        loading: false,
+        error: null
+      });
+
+    } catch (error) {
+      console.error('❌ Error fetching membership status:', error);
+      
+      const tokenData = getTokenUserData();
+      if (tokenData) {
+        const fallbackStatus = determineUserStatus({
+          role: tokenData.role,
+          memberStatus: tokenData.is_member,
+          membershipStage: tokenData.membership_stage,
+          userId: tokenData.user_id,
+          approvalStatus: null,
+          fullMembershipApplicationStatus: 'not_applied'
+        });
+        
+        updateUserState({
+          user: {
+            ...tokenData,
+            ...fallbackStatus
+          },
+          membershipStatus: 'error',
+          status: fallbackStatus.status,
+          loading: false,
+          error: `API Error: ${error.message}`
+        });
+      } else {
+        updateUserState({
+          user: null,
+          membershipStatus: 'error',
+          status: 'error',
+          loading: false,
+          error: error.message
+        });
+      }
+    } finally {
+      membershipFetchRef.current = false;
+    }
+  };
+
+  // ✅ ENHANCED: Fixed token validation with better cleaning
+  const getTokenUserData = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+
+    try {
+      // ✅ ENHANCED: Clean the token before decoding (same as Login.jsx)
+      const cleanToken = token
+        .replace(/^["']|["']$/g, '')  // Remove quotes
+        .replace(/^\s+|\s+$/g, '')    // Remove whitespace  
+        .replace(/\r?\n|\r/g, '');    // Remove newlines
+      
+      console.log('🔍 Cleaning token for validation:', {
+        original: token.substring(0, 20) + '...',
+        cleaned: cleanToken.substring(0, 20) + '...',
+        originalLength: token.length,
+        cleanedLength: cleanToken.length
+      });
+      
+      // ✅ ENHANCED: Validate token format (JWT should have 3 parts separated by dots)
+      const tokenParts = cleanToken.split('.');
+      if (tokenParts.length !== 3) {
+        console.error('❌ Invalid token format - not a valid JWT:', {
+          partsCount: tokenParts.length,
+          tokenStart: cleanToken.substring(0, 20),
+          originalStart: token.substring(0, 20)
+        });
+        localStorage.removeItem('token');
+        return null;
+      }
+      
+      const decoded = jwtDecode(cleanToken);
+      
+      if (decoded.exp * 1000 < Date.now()) {
+        console.log('⚠️ Token expired, removing...');
+        localStorage.removeItem('token');
+        return null;
+      }
+
+      console.log('🔍 Token user data:', decoded);
+      return decoded;
+    } catch (error) {
+      console.error('❌ Error decoding token:', error);
+      console.error('❌ Token that failed:', token.substring(0, 50) + '...');
+      localStorage.removeItem('token');
+      return null;
+    }
+  };
+
+  // ✅ COMPLETE: Your initializeUser function
+  const initializeUser = async () => {
+    if (initializationRef.current) {
+      console.log('🚫 User already initialized');
+      return;
+    }
+
+    initializationRef.current = true;
+    console.log('🔄 Initializing user with standardized levels...');
+
+    const tokenData = getTokenUserData();
+    
+    if (!tokenData) {
+      console.log('❌ No valid token found');
+      updateUserState({
+        user: null,
+        membershipStatus: 'not loaded',
+        status: 'guest',
+        loading: false,
+        error: null
+      });
+      return;
+    }
+
+    const initialStatus = determineUserStatus({
+      role: tokenData.role,
+      memberStatus: tokenData.is_member,
+      membershipStage: tokenData.membership_stage,
+      userId: tokenData.user_id,
+      approvalStatus: null,
+      fullMembershipApplicationStatus: 'not_applied'
+    });
+
+    updateUserState({
+      user: {
+        ...tokenData,
+        ...initialStatus
+      },
+      membershipStatus: 'loading',
+      status: initialStatus.status,
+      loading: true,
+      error: null
+    });
+
+    await fetchMembershipStatus();
+  };
+
+  useEffect(() => {
+    if (!initializationRef.current) {
+      initializeUser();
+    }
+  }, []);
+
+  // ✅ COMPLETE: All your other functions
+  const isAuthenticated = () => {
+    return !!user && !!localStorage.getItem('token');
+  };
+
+  const getUserStatus = () => {
+    if (!user) return 'guest';
+    
+    if (user.finalStatus) {
+      return user.finalStatus;
+    }
+    
+    if (user.status) {
+      return user.status;
+    }
+    
+    const fallbackStatus = determineUserStatus({
+      role: user.role,
+      memberStatus: user.is_member,
+      membershipStage: user.membership_stage,
+      userId: user.user_id,
+      approvalStatus: user.approval_status,
+      fullMembershipApplicationStatus: user.membershipApplicationStatus || 'not_applied'
+    });
+    
+    return fallbackStatus.status;
+  };
+
+  const refreshUser = async () => {
+    console.log('🔄 Refreshing user data...');
+    
+    const now = Date.now();
+    if (now - lastFetchTime.current > RATE_LIMIT_MS) {
+      membershipFetchRef.current = false;
+      await fetchMembershipStatus();
+    } else {
+      console.log('🚫 Refresh rate limited');
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    
+    initializationRef.current = false;
+    membershipFetchRef.current = false;
+    lastFetchTime.current = 0;
+    
+    updateUserState({
+      user: null,
+      membershipStatus: 'not loaded',
+      status: 'guest',
+      loading: false,
+      error: null
+    });
+  };
+
+  // ✅ COMPLETE: Your context value
+  const value = {
+    user,
+    membershipStatus,
+    loading,
+    error,
+    isAuthenticated: isAuthenticated(),
+    getUserStatus,
+    refreshUser,
+    updateUser: refreshUser,
+    logout,
+    // ✅ COMPLETE: Clear status checks based on the actual user status
+    isAdmin: () => getUserStatus() === 'admin',
+    isMember: () => {
+      const status = getUserStatus();
+      // ✅ Only return true for actual full members
+      return status === 'member';
+    },
+    isPreMember: () => {
+      const status = getUserStatus();
+      return status === 'pre_member' || status === 'pre_member_pending_upgrade' || status === 'pre_member_can_reapply';
+    },
+    // ✅ isPending should return true for pre-members (they are "pending" full membership)
+    isPending: () => {
+      const status = getUserStatus();
+      return status === 'pre_member' || status === 'pre_member_pending_upgrade' || status === 'pre_member_can_reapply' || status === 'pending_verification';
+    },
+    needsApplication: () => getUserStatus() === 'needs_application',
+    // ✅ Application status checks
+    isPendingUpgrade: () => getUserStatus() === 'pre_member_pending_upgrade',
+    canReapplyForMembership: () => getUserStatus() === 'pre_member_can_reapply',
+    canApplyForMembership: () => user?.canApplyForMembership === true,
+    getMembershipApplicationStatus: () => user?.membershipApplicationStatus || 'not_applied',
+    getMembershipTicket: () => user?.membershipTicket || null,
+    canAccessIko: () => user?.canAccessIko === true,
+    canAccessTowncrier: () => user?.canAccessTowncrier === true
+  };
+
+  return (
+    <UserContext.Provider value={value}>
+      {children}
+    </UserContext.Provider>
+  );
+};
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+// ikootaclient/src/components/auth/Signup.jsx - COMPLETE FIXED WITH ENHANCED DEBUGGING
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import './signup.css';
+
+const Signup = () => {
+  const [values, setValues] = useState({
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    phone: "",
+  });
+  
+  const [verificationStep, setVerificationStep] = useState('form'); // 'form', 'verification', 'success'
+  const [verificationMethod, setVerificationMethod] = useState(''); // 'email' or 'phone'
+  const [verificationCode, setVerificationCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [devCode, setDevCode] = useState(''); // For development
+  
+  axios.defaults.withCredentials = true;
+  const navigate = useNavigate();
+
+  // Step 1: Submit initial signup form and send verification code
+  const handleInitialSubmit = async (event) => {
+    event.preventDefault();
+    
+    // Validation
+    if (values.password !== values.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    
+    if (!values.username || !values.email || !values.password || !values.phone) {
+      alert("Please fill in all required fields!");
+      return;
+    }
+    
+    if (!verificationMethod) {
+      alert("Please select a verification method!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      console.log('🔍 Sending verification request:', {
+        email: values.email,
+        phone: values.phone,
+        method: verificationMethod
+      });
+      
+      // ✅ UPDATED: Use auth endpoint instead of membership endpoint
+      const verificationResponse = await axios.post("http://localhost:3000/api/auth/send-verification", {
+        email: values.email,
+        phone: values.phone,
+        method: verificationMethod, // ✅ Use 'method' to match database
+        username: values.username
+      });
+      
+      console.log('✅ Verification response:', verificationResponse.data);
+      
+      if (verificationResponse.status === 200) {
+        // ✅ Store dev code if provided (development mode)
+        if (verificationResponse.data.devCode) {
+          setDevCode(verificationResponse.data.devCode);
+          console.log('🛠️ Dev code received:', verificationResponse.data.devCode);
+        }
+        
+        setVerificationStep('verification');
+        alert(`Verification code sent to your ${verificationMethod}!`);
+      }
+    } catch (err) {
+      console.error('❌ Verification error:', err);
+      
+      let errorMessage = 'Failed to send verification code.';
+      
+      if (err.response?.status === 404) {
+        errorMessage = 'The verification endpoint is not available. Please check the server.';
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      alert(`${errorMessage} Please try again.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ ENHANCED: Step 2 - Verify code and complete registration with extensive debugging
+  const handleVerificationSubmit = async (event) => {
+    event.preventDefault();
+    
+    if (!verificationCode) {
+      alert("Please enter the verification code!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // ✅ ENHANCED: Clean and validate the verification code
+      const cleanedCode = verificationCode.trim();
+      
+      const requestData = {
+        username: values.username,
+        email: values.email,
+        password: values.password,
+        phone: values.phone,
+        verificationCode: cleanedCode,
+        verificationMethod
+      };
+      
+      console.log('🔍 Submitting registration with data:', {
+        ...requestData,
+        password: '***HIDDEN***' // Don't log the actual password
+      });
+      
+      // ✅ ENHANCED: Log verification code details for debugging
+      console.log('🔍 Verification code details:', {
+        original: verificationCode,
+        trimmed: cleanedCode,
+        length: cleanedCode.length,
+        type: typeof cleanedCode,
+        charCodes: [...cleanedCode].map(char => char.charCodeAt(0)),
+        isNumeric: /^\d+$/.test(cleanedCode),
+        devCodeMatch: devCode ? (cleanedCode === devCode) : 'No dev code available'
+      });
+      
+      // ✅ ENHANCED: Additional validation
+      if (cleanedCode.length !== 6) {
+        alert("Verification code must be exactly 6 digits!");
+        return;
+      }
+      
+      if (!/^\d+$/.test(cleanedCode)) {
+        alert("Verification code must contain only numbers!");
+        return;
+      }
+      
+      // ✅ UPDATED: Use auth endpoint instead of membership endpoint
+      const registerResponse = await axios.post("http://localhost:3000/api/auth/register", requestData, { 
+        withCredentials: true 
+      });
+      
+      console.log('✅ Registration response:', registerResponse.data);
+      
+      if (registerResponse.status === 201) {
+        setVerificationStep('success');
+        
+        // Use server-provided application ticket or generate fallback
+        const applicationTicket = registerResponse.data.user?.application_ticket || 
+                                generateApplicationTicket(values.username, values.email);
+        
+        setTimeout(() => {
+          navigate('/application-thankyou', { 
+            state: { 
+              applicationTicket,
+              username: values.username,
+              userId: registerResponse.data.user?.id
+            }
+          });
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('❌ Registration error:', err);
+      console.error('❌ Full error response:', err.response);
+      
+      // ✅ ENHANCED: Enhanced error logging and debugging
+      if (err.response?.data?.debug) {
+        console.error('🔍 Server debug info:', err.response.data.debug);
+      }
+      
+      let errorMessage = 'Registration failed.';
+      
+      if (err.response?.status === 400) {
+        if (err.response.data?.error?.includes('verification')) {
+          errorMessage = "Invalid verification code. Please try again.";
+          
+          // ✅ ENHANCED: Show debug info in development
+          if (process.env.NODE_ENV === 'development' && err.response.data?.debug) {
+            console.log('🔍 Debug info from server:', err.response.data.debug);
+            const debugInfo = err.response.data.debug;
+            errorMessage += `\n\nDEBUG INFO (Development Mode):\nStored: ${debugInfo.storedCode}\nSubmitted: ${debugInfo.submittedCode}\nTypes: ${debugInfo.storedType} vs ${debugInfo.submittedType}`;
+          }
+          
+          // ✅ ENHANCED: Additional debugging for development
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 Local verification analysis:', {
+              enteredCode: verificationCode.trim(),
+              devCode: devCode,
+              match: verificationCode.trim() === devCode,
+              expectedLength: 6,
+              actualLength: verificationCode.trim().length
+            });
+          }
+        } else {
+          errorMessage = err.response.data?.error || 'Invalid input data.';
+        }
+      } else if (err.response?.status === 409) {
+        errorMessage = "User already exists with this email or username. Please try logging in.";
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      alert(`${errorMessage} Please try again.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate application ticket number (fallback)
+  const generateApplicationTicket = (username, email) => {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substr(2, 5);
+    return `APP-${username.substr(0, 3).toUpperCase()}-${timestamp}-${random}`.toUpperCase();
+  };
+
+  // Resend verification code
+  const handleResendCode = async () => {
+    try {
+      setLoading(true);
+      
+      console.log('🔍 Resending verification code...');
+      
+      // ✅ UPDATED: Use auth endpoint instead of membership endpoint
+      const response = await axios.post("http://localhost:3000/api/auth/send-verification", {
+        email: values.email,
+        phone: values.phone,
+        method: verificationMethod, // ✅ Use 'method' field
+        username: values.username
+      });
+      
+      console.log('✅ Resend response:', response.data);
+      
+      // ✅ Update dev code if provided
+      if (response.data.devCode) {
+        setDevCode(response.data.devCode);
+        console.log('🛠️ New dev code received:', response.data.devCode);
+      }
+      
+      alert(`Verification code resent to your ${verificationMethod}!`);
+    } catch (err) {
+      console.error('❌ Resend error:', err);
+      alert("Failed to resend code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ ENHANCED: Auto-fill verification code with validation
+  const handleDevCodeFill = () => {
+    if (devCode) {
+      setVerificationCode(devCode);
+      console.log('🛠️ Auto-filled verification code:', devCode);
+    } else {
+      console.warn('⚠️ No dev code available to auto-fill');
+    }
+  };
+
+  // ✅ ENHANCED: Input handler for verification code with real-time validation
+  const handleVerificationCodeChange = (e) => {
+    const value = e.target.value;
+    // Only allow numeric input and limit to 6 characters
+    if (/^\d*$/.test(value) && value.length <= 6) {
+      setVerificationCode(value);
+    }
+  };
+
+  // Render based on current step
+  if (verificationStep === 'success') {
+    return (
+      <div className="signup-form success-message">
+        <h2>🎉 Registration Successful!</h2>
+        <div className="success-content">
+          <p>Welcome to Ikoota, {values.username}!</p>
+          <p>Your account has been created successfully.</p>
+          <div className="loading-spinner">
+            <p>Redirecting you to complete your application...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (verificationStep === 'verification') {
+    return (
+      <div className="signup-form verification-form">
+        <h2>Verify Your Account</h2>
+        <p>We've sent a verification code to your {verificationMethod}.</p>
+        
+        {/* ✅ ENHANCED: Development debug info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="dev-code-info" style={{
+            background: '#f0f8ff', 
+            padding: '15px', 
+            margin: '15px 0', 
+            borderRadius: '8px',
+            border: '1px solid #b0d4ff'
+          }}>
+            <p><strong>🛠️ Development Mode Debug Info:</strong></p>
+            {devCode ? (
+              <>
+                <p>Latest verification code: <code style={{
+                  background: '#ffe6e6', 
+                  padding: '2px 6px', 
+                  borderRadius: '4px',
+                  fontWeight: 'bold',
+                  fontSize: '16px'
+                }}>{devCode}</code></p>
+                <button 
+                  type="button" 
+                  onClick={handleDevCodeFill} 
+                  className="dev-fill-btn"
+                  style={{
+                    background: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginTop: '5px'
+                  }}
+                >
+                  Auto-fill Code
+                </button>
+                <p style={{fontSize: '12px', color: '#666', marginTop: '5px'}}>
+                  Current input: "{verificationCode}" | Match: {verificationCode.trim() === devCode ? '✅' : '❌'}
+                </p>
+              </>
+            ) : (
+              <p style={{color: '#ff6600'}}>No dev code available. Check server logs.</p>
+            )}
+          </div>
+        )}
+        
+        <form onSubmit={handleVerificationSubmit}>
+          <div className="verification-input">
+            <label htmlFor="verificationCode">
+              <strong>Enter Verification Code:</strong>
+            </label>
+            <input
+              type="text"
+              placeholder="Enter 6-digit code"
+              value={verificationCode}
+              onChange={handleVerificationCodeChange} // ✅ ENHANCED: Use new handler
+              maxLength="6"
+              className="form-control verification-code-input"
+              autoComplete="off"
+              style={{
+                fontSize: '18px',
+                textAlign: 'center',
+                letterSpacing: '3px',
+                fontFamily: 'monospace'
+              }}
+            />
+            {/* ✅ ENHANCED: Real-time validation feedback */}
+            {verificationCode && (
+              <div style={{fontSize: '12px', marginTop: '5px'}}>
+                {verificationCode.length === 6 ? (
+                  <span style={{color: 'green'}}>✅ Code length correct</span>
+                ) : (
+                  <span style={{color: 'orange'}}>⚠️ Code must be 6 digits ({verificationCode.length}/6)</span>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <div className="verification-actions">
+            <button 
+              type="submit" 
+              disabled={loading || !verificationCode || verificationCode.length !== 6}
+              style={{
+                opacity: (loading || !verificationCode || verificationCode.length !== 6) ? 0.6 : 1
+              }}
+            >
+              {loading ? 'Verifying...' : 'Verify & Complete Registration'}
+            </button>
+            
+            <button type="button" onClick={handleResendCode} disabled={loading} className="resend-btn">
+              {loading ? 'Resending...' : 'Resend Code'}
+            </button>
+            
+            <button type="button" onClick={() => setVerificationStep('form')} className="back-btn">
+              ← Back to Form
+            </button>
+          </div>
+        </form>
+        
+        <div className="verification-help">
+          <p>Didn't receive the code? Check your spam folder or try resending.</p>
+          <p>Code sent to: {verificationMethod === 'email' ? values.email : values.phone}</p>
+          
+          {/* ✅ ENHANCED: Additional help in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{marginTop: '15px', padding: '10px', background: '#fff3cd', borderRadius: '5px'}}>
+              <p><strong>🔧 Development Tips:</strong></p>
+              <ul style={{fontSize: '14px', marginBottom: '0'}}>
+                <li>Check browser console for detailed debugging information</li>
+                <li>Server logs show the generated verification code</li>
+                <li>Use the auto-fill button above for quick testing</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Initial signup form
+  return (
+    <div className="signup-form">
+      <h2>Join Ikoota Platform</h2>
+      <p>Create your account to apply for membership</p>
+      
+      <form onSubmit={handleInitialSubmit}>
+        <div className="form-group">
+          <label htmlFor="username"><strong>Username:</strong></label>
+          <input
+            type="text"
+            placeholder="Enter Username"
+            name="username"
+            value={values.username}
+            onChange={e => setValues({ ...values, username: e.target.value })}
+            className="form-control"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="email"><strong>Email:</strong></label>
+          <input
+            type="email"
+            autoComplete="off"
+            placeholder="Enter Email"
+            name="email"
+            value={values.email}
+            onChange={e => setValues({ ...values, email: e.target.value })}
+            className="form-control"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="phone"><strong>Phone:</strong></label>
+          <input
+            type="tel"
+            autoComplete="off"
+            placeholder="Enter WhatsApp Phone Number"
+            name="phone"
+            value={values.phone}
+            onChange={e => setValues({ ...values, phone: e.target.value })}
+            className="form-control"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="password"><strong>Password:</strong></label>
+          <input
+            type="password"
+            placeholder="Enter Password"
+            name="password"
+            value={values.password}
+            onChange={e => setValues({ ...values, password: e.target.value })}
+            className="form-control"
+            autoComplete="off"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="confirmPassword"><strong>Confirm Password:</strong></label>
+          <input
+            type="password"
+            placeholder="Confirm Password"
+            name="confirmPassword"
+            value={values.confirmPassword}
+            onChange={e => setValues({ ...values, confirmPassword: e.target.value })}
+            className="form-control"
+            autoComplete="off"
+            required
+          />
+        </div>
+        
+        {/* ✅ FIXED: Verification Method Selection */}
+        <div className="form-group verification-method">
+          <label><strong>Verify account via:</strong></label>
+          <div className="method-options">
+            <label className="radio-option">
+              <input
+                type="radio"
+                name="verificationMethod"
+                value="email"
+                checked={verificationMethod === 'email'}
+                onChange={e => setVerificationMethod(e.target.value)}
+                required
+              />
+              <span>Email</span>
+            </label>
+            <label className="radio-option">
+              <input
+                type="radio"
+                name="verificationMethod"
+                value="phone"
+                checked={verificationMethod === 'phone'}
+                onChange={e => setVerificationMethod(e.target.value)}
+                required
+              />
+              <span>Phone/SMS</span>
+            </label>
+          </div>
+        </div>
+        
+        <button type="submit" disabled={loading || !verificationMethod}>
+          {loading ? 'Sending Code...' : 'Send Verification Code'}
+        </button>
+        
+        <div className="next-step-info">
+          <p>📋 Next: Complete application survey for membership consideration</p>
+        </div>
+      </form>
+      
+      <div className="form-footer">
+        <Link to="/login">Already have an account? <strong>Sign In</strong></Link>
+        <br />
+        <Link to="/">← Back to Home</Link>
+      </div>
+    </div>
+  );
+};
+
+export default Signup;
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+//ikootaclient\src\components\auth\RoleProtectedRoute.jsx
+const RoleProtectedRoute = ({ children, requiredRole, requiredMembership }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkUserAccess = async () => {
+      try {
+        // Get user data from token or API
+        const token = localStorage.getItem('token');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+
+        // Decode token to get user info
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        
+        // Check role access
+        if (requiredRole && payload.role !== requiredRole) {
+          console.error('❌ Insufficient role permissions');
+          navigate('/unauthorized');
+          return;
+        }
+
+        // Check membership access
+        if (requiredMembership && payload.membership_stage !== requiredMembership) {
+          console.error('❌ Insufficient membership permissions');
+          navigate('/application-survey');
+          return;
+        }
+
+        setUser(payload);
+      } catch (error) {
+        console.error('❌ Access check failed:', error);
+        navigate('/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkUserAccess();
+  }, [requiredRole, requiredMembership]);
+
+  if (loading) return <div>Checking permissions...</div>;
+  if (!user) return null;
+
+  return children;
+};
+
+export default RoleProtectedRoute;
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+// ikootaclient/src/components/auth/ProtectedRoute.jsx
+// ✅ PRESERVES ALL EXISTING FUNCTIONALITY + adds standardized membership support
+
+import React, { useEffect, useState } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useUser } from './UserStatus';
+import { getUserAccess, getUserStatusString } from '../config/accessMatrix';
+
+const ProtectedRoute = ({ 
+  children, 
+  // ✅ PRESERVED: All your existing props
+  requireAuth = false,
+  requireMember = false,        // ✅ ENHANCED: Now means "member" (highest level)
+  requirePreMember = false,     // ✅ PRESERVED: Your existing logic
+  requireAdmin = false,         // ✅ PRESERVED: Your existing logic
+  allowedUserTypes = [],        // ✅ PRESERVED: Your existing logic
+  redirectTo = '/login',        // ✅ PRESERVED: Your existing logic
+  // ✅ NEW: Additional props for standardized membership
+  allowPending = false          // ✅ NEW: Allow pending applications
+}) => {
+  const { user, isAuthenticated, loading, membershipStatus } = useUser();
+  const location = useLocation();
+  const [isReady, setIsReady] = useState(false);
+
+  // ✅ PRESERVED: Your exact loading logic
+  useEffect(() => {
+    if (!loading && (membershipStatus === 'loaded' || !user)) {
+      setIsReady(true);
+    } else {
+      setIsReady(false);
+    }
+  }, [loading, membershipStatus, user]);
+
+  // ✅ PRESERVED: Your exact loading component with styles
+  if (!isReady) {
+    return (
+      <div className="route-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading user status...</p>
+        <style>
+          {`
+            .route-loading {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+              flex-direction: column;
+            }
+            .loading-spinner {
+              border: 4px solid #f3f3f3;
+              border-top: 4px solid #3498db;
+              border-radius: 50%;
+              width: 40px;
+              height: 40px;
+              animation: spin 2s linear infinite;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}
+        </style>
+      </div>
+    );
+  }
+
+  // ✅ ENHANCED: Use standardized status but preserve all your logic
+  const userStatus = getUserStatusString(user);
+  
+  console.log('🔐 ProtectedRoute Check:', {
+    path: location.pathname,
+    userStatus,
+    requireAuth,
+    requireMember,
+    requirePreMember,
+    requireAdmin,
+    allowedUserTypes,
+    allowPending, // ✅ NEW
+    isAuthenticated,
+    membershipStatus,
+    isReady
+  });
+
+  // ✅ PRESERVED: Your exact public routes logic
+  const publicRoutes = ['/', '/login', '/signup', '/forgot-password', '/towncrier'];
+  const isPublicRoute = publicRoutes.includes(location.pathname);
+
+  // ✅ PRESERVED: Your exact public route handling
+  if (!requireAuth && !requireMember && !requirePreMember && !requireAdmin && allowedUserTypes.length === 0 && !allowPending) {
+    console.log('✅ Public route access granted');
+    return children;
+  }
+
+  // ✅ PRESERVED: Your exact authentication check
+  if (requireAuth && !isAuthenticated) {
+    console.log('🚨 SECURITY: Authentication required but user not authenticated');
+    return <Navigate to={redirectTo} state={{ from: location }} replace />;
+  }
+
+  // ✅ ENHANCED: Authenticated user checks with standardized statuses
+  if (isAuthenticated && user) {
+    const access = getUserAccess(user);
+    
+    // ✅ PRESERVED: Your exact admin requirement check
+    if (requireAdmin) {
+      if (userStatus === 'admin') {
+        console.log('✅ Admin access granted');
+        return children;
+      } else {
+        console.log('🚨 SECURITY: Admin access required but user is not admin');
+        return <Navigate to="/towncrier" replace />;
+      }
+    }
+
+    // ✅ ENHANCED: Member requirement check (now standardized to "member" only)
+    if (requireMember) {
+      if (userStatus === 'member' || userStatus === 'admin') {
+        console.log('✅ Member access granted');
+        return children;
+      } else {
+        console.log('🚨 SECURITY: Member access required but user is not member');
+        // ✅ ENHANCED: Better redirects based on current status
+        if (userStatus === 'pre_member') {
+          return <Navigate to="/full-membership/info" replace />;
+        }
+        if (userStatus === 'pre_member_pending_upgrade') {
+          return <Navigate to="/full-membership/pending" replace />;
+        }
+        if (userStatus === 'pre_member_can_reapply') {
+          return <Navigate to="/full-membership/declined" replace />;
+        }
+        return <Navigate to="/towncrier" replace />;
+      }
+    }
+
+    // ✅ ENHANCED: Pre-member requirement check with ALL pre-member states
+    if (requirePreMember) {
+      const allowedForPreMember = [
+        'pre_member', 
+        'pre_member_pending_upgrade', 
+        'pre_member_can_reapply', 
+        'member', 
+        'admin'
+      ];
+      
+      if (allowedForPreMember.includes(userStatus)) {
+        console.log('✅ Pre-member access granted for userStatus:', userStatus);
+        return children;
+      } else {
+        console.log('🚨 SECURITY: Pre-member access required but user status insufficient:', {
+          currentStatus: userStatus,
+          expectedStatuses: allowedForPreMember,
+          userObject: {
+            role: user.role,
+            is_member: user.is_member,
+            membership_stage: user.membership_stage,
+            approval_status: user.approval_status
+          }
+        });
+        return <Navigate to="/towncrier" replace />;
+      }
+    }
+
+    // ✅ NEW: Allow pending applications
+    if (allowPending) {
+      const allowedForPending = [
+        'admin',
+        'member',
+        'pre_member',
+        'pre_member_pending_upgrade', 
+        'pre_member_can_reapply',
+        'pending_verification',
+        'needs_application'
+      ];
+      
+      if (allowedForPending.includes(userStatus)) {
+        console.log('✅ Pending access granted');
+        return children;
+      } else {
+        console.log('❌ Pending access denied for status:', userStatus);
+        return <Navigate to="/login" replace />;
+      }
+    }
+
+    // ✅ PRESERVED: Your exact user types check
+    if (allowedUserTypes.length > 0) {
+      if (allowedUserTypes.includes(userStatus)) {
+        console.log('✅ User type access granted');
+        return children;
+      } else {
+        console.log('🚨 SECURITY: User type not in allowed list');
+        return <Navigate to={access.defaultRoute} replace />;
+      }
+    }
+
+    // ✅ PRESERVED: Your exact auth-only check
+    if (requireAuth && isAuthenticated) {
+      console.log('✅ Authenticated access granted');
+      return children;
+    }
+  }
+
+  // ✅ PRESERVED: Your exact default case logic
+  if (isAuthenticated && user) {
+    const access = getUserAccess(user);
+    
+    // ✅ PRESERVED: Your exact dashboard route handling
+    if (location.pathname === '/dashboard') {
+      // ✅ ENHANCED: Include all membership states that can access dashboard
+      const dashboardAllowed = ['admin', 'member', 'pre_member', 'pre_member_pending_upgrade', 'pre_member_can_reapply'];
+      if (dashboardAllowed.includes(userStatus)) {
+        console.log('✅ Dashboard access granted');
+        return children;
+      } else {
+        console.log('🚨 SECURITY: Dashboard access denied for user status:', userStatus);
+        return <Navigate to={access.defaultRoute} replace />;
+      }
+    }
+
+    // ✅ PRESERVED: Your exact default authenticated access
+    console.log('✅ Default authenticated access granted');
+    return children;
+  }
+
+  // ✅ PRESERVED: Your exact final fallback
+  console.log('🚨 SECURITY: Access denied, redirecting to login');
+  return <Navigate to={redirectTo} state={{ from: location }} replace />;
+};
+
+export default ProtectedRoute;
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+ 
+//ikootaclient\src\components\auth\Passwordreset.jsx
+import React, { useState } from "react";
+import axios from "axios";
+import "./passwordreset.css";
+
+const Passwordreset = () => {
+  const [step, setStep] = useState(1);
+  const [values, setValues] = useState({
+    emailOrPhone: "",
+    newPassword: "",
+    confirmNewPassword: "",
+    verificationCode: "",
+  });
+
+  const handleResetRequest = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post("http://localhost:3000/api/auth/passwordreset/request", {
+        emailOrPhone: values.emailOrPhone,
+      });
+      setStep(2); // Move to password reset step
+    } catch (err) {
+      console.error(err.response.data.message);
+    }
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post("http://localhost:3000/api/auth/passwordreset/reset", {
+        ...values,
+      });
+      setStep(3); // Move to verification step
+    } catch (err) {
+      console.error(err.response.data.message);
+    }
+  };
+
+  const handleVerification = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post("http://localhost:3000/api/auth/passwordreset/verify", {
+        emailOrPhone: values.emailOrPhone,
+        verificationCode: values.verificationCode,
+      });
+      alert("Password reset successful!");
+    } catch (err) {
+      console.error(err.response.data.message);
+    }
+  };
+
+  return (
+    <div className="password-reset-container">
+      {step === 1 && (
+        <form onSubmit={handleResetRequest}>
+          <h2>Request Password Reset</h2>
+          <input
+            type="text"
+            placeholder="Enter Email or Phone"
+            onChange={(e) => setValues({ ...values, emailOrPhone: e.target.value })}
+            required
+          />
+          <button type="submit">Send Reset Link</button>
+        </form>
+      )}
+      {step === 2 && (
+        <form onSubmit={handlePasswordReset}>
+          <h2>Reset Password</h2>
+          <input
+            type="password"
+            placeholder="New Password"
+            onChange={(e) => setValues({ ...values, newPassword: e.target.value })}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Confirm New Password"
+            onChange={(e) => setValues({ ...values, confirmNewPassword: e.target.value })}
+            required
+          />
+          <button type="submit">Reset Password</button>
+        </form>
+      )}
+      {step === 3 && (
+        <form onSubmit={handleVerification}>
+          <h2>Verify Reset</h2>
+          <input
+            type="text"
+            placeholder="Enter Verification Code"
+            onChange={(e) => setValues({ ...values, verificationCode: e.target.value })}
+            required
+          />
+          <button type="submit">Verify</button>
+        </form>
+      )}
+    </div>
+  );
+};
+
+export default Passwordreset;
+
+
+
+
+ 
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+// ikootaclient/src/components/auth/Login.jsx
+// ✅ MINIMAL FIX - Only fix token handling, keep existing routing logic
+
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { useUser } from "./UserStatus";
+import './login.css';
+
+const Login = () => {
+  const [values, setValues] = useState({
+    email: "",
+    password: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const navigate = useNavigate();
+  const { updateUser, isAuthenticated } = useUser();
+  
+  axios.defaults.withCredentials = true;
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
+
+  // ========================================================================
+  // ✅ ENHANCED TOKEN EXTRACTION AND CLEANING
+  // ========================================================================
+
+  const extractTokenAndUser = (responseData) => {
+    let token, user;
+    
+    console.log('🔍 Extracting token from response:', responseData);
+    
+    // Try different response formats
+    if (responseData.token && responseData.user) {
+      token = responseData.token;
+      user = responseData.user;
+    } else if (responseData.data?.token && responseData.data?.user) {
+      token = responseData.data.token;
+      user = responseData.data.user;
+    } else if (responseData.access_token || responseData.accessToken) {
+      token = responseData.access_token || responseData.accessToken;
+      user = responseData.user || responseData.data?.user;
+    } else if (responseData.success && responseData.data) {
+      token = responseData.data.token || responseData.data.access_token;
+      user = responseData.data.user;
+    } else {
+      user = responseData.user || responseData.data || responseData;
+      token = responseData.token || responseData.access_token || responseData.accessToken;
+    }
+    
+    console.log('🔍 Raw token extracted:', token);
+    console.log('🔍 Token type:', typeof token);
+    
+    // Clean and validate token
+    if (token) {
+      if (typeof token !== 'string') {
+        console.error('❌ Token is not a string:', typeof token, token);
+        return { token: null, user: null, error: 'Invalid token type received' };
+      }
+      
+      // ✅ ENHANCED CLEANING: Remove quotes, whitespace, newlines
+      const cleanToken = token
+        .replace(/^["']|["']$/g, '')  // Remove quotes
+        .replace(/^\s+|\s+$/g, '')    // Remove whitespace
+        .replace(/\r?\n|\r/g, '');    // Remove newlines
+      
+      console.log('🔍 Cleaned token:', cleanToken.substring(0, 20) + '...');
+      
+      // Basic JWT format validation (must have 3 parts separated by dots)
+      if (cleanToken.split('.').length !== 3) {
+        console.error('❌ Token does not have JWT format:', {
+          parts: cleanToken.split('.').length,
+          tokenStart: cleanToken.substring(0, 20),
+          originalToken: token.substring(0, 20)
+        });
+        return { token: null, user: null, error: 'Invalid token format received' };
+      }
+      
+      token = cleanToken;
+    }
+    
+    return { token, user, error: null };
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+    
+    if (!values.email || !values.password) {
+      setError("Please fill in all fields.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const response = await axios.post("http://localhost:3000/api/auth/login", {
+        email: values.email,
+        password: values.password
+      }, { 
+        withCredentials: true,
+        timeout: 15000
+      });
+
+      console.log('🔍 Login response:', response.data);
+
+      if (response.status === 200) {
+        const responseData = response.data;
+        
+        // ✅ ENHANCED: Use the improved token extraction
+        const { token, user, error: extractionError } = extractTokenAndUser(responseData);
+
+        if (extractionError) {
+          console.error('❌ Token extraction error:', extractionError);
+          setError('Login failed: ' + extractionError);
+          return;
+        }
+
+        if (!user) {
+          console.error('❌ No user data received from login response');
+          setError('Login failed: Invalid response from server');
+          return;
+        }
+
+        // ✅ ENHANCED: Store token with validation
+        if (token && typeof token === 'string' && token.trim() !== '') {
+          console.log('🔍 Storing token:', token.substring(0, 20) + '...');
+          
+          // Store the clean token
+          localStorage.setItem("token", token);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          
+          // ✅ ADD: Debug token storage
+          console.log('🔍 Token stored successfully');
+          console.log('🔍 Token parts count:', token.split('.').length);
+          
+        } else {
+          console.error('❌ Invalid token received:', token);
+          setError('Login failed: Invalid token received from server');
+          return;
+        }
+        
+        // Update user context first
+        try {
+          console.log('🔄 Updating user context...');
+          await updateUser();
+          
+          // Small delay to ensure context is updated
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (updateError) {
+          console.warn('⚠️ Failed to update user context:', updateError);
+        }
+        
+        // ✅ KEEP EXISTING: Your original routing logic (unchanged)
+        await handleUserRouting(user, token);
+      }
+    } catch (err) {
+      console.error('❌ Login error:', err);
+      
+      if (err.response?.status === 401) {
+        setError("Invalid email or password.");
+      } else if (err.response?.status === 403) {
+        const message = err.response.data?.message || '';
+        if (message.includes('banned')) {
+          setError("Your account has been banned. Contact support for assistance.");
+        } else if (message.includes('pending')) {
+          handlePendingUser(err.response.data);
+        } else {
+          setError("Access denied. Please contact support.");
+        }
+      } else if (err.response?.status === 404) {
+        setError("No account found with this email. Please sign up first.");
+      } else if (err.code === 'ECONNABORTED') {
+        setError("Login request timed out. Please check your connection and try again.");
+      } else {
+        setError("Login failed. Please check your network and try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ KEEP EXISTING: Your original routing logic (unchanged from paste-3.txt)
+  const handleUserRouting = async (userData, token) => {
+    if (!userData) {
+      console.error('❌ No user data provided to handleUserRouting');
+      setError('Login failed: Invalid user data received');
+      return;
+    }
+    
+    console.log('🔍 Routing user based on data:', userData);
+    
+    try {
+      const role = userData.role?.toLowerCase();
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      console.log('🔍 User routing analysis:', {
+        role,
+        memberStatus, 
+        membershipStage,
+        userId: userData.id
+      });
+
+      // ✅ PRIORITY 1: Admin users - Go straight to admin panel
+      if (role === 'admin' || role === 'super_admin') {
+        console.log('👑 Admin user detected - routing to admin panel');
+        navigate('/admin', { replace: true });
+        return;
+      }
+
+      // ✅ PRIORITY 2: Full Members - Go to Iko Chat
+      if ((memberStatus === 'member' && membershipStage === 'member') || 
+          (memberStatus === 'active' && membershipStage === 'member')) {
+        console.log('💎 Full member detected - routing to Iko Chat');
+        navigate('/iko', { replace: true });
+        return;
+      }
+
+      // ✅ PRIORITY 3: Pre-Members - Go to Towncrier  
+      if (memberStatus === 'pre_member' || membershipStage === 'pre_member') {
+        console.log('👤 Pre-member detected - routing to Towncrier');
+        navigate('/towncrier', { replace: true });
+        return;
+      }
+
+      // ✅ PRIORITY 4: Check if user needs to complete application survey
+      if (token) {
+        const needsSurvey = await checkIfUserNeedsApplication(token, userData);
+        
+        if (needsSurvey) {
+          console.log('📝 User needs to complete application - routing to survey');
+          navigate('/applicationsurvey', { replace: true });
+          return;
+        }
+      }
+
+      // ✅ PRIORITY 5: Other authenticated users - Go to dashboard
+      console.log('🏠 Default routing - going to dashboard');
+      navigate('/dashboard', { replace: true });
+      
+    } catch (error) {
+      console.error('❌ Error in user routing:', error);
+      setError('Login successful but routing failed. Redirecting to dashboard...');
+      
+      // Last resort fallback
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 2000);
+    }
+  };
+
+  // ✅ KEEP EXISTING: Your original survey check logic (unchanged from paste-3.txt)
+  const checkIfUserNeedsApplication = async (token, userData) => {
+    try {
+      console.log('🔍 Checking if user needs application survey...');
+      
+      // Skip survey check for known member statuses
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      // Users who definitely don't need survey
+      if (memberStatus === 'pre_member' || 
+          memberStatus === 'member' || 
+          memberStatus === 'active' ||
+          membershipStage === 'pre_member' || 
+          membershipStage === 'member') {
+        console.log('✅ User has confirmed membership status - no survey needed');
+        return false;
+      }
+
+      // ✅ FIXED: Use the endpoint we just added to server.js
+      const response = await axios.get('http://localhost:3000/api/user-status/survey/check-status', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        timeout: 5000
+      });
+      
+      const statusData = response.data;
+      console.log('📋 Survey status check:', statusData);
+      
+      // Only require survey if explicitly needed and not completed
+      const needsSurvey = statusData.needs_survey === true && 
+                         statusData.survey_completed === false &&
+                         memberStatus === 'applied' &&
+                         membershipStage === 'none';
+      
+      console.log('🎯 Survey requirement decision:', {
+        needsSurvey,
+        reason: needsSurvey ? 'New user needs to complete application' : 'User has existing status'
+      });
+      
+      return needsSurvey;
+      
+    } catch (error) {
+      console.warn('⚠️ Survey status check failed:', error);
+      
+      // Conservative fallback: only require survey for clearly new users
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      const isNewUser = memberStatus === 'applied' && 
+                       membershipStage === 'none' &&
+                       !userData.application_submittedAt;
+      
+      console.log('🔄 Fallback survey check:', {
+        isNewUser,
+        memberStatus,
+        membershipStage
+      });
+      
+      return isNewUser;
+    }
+  };
+
+  // ✅ KEEP EXISTING: All other functions unchanged
+  const handlePendingUser = (data) => {
+    const { applicationStatus, applicationTicket } = data;
+    
+    switch (applicationStatus) {
+      case 'pending':
+        alert(`Your application is still under review.\n\nApplication Ticket: ${applicationTicket || 'N/A'}\n\nYou'll receive an email notification once the review is complete.`);
+        navigate('/pending-verification');
+        break;
+      case 'suspended':
+        alert(`Your application review is suspended and requires additional information.\n\nPlease check your email for details on what's needed.\n\nApplication Ticket: ${applicationTicket || 'N/A'}`);
+        navigate('/suspended-verification');
+        break;
+      default:
+        setError("Your application is being processed. Please check your email for updates.");
+    }
+  };
+
+  const handleForgotPassword = () => {
+    const email = values.email;
+    if (!email) {
+      alert("Please enter your email address first, then click 'Forgot Password'.");
+      return;
+    }
+    
+    navigate('/forgot-password', { state: { email } });
+  };
+
+  const handleChange = (e) => {
+    setValues({ ...values, [e.target.name]: e.target.value });
+  };
+
+  // ✅ KEEP EXISTING: All JSX unchanged from your original
+  return (
+    <div className="login-container">
+      <div className="login-form">
+        <div className="login-header">
+          <h2>Sign In to Ikoota</h2>
+          <p>Access your educational community account</p>
+        </div>
+
+        {error && (
+          <div className="error-message">
+            <span className="error-icon">⚠️</span>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="email">
+              <strong>Email Address:</strong>
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={values.email}
+              onChange={handleChange}
+              placeholder="Enter your email"
+              className="form-control"
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">
+              <strong>Password:</strong>
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={values.password}
+              onChange={handleChange}
+              placeholder="Enter your password"
+              className="form-control"
+              autoComplete="current-password"
+              required
+            />
+          </div>
+
+          <div className="form-actions">
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="btn-login"
+            >
+              {loading ? 'Signing In...' : 'Sign In'}
+            </button>
+            
+            <button 
+              type="button" 
+              onClick={handleForgotPassword}
+              className="btn-forgot"
+            >
+              Forgot Password?
+            </button>
+          </div>
+        </form>
+
+        <div className="login-divider">
+          <span>New to Ikoota?</span>
+        </div>
+
+        <div className="signup-section">
+          <p>Join our educational community</p>
+          <Link to="/signup" className="btn-signup">
+            Create Account
+          </Link>
+        </div>
+
+        <div className="login-help">
+          <h3>Having trouble signing in?</h3>
+          <div className="help-options">
+            <div className="help-item">
+              <span className="help-icon">📧</span>
+              <div>
+                <h4>Check Your Application Status</h4>
+                <p>If you've applied for membership, check your email for status updates</p>
+              </div>
+            </div>
+            <div className="help-item">
+              <span className="help-icon">⏳</span>
+              <div>
+                <h4>Application Under Review</h4>
+                <p>Pending applications typically take 3-5 business days to review</p>
+              </div>
+            </div>
+            <div className="help-item">
+              <span className="help-icon">❓</span>
+              <div>
+                <h4>Need Help?</h4>
+                <p>Contact support@ikoota.com with your application ticket number</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="login-footer">
+          <div className="footer-links">
+            <Link to="/">← Back to Home</Link>
+            <Link to="/towncrier">Browse Public Content</Link>
+          </div>
+          <p className="footer-note">
+            By signing in, you agree to our Terms of Service and Privacy Policy.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+// ikootaclient/src/components/auth/Signup.jsx - COMPLETE FIXED WITH ENHANCED DEBUGGING
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import './signup.css';
+
+const Signup = () => {
+  const [values, setValues] = useState({
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    phone: "",
+  });
+  
+  const [verificationStep, setVerificationStep] = useState('form'); // 'form', 'verification', 'success'
+  const [verificationMethod, setVerificationMethod] = useState(''); // 'email' or 'phone'
+  const [verificationCode, setVerificationCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [devCode, setDevCode] = useState(''); // For development
+  
+  axios.defaults.withCredentials = true;
+  const navigate = useNavigate();
+
+  // Step 1: Submit initial signup form and send verification code
+  const handleInitialSubmit = async (event) => {
+    event.preventDefault();
+    
+    // Validation
+    if (values.password !== values.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    
+    if (!values.username || !values.email || !values.password || !values.phone) {
+      alert("Please fill in all required fields!");
+      return;
+    }
+    
+    if (!verificationMethod) {
+      alert("Please select a verification method!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      console.log('🔍 Sending verification request:', {
+        email: values.email,
+        phone: values.phone,
+        method: verificationMethod
+      });
+      
+      // ✅ UPDATED: Use auth endpoint instead of membership endpoint
+      const verificationResponse = await axios.post("http://localhost:3000/api/auth/send-verification", {
+        email: values.email,
+        phone: values.phone,
+        method: verificationMethod, // ✅ Use 'method' to match database
+        username: values.username
+      });
+      
+      console.log('✅ Verification response:', verificationResponse.data);
+      
+      if (verificationResponse.status === 200) {
+        // ✅ Store dev code if provided (development mode)
+        if (verificationResponse.data.devCode) {
+          setDevCode(verificationResponse.data.devCode);
+          console.log('🛠️ Dev code received:', verificationResponse.data.devCode);
+        }
+        
+        setVerificationStep('verification');
+        alert(`Verification code sent to your ${verificationMethod}!`);
+      }
+    } catch (err) {
+      console.error('❌ Verification error:', err);
+      
+      let errorMessage = 'Failed to send verification code.';
+      
+      if (err.response?.status === 404) {
+        errorMessage = 'The verification endpoint is not available. Please check the server.';
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      alert(`${errorMessage} Please try again.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ ENHANCED: Step 2 - Verify code and complete registration with extensive debugging
+  const handleVerificationSubmit = async (event) => {
+    event.preventDefault();
+    
+    if (!verificationCode) {
+      alert("Please enter the verification code!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // ✅ ENHANCED: Clean and validate the verification code
+      const cleanedCode = verificationCode.trim();
+      
+      const requestData = {
+        username: values.username,
+        email: values.email,
+        password: values.password,
+        phone: values.phone,
+        verificationCode: cleanedCode,
+        verificationMethod
+      };
+      
+      console.log('🔍 Submitting registration with data:', {
+        ...requestData,
+        password: '***HIDDEN***' // Don't log the actual password
+      });
+      
+      // ✅ ENHANCED: Log verification code details for debugging
+      console.log('🔍 Verification code details:', {
+        original: verificationCode,
+        trimmed: cleanedCode,
+        length: cleanedCode.length,
+        type: typeof cleanedCode,
+        charCodes: [...cleanedCode].map(char => char.charCodeAt(0)),
+        isNumeric: /^\d+$/.test(cleanedCode),
+        devCodeMatch: devCode ? (cleanedCode === devCode) : 'No dev code available'
+      });
+      
+      // ✅ ENHANCED: Additional validation
+      if (cleanedCode.length !== 6) {
+        alert("Verification code must be exactly 6 digits!");
+        return;
+      }
+      
+      if (!/^\d+$/.test(cleanedCode)) {
+        alert("Verification code must contain only numbers!");
+        return;
+      }
+      
+      // ✅ UPDATED: Use auth endpoint instead of membership endpoint
+      const registerResponse = await axios.post("http://localhost:3000/api/auth/register", requestData, { 
+        withCredentials: true 
+      });
+      
+      console.log('✅ Registration response:', registerResponse.data);
+      
+      if (registerResponse.status === 201) {
+        setVerificationStep('success');
+        
+        // Use server-provided application ticket or generate fallback
+        const applicationTicket = registerResponse.data.user?.application_ticket || 
+                                generateApplicationTicket(values.username, values.email);
+        
+        setTimeout(() => {
+          navigate('/application-thankyou', { 
+            state: { 
+              applicationTicket,
+              username: values.username,
+              userId: registerResponse.data.user?.id
+            }
+          });
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('❌ Registration error:', err);
+      console.error('❌ Full error response:', err.response);
+      
+      // ✅ ENHANCED: Enhanced error logging and debugging
+      if (err.response?.data?.debug) {
+        console.error('🔍 Server debug info:', err.response.data.debug);
+      }
+      
+      let errorMessage = 'Registration failed.';
+      
+      if (err.response?.status === 400) {
+        if (err.response.data?.error?.includes('verification')) {
+          errorMessage = "Invalid verification code. Please try again.";
+          
+          // ✅ ENHANCED: Show debug info in development
+          if (process.env.NODE_ENV === 'development' && err.response.data?.debug) {
+            console.log('🔍 Debug info from server:', err.response.data.debug);
+            const debugInfo = err.response.data.debug;
+            errorMessage += `\n\nDEBUG INFO (Development Mode):\nStored: ${debugInfo.storedCode}\nSubmitted: ${debugInfo.submittedCode}\nTypes: ${debugInfo.storedType} vs ${debugInfo.submittedType}`;
+          }
+          
+          // ✅ ENHANCED: Additional debugging for development
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 Local verification analysis:', {
+              enteredCode: verificationCode.trim(),
+              devCode: devCode,
+              match: verificationCode.trim() === devCode,
+              expectedLength: 6,
+              actualLength: verificationCode.trim().length
+            });
+          }
+        } else {
+          errorMessage = err.response.data?.error || 'Invalid input data.';
+        }
+      } else if (err.response?.status === 409) {
+        errorMessage = "User already exists with this email or username. Please try logging in.";
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      alert(`${errorMessage} Please try again.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate application ticket number (fallback)
+  const generateApplicationTicket = (username, email) => {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substr(2, 5);
+    return `APP-${username.substr(0, 3).toUpperCase()}-${timestamp}-${random}`.toUpperCase();
+  };
+
+  // Resend verification code
+  const handleResendCode = async () => {
+    try {
+      setLoading(true);
+      
+      console.log('🔍 Resending verification code...');
+      
+      // ✅ UPDATED: Use auth endpoint instead of membership endpoint
+      const response = await axios.post("http://localhost:3000/api/auth/send-verification", {
+        email: values.email,
+        phone: values.phone,
+        method: verificationMethod, // ✅ Use 'method' field
+        username: values.username
+      });
+      
+      console.log('✅ Resend response:', response.data);
+      
+      // ✅ Update dev code if provided
+      if (response.data.devCode) {
+        setDevCode(response.data.devCode);
+        console.log('🛠️ New dev code received:', response.data.devCode);
+      }
+      
+      alert(`Verification code resent to your ${verificationMethod}!`);
+    } catch (err) {
+      console.error('❌ Resend error:', err);
+      alert("Failed to resend code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ ENHANCED: Auto-fill verification code with validation
+  const handleDevCodeFill = () => {
+    if (devCode) {
+      setVerificationCode(devCode);
+      console.log('🛠️ Auto-filled verification code:', devCode);
+    } else {
+      console.warn('⚠️ No dev code available to auto-fill');
+    }
+  };
+
+  // ✅ ENHANCED: Input handler for verification code with real-time validation
+  const handleVerificationCodeChange = (e) => {
+    const value = e.target.value;
+    // Only allow numeric input and limit to 6 characters
+    if (/^\d*$/.test(value) && value.length <= 6) {
+      setVerificationCode(value);
+    }
+  };
+
+  // Render based on current step
+  if (verificationStep === 'success') {
+    return (
+      <div className="signup-form success-message">
+        <h2>🎉 Registration Successful!</h2>
+        <div className="success-content">
+          <p>Welcome to Ikoota, {values.username}!</p>
+          <p>Your account has been created successfully.</p>
+          <div className="loading-spinner">
+            <p>Redirecting you to complete your application...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (verificationStep === 'verification') {
+    return (
+      <div className="signup-form verification-form">
+        <h2>Verify Your Account</h2>
+        <p>We've sent a verification code to your {verificationMethod}.</p>
+        
+        {/* ✅ ENHANCED: Development debug info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="dev-code-info" style={{
+            background: '#f0f8ff', 
+            padding: '15px', 
+            margin: '15px 0', 
+            borderRadius: '8px',
+            border: '1px solid #b0d4ff'
+          }}>
+            <p><strong>🛠️ Development Mode Debug Info:</strong></p>
+            {devCode ? (
+              <>
+                <p>Latest verification code: <code style={{
+                  background: '#ffe6e6', 
+                  padding: '2px 6px', 
+                  borderRadius: '4px',
+                  fontWeight: 'bold',
+                  fontSize: '16px'
+                }}>{devCode}</code></p>
+                <button 
+                  type="button" 
+                  onClick={handleDevCodeFill} 
+                  className="dev-fill-btn"
+                  style={{
+                    background: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginTop: '5px'
+                  }}
+                >
+                  Auto-fill Code
+                </button>
+                <p style={{fontSize: '12px', color: '#666', marginTop: '5px'}}>
+                  Current input: "{verificationCode}" | Match: {verificationCode.trim() === devCode ? '✅' : '❌'}
+                </p>
+              </>
+            ) : (
+              <p style={{color: '#ff6600'}}>No dev code available. Check server logs.</p>
+            )}
+          </div>
+        )}
+        
+        <form onSubmit={handleVerificationSubmit}>
+          <div className="verification-input">
+            <label htmlFor="verificationCode">
+              <strong>Enter Verification Code:</strong>
+            </label>
+            <input
+              type="text"
+              placeholder="Enter 6-digit code"
+              value={verificationCode}
+              onChange={handleVerificationCodeChange} // ✅ ENHANCED: Use new handler
+              maxLength="6"
+              className="form-control verification-code-input"
+              autoComplete="off"
+              style={{
+                fontSize: '18px',
+                textAlign: 'center',
+                letterSpacing: '3px',
+                fontFamily: 'monospace'
+              }}
+            />
+            {/* ✅ ENHANCED: Real-time validation feedback */}
+            {verificationCode && (
+              <div style={{fontSize: '12px', marginTop: '5px'}}>
+                {verificationCode.length === 6 ? (
+                  <span style={{color: 'green'}}>✅ Code length correct</span>
+                ) : (
+                  <span style={{color: 'orange'}}>⚠️ Code must be 6 digits ({verificationCode.length}/6)</span>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <div className="verification-actions">
+            <button 
+              type="submit" 
+              disabled={loading || !verificationCode || verificationCode.length !== 6}
+              style={{
+                opacity: (loading || !verificationCode || verificationCode.length !== 6) ? 0.6 : 1
+              }}
+            >
+              {loading ? 'Verifying...' : 'Verify & Complete Registration'}
+            </button>
+            
+            <button type="button" onClick={handleResendCode} disabled={loading} className="resend-btn">
+              {loading ? 'Resending...' : 'Resend Code'}
+            </button>
+            
+            <button type="button" onClick={() => setVerificationStep('form')} className="back-btn">
+              ← Back to Form
+            </button>
+          </div>
+        </form>
+        
+        <div className="verification-help">
+          <p>Didn't receive the code? Check your spam folder or try resending.</p>
+          <p>Code sent to: {verificationMethod === 'email' ? values.email : values.phone}</p>
+          
+          {/* ✅ ENHANCED: Additional help in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{marginTop: '15px', padding: '10px', background: '#fff3cd', borderRadius: '5px'}}>
+              <p><strong>🔧 Development Tips:</strong></p>
+              <ul style={{fontSize: '14px', marginBottom: '0'}}>
+                <li>Check browser console for detailed debugging information</li>
+                <li>Server logs show the generated verification code</li>
+                <li>Use the auto-fill button above for quick testing</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Initial signup form
+  return (
+    <div className="signup-form">
+      <h2>Join Ikoota Platform</h2>
+      <p>Create your account to apply for membership</p>
+      
+      <form onSubmit={handleInitialSubmit}>
+        <div className="form-group">
+          <label htmlFor="username"><strong>Username:</strong></label>
+          <input
+            type="text"
+            placeholder="Enter Username"
+            name="username"
+            value={values.username}
+            onChange={e => setValues({ ...values, username: e.target.value })}
+            className="form-control"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="email"><strong>Email:</strong></label>
+          <input
+            type="email"
+            autoComplete="off"
+            placeholder="Enter Email"
+            name="email"
+            value={values.email}
+            onChange={e => setValues({ ...values, email: e.target.value })}
+            className="form-control"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="phone"><strong>Phone:</strong></label>
+          <input
+            type="tel"
+            autoComplete="off"
+            placeholder="Enter WhatsApp Phone Number"
+            name="phone"
+            value={values.phone}
+            onChange={e => setValues({ ...values, phone: e.target.value })}
+            className="form-control"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="password"><strong>Password:</strong></label>
+          <input
+            type="password"
+            placeholder="Enter Password"
+            name="password"
+            value={values.password}
+            onChange={e => setValues({ ...values, password: e.target.value })}
+            className="form-control"
+            autoComplete="off"
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="confirmPassword"><strong>Confirm Password:</strong></label>
+          <input
+            type="password"
+            placeholder="Confirm Password"
+            name="confirmPassword"
+            value={values.confirmPassword}
+            onChange={e => setValues({ ...values, confirmPassword: e.target.value })}
+            className="form-control"
+            autoComplete="off"
+            required
+          />
+        </div>
+        
+        {/* ✅ FIXED: Verification Method Selection */}
+        <div className="form-group verification-method">
+          <label><strong>Verify account via:</strong></label>
+          <div className="method-options">
+            <label className="radio-option">
+              <input
+                type="radio"
+                name="verificationMethod"
+                value="email"
+                checked={verificationMethod === 'email'}
+                onChange={e => setVerificationMethod(e.target.value)}
+                required
+              />
+              <span>Email</span>
+            </label>
+            <label className="radio-option">
+              <input
+                type="radio"
+                name="verificationMethod"
+                value="phone"
+                checked={verificationMethod === 'phone'}
+                onChange={e => setVerificationMethod(e.target.value)}
+                required
+              />
+              <span>Phone/SMS</span>
+            </label>
+          </div>
+        </div>
+        
+        <button type="submit" disabled={loading || !verificationMethod}>
+          {loading ? 'Sending Code...' : 'Send Verification Code'}
+        </button>
+        
+        <div className="next-step-info">
+          <p>📋 Next: Complete application survey for membership consideration</p>
+        </div>
+      </form>
+      
+      <div className="form-footer">
+        <Link to="/login">Already have an account? <strong>Sign In</strong></Link>
+        <br />
+        <Link to="/">← Back to Home</Link>
+      </div>
+    </div>
+  );
+};
+
+export default Signup;
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+ 
+
+// ikootaclient/src/components/auth/Login.jsx
+// ✅ FIXED VERSION - Proper routing based on user status and privileges
+
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { useUser } from "./UserStatus";
+import './login.css';
+import { getUserAccess } from '../config/accessMatrix';
+
+const Login = () => {
+  const [values, setValues] = useState({
+    email: "",
+    password: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const navigate = useNavigate();
+  const { updateUser, isAuthenticated } = useUser();
+  
+  axios.defaults.withCredentials = true;
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+    
+    if (!values.email || !values.password) {
+      setError("Please fill in all fields.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const response = await axios.post("http://localhost:3000/api/auth/login", {
+        email: values.email,
+        password: values.password
+      }, { 
+        withCredentials: true,
+        timeout: 15000
+      });
+
+      console.log('🔍 Login response:', response.data);
+
+      if (response.status === 200) {
+        const responseData = response.data;
+        let token, user;
+
+        // Handle multiple response formats
+        if (responseData.token && responseData.user) {
+          token = responseData.token;
+          user = responseData.user;
+        } else if (responseData.data?.token && responseData.data?.user) {
+          token = responseData.data.token;
+          user = responseData.data.user;
+        } else if (responseData.access_token || responseData.accessToken) {
+          token = responseData.access_token || responseData.accessToken;
+          user = responseData.user || responseData.data?.user;
+        } else if (responseData.success && responseData.data) {
+          token = responseData.data.token || responseData.data.access_token;
+          user = responseData.data.user;
+        } else {
+          user = responseData.user || responseData.data || responseData;
+          token = responseData.token || responseData.access_token || responseData.accessToken;
+        }
+
+        console.log('🔍 Extracted token:', token ? 'Present' : 'Missing');
+        console.log('🔍 Extracted user:', user);
+
+        if (!user) {
+          console.error('❌ No user data received from login response');
+          setError('Login failed: Invalid response from server');
+          return;
+        }
+
+        // Store token properly
+        if (token) {
+          localStorage.setItem("token", token);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+        
+        // Update user context first
+        try {
+          console.log('🔄 Updating user context...');
+          await updateUser();
+          
+          // Small delay to ensure context is updated
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (updateError) {
+          console.warn('⚠️ Failed to update user context:', updateError);
+        }
+        
+        // ✅ FIXED: Smart routing based on user status
+        await handleUserRouting(user, token);
+      }
+    } catch (err) {
+      console.error('❌ Login error:', err);
+      
+      if (err.response?.status === 401) {
+        setError("Invalid email or password.");
+      } else if (err.response?.status === 403) {
+        const message = err.response.data?.message || '';
+        if (message.includes('banned')) {
+          setError("Your account has been banned. Contact support for assistance.");
+        } else if (message.includes('pending')) {
+          handlePendingUser(err.response.data);
+        } else {
+          setError("Access denied. Please contact support.");
+        }
+      } else if (err.response?.status === 404) {
+        setError("No account found with this email. Please sign up first.");
+      } else if (err.code === 'ECONNABORTED') {
+        setError("Login request timed out. Please check your connection and try again.");
+      } else {
+        setError("Login failed. Please check your network and try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ COMPLETELY REWRITTEN: Smart user routing based on membership status
+  const handleUserRouting = async (userData, token) => {
+    if (!userData) {
+      console.error('❌ No user data provided to handleUserRouting');
+      setError('Login failed: Invalid user data received');
+      return;
+    }
+    
+    console.log('🔍 Routing user based on data:', userData);
+    
+    try {
+      const role = userData.role?.toLowerCase();
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      console.log('🔍 User routing analysis:', {
+        role,
+        memberStatus, 
+        membershipStage,
+        userId: userData.id
+      });
+
+      // ✅ PRIORITY 1: Admin users - Go straight to admin panel
+      if (role === 'admin' || role === 'super_admin') {
+        console.log('👑 Admin user detected - routing to admin panel');
+        navigate('/admin', { replace: true });
+        return;
+      }
+
+      // ✅ PRIORITY 2: Full Members - Go to Iko Chat
+      if ((memberStatus === 'member' && membershipStage === 'member') || 
+          (memberStatus === 'active' && membershipStage === 'member')) {
+        console.log('💎 Full member detected - routing to Iko Chat');
+        navigate('/iko', { replace: true });
+        return;
+      }
+
+      // ✅ PRIORITY 3: Pre-Members - Go to Towncrier  
+      if (memberStatus === 'pre_member' || membershipStage === 'pre_member') {
+        console.log('👤 Pre-member detected - routing to Towncrier');
+        navigate('/towncrier', { replace: true });
+        return;
+      }
+
+      // ✅ PRIORITY 4: Check if user needs to complete application survey
+      if (token) {
+        const needsSurvey = await checkIfUserNeedsApplication(token, userData);
+        
+        if (needsSurvey) {
+          console.log('📝 User needs to complete application - routing to survey');
+          navigate('/applicationsurvey', { replace: true });
+          return;
+        }
+      }
+
+      // ✅ PRIORITY 5: Other authenticated users - Go to dashboard
+      console.log('🏠 Default routing - going to dashboard');
+      navigate('/dashboard', { replace: true });
+      
+    } catch (error) {
+      console.error('❌ Error in user routing:', error);
+      setError('Login successful but routing failed. Redirecting to dashboard...');
+      
+      // Last resort fallback
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 2000);
+    }
+  };
+
+  // ✅ NEW: More precise check for application survey requirement
+  const checkIfUserNeedsApplication = async (token, userData) => {
+    try {
+      console.log('🔍 Checking if user needs application survey...');
+      
+      // Skip survey check for known member statuses
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      // Users who definitely don't need survey
+      if (memberStatus === 'pre_member' || 
+          memberStatus === 'member' || 
+          memberStatus === 'active' ||
+          membershipStage === 'pre_member' || 
+          membershipStage === 'member') {
+        console.log('✅ User has confirmed membership status - no survey needed');
+        return false;
+      }
+
+      // Check survey status via API for edge cases
+      const response = await axios.get('http://localhost:3000/api/membership/survey/check-status', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        timeout: 5000
+      });
+      
+      const statusData = response.data;
+      console.log('📋 Survey status check:', statusData);
+      
+      // Only require survey if explicitly needed and not completed
+      const needsSurvey = statusData.needs_survey === true && 
+                         statusData.survey_completed === false &&
+                         memberStatus === 'applied' &&
+                         membershipStage === 'none';
+      
+      console.log('🎯 Survey requirement decision:', {
+        needsSurvey,
+        reason: needsSurvey ? 'New user needs to complete application' : 'User has existing status'
+      });
+      
+      return needsSurvey;
+      
+    } catch (error) {
+      console.warn('⚠️ Survey status check failed:', error);
+      
+      // Conservative fallback: only require survey for clearly new users
+      const memberStatus = userData.is_member?.toLowerCase();
+      const membershipStage = userData.membership_stage?.toLowerCase();
+      
+      const isNewUser = memberStatus === 'applied' && 
+                       membershipStage === 'none' &&
+                       !userData.application_submitted_at;
+      
+      console.log('🔄 Fallback survey check:', {
+        isNewUser,
+        memberStatus,
+        membershipStage
+      });
+      
+      return isNewUser;
+    }
+  };
+
+  const handlePendingUser = (data) => {
+    const { applicationStatus, applicationTicket } = data;
+    
+    switch (applicationStatus) {
+      case 'pending':
+        alert(`Your application is still under review.\n\nApplication Ticket: ${applicationTicket || 'N/A'}\n\nYou'll receive an email notification once the review is complete.`);
+        navigate('/pending-verification');
+        break;
+      case 'suspended':
+        alert(`Your application review is suspended and requires additional information.\n\nPlease check your email for details on what's needed.\n\nApplication Ticket: ${applicationTicket || 'N/A'}`);
+        navigate('/suspended-verification');
+        break;
+      default:
+        setError("Your application is being processed. Please check your email for updates.");
+    }
+  };
+
+  const handleForgotPassword = () => {
+    const email = values.email;
+    if (!email) {
+      alert("Please enter your email address first, then click 'Forgot Password'.");
+      return;
+    }
+    
+    navigate('/forgot-password', { state: { email } });
+  };
+
+  const handleChange = (e) => {
+    setValues({ ...values, [e.target.name]: e.target.value });
+  };
+
+  return (
+    <div className="login-container">
+      <div className="login-form">
+        <div className="login-header">
+          <h2>Sign In to Ikoota</h2>
+          <p>Access your educational community account</p>
+        </div>
+
+        {error && (
+          <div className="error-message">
+            <span className="error-icon">⚠️</span>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="email">
+              <strong>Email Address:</strong>
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={values.email}
+              onChange={handleChange}
+              placeholder="Enter your email"
+              className="form-control"
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">
+              <strong>Password:</strong>
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={values.password}
+              onChange={handleChange}
+              placeholder="Enter your password"
+              className="form-control"
+              autoComplete="current-password"
+              required
+            />
+          </div>
+
+          <div className="form-actions">
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="btn-login"
+            >
+              {loading ? 'Signing In...' : 'Sign In'}
+            </button>
+            
+            <button 
+              type="button" 
+              onClick={handleForgotPassword}
+              className="btn-forgot"
+            >
+              Forgot Password?
+            </button>
+          </div>
+        </form>
+
+        <div className="login-divider">
+          <span>New to Ikoota?</span>
+        </div>
+
+        <div className="signup-section">
+          <p>Join our educational community</p>
+          <Link to="/signup" className="btn-signup">
+            Create Account
+          </Link>
+        </div>
+
+        <div className="login-help">
+          <h3>Having trouble signing in?</h3>
+          <div className="help-options">
+            <div className="help-item">
+              <span className="help-icon">📧</span>
+              <div>
+                <h4>Check Your Application Status</h4>
+                <p>If you've applied for membership, check your email for status updates</p>
+              </div>
+            </div>
+            <div className="help-item">
+              <span className="help-icon">⏳</span>
+              <div>
+                <h4>Application Under Review</h4>
+                <p>Pending applications typically take 3-5 business days to review</p>
+              </div>
+            </div>
+            <div className="help-item">
+              <span className="help-icon">❓</span>
+              <div>
+                <h4>Need Help?</h4>
+                <p>Contact support@ikoota.com with your application ticket number</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="login-footer">
+          <div className="footer-links">
+            <Link to="/">← Back to Home</Link>
+            <Link to="/towncrier">Browse Public Content</Link>
+          </div>
+          <p className="footer-note">
+            By signing in, you agree to our Terms of Service and Privacy Policy.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
+
+
+
+ 
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+//ikootaclient\src\components\auth\Passwordreset.jsx
+import React, { useState } from "react";
+import axios from "axios";
+import "./passwordreset.css";
+
+const Passwordreset = () => {
+  const [step, setStep] = useState(1);
+  const [values, setValues] = useState({
+    emailOrPhone: "",
+    newPassword: "",
+    confirmNewPassword: "",
+    verificationCode: "",
+  });
+
+  const handleResetRequest = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post("http://localhost:3000/api/auth/passwordreset/request", {
+        emailOrPhone: values.emailOrPhone,
+      });
+      setStep(2); // Move to password reset step
+    } catch (err) {
+      console.error(err.response.data.message);
+    }
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post("http://localhost:3000/api/auth/passwordreset/reset", {
+        ...values,
+      });
+      setStep(3); // Move to verification step
+    } catch (err) {
+      console.error(err.response.data.message);
+    }
+  };
+
+  const handleVerification = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post("http://localhost:3000/api/auth/passwordreset/verify", {
+        emailOrPhone: values.emailOrPhone,
+        verificationCode: values.verificationCode,
+      });
+      alert("Password reset successful!");
+    } catch (err) {
+      console.error(err.response.data.message);
+    }
+  };
+
+  return (
+    <div className="password-reset-container">
+      {step === 1 && (
+        <form onSubmit={handleResetRequest}>
+          <h2>Request Password Reset</h2>
+          <input
+            type="text"
+            placeholder="Enter Email or Phone"
+            onChange={(e) => setValues({ ...values, emailOrPhone: e.target.value })}
+            required
+          />
+          <button type="submit">Send Reset Link</button>
+        </form>
+      )}
+      {step === 2 && (
+        <form onSubmit={handlePasswordReset}>
+          <h2>Reset Password</h2>
+          <input
+            type="password"
+            placeholder="New Password"
+            onChange={(e) => setValues({ ...values, newPassword: e.target.value })}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Confirm New Password"
+            onChange={(e) => setValues({ ...values, confirmNewPassword: e.target.value })}
+            required
+          />
+          <button type="submit">Reset Password</button>
+        </form>
+      )}
+      {step === 3 && (
+        <form onSubmit={handleVerification}>
+          <h2>Verify Reset</h2>
+          <input
+            type="text"
+            placeholder="Enter Verification Code"
+            onChange={(e) => setValues({ ...values, verificationCode: e.target.value })}
+            required
+          />
+          <button type="submit">Verify</button>
+        </form>
+      )}
+    </div>
+  );
+};
+
+export default Passwordreset;
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+//ikootaapi/routes/authRoutes.js - CONSOLIDATED AUTHENTICATION
+import express from 'express';
+import {
+  // ✅ NEW: Enhanced authentication functions from membership
+  sendVerificationCode,
+  registerWithVerification,
+  enhancedLogin,
+  logoutUser,
+  
+  // ✅ KEEP: Existing password reset functions
+  requestPasswordReset,
+  resetPassword,
+  verifyPasswordReset,
+  verifyUser,
+  getAuthenticatedUser,
+  
+} from '../controllers/authControllers.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
+// Add this to your authRoutes.js - Development Email Testing
+import { sendEmail } from '../utils/notifications.js';
+
+const router = express.Router();
+
+// ==================================================
+// PRIMARY AUTHENTICATION ROUTES (Enhanced versions)
+// ==================================================
+
+// ✅ MOVED: Enhanced verification and registration system
+router.post('/send-verification', sendVerificationCode);
+router.post('/register', registerWithVerification);
+router.post('/login', enhancedLogin);
+router.get('/logout', logoutUser);
+
+// ==================================================
+// PASSWORD RESET ROUTES (Existing)
+// ==================================================
+
+router.post('/passwordreset/request', requestPasswordReset);
+router.post('/passwordreset/reset', resetPassword);
+router.post('/passwordreset/verify', verifyPasswordReset);
+
+// ==================================================
+// USER VERIFICATION ROUTES (Existing)
+// ==================================================
+
+router.get('/verify/:token', verifyUser);
+
+// ==================================================
+// AUTHENTICATED USER ROUTES (Existing)
+// ==================================================
+
+router.get('/', authenticate, getAuthenticatedUser);
+
+// ==================================================
+// DEVELOPMENT & TESTING ROUTES
+// ==================================================
+
+// Simple test route to verify auth routes work
+router.get('/test-simple', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Authentication routes are working!',
+    timestamp: new Date().toISOString(),
+    path: req.path,
+    method: req.method
+  });
+});
+
+// Test route with authentication
+router.get('/test-auth', authenticate, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Authentication is working!',
+    user: req.user,
+    timestamp: new Date().toISOString()
+  });
+});
+
+
+// ===== DEVELOPMENT EMAIL TEST ROUTES =====
+if (process.env.NODE_ENV === 'development') {
+  
+  // Test basic email sending
+  router.post('/test-email', async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Email address required',
+          example: { email: 'your-email@gmail.com' }
+        });
+      }
+      
+      console.log('🧪 Testing email to:', email);
+      
+      const result = await sendEmail(email, 'verification_code', {
+        VERIFICATION_CODE: '123456',
+        EXPIRES_IN: '10 minutes'
+      });
+      
+      res.json({
+        success: true,
+        message: 'Test email sent successfully',
+        result,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Test email failed:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        help: 'Check your Gmail App Password configuration',
+        instructions: [
+          '1. Enable 2FA on Gmail',
+          '2. Generate App Password',
+          '3. Set MAIL_USER and MAIL_PASS in .env',
+          '4. Restart server'
+        ]
+      });
+    }
+  });
+
+  // Test email configuration
+  router.get('/test-email-config', async (req, res) => {
+    try {
+      const { testEmailConnection, getEmailConfig } = await import('../utils/email.js');
+      
+      const config = getEmailConfig();
+      const connectionTest = await testEmailConnection();
+      
+      res.json({
+        success: true,
+        configuration: config,
+        connectionTest,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Email config test failed:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // Test all notification services
+  router.get('/test-notifications', async (req, res) => {
+    try {
+      const { testNotificationServices } = await import('../utils/notifications.js');
+      
+      const results = await testNotificationServices();
+      
+      res.json({
+        success: true,
+        services: results,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Notification services test failed:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+}
+
+// ==================================================
+// ERROR HANDLING & LOGGING
+// ==================================================
+
+// Log all routes in development
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔐 Authentication routes loaded:');
+  console.log('   Primary Auth: /send-verification, /register, /login, /logout');
+  console.log('   Password Reset: /passwordreset/request, /passwordreset/reset, /passwordreset/verify');
+  console.log('   User Verification: /verify/:token');
+  console.log('   Authenticated User: /');
+  console.log('   Test: /test-simple, /test-auth');
+}
+
+// 404 handler for unmatched auth routes
+router.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Authentication route not found',
+    path: req.path,
+    method: req.method,
+    availableRoutes: {
+      primary: [
+        'POST /send-verification',
+        'POST /register',
+        'POST /login',
+        'GET /logout'
+      ],
+      passwordReset: [
+        'POST /passwordreset/request',
+        'POST /passwordreset/reset',
+        'POST /passwordreset/verify'
+      ],
+      verification: [
+        'GET /verify/:token'
+      ],
+      user: [
+        'GET /'
+      ],
+      testing: [
+        'GET /test-simple',
+        'GET /test-auth'
+      ]
+    }
+  });
+});
+
+// Global error handler for auth routes
+router.use((error, req, res, next) => {
+  console.error('Authentication route error:', error);
+  
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Internal server error',
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+
+// Add this to your authRoutes.js for testing
+
+// ===== DEVELOPMENT EMAIL TEST ROUTE =====
+if (process.env.NODE_ENV === 'development') {
+  router.post('/test-email', async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: 'Email address required' });
+      }
+      
+      console.log('🧪 Testing email to:', email);
+      
+      const result = await sendEmail(email, 'verification_code', {
+        VERIFICATION_CODE: '123456',
+        EXPIRES_IN: '10 minutes'
+      });
+      
+      res.json({
+        success: true,
+        message: 'Test email sent successfully',
+        result
+      });
+      
+    } catch (error) {
+      console.error('❌ Test email failed:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        help: 'Check your Gmail App Password configuration'
+      });
+    }
+  });
+}
+
+export default router;
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+//ikootaapi/controllers/authControllers.js - FIXED DATABASE FIELD NAMES
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+import crypto from 'crypto';
+import db from '../config/db.js';
+import { sendEmail, sendSMS } from '../utils/notifications.js';
+import CustomError from '../utils/CustomError.js';
+import { sendEmail as utilsSendEmail } from '../utils/email.js';
+import { generateToken } from '../utils/jwt.js';
+import { 
+  registerUserService, 
+  loginUserService,  
+  sendPasswordResetEmailOrSMS,
+  updatePassword,
+  verifyResetCode,
+  generateVerificationCode,
+} from '../services/authServices.js';
+
+const SECRET_KEY = process.env.SECRET_KEY;
+dotenv.config();
+
+// =============================================================================
+// UTILITY FUNCTIONS (Moved from membershipControllers_1.js)
+// =============================================================================
+
+/**
+ * Generate application ticket with consistent format
+ */
+export const generateApplicationTicket = (username, email, type = 'INITIAL') => {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substr(2, 5);
+  const prefix = type === 'FULL' ? 'FMA' : 'APP';
+  return `${prefix}-${username.substr(0, 3).toUpperCase()}-${timestamp}-${random}`.toUpperCase();
+};
+
+/**
+ * ✅ ENHANCED: Backend-safe converse ID generation
+ */
+export const generateConverseId = () => {
+    const prefix = 'OTO#';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    
+    try {
+        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+            const array = new Uint8Array(6);
+            crypto.getRandomValues(array);
+            
+            for (let i = 0; i < 6; i++) {
+                result += chars[array[i] % chars.length];
+            }
+        } else {
+            // Fallback for older Node.js environments
+            const crypto = require('crypto');
+            for (let i = 0; i < 6; i++) {
+                result += chars[crypto.randomInt(0, chars.length)];
+            }
+        }
+    } catch (error) {
+        console.warn('⚠️ Crypto not available, using Math.random fallback');
+        // Fallback to Math.random (less secure but functional)
+        for (let i = 0; i < 6; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+    }
+    
+    return prefix + result;
+};
+
+/**
+ * ✅ ENHANCED: Check if converse ID is unique in database
+ */
+export const ensureUniqueConverseId = async () => {
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+        const candidateId = generateConverseId();
+        
+        try {
+            // Check if this ID already exists
+            const result = await db.query('SELECT id FROM users WHERE converse_id = ?', [candidateId]);
+            
+            // Handle result format
+            let existingUsers;
+            if (Array.isArray(result)) {
+                existingUsers = Array.isArray(result[0]) ? result[0] : result;
+            } else {
+                existingUsers = [];
+            }
+            
+            if (existingUsers.length === 0) {
+                console.log('✅ Generated unique converse ID:', candidateId);
+                return candidateId;
+            }
+            
+            console.log('⚠️ Converse ID collision, retrying...', candidateId);
+            attempts++;
+        } catch (error) {
+            console.error('❌ Error checking converse ID uniqueness:', error);
+            // Return the candidate ID anyway to avoid blocking
+            return candidateId;
+        }
+    }
+    
+    // If we've exhausted attempts, return the last generated ID
+    console.warn('⚠️ Max attempts reached, using last generated ID');
+    return generateConverseId();
+};
+
+/**
+ * Standardized success response
+ */
+export const successResponse = (res, data = {}, message = 'Operation successful', statusCode = 200) => {
+  return res.status(statusCode).json({
+    success: true,
+    message,
+    ...data
+  });
+};
+
+/**
+ * Standardized error response
+ */
+export const errorResponse = (res, error, statusCode = 500) => {
+  console.error('Error occurred:', error);
+  return res.status(statusCode).json({
+    success: false,
+    error: error.message || 'An error occurred',
+    details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+  });
+};
+
+// =============================================================================
+// ✅ FIXED AUTHENTICATION FUNCTIONS - CORRECTED DATABASE FIELD NAMES
+// =============================================================================
+
+/**
+ * ✅ FIXED: Send verification code - CORRECTED DATABASE FIELD NAMES
+ */
+export const sendVerificationCode = async (req, res) => {
+  try {
+    const { email, phone, method = 'email' } = req.body;
+    
+    console.log('🔍 sendVerificationCode called with:', { email, phone, method });
+    
+    if (!email && !phone) {
+      throw new CustomError('Email or phone number is required', 400);
+    }
+    
+    if (!method || !['email', 'phone'].includes(method)) {
+      throw new CustomError('Invalid verification method. Must be email or phone', 400);
+    }
+    
+    // Generate 6-digit verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    console.log('✅ Generated verification code:', verificationCode);
+    
+    // ✅ CRITICAL FIX: Let MySQL handle the expiry time calculation
+    try {
+      // First, clean up any existing expired codes for this user
+      await db.query(`
+        DELETE FROM verification_codes 
+        WHERE ${method === 'email' ? 'email' : 'phone'} = ? 
+        AND expiresAt < NOW()
+      `, [method === 'email' ? email : phone]);
+      
+      console.log('🧹 Cleaned up expired verification codes');
+      
+      // ✅ FIXED: Use MySQL's DATE_ADD to set expiry time correctly
+      const result = await db.query(`
+        INSERT INTO verification_codes (email, phone, code, method, expiresAt, createdAt) 
+        VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), NOW())
+      `, [email || null, phone || null, verificationCode, method]);
+      
+      console.log('✅ Verification code stored in database');
+      
+      // ✅ ENHANCED: Verify the code was stored correctly
+      if (process.env.NODE_ENV === 'development') {
+        const verifyResult = await db.query(`
+          SELECT code, method, createdAt, expiresAt, 
+                 (expiresAt > NOW()) as is_valid,
+                 TIMESTAMPDIFF(MINUTE, NOW(), expiresAt) as minutes_until_expiry,
+                 NOW() as current_server_time
+          FROM verification_codes 
+          WHERE ${method === 'email' ? 'email' : 'phone'} = ? 
+          AND code = ?
+          ORDER BY createdAt DESC 
+          LIMIT 1
+        `, [method === 'email' ? email : phone, verificationCode]);
+        
+        const verifyRows = Array.isArray(verifyResult) ? 
+          (Array.isArray(verifyResult[0]) ? verifyResult[0] : verifyResult) : [];
+        
+        console.log('🔍 Verification code storage check:', verifyRows[0]);
+        
+        if (verifyRows[0]?.is_valid === 0) {
+          console.error('❌ CRITICAL: Verification code was stored as expired!');
+        } else {
+          console.log('✅ Verification code stored correctly and is valid');
+        }
+      }
+      
+    } catch (dbError) {
+      console.error('❌ Database error storing verification code:', dbError);
+      throw new CustomError('Failed to store verification code', 500);
+    }
+    
+    // Send verification code
+    try {
+      if (method === 'email' && email) {
+        console.log('📧 Attempting to send email to:', email);
+        await sendEmail(email, 'verification_code', {
+          VERIFICATION_CODE: verificationCode,
+          EXPIRES_IN: '10 minutes'
+        });
+        console.log('✅ Email sent successfully');
+      } else if (method === 'phone' && phone) {
+        console.log('📱 Attempting to send SMS to:', phone);
+        await sendSMS(phone, `Your Ikoota verification code is: ${verificationCode}. Valid for 10 minutes.`);
+        console.log('✅ SMS sent successfully');
+      } else {
+        throw new CustomError(`Invalid method ${method} for provided contact info`, 400);
+      }
+    } catch (notificationError) {
+      console.error('❌ Notification sending failed:', notificationError);
+      // Don't fail the entire request if notification fails
+      console.log('⚠️ Continuing despite notification failure for development');
+    }
+    
+    return successResponse(res, {
+      expiresIn: 600, // 10 minutes in seconds
+      // ✅ For development only - remove in production
+      ...(process.env.NODE_ENV === 'development' && { 
+        devCode: verificationCode,
+        devNote: 'This code is only shown in development mode'
+      })
+    }, `Verification code sent to ${method === 'email' ? email : phone}`);
+    
+  } catch (error) {
+    console.error('❌ sendVerificationCode error:', error);
+    return errorResponse(res, error, error.statusCode || 500);
+  }
+};
+
+
+export const registerWithVerification = async (req, res) => {
+  let connection = null;
+  
+  try {
+    const {
+      username,
+      email,
+      password,
+      phone,
+      verificationCode,
+      verificationMethod = 'email'
+    } = req.body;
+    
+    console.log('🔍 registerWithVerification called with:', { 
+      username, 
+      email, 
+      phone, 
+      verificationMethod,
+      hasVerificationCode: !!verificationCode 
+    });
+        
+    // ✅ ENHANCED: More robust validation
+    if (!username || !email || !password || !verificationCode) {
+      throw new CustomError('All fields are required', 400);
+    }
+    
+    // ✅ ENHANCED: Username validation
+    if (username.length < 2 || username.length > 50) {
+      throw new CustomError('Username must be between 2 and 50 characters', 400);
+    }
+    
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+      throw new CustomError('Username can only contain letters, numbers, underscores, and hyphens', 400);
+    }
+    
+    // ✅ ENHANCED: Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new CustomError('Invalid email format', 400);
+    }
+    
+    // ✅ ENHANCED: Password validation
+    if (password.length < 8) {
+      throw new CustomError('Password must be at least 8 characters long', 400);
+    }
+    
+    if (!['email', 'phone'].includes(verificationMethod)) {
+      throw new CustomError('Invalid verification method', 400);
+    }
+        
+    // ✅ CORRECT: Verify the verification code using your exact field names
+    const verificationTarget = verificationMethod === 'email' ? email : phone;
+    
+    console.log('🔍 Checking verification code for:', verificationTarget, 'method:', verificationMethod);
+    
+    // ✅ CORRECT: Using 'code' and 'method' as in your working code
+    const verificationResult = await db.query(`
+      SELECT id, code, method, createdAt, expiresAt,
+             TIMESTAMPDIFF(SECOND, NOW(), expiresAt) as seconds_until_expiry
+      FROM verification_codes 
+      WHERE ${verificationMethod === 'email' ? 'email' : 'phone'} = ? 
+        AND code = ? 
+        AND method = ? 
+        AND expiresAt > NOW()
+      ORDER BY createdAt DESC
+      LIMIT 1
+    `, [verificationTarget, verificationCode, verificationMethod]);
+    
+    // ✅ CORRECT: Handle database result properly (same as your working code)
+    let verificationRows;
+    if (Array.isArray(verificationResult)) {
+      verificationRows = Array.isArray(verificationResult[0]) ? verificationResult[0] : verificationResult;
+    } else {
+      verificationRows = [];
+    }
+
+    // ✅ ENHANCED: Better debugging for development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Verification query result:', {
+        foundRows: verificationRows?.length || 0,
+        searchedFor: verificationCode,
+        searchedMethod: verificationMethod,
+        searchedTarget: verificationTarget,
+        secondsUntilExpiry: verificationRows[0]?.seconds_until_expiry
+      });
+
+      // Debug: Show what's actually in the database (using correct field names)
+      const debugResult = await db.query(`
+        SELECT id, email, phone, code, method, expiresAt, createdAt,
+               (expiresAt > NOW()) as is_not_expired
+        FROM verification_codes 
+        WHERE ${verificationMethod === 'email' ? 'email' : 'phone'} = ?
+        ORDER BY createdAt DESC
+        LIMIT 3
+      `, [verificationTarget]);
+      
+      let debugRows = Array.isArray(debugResult) ? 
+        (Array.isArray(debugResult[0]) ? debugResult[0] : debugResult) : [];
+      
+      console.log('🔍 Debug - Recent codes for this user:', debugRows);
+    }
+        
+    if (!verificationRows || verificationRows.length === 0) {
+      console.log('❌ Invalid verification code for:', verificationTarget);
+      throw new CustomError('Invalid or expired verification code', 400);
+    }
+    
+    console.log('✅ Verification code validated');
+        
+    // ✅ ENHANCED: More comprehensive duplicate check
+    const existingUserResult = await db.query(`
+      SELECT id, email, username, is_verified 
+      FROM users 
+      WHERE email = ? OR username = ?
+    `, [email, username]);
+    
+    // ✅ CORRECT: Handle database result properly (same as your working code)
+    let existingUsers;
+    if (Array.isArray(existingUserResult)) {
+      existingUsers = Array.isArray(existingUserResult[0]) ? existingUserResult[0] : existingUserResult;
+    } else {
+      existingUsers = [];
+    }
+        
+    if (existingUsers && existingUsers.length > 0) {
+      const existingUser = existingUsers[0];
+      if (existingUser.email === email) {
+        throw new CustomError('User with this email already exists', 409);
+      }
+      if (existingUser.username === username) {
+        throw new CustomError('Username is already taken', 409);
+      }
+    }
+    
+    console.log('✅ User uniqueness validated');
+        
+    // ✅ ENHANCED: Transaction-based user creation with proper error handling
+    let newUser;
+    
+    try {
+      // Get connection for transaction
+      connection = await db.getConnection();
+      await connection.beginTransaction();
+      
+      console.log('🔄 Starting transaction for user creation');
+      
+      // Hash password with higher security
+      const saltRounds = 12;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+            
+      // Generate application ticket
+      const applicationTicket = generateApplicationTicket(username, email);
+      
+      // Generate unique converse ID with retry logic
+      const converseId = await ensureUniqueConverseId();
+      
+      console.log('🔍 Creating user with:', {
+        username,
+        email,
+        phone: phone || null,
+        applicationTicket,
+        converseId
+      });
+      
+      // ✅ CORRECT: Insert user using your exact field names
+      const [insertResult] = await connection.execute(`
+        INSERT INTO users (
+          username, 
+          email, 
+          password_hash, 
+          phone, 
+          application_ticket,
+          converse_id,
+          verification_method,
+          is_verified
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      `, [
+        username, 
+        email, 
+        passwordHash, 
+        phone || null, 
+        applicationTicket,
+        converseId,
+        verificationMethod
+      ]);
+      
+      const userId = insertResult.insertId;
+      
+      if (!userId) {
+        throw new Error('Failed to create user - no ID returned');
+      }
+      
+      console.log('✅ User created with ID:', userId);
+      
+      // ✅ ENHANCED: Better class assignment with error handling
+      try {
+        // Check if OTU#Public class exists
+        const [classCheck] = await connection.execute(`
+          SELECT id FROM classes WHERE id = 'OTU#Public'
+        `);
+        
+        if (classCheck.length === 0) {
+          console.warn('⚠️ OTU#Public class not found, creating it...');
+          await connection.execute(`
+            INSERT INTO classes (id, name, description, type, createdAt)
+            VALUES ('OTU#Public', 'Public Class', 'Default public class for all users', 'public', NOW())
+            ON DUPLICATE KEY UPDATE updatedAt = NOW()
+          `);
+        }
+        
+        // Insert into user_class_memberships with conflict resolution
+        await connection.execute(`
+          INSERT INTO user_class_memberships (user_id, class_id, membership_status)
+          VALUES (?, 'OTU#Public', 'active')
+          ON DUPLICATE KEY UPDATE membership_status = 'active'
+        `, [userId]);
+        
+        // Update user totals
+        await connection.execute(`
+          UPDATE users 
+          SET total_classes = 1, primary_class_id = 'OTU#Public'
+          WHERE id = ?
+        `, [userId]);
+        
+        console.log('✅ User class assignments completed');
+        
+      } catch (classError) {
+        console.error('❌ Class assignment error:', classError);
+        console.warn('⚠️ Continuing without class assignment - can be fixed later');
+        // Don't fail the entire transaction for class assignment issues
+      }
+      
+      // ✅ CORRECT: Clean up verification codes using your exact field names
+      await connection.execute(`
+        DELETE FROM verification_codes 
+        WHERE ${verificationMethod === 'email' ? 'email' : 'phone'} = ?
+      `, [verificationTarget]);
+      
+      console.log('✅ All verification codes cleaned up for user');
+      
+      // Commit transaction
+      await connection.commit();
+      console.log('✅ Transaction committed successfully');
+            
+      newUser = {
+        userId,
+        username,
+        email,
+        applicationTicket,
+        converseId
+      };
+      
+    } catch (dbError) {
+      // Rollback transaction on any error
+      if (connection) {
+        await connection.rollback();
+        console.log('🔄 Transaction rolled back due to error');
+      }
+      
+      console.error('❌ Database transaction error:', dbError);
+      
+      // ✅ ENHANCED: Specific error handling
+      if (dbError.code === 'ER_DUP_ENTRY') {
+        if (dbError.message.includes('email')) {
+          throw new CustomError('Email address is already registered', 409);
+        } else if (dbError.message.includes('username')) {
+          throw new CustomError('Username is already taken', 409);
+        } else {
+          throw new CustomError('User already exists', 409);
+        }
+      } else if (dbError.code === 'ER_DATA_TOO_LONG') {
+        throw new CustomError('One or more fields exceed maximum length', 400);
+      } else if (dbError.code === 'ER_BAD_NULL_ERROR') {
+        throw new CustomError('Required field is missing', 400);
+      } else {
+        throw new CustomError(`Registration failed: ${dbError.message}`, 500);
+      }
+    } finally {
+      // Release connection
+      if (connection) {
+        connection.release();
+      }
+    }
+        
+    // ✅ ENHANCED: Generate JWT token with more claims (keeping your exact structure)
+    const tokenPayload = {
+      user_id: newUser.userId,
+      username: newUser.username,
+      email: newUser.email,
+      membership_stage: 'none',
+      is_member: 'applied',
+      role: 'user',
+      converse_id: newUser.converseId,
+      iat: Math.floor(Date.now() / 1000)
+    };
+    
+    const token = jwt.sign(
+      tokenPayload,
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    console.log('✅ JWT token generated with enhanced payload');
+        
+    // ✅ CORRECT: Send welcome email using your exact template structure
+    try {
+      await sendEmail(newUser.email, 'welcome_registration', {
+        USERNAME: newUser.username,
+        APPLICATION_TICKET: newUser.applicationTicket,
+        LOGIN_URL: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`,
+        SUPPORT_EMAIL: process.env.SUPPORT_EMAIL || 'support@ikoota.com'
+      });
+      console.log('✅ Welcome email sent successfully');
+    } catch (emailError) {
+      console.error('⚠️ Welcome email failed:', emailError);
+      // Log this for follow-up but don't fail registration
+    }
+    
+    // ✅ ENHANCED: Log successful registration for analytics (optional)
+    try {
+      await db.query(`
+        INSERT INTO user_activity_log (
+          user_id, 
+          activity_type, 
+          details, 
+          ip_address, 
+          user_agent,
+          createdAt
+        ) VALUES (?, 'registration', ?, ?, ?, NOW())
+        ON DUPLICATE KEY UPDATE createdAt = VALUES(createdAt)
+      `, [
+        newUser.userId,
+        JSON.stringify({
+          verification_method: verificationMethod,
+          has_phone: !!phone,
+          application_ticket: newUser.applicationTicket
+        }),
+        req.ip || req.connection?.remoteAddress || 'unknown',
+        req.get('User-Agent') || 'unknown'
+      ]);
+      console.log('✅ Registration logged for analytics');
+    } catch (logError) {
+      console.error('⚠️ Failed to log registration activity:', logError);
+      // Don't fail registration for logging issues
+    }
+        
+    // ✅ CORRECT: Return response using your exact structure
+    return successResponse(res, {
+      token,
+      user: {
+        id: newUser.userId,
+        username: newUser.username,
+        email: newUser.email,
+        membership_stage: 'none',
+        is_member: 'applied',
+        application_ticket: newUser.applicationTicket,
+        converse_id: newUser.converseId
+      },
+      redirectTo: '/applicationsurvey'
+    }, 'Registration successful', 201);
+        
+  } catch (error) {
+    console.error('❌ registerWithVerification error:', error);
+    
+    // ✅ ENHANCED: Cleanup on failure
+    if (connection) {
+      try {
+        await connection.rollback();
+        connection.release();
+      } catch (cleanupError) {
+        console.error('❌ Error during cleanup:', cleanupError);
+      }
+    }
+    
+    return errorResponse(res, error, error.statusCode || 500);
+  }
+};
+
+// export const registerWithVerification = async (req, res) => {
+//   try {
+//     const {
+//       username,
+//       email,
+//       password,
+//       phone,
+//       verificationCode,
+//       verificationMethod = 'email'
+//     } = req.body;
+    
+//     console.log('🔍 registerWithVerification called with:', { 
+//       username, 
+//       email, 
+//       phone, 
+//       verificationMethod,
+//       hasVerificationCode: !!verificationCode 
+//     });
+        
+//     // Validate required fields
+//     if (!username || !email || !password || !verificationCode) {
+//       throw new CustomError('All fields are required', 400);
+//     }
+    
+//     if (!['email', 'phone'].includes(verificationMethod)) {
+//       throw new CustomError('Invalid verification method', 400);
+//     }
+        
+//     // ✅ FIXED: Verify the verification code using CORRECT database field names
+//     const verificationTarget = verificationMethod === 'email' ? email : phone;
+    
+//     console.log('🔍 Checking verification code for:', verificationTarget, 'method:', verificationMethod);
+    
+//     // ✅ CRITICAL FIX: Use 'code' and 'method' instead of 'verification_code' and 'verification_method'
+//     const verificationResult = await db.query(`
+//       SELECT * FROM verification_codes 
+//       WHERE ${verificationMethod === 'email' ? 'email' : 'phone'} = ? 
+//         AND code = ? 
+//         AND method = ? 
+//         AND expiresAt > NOW()
+//       ORDER BY createdAt DESC
+//       LIMIT 1
+//     `, [verificationTarget, verificationCode, verificationMethod]);
+    
+//     // ✅ FIXED: Handle database result properly
+//     let verificationRows;
+//     if (Array.isArray(verificationResult)) {
+//       verificationRows = Array.isArray(verificationResult[0]) ? verificationResult[0] : verificationResult;
+//     } else {
+//       verificationRows = [];
+//     }
+
+//     // ✅ ENHANCED: Add debugging information for development
+//     if (process.env.NODE_ENV === 'development') {
+//       console.log('🔍 Verification query result:', {
+//         foundRows: verificationRows?.length || 0,
+//         searchedFor: verificationCode,
+//         searchedMethod: verificationMethod,
+//         searchedTarget: verificationTarget
+//       });
+
+//       // Debug: Show what's actually in the database
+//       const debugResult = await db.query(`
+//         SELECT id, email, phone, code, method, expiresAt, createdAt,
+//                (expiresAt > NOW()) as is_not_expired
+//         FROM verification_codes 
+//         WHERE ${verificationMethod === 'email' ? 'email' : 'phone'} = ?
+//         ORDER BY createdAt DESC
+//         LIMIT 3
+//       `, [verificationTarget]);
+      
+//       let debugRows = Array.isArray(debugResult) ? 
+//         (Array.isArray(debugResult[0]) ? debugResult[0] : debugResult) : [];
+      
+//       console.log('🔍 Debug - Recent codes for this user:', debugRows);
+//     }
+        
+//     if (!verificationRows || verificationRows.length === 0) {
+//       console.log('❌ Invalid verification code for:', verificationTarget);
+//       throw new CustomError('Invalid or expired verification code', 400);
+//     }
+    
+//     console.log('✅ Verification code validated');
+        
+//     // Check if user already exists
+//     const existingUserResult = await db.query(
+//       'SELECT id FROM users WHERE email = ? OR username = ?',
+//       [email, username]
+//     );
+    
+//     // ✅ FIXED: Handle database result properly
+//     let existingUsers;
+//     if (Array.isArray(existingUserResult)) {
+//       existingUsers = Array.isArray(existingUserResult[0]) ? existingUserResult[0] : existingUserResult;
+//     } else {
+//       existingUsers = [];
+//     }
+        
+//     if (existingUsers && existingUsers.length > 0) {
+//       throw new CustomError('User with this email or username already exists', 409);
+//     }
+    
+//     console.log('✅ User uniqueness validated');
+        
+//     // ✅ SIMPLE: Basic insert without trigger conflicts
+//     let newUser;
+//     try {
+//       // Hash password
+//       const saltRounds = 12;
+//       const passwordHash = await bcrypt.hash(password, saltRounds);
+            
+//       // Generate application ticket
+//       const applicationTicket = generateApplicationTicket(username, email);
+      
+//       // Generate unique converse ID
+//       const converseId = await ensureUniqueConverseId();
+      
+//       console.log('🔍 Creating user with:', {
+//         username,
+//         email,
+//         phone: phone || null,
+//         applicationTicket,
+//         converseId
+//       });
+            
+//       // ✅ SIMPLE: Basic insert (trigger is now disabled)
+//       const insertResult = await db.query(`
+//         INSERT INTO users (
+//           username, 
+//           email, 
+//           password_hash, 
+//           phone, 
+//           application_ticket,
+//           converse_id,
+//           verification_method,
+//           is_verified
+//         ) VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+//       `, [
+//         username, 
+//         email, 
+//         passwordHash, 
+//         phone || null, 
+//         applicationTicket,
+//         converseId,
+//         verificationMethod
+//       ]);
+      
+//       // ✅ FIXED: Handle insertId properly
+//       let userId;
+//       if (Array.isArray(insertResult)) {
+//         userId = insertResult[0]?.insertId || insertResult.insertId;
+//       } else {
+//         userId = insertResult.insertId;
+//       }
+      
+//       if (!userId) {
+//         throw new CustomError('Failed to create user - no ID returned', 500);
+//       }
+      
+//       console.log('✅ User created with ID:', userId);
+      
+//       // ✅ MANUAL: Do what the trigger would have done (since trigger is disabled)
+//       try {
+//         // Insert into user_class_memberships
+//         await db.query(`
+//           INSERT INTO user_class_memberships (user_id, class_id, membership_status)
+//           VALUES (?, 'OTU#Public', 'active')
+//           ON DUPLICATE KEY UPDATE membership_status = 'active'
+//         `, [userId]);
+        
+//         // Update user totals
+//         await db.query(`
+//           UPDATE users 
+//           SET total_classes = 1, primary_class_id = 'OTU#Public'
+//           WHERE id = ?
+//         `, [userId]);
+        
+//         console.log('✅ User class assignments completed manually');
+//       } catch (classError) {
+//         console.warn('⚠️ Class assignment failed, but user created successfully:', classError.message);
+//         // Don't fail the entire registration if class assignment fails
+//       }
+            
+//       // ✅ FIXED: Delete used verification code using correct field names
+//       await db.query(`
+//         DELETE FROM verification_codes 
+//         WHERE ${verificationMethod === 'email' ? 'email' : 'phone'} = ? AND code = ?
+//       `, [verificationTarget, verificationCode]);
+      
+//       console.log('✅ Verification code cleaned up');
+            
+//       newUser = {
+//         userId,
+//         username,
+//         email,
+//         applicationTicket,
+//         converseId
+//       };
+      
+//     } catch (dbError) {
+//       console.error('❌ Database transaction error:', dbError);
+      
+//       // ✅ ENHANCED: Better error handling for specific database issues
+//       if (dbError.code === 'ER_DUP_ENTRY') {
+//         throw new CustomError('User already exists with this email or username', 409);
+//       } else {
+//         throw new CustomError(`Registration failed: ${dbError.message}`, 500);
+//       }
+//     }
+        
+//     // Generate JWT token
+//     const token = jwt.sign(
+//       {
+//         user_id: newUser.userId,
+//         username: newUser.username,
+//         email: newUser.email,
+//         membership_stage: 'none',
+//         is_member: 'applied',
+//         role: 'user'
+//       },
+//       process.env.JWT_SECRET,
+//       { expiresIn: '7d' }
+//     );
+    
+//     console.log('✅ JWT token generated');
+        
+//     // Send welcome email (non-blocking)
+//     try {
+//       await sendEmail(newUser.email, 'welcome_registration', {
+//         USERNAME: newUser.username,
+//         APPLICATION_TICKET: newUser.applicationTicket
+//       });
+//       console.log('✅ Welcome email sent');
+//     } catch (emailError) {
+//       console.error('⚠️ Welcome email failed:', emailError);
+//     }
+        
+//     return successResponse(res, {
+//       token,
+//       user: {
+//         id: newUser.userId,
+//         username: newUser.username,
+//         email: newUser.email,
+//         membership_stage: 'none',
+//         is_member: 'applied',
+//         application_ticket: newUser.applicationTicket,
+//         converse_id: newUser.converseId
+//       },
+//       redirectTo: '/applicationsurvey'
+//     }, 'Registration successful', 201);
+        
+//   } catch (error) {
+//     console.error('❌ registerWithVerification error:', error);
+//     return errorResponse(res, error, error.statusCode || 500);
+//   }
+// };
+
+
+/**
+ * ✅ MOVED: Enhanced login - Back to using email like before
+ */
+export const enhancedLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      throw new CustomError('Email and password are required', 400);
+    }
+    
+    // ✅ FIXED: Proper database query result handling
+    const result = await db.query(`
+      SELECT u.*, 
+             COALESCE(sl.approval_status, 'not_submitted') as initial_application_status,
+             sl.createdAt as initial_application_date,
+             fma.first_accessed_at as full_membership_accessed,
+             CASE WHEN fma.user_id IS NOT NULL THEN 1 ELSE 0 END as has_accessed_full_membership
+      FROM users u
+      LEFT JOIN surveylog sl ON u.id = CAST(sl.user_id AS UNSIGNED) 
+        AND sl.application_type = 'initial_application'
+      LEFT JOIN full_membership_access fma ON u.id = fma.user_id
+      WHERE u.email = ?
+      GROUP BY u.id
+    `, [email]);
+    
+    // ✅ FIXED: Handle database result properly
+    let users;
+    if (Array.isArray(result) && result.length > 0) {
+      // Check if it's MySQL2 format [rows, fields] or direct array
+      if (Array.isArray(result[0])) {
+        users = result[0]; // MySQL2 format
+      } else {
+        users = result; // Direct array format
+      }
+    } else {
+      users = [];
+    }
+    
+    if (!users || users.length === 0) {
+      throw new CustomError('Invalid credentials', 401);
+    }
+
+    const user = users[0];
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    if (!isValidPassword) {
+      throw new CustomError('Invalid credentials', 401);
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        user_id: user.id, 
+        username: user.username, 
+        email: user.email,
+        membership_stage: user.membership_stage,
+        is_member: user.is_member,
+        role: user.role
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Smart redirect logic
+    let redirectTo = '/';
+    
+    if (user.role === 'admin' || user.role === 'super_admin') {
+      redirectTo = '/admin';
+    } else if (user.membership_stage === 'member' && user.is_member === 'member') {
+      redirectTo = '/iko';
+    } else if (user.membership_stage === 'pre_member') {
+      redirectTo = '/towncrier';
+    } else if (user.membership_stage === 'applicant') {
+      if (user.initial_application_status === 'not_submitted') {
+        redirectTo = '/application-survey';
+      } else if (user.initial_application_status === 'pending') {
+        redirectTo = '/pending-verification';
+      } else if (user.initial_application_status === 'approved') {
+        redirectTo = '/approved-verification';
+      }
+    } else {
+      redirectTo = '/dashboard';
+    }
+
+    return successResponse(res, {
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        membership_stage: user.membership_stage,
+        is_member: user.is_member,
+        role: user.role
+      },
+      redirectTo
+    }, 'Login successful');
+
+  } catch (error) {
+    return errorResponse(res, error, error.statusCode || 500);
+  }
+};
+
+// =============================================================================
+// ✅ ENHANCED LOGOUT FUNCTION
+// =============================================================================
+
+export const logoutUser = async (req, res) => {
+    try {
+      res.clearCookie('access_token');
+      res.clearCookie('token');
+      
+      return successResponse(res, {}, 'Logged out successfully');
+    } catch (error) {
+      console.error('Error in logoutUser:', error.message);
+      return errorResponse(res, new CustomError('An error occurred while logging out.', 500), 500);
+    }
+};
+
+// =============================================================================
+// ✅ EXISTING FUNCTIONS (Keep existing functionality)
+// =============================================================================
+
+export const verifyUser = async (req, res) => {
+    try {
+        const sql = "SELECT * FROM users WHERE email=?";
+        const [result] = await db.execute(sql, [req.params.token]);
+
+        if (result.length === 0) {
+            return res.json({ error: "Invalid token" });
+        }
+
+        const updateSql = "UPDATE users SET is_member = 'pending' WHERE email=?";
+        await db.execute(updateSql, [req.params.token]);
+
+        res.redirect(`http://localhost:5173/applicationsurvey/${req.params.token}`);
+    } catch (err) {
+        console.error(err);
+        return res.json({ error: err.message || "Error verifying token" });
+    }
+};
+
+export const getAuthenticatedUser = (req, res) => {
+    res.set("Access-Control-Allow-Credentials", "true");
+    return res.json({ 
+      Status: "Success", 
+      userData: { 
+        username: req.user.username, 
+        email: req.user.email 
+      }, 
+      setAuth: true 
+    });
+};
+
+export const requestPasswordReset = async (req, res) => {
+  const { emailOrPhone } = req.body;
+  try {
+    await sendPasswordResetEmailOrSMS(emailOrPhone);
+    res.status(200).json({ message: "Password reset link sent!" });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  const { emailOrPhone, newPassword, confirmNewPassword } = req.body;
+
+  if (newPassword !== confirmNewPassword) {
+    return res.status(400).json({ message: 'Passwords do not match!' });
+  }
+
+  try {
+    await updatePassword(emailOrPhone, newPassword);
+
+    // Generate verification code
+    const verificationCode = generateVerificationCode();
+    const isEmail = emailOrPhone.includes('@');
+
+    await db.query(
+      `UPDATE users SET verification_code = ?, codeExpiry = ? WHERE ${isEmail ? 'email' : 'phone'} = ?`,
+      [verificationCode, Date.now() + 3600000, emailOrPhone]
+    );
+
+    if (isEmail) {
+      const message = `Your verification code is ${verificationCode}`;
+      await sendSMS(user.phone, message);
+    } else {
+      const subject = 'Verification Code';
+      const text = `Your verification code is ${verificationCode}`;
+      await utilsSendEmail(user.email, subject, text);
+    }
+
+    res.status(200).json({ message: 'Password updated! Please check your email or phone for a new code and verify here.' });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+export const verifyPasswordReset = async (req, res) => {
+  const { emailOrPhone, verificationCode } = req.body;
+  try {
+    await verifyResetCode(emailOrPhone, verificationCode);
+    res.status(200).json({ message: "Verification successful! Password reset is complete." });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+// =============================================================================
+// ✅ DEPRECATED FUNCTIONS (Keep for backward compatibility)
+// =============================================================================
+
+export const registerUser = async (req, res, next) => {
+    try {
+      const { username, email, password, phone } = req.body;
+      if (!username || !email || !password || !phone) {
+        return res.status(400).json({ error: 'All fields are required' });
+      }
+      
+      console.log('⚠️ DEPRECATED: registerUser called - use registerWithVerification instead');
+      
+      const userId = await registerUserService({ username, email, password, phone });
+
+      const user = { user_id: userId, email, is_member: false, role: false };
+      const token = generateToken(user);
+
+      res.cookie('access_token', token, { httpOnly: true });
+
+      res.status(201).json({
+        message: 'Registration in progress; please take the Application survey to complete registration',
+        redirectTo: '/applicationsurvey',
+      });
+    } catch (error) {
+      console.error(error);
+      next(error);
+    }
+};
+
+export const loginUser = async (req, res, next) => {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+
+        console.log('⚠️ DEPRECATED: loginUser called - use enhancedLogin instead');
+
+        const token = await loginUserService(email, password);
+
+        res.cookie('access_token', token, { httpOnly: true });
+
+        res.status(200).json({ message: 'Login successful', token, Status: "Success" });
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+// ikootaapi/services/authServices.js
+import bcrypt from 'bcrypt';
+import CustomError from '../utils/CustomError.js';
+import { sendEmail } from '../utils/email.js';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import db from '../config/db.js';
+import { sendSMS } from '../utils/sms.js';
+
+export const registerUserService = async (userData) => {
+    const { username, email, password, phone } = userData;
+    try {
+        const existingUser = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+        if (existingUser.length > 0) {
+            return { error: true, message: 'User already exists' };
+        }
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+       
+    const sql = 'INSERT INTO users (username, email, password_hash, phone, role, is_member) VALUES (?, ?, ?, ?, ?, ?)';
+    console.log(username, email, hashedPassword, phone);
+    const result = await db.query(sql, [username, email, hashedPassword, phone, false, false]);
+
+        const subject = 'Welcome to Our Platform!';
+        const text = `Hello ${username},\n\nWelcome to our platform! We're glad to have you. Please proceed with choosing your class on the form page.`;
+        await sendEmail(email, subject, text);
+
+        return result.insertId;
+    } catch (error) {
+        throw new CustomError('uncompleted request failed', 500, error);
+    }
+};
+
+
+
+export const loginUserService = async (email, password) => {
+    const sql = 'SELECT * FROM users WHERE email = ?';
+    const user = await db.query(sql, [email]);
+
+    if (user.length === 0) {
+        throw new CustomError('Invalid credentials', 401);
+    }
+
+    const isMatch = await bcrypt.compare(password, user[0].password_hash);
+    if (!isMatch) {
+        throw new CustomError('Invalid credentials', 401);
+    }
+
+    const payload = {
+        user_id: user[0].id,
+        email: user[0].email,
+        role:user[0].role,
+        isVerified: user[0].isVerified,
+        isConfirmed: user[0].isConfirmed,
+    };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    return token; // Return the token to the controller for setting the cookie during login
+};
+
+export const sendPasswordResetEmail = async (email) => {
+    const sql = 'SELECT * FROM users WHERE email = ?';
+    const user = await db.query(sql, [email]);
+
+    if (user.length === 0) {
+        throw new CustomError('User not found', 404);
+    }
+
+    const token = crypto.randomBytes(20).toString('hex'); // Generate a random token for password reset different from the JWT token
+    await db.query('UPDATE users SET resetToken = ?, resetTokenExpiry = ? WHERE email = ?', [token, Date.now() + 3600000, email]);
+
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    const subject = 'Password Reset Request';
+    const text = `To reset your password, please click the link below:\n\n${resetLink}`;
+    await sendEmail(email, subject, text);
+};
+
+
+
+// Generate a random verification code
+export const generateVerificationCode = () => {
+    return crypto.randomBytes(3).toString('hex').toUpperCase(); // Generates a 6-character alphanumeric code
+  };
+  
+  // Send password reset link via email or SMS
+  export const sendPasswordResetEmailOrSMS = async (emailOrPhone) => {
+    let user;
+    const isEmail = emailOrPhone.includes('@');
+  
+    if (isEmail) {
+      user = await db.query('SELECT * FROM users WHERE email = ?', [emailOrPhone]);
+    } else {
+      user = await db.query('SELECT * FROM users WHERE phone = ?', [emailOrPhone]);
+    }
+  
+    if (user.length === 0) {
+      throw new CustomError('User not found', 404);
+    }
+  
+    const token = crypto.randomBytes(20).toString('hex');
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    const expiryTime = Date.now() + 3600000; // 1 hour
+  
+    await db.query('UPDATE users SET resetToken = ?, resetTokenExpiry = ? WHERE id = ?', [token, expiryTime, user[0].id]);
+  
+    if (isEmail) {
+      const subject = 'Password Reset Request';
+      const text = `To reset your password, please click the link below:\n\n${resetLink}`;
+      await sendEmail(emailOrPhone, subject, text);
+    } else {
+      const message = `To reset your password, click the link: ${resetLink}`;
+      await sendSMS(emailOrPhone, message);
+    }
+  };
+  
+  // Update the user's password
+  export const updatePassword = async (emailOrPhone, newPassword) => {
+    const isEmail = emailOrPhone.includes('@');
+    const user = isEmail
+      ? await db.query('SELECT * FROM users WHERE email = ?', [emailOrPhone])
+      : await db.query('SELECT * FROM users WHERE phone = ?', [emailOrPhone]);
+  
+    if (user.length === 0) {
+      throw new CustomError('User not found', 404);
+    }
+  
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+  
+    await db.query('UPDATE users SET password_hash = ?, resetToken = NULL, resetTokenExpiry = NULL WHERE id = ?', [
+      hashedPassword,
+      user[0].id,
+    ]);
+  };
+  
+
+
+  // Verify the code sent to the alternate medium
+  export const verifyResetCode = async (emailOrPhone, verificationCode) => {
+    const isEmail = emailOrPhone.includes('@');
+    const user = isEmail
+      ? await db.query('SELECT * FROM users WHERE email = ?', [emailOrPhone])
+      : await db.query('SELECT * FROM users WHERE phone = ?', [emailOrPhone]);
+  
+    if (user.length === 0) {
+      throw new CustomError('User not found', 404);
+    }
+  
+    if (user[0].verificationCode !== verificationCode || user[0].codeExpiry < Date.now()) {
+      throw new CustomError('Invalid or expired verification code', 400);
+    }
+  
+    await db.query('UPDATE users SET verificationCode = NULL, codeExpiry = NULL WHERE id = ?', [user[0].id]);
+  };
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+
+
+
 //==========================================================================================================
 //============================================================================================================
 //============================================================================================================
@@ -65265,132 +74475,4 @@ export default setupSocket;
 
 
 
-
-
-
-
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
-
-
-
-
-
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
-
- 
-
-
-
-
- 
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
-
-
-
-
-
-
-
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
-
-
-
-
-
-
-
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
-
-
-
-
-
-
-
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
-
-
-
-
-
-
-
-
-
-
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
-
-
-
-
-
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
-
- 
-
-
-
-
- 
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
-
-
-
-
-
-
-
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
-
-
-
-
-
-
-
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
-
-
-
-
-
-
-
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
 

@@ -49,7 +49,7 @@ export const getUserDashboard = async (req, res) => {
         u.membership_stage,
         u.role,
         u.application_status,
-        u.application_submittedAt,
+        u.applicationSubmittedAt,
         u.application_ticket as user_ticket,
         u.createdAt,
         u.converse_id,
@@ -112,7 +112,7 @@ export const getUserDashboard = async (req, res) => {
       applicationStatus = 'approved_member';
       statusDisplay = 'Full Member';
       applicationDescription = 'Approved - You have full member access!';
-    } else if (user.survey_submittedAt || user.application_submittedAt) {
+    } else if (user.survey_submittedAt || user.applicationSubmittedAt) {
       const actualStatus = user.survey_approval_status || user.application_status;
       
       switch (actualStatus) {
@@ -186,12 +186,12 @@ export const getUserDashboard = async (req, res) => {
       }
     ];
     
-    if (user.survey_submittedAt || user.application_submittedAt) {
+    if (user.survey_submittedAt || user.applicationSubmittedAt) {
       activities.push({
         type: 'application_submitted',
         title: 'Application Submitted',
         description: applicationDescription,
-        date: user.survey_submittedAt || user.application_submittedAt,
+        date: user.survey_submittedAt || user.applicationSubmittedAt,
         status: applicationStatus.includes('approved') ? 'completed' : 
                 applicationStatus === 'rejected' ? 'failed' : 'pending',
         icon: applicationStatus.includes('approved') ? '✅' : 
@@ -241,7 +241,7 @@ export const getUserDashboard = async (req, res) => {
           status: applicationStatus,
           statusDisplay: statusDisplay,
           description: applicationDescription,
-          submittedAt: user.survey_submittedAt || user.application_submittedAt,
+          submittedAt: user.survey_submittedAt || user.applicationSubmittedAt,
           reviewedAt: user.reviewedAt,
           reviewedBy: user.reviewed_by_name,
           ticket: user.survey_ticket || user.user_ticket,
@@ -358,8 +358,8 @@ export const getCurrentMembershipStatus = async (req, res) => {
         u.is_member,
         u.membership_stage,
         u.application_status,
-        u.application_submittedAt,
-        u.application_reviewedAt,
+        u.applicationSubmittedAt,
+        u.applicationReviewedAt,
         u.converse_id,
         u.mentor_id,
         u.primary_class_id,
@@ -403,7 +403,7 @@ export const getCurrentMembershipStatus = async (req, res) => {
       survey_completed: surveyCompleted,
       approval_status: user.approval_status,
       converse_id: user.converse_id,
-      submittedAt: user.application_submittedAt,
+      submittedAt: user.applicationSubmittedAt,
       reviewedAt: user.application_reviewedAt || user.survey_reviewedAt,
       decline_reason: user.decline_reason
     });
@@ -487,7 +487,7 @@ export const submitInitialApplication = async (req, res) => {
       UPDATE users 
       SET 
         application_status = 'submitted',
-        application_submittedAt = NOW(),
+        applicationSubmittedAt = NOW(),
         application_ticket = ?,
         updatedAt = NOW()
       WHERE id = ?
@@ -1095,7 +1095,7 @@ export const verifyApplicationStatusConsistency = async (req, res) => {
         u.id,
         u.username,
         u.application_status as user_app_status,
-        u.application_submittedAt,
+        u.applicationSubmittedAt,
         s.approval_status as survey_status,
         s.reviewed_by,
         s.reviewedAt,

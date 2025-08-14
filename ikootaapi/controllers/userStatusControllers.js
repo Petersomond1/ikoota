@@ -203,6 +203,7 @@ import { getUserProfileService } from '../services/userServices.js';
  * Primary user dashboard with comprehensive status
  * GET /api/user-status/dashboard
  */
+
 export const getUserDashboard = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -219,12 +220,18 @@ export const getUserDashboard = async (req, res) => {
 
     const dashboardData = await getUserDashboardService(userId);
     
-    console.log('✅ Dashboard generated for user:', req.user?.username);
-    res.status(200).json({
+    // ✅ SAFE RESPONSE CONSTRUCTION
+    const safeResponse = {
       success: true,
       data: dashboardData,
       message: 'Dashboard loaded successfully'
-    });
+    };
+
+    // ✅ DEBUG: Check final response
+    console.log('📊 Final response size:', JSON.stringify(safeResponse).length, 'characters');
+    
+    console.log('✅ Dashboard generated for user:', req.user?.username);
+    res.status(200).json(safeResponse);
 
   } catch (error) {
     console.error('❌ Error generating dashboard:', error);
@@ -241,6 +248,47 @@ export const getUserDashboard = async (req, res) => {
     });
   }
 };
+
+
+
+// export const getUserDashboard = async (req, res) => {
+//   try {
+//     const userId = req.user?.id;
+    
+//     if (!userId) {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'User authentication required',
+//         message: 'Please login to access your dashboard'
+//       });
+//     }
+
+//     console.log('📊 Getting dashboard for user:', userId);
+
+//     const dashboardData = await getUserDashboardService(userId);
+    
+//     console.log('✅ Dashboard generated for user:', req.user?.username);
+//     res.status(200).json({
+//       success: true,
+//       data: dashboardData,
+//       message: 'Dashboard loaded successfully'
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Error generating dashboard:', error);
+    
+//     let statusCode = 500;
+//     if (error.message.includes('not found')) statusCode = 404;
+    
+//     res.status(statusCode).json({
+//       success: false,
+//       error: error.message || 'Failed to load dashboard',
+//       message: 'Unable to generate dashboard data',
+//       path: req.path,
+//       timestamp: new Date().toISOString()
+//     });
+//   }
+// };
 
 // ===============================================
 // STATUS CHECKING ENDPOINTS
@@ -445,7 +493,7 @@ export const getApplicationHistory = async (req, res) => {
 //           email: profileData.email,
 //           phone: profileData.phone,
 //           memberSince: profileData.member_since,
-//           lastLogin: profileData.last_login,
+//           lastLogin: profileData.lastLogin,
 //           converseId: profileData.converse_id
 //         },
 //         membership: {
@@ -809,7 +857,7 @@ export const checkSurveyStatus = async (req, res) => {
  */
 export const getBasicProfile = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user.id || req.user.user_id;
     
     if (!userId) {
       return res.status(401).json({
@@ -819,41 +867,55 @@ export const getBasicProfile = async (req, res) => {
     }
 
     console.log('👤 Getting basic profile for user:', userId);
+
+    // ✅ Get the user profile data from service
+    const userProfileResult = await getUserProfileService(userId);
     
-    const profileData = await getUserProfileService(userId);
+    // ✅ Extract the user data from the service response
+    const userData = userProfileResult.user;
     
-    res.status(200).json({
+    // ✅ Build the proper response with actual data
+    const response = {
       success: true,
       data: {
         profile: {
-          id: profileData.id,
-          username: profileData.username,
-          email: profileData.email,
-          phone: profileData.phone,
-          memberSince: profileData.member_since,
-          lastLogin: profileData.last_login,
-          converseId: profileData.converse_id
+          id: userData.id,
+          username: userData.username,
+          email: userData.email,
+          phone: userData.phone,
+          role: userData.role,
+          converseId: userData.converseId,
+          createdAt: userData.createdAt,
+          updatedAt: userData.updatedAt,
+          lastLogin: userData.lastLogin,
+          isBlocked: userData.isBlocked,
+          isBanned: userData.isBanned
         },
         membership: {
-          stage: profileData.membership_stage,
-          status: profileData.is_member,
-          role: profileData.role
-        },
-        permissions: profileData.permissions
+          membershipStage: userData.membershipStage,
+          isMember: userData.isMember,
+          fullMembershipStatus: userData.fullMembershipStatus,
+          mentorId: userData.mentorId,
+          mentorName: userData.mentorName,
+          mentorEmail: userData.mentorEmail,
+          primaryClassId: userData.primaryClassId,
+          primaryClassName: userData.primaryClassName,
+          totalClasses: userData.totalClasses,
+          isIdentityMasked: userData.isIdentityMasked
+        }
       },
       message: 'Basic profile retrieved successfully'
-    });
-    
+    };
+
+    console.log('✅ Basic profile retrieved for:', userData.username);
+    res.json(response);
+
   } catch (error) {
     console.error('❌ Get basic profile error:', error);
-    
-    let statusCode = 500;
-    if (error.message.includes('not found')) statusCode = 404;
-    
-    res.status(statusCode).json({
+    res.status(500).json({
       success: false,
-      error: error.message || 'Failed to get basic profile',
-      path: req.path,
+      error: error.message,
+      path: '/profile',
       timestamp: new Date().toISOString()
     });
   }

@@ -36,7 +36,7 @@ export const getUserDashboardService = async (userId) => {
         u.is_identity_masked,
         u.createdAt,
         u.updatedAt,
-        u.last_login,
+        u.lastLogin,
         
         -- Initial Application Info
         COALESCE(initial_app.approval_status, 'not_submitted') as initial_application_status,
@@ -124,7 +124,8 @@ export const getUserDashboardService = async (userId) => {
     // Generate recommended actions
     const recommendedActions = generateRecommendedActions(accessInfo, user);
 
-    return {
+     // ✅ BUILD CLEAN RESPONSE OBJECT (avoid circular refs)
+    const cleanResponse = {
       user_profile: {
         id: user.id,
         username: user.username,
@@ -137,7 +138,7 @@ export const getUserDashboardService = async (userId) => {
         is_identity_masked: !!user.is_identity_masked,
         member_since: user.createdAt,
         last_updated: user.updatedAt,
-        last_login: user.last_login
+        lastLogin: user.lastLogin
       },
       
       application_status: {
@@ -194,6 +195,21 @@ export const getUserDashboardService = async (userId) => {
         version: '3.0.0'
       }
     };
+
+    // ✅ DEBUG: Log the response size and structure
+    console.log('📊 Dashboard response size:', JSON.stringify(cleanResponse).length, 'characters');
+    console.log('📊 Dashboard response keys:', Object.keys(cleanResponse));
+    
+    // ✅ SAFETY: Check for circular references
+    try {
+      JSON.stringify(cleanResponse);
+      console.log('✅ Dashboard response serializable - no circular refs');
+    } catch (circularError) {
+      console.error('❌ CIRCULAR REFERENCE DETECTED:', circularError.message);
+      throw new Error('Dashboard response contains circular references');
+    }
+
+    return cleanResponse;
 
   } catch (error) {
     console.error('❌ Error in getUserDashboardService:', error);
@@ -362,11 +378,13 @@ export const getCurrentMembershipStatusService = async (userId) => {
       WHERE u.id = ?
     `, [userId]);
     
-    if (userStatus.length === 0) {
+    // ✅ FIXED: userStatus is already the user object from destructuring
+    if (!userStatus) {
       throw new CustomError('User not found', 404);
     }
     
-    const user = userStatus[0];
+    // ✅ FIXED: userStatus IS the user object, not an array
+    const user = userStatus;
     
     // Determine if user needs to complete survey
     const needsSurvey = (
@@ -520,11 +538,13 @@ export const checkSurveyStatusService = async (userId) => {
       LIMIT 1
     `, [userId]);
 
-    if (userResults.length === 0) {
+    // ✅ FIXED: Check for results properly
+    if (!userResults) {
       throw new CustomError('User not found', 404);
     }
 
-    const user = userResults[0];
+    // ✅ FIXED: userResults IS the user object, not an array
+    const user = userResults;
     
     const surveyCompleted = !!user.answers;
     const needsSurvey = !surveyCompleted && !['granted', 'member', 'pre_member'].includes(user.is_member);
@@ -1221,11 +1241,13 @@ export const getLegacyMembershipStatusService = async (userId) => {
       FROM users WHERE id = ?
     `, [userId]);
     
-    if (users.length === 0) {
+    // ✅ FIXED: users is already the user object from destructuring
+    if (!users) {
       throw new CustomError('User not found', 404);
     }
     
-    const user = users[0];
+    // ✅ FIXED: users IS the user object, not an array
+    const user = users;
     
     // Get application status from surveylog
     const [applications] = await db.query(`
@@ -1272,11 +1294,13 @@ export const getUserStatusService = async (userId) => {
       FROM users WHERE id = ?
     `, [userId]);
     
-    if (users.length === 0) {
+    // ✅ FIXED: users is already the user object from destructuring
+    if (!users) {
       throw new CustomError('User not found', 404);
     }
     
-    const user = users[0];
+    // ✅ FIXED: users IS the user object, not an array
+    const user = users;
     
     // Simplified status response
     return {

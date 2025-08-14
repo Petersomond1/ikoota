@@ -215,7 +215,7 @@ static async getUserByEmail(email) {
   // Update last login - using existing field or create a simple log
   static async updateLastLogin(userId) {
     try {
-      // Since your table doesn't have last_login, we'll just update updatedAt
+      // Since your table doesn't have lastLogin, we'll just update updatedAt
       await db.query(`
         UPDATE users SET updatedAt = CURRENT_TIMESTAMP WHERE id = ?
       `, [userId]);

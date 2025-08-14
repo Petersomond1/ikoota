@@ -1161,7 +1161,7 @@ export const searchUsers = async (req, res) => {
         membership_stage,
         is_member,
         createdAt,
-        last_login,
+        lastLogin,
         mentor_id,
         primary_class_id
       FROM users
@@ -1700,8 +1700,8 @@ export const generateComprehensiveReport = async (req, res) => {
     // Add additional analysis
     const [additionalMetrics] = await db.query(`
       SELECT 
-        (SELECT COUNT(*) FROM users WHERE last_login >= DATE_SUB(NOW(), INTERVAL 30 DAY)) as active_users_30d,
-        (SELECT COUNT(*) FROM users WHERE last_login >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as active_users_7d,
+        (SELECT COUNT(*) FROM users WHERE lastLogin >= DATE_SUB(NOW(), INTERVAL 30 DAY)) as active_users_30d,
+        (SELECT COUNT(*) FROM users WHERE lastLogin >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as active_users_7d,
         (SELECT COUNT(*) FROM audit_logs WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as admin_actions_24h,
         (SELECT COUNT(DISTINCT user_id) FROM full_membership_access WHERE last_accessedAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as active_content_users
     `);
@@ -2030,8 +2030,8 @@ export const getFullMembershipStats = async (req, res) => {
       SELECT 
         COUNT(CASE WHEN u.membership_stage = 'member' THEN 1 END) as total_full_members,
         COUNT(CASE WHEN u.membership_stage = 'member' AND u.createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY) THEN 1 END) as new_full_members_period,
-        COUNT(CASE WHEN u.membership_stage = 'member' AND u.last_login >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_full_members_7d,
-        COUNT(CASE WHEN u.membership_stage = 'member' AND u.last_login >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as active_full_members_30d
+        COUNT(CASE WHEN u.membership_stage = 'member' AND u.lastLogin >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_full_members_7d,
+        COUNT(CASE WHEN u.membership_stage = 'member' AND u.lastLogin >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as active_full_members_30d
       FROM users u
       WHERE u.role = 'user' OR u.role IS NULL
     `, [days]);

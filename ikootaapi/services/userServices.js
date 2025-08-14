@@ -15,12 +15,102 @@ import { hashPassword } from '../utils/passwordUtils.js';
  * @param {number} userId - User ID
  * @returns {Object} User profile data
  */
+// export const getUserProfileService = async (userId) => {
+//   try {
+//     console.log('🔍 Getting user profile for ID:', userId);
+    
+//     const [users] = await db.query(`
+//       SELECT 
+//         u.id,
+//         u.username,
+//         u.email,
+//         u.phone,
+//         u.role,
+//         u.membership_stage,
+//         u.is_member,
+//         u.full_membership_status,
+//         u.converse_id,
+//         u.mentor_id,
+//         u.primary_class_id,
+//         u.total_classes,
+//         u.is_identity_masked,
+//         u.createdAt,
+//         u.updatedAt,
+//         u.lastLogin,
+//         u.isblocked,
+//         u.isbanned,
+//         u.ban_reason,
+//         u.decline_reason,
+//         mentor.username as mentor_name,
+//         mentor.email as mentor_email,
+//         class.class_name as primary_class_name
+//       FROM users u
+//       LEFT JOIN users mentor ON u.mentor_id = mentor.id
+//       LEFT JOIN classes class ON u.primary_class_id = class.id
+//       WHERE u.id = ?
+//     `, [userId]);
+
+//     console.log('🔍 USERS RESULT:', users);
+// console.log('🔍 FIRST USER:', users[0]);
+    
+//     if (users.length === 0) {
+//       throw new CustomError('User not found', 404);
+//     }
+    
+//     console.log('🔍 DATABASE RESULT DEBUG:', JSON.stringify(result, null, 2));
+
+//     const user = users[0];
+    
+//     // Format response
+//     return {
+//       id: user.id,
+//       username: user.username,
+//       email: user.email,
+//       phone: user.phone,
+//       role: user.role,
+//       membership_stage: user.membership_stage,
+//       is_member: user.is_member,
+//       full_membership_status: user.full_membership_status,
+//       converse_id: user.converse_id,
+//       is_identity_masked: !!user.is_identity_masked,
+//       member_since: user.createdAt,
+//       last_updated: user.updatedAt,
+//       lastLogin: user.lastLogin,
+//       mentor: {
+//         id: user.mentor_id,
+//         name: user.mentor_name,
+//         email: user.mentor_email
+//       },
+//       class: {
+//         id: user.primary_class_id,
+//         name: user.primary_class_name
+//       },
+//       status: {
+//         is_blocked: !!user.isblocked,
+//         is_banned: !!user.isbanned,
+//         ban_reason: user.ban_reason,
+//         decline_reason: user.decline_reason
+//       },
+//       permissions: {
+//         can_edit_profile: true,
+//         can_delete_account: !['admin', 'super_admin'].includes(user.role),
+//         can_access_admin: ['admin', 'super_admin'].includes(user.role)
+//       }
+//     };
+    
+//   } catch (error) {
+//     console.error('❌ Error in getUserProfileService:', error);
+//     throw error;
+//   }
+// };
+
+// FIXED: userServices.js - Proper destructuring handling
 export const getUserProfileService = async (userId) => {
   try {
     console.log('🔍 Getting user profile for ID:', userId);
-    
+
     const [users] = await db.query(`
-      SELECT 
+      SELECT
         u.id,
         u.username,
         u.email,
@@ -36,63 +126,61 @@ export const getUserProfileService = async (userId) => {
         u.is_identity_masked,
         u.createdAt,
         u.updatedAt,
-        u.last_login,
+        u.lastLogin,
         u.isblocked,
         u.isbanned,
         u.ban_reason,
         u.decline_reason,
-        mentor.username as mentor_name,
-        mentor.email as mentor_email,
-        class.class_name as primary_class_name
+        m.username as mentor_name,
+        m.email as mentor_email,
+        c.class_name as primary_class_name
       FROM users u
-      LEFT JOIN users mentor ON u.mentor_id = mentor.id
-      LEFT JOIN classes class ON u.primary_class_id = class.id
+      LEFT JOIN users m ON u.mentor_id = m.id
+      LEFT JOIN classes c ON u.primary_class_id = c.id
       WHERE u.id = ?
     `, [userId]);
+
+    console.log('🔍 USERS RESULT:', users);
     
-    if (users.length === 0) {
+    // ✅ FIX: users is already the user object from destructuring
+    if (!users) {
       throw new CustomError('User not found', 404);
     }
+
+    // ✅ FIX: users IS the user object, not an array
+    const user = users;
     
-    const user = users[0];
-    
-    // Format response
+    console.log('🔍 UserService: User found:', user.username);
+
     return {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      membership_stage: user.membership_stage,
-      is_member: user.is_member,
-      full_membership_status: user.full_membership_status,
-      converse_id: user.converse_id,
-      is_identity_masked: !!user.is_identity_masked,
-      member_since: user.createdAt,
-      last_updated: user.updatedAt,
-      last_login: user.last_login,
-      mentor: {
-        id: user.mentor_id,
-        name: user.mentor_name,
-        email: user.mentor_email
-      },
-      class: {
-        id: user.primary_class_id,
-        name: user.primary_class_name
-      },
-      status: {
-        is_blocked: !!user.isblocked,
-        is_banned: !!user.isbanned,
-        ban_reason: user.ban_reason,
-        decline_reason: user.decline_reason
-      },
-      permissions: {
-        can_edit_profile: true,
-        can_delete_account: !['admin', 'super_admin'].includes(user.role),
-        can_access_admin: ['admin', 'super_admin'].includes(user.role)
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        membershipStage: user.membership_stage,
+        isMember: user.is_member,
+        fullMembershipStatus: user.full_membership_status,
+        converseId: user.converse_id,
+        mentorId: user.mentor_id,
+        primaryClassId: user.primary_class_id,
+        totalClasses: user.total_classes,
+        isIdentityMasked: user.is_identity_masked,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        lastLogin: user.lastLogin,
+        isBlocked: user.isblocked,
+        isBanned: user.isbanned,
+        banReason: user.ban_reason,
+        declineReason: user.decline_reason,
+        mentorName: user.mentor_name,
+        mentorEmail: user.mentor_email,
+        primaryClassName: user.primary_class_name
       }
     };
-    
+
   } catch (error) {
     console.error('❌ Error in getUserProfileService:', error);
     throw error;
@@ -220,10 +308,10 @@ export const getUserActivity = async (userId) => {
     const [recentActivity] = await db.query(`
       SELECT 
         'login' as activity_type,
-        last_login as activity_date,
+        lastLogin as activity_date,
         'User logged in' as description
       FROM users 
-      WHERE id = ? AND last_login IS NOT NULL
+      WHERE id = ? AND lastLogin IS NOT NULL
       
       UNION ALL
       
@@ -325,7 +413,7 @@ export const getAllUsers = async (filters = {}) => {
       SELECT 
         id, username, email, phone, role, membership_stage, 
         is_member, converse_id, createdAt, updatedAt, 
-        isblocked, isbanned, last_login
+        isblocked, isbanned, lastLogin
       FROM users 
       ${whereClause}
       ORDER BY createdAt DESC
@@ -407,7 +495,7 @@ export const getAllUsersForAdmin = async () => {
       SELECT 
         id, username, email, phone, role, membership_stage, 
         is_member, full_membership_status, converse_id, 
-        createdAt, updatedAt, isblocked, isbanned, last_login
+        createdAt, updatedAt, isblocked, isbanned, lastLogin
       FROM users 
       ORDER BY createdAt DESC
     `);
@@ -431,7 +519,7 @@ export const getAllMentorsForAdmin = async () => {
     const [mentors] = await db.query(`
       SELECT 
         id, username, email, phone, converse_id, 
-        createdAt, updatedAt, last_login
+        createdAt, updatedAt, lastLogin
       FROM users 
       WHERE role = 'mentor' OR role = 'admin' OR role = 'super_admin'
       ORDER BY role, username
@@ -465,7 +553,7 @@ export const getUserStats = async () => {
         COUNT(CASE WHEN isblocked = 1 THEN 1 END) as blocked_users,
         COUNT(CASE WHEN isbanned = 1 THEN 1 END) as banned_users,
         COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as new_users_30_days,
-        COUNT(CASE WHEN last_login >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_users_7_days
+        COUNT(CASE WHEN lastLogin >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_users_7_days
       FROM users
     `);
     

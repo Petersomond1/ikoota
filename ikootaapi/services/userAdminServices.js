@@ -80,7 +80,7 @@ export const getAllUsersService = async (filters = {}) => {
         u.primary_class_id,
         u.createdAt, 
         u.updatedAt, 
-        u.last_login,
+        u.lastLogin,
         u.isblocked, 
         u.isbanned,
         u.ban_reason,
@@ -327,7 +327,7 @@ export const updateUserByAdminService = async (userId, updateData, adminUser) =>
           u.membership_stage, u.is_member, u.full_membership_status,
           u.converse_id, u.mentor_id, u.primary_class_id,
           u.isblocked, u.isbanned, u.ban_reason, u.is_identity_masked,
-          u.createdAt, u.updatedAt, u.last_login,
+          u.createdAt, u.updatedAt, u.lastLogin,
           mentor.username as mentor_name,
           class.class_name as primary_class_name
         FROM users u
@@ -829,7 +829,7 @@ export const exportUsersDataService = async (exportOptions = {}, adminUser) => {
         u.converse_id,
         u.createdAt,
         u.updatedAt,
-        u.last_login,
+        u.lastLogin,
         u.isblocked,
         u.isbanned,
         ${includePersonalData ? 'u.ban_reason,' : ''}

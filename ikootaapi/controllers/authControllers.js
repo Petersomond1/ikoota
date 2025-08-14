@@ -14,6 +14,38 @@ import { sendSMS } from '../utils/sms.js';
 // UTILITY FUNCTIONS
 // ===============================================
 
+// ===============================================
+// DATABASE RESULT HELPER FUNCTION
+// ===============================================
+
+/**
+ * Extract rows from database result, handling different formats
+ * @param {Object|Array} result - Database query result
+ * @returns {Array} - Array of rows
+ */
+const extractDbRows = (result) => {
+    if (!result) return [];
+    
+    // Handle { rows: [...] } format from updated db.js
+    if (result.rows && Array.isArray(result.rows)) {
+        return result.rows;
+    }
+    
+    // Handle direct array format (legacy)
+    if (Array.isArray(result)) {
+        return result;
+    }
+    
+    // Handle single object wrapped in array
+    if (typeof result === 'object' && !Array.isArray(result)) {
+        return [result];
+    }
+    
+    return [];
+};
+
+
+
 const generateApplicationTicket = (username, email, type = 'INITIAL') => {
     const timestamp = Date.now().toString(36);
     const random = Math.random().toString(36).substr(2, 5);
@@ -237,11 +269,12 @@ export const registerWithVerification = async (req, res) => {
         console.log('✅ Verification code validated');
         
         // Check for existing users
-        const existingUsers = await db.query(`
-            SELECT id, email, username, is_verified 
-            FROM users 
-            WHERE email = ? OR username = ?
-        `, [email, username]);
+       const existingUsersResult = await db.query(`
+    SELECT id, email, username, is_verified 
+    FROM users 
+    WHERE email = ? OR username = ?
+`, [email, username]);
+const existingUsers = extractDbRows(existingUsersResult);
         
         if (existingUsers && existingUsers.length > 0) {
             const existingUser = existingUsers[0];
@@ -271,7 +304,7 @@ export const registerWithVerification = async (req, res) => {
         });
         
         // Insert user
-        const insertResult = await db.query(`
+       const insertResult = await db.query(`
             INSERT INTO users (
                 username, 
                 email, 
@@ -298,9 +331,11 @@ export const registerWithVerification = async (req, res) => {
             verificationMethod
         ]);
         
+        // ✅ SIMPLE FIX: With the updated db.js, insertResult IS the MySQL result object
         const userId = insertResult.insertId;
         
         if (!userId) {
+            console.error('❌ No insertId in result:', insertResult);
             throw new Error('Failed to create user - no ID returned');
         }
         
@@ -426,196 +461,12 @@ export const registerWithVerification = async (req, res) => {
 
 
 
+
 /**
- * Enhanced login with smart routing
+ * Enhanced login with smart routing - FIXED VERSION
  * POST /api/auth/login
  * Frontend: Login.jsx
  */
-// export const enhancedLogin = async (req, res) => {
-//     try {
-//         const { email, password } = req.body;
-        
-//         console.log('🔍 Login attempt for email:', email);
-        
-//         if (!email || !password) {
-//             throw new CustomError('Email and password are required', 400);
-//         }
-        
-//         // Get user from database
-//         const users = await db.query(`
-//             SELECT 
-//                 id,
-//                 username,
-//                 email,
-//                 password_hash,
-//                 role,
-//                 is_member,
-//                 membership_stage,
-//                 is_verified,
-//                 isbanned,
-//                 application_ticket,
-//                 converse_id,
-//                 full_membership_status,
-//                 application_status,
-//                 createdAt
-//             FROM users 
-//             WHERE email = ?
-//         `, [email]);
-        
-//         if (!users || users.length === 0) {
-//             console.log('❌ No user found with email:', email);
-//             throw new CustomError('Invalid credentials', 401);
-//         }
-        
-//         const user = users[0];
-        
-//         // Check if user is banned
-//         if (user.isbanned) {
-//             console.log('❌ User is banned:', email);
-//             throw new CustomError('Account is banned. Contact support.', 403);
-//         }
-        
-//         // Verify password
-//         if (!user.password_hash) {
-//             console.log('❌ No password hash found for user:', email);
-//             throw new CustomError('Invalid account configuration. Contact support.', 500);
-//         }
-        
-//         const isValidPassword = await bcrypt.compare(password, user.password_hash);
-        
-//         if (!isValidPassword) {
-//             console.log('❌ Invalid password for user:', email);
-//             throw new CustomError('Invalid credentials', 401);
-//         }
-        
-//         console.log('✅ Password verified successfully');
-        
-//         // Generate JWT token
-//         const tokenPayload = { 
-//             user_id: user.id, 
-//             username: user.username, 
-//             email: user.email,
-//             membership_stage: user.membership_stage || 'none',
-//             is_member: user.is_member || 'applied',
-//             role: user.role || 'user',
-//             converse_id: user.converse_id,
-//             application_ticket: user.application_ticket,
-//             full_membership_status: user.full_membership_status,
-//             application_status: user.application_status
-//         };
-        
-//         const token = jwt.sign(
-//             tokenPayload,
-//             process.env.JWT_SECRET,
-//             { expiresIn: '7d' }
-//         );
-        
-//         console.log('✅ JWT token generated successfully');
-        
-//         // Smart redirect logic
-//         let redirectTo = '/dashboard'; // Default fallback
-        
-//         const role = user.role?.toLowerCase();
-//         const memberStatus = user.is_member?.toLowerCase();
-//         const membershipStage = user.membership_stage?.toLowerCase();
-        
-//         console.log('🔍 Determining redirect for user:', {
-//             role,
-//             memberStatus,
-//             membershipStage
-//         });
-        
-//         if (role === 'admin' || role === 'super_admin') {
-//             redirectTo = '/admin';
-//             console.log('👑 Admin user - redirecting to admin panel');
-//         } else if ((memberStatus === 'member' && membershipStage === 'member') || 
-//                    (memberStatus === 'active' && membershipStage === 'member')) {
-//             redirectTo = '/iko';
-//             console.log('💎 Full member - redirecting to Iko Chat');
-//         } else if (memberStatus === 'pre_member' || membershipStage === 'pre_member') {
-//             redirectTo = '/towncrier';
-//             console.log('👤 Pre-member - redirecting to Towncrier');
-//         } else if (membershipStage === 'applicant' || memberStatus === 'applied') {
-//             redirectTo = '/applicationsurvey';
-//             console.log('📝 Applicant - redirecting to application survey');
-//         }
-        
-//         console.log('🎯 Final redirect destination:', redirectTo);
-        
-//         // Update last login
-//         try {
-//             await db.query('UPDATE users SET updatedAt = NOW() WHERE id = ?', [user.id]);
-//         } catch (updateError) {
-//             console.warn('⚠️ Failed to update last login:', updateError);
-//         }
-        
-// //         return successResponse(res, {
-// //             token,
-// //             user: {
-// //                 id: user.id,
-// //                 username: user.username,
-// //                 email: user.email,
-// //                 membership_stage: user.membership_stage || 'none',
-// //                 is_member: user.is_member || 'applied',
-// //                 role: user.role || 'user',
-// //                 converse_id: user.converse_id,
-// //                 application_ticket: user.application_ticket,
-// //                 full_membership_status: user.full_membership_status,
-// //                 application_status: user.application_status
-// //             },
-// //             redirectTo
-// //         }, 'Login successful');
-        
-// //     } catch (error) {
-// //         console.error('❌ Enhanced login error:', error);
-// //         return errorResponse(res, error);
-// //     }
-// // };
-
-//  return res.status(200).json({
-//             success: true,
-//             message: 'Login successful',
-//             // ✅ CRITICAL: Add both formats for frontend compatibility
-//             token,
-//             user: {
-//                 id: user.id,
-//                 username: user.username,
-//                 email: user.email,
-//                 membership_stage: user.membership_stage || 'none',
-//                 is_member: user.is_member || 'applied',
-//                 role: user.role || 'user',
-//                 converse_id: user.converse_id,
-//                 application_ticket: user.application_ticket,
-//                 full_membership_status: user.full_membership_status,
-//                 application_status: user.application_status
-//             },
-//             // ✅ ALSO include nested data format for Login.jsx compatibility
-//             data: {
-//                 token,
-//                 user: {
-//                     id: user.id,
-//                     username: user.username,
-//                     email: user.email,
-//                     membership_stage: user.membership_stage || 'none',
-//                     is_member: user.is_member || 'applied',
-//                     role: user.role || 'user',
-//                     converse_id: user.converse_id,
-//                     application_ticket: user.application_ticket,
-//                     full_membership_status: user.full_membership_status,
-//                     application_status: user.application_status
-//                 }
-//             },
-//             redirectTo,
-//             timestamp: new Date().toISOString()
-//         });
-        
-//     } catch (error) {
-//         console.error('❌ Enhanced login error:', error);
-//         return errorResponse(res, error);
-//     }
-// };
-
-
 export const enhancedLogin = async (req, res) => {
     try {
         console.log('🔍 enhancedLogin function called');
@@ -648,9 +499,9 @@ export const enhancedLogin = async (req, res) => {
             });
         }
         
-        // Get user from database
+        // ✅ FIXED: Get user from database with proper result handling
         console.log('🔍 Querying database for user...');
-        const users = await db.query(`
+        const userResult = await db.query(`
             SELECT 
                 id,
                 username,
@@ -670,9 +521,15 @@ export const enhancedLogin = async (req, res) => {
             WHERE email = ?
         `, [email]);
         
+        // ✅ FIXED: Handle the database result format properly
+        const users = extractDbRows(userResult);
+        
         console.log('📊 Database query result:', {
-            found: users && users.length > 0,
-            count: users ? users.length : 0
+            rawResult: typeof userResult,
+            hasRows: !!(userResult && userResult.rows),
+            isArray: Array.isArray(userResult),
+            extractedCount: users ? users.length : 0,
+            found: users && users.length > 0
         });
         
         if (!users || users.length === 0) {
@@ -892,8 +749,9 @@ export const requestPasswordReset = async (req, res) => {
         console.log('🔍 Password reset requested for:', email);
         
         // Check if user exists
-        const users = await db.query('SELECT id, email, username FROM users WHERE email = ?', [email]);
-        
+      const usersResult = await db.query('SELECT id, email, username FROM users WHERE email = ?', [email]);
+const users = extractDbRows(usersResult);
+
         if (!users || users.length === 0) {
             // Don't reveal if email exists for security
             return successResponse(res, {}, 'If an account with that email exists, you will receive a password reset email.');
@@ -970,11 +828,12 @@ export const resetPassword = async (req, res) => {
         console.log('🔍 Password reset attempt with token');
         
         // Find user with valid reset token
-        const users = await db.query(`
-            SELECT id, email, username, resetToken, resetTokenExpiry 
-            FROM users 
-            WHERE resetToken = ? AND resetTokenExpiry > ?
-        `, [token, Date.now()]);
+        const usersResult = await db.query(`
+    SELECT id, email, username, resetToken, resetTokenExpiry 
+    FROM users 
+    WHERE resetToken = ? AND resetTokenExpiry > ?
+`, [token, Date.now()]);
+const users = extractDbRows(usersResult);
         
         if (!users || users.length === 0) {
             throw new CustomError('Invalid or expired reset token', 400);
@@ -1035,12 +894,13 @@ export const verifyPasswordReset = async (req, res) => {
         console.log('🔍 Verifying password reset token');
         
         // Check if token is valid and not expired
-        const users = await db.query(`
-            SELECT id, email, username, resetTokenExpiry,
-                   TIMESTAMPDIFF(SECOND, NOW(), FROM_UNIXTIME(resetTokenExpiry/1000)) as seconds_until_expiry
-            FROM users 
-            WHERE resetToken = ? AND resetTokenExpiry > ?
-        `, [token, Date.now()]);
+       const usersResult = await db.query(`
+    SELECT id, email, username, resetTokenExpiry,
+           TIMESTAMPDIFF(SECOND, NOW(), FROM_UNIXTIME(resetTokenExpiry/1000)) as seconds_until_expiry
+    FROM users 
+    WHERE resetToken = ? AND resetTokenExpiry > ?
+`, [token, Date.now()]);
+const users = extractDbRows(usersResult);
         
         if (!users || users.length === 0) {
             throw new CustomError('Invalid or expired reset token', 400);
@@ -1079,8 +939,10 @@ export const verifyUser = async (req, res) => {
         console.log('🔍 Email verification attempt with token');
         
         // In this context, token is likely the email address for backward compatibility
-        const users = await db.query('SELECT id, email, username, is_verified FROM users WHERE email = ?', [token]);
-        
+        const usersResult = await db.query('SELECT id, email, username, is_verified FROM users WHERE email = ?', [token]);
+const users = extractDbRows(usersResult);
+
+
         if (!users || users.length === 0) {
             return res.status(404).json({ error: "Invalid verification token" });
         }
@@ -1256,10 +1118,11 @@ export const loginUser = async (req, res, next) => {
         console.log('⚠️ DEPRECATED: loginUser called - use enhancedLogin instead');
         
         // Get user
-        const users = await db.query(`
-            SELECT id, username, email, password_hash, role, is_member, membership_stage, isbanned
-            FROM users WHERE email = ?
-        `, [email]);
+       const usersResult = await db.query(`
+    SELECT id, username, email, password_hash, role, is_member, membership_stage, isbanned
+    FROM users WHERE email = ?
+`, [email]);
+const users = extractDbRows(usersResult);
         
         if (!users || users.length === 0) {
             throw new CustomError('Invalid credentials', 401);

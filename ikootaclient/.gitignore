@@ -69,3 +69,7 @@ Thumbs.db
 terraform.tfstate*
 terraform.tfstate.backup*
 *.pem
+ 
+
+
+ .README.md
