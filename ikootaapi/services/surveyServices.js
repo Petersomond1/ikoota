@@ -1,6 +1,9 @@
 // ikootaapi/services/surveyServices.js
+// ===============================================
 // SURVEY SERVICES - Business logic for survey operations
 // Handles database operations, email notifications, and data processing
+// Clean implementation without duplications
+// ===============================================
 
 import db from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
@@ -47,7 +50,7 @@ export const submitInitialApplicationService = async ({
        (user_id, answers, application_ticket, application_type, approval_status, 
         verified_by, rating_remarks, createdAt, processedAt) 
        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [userId, answersJson, applicationTicket, 'initial_application', 'pending', '', '', ]
+      [userId, answersJson, applicationTicket, 'initial_application', 'pending', '', '']
     );
     
     // Update user status to match membership controller expectations
@@ -171,7 +174,7 @@ export const submitFullMembershipApplicationService = async ({
 };
 
 // ===============================================
-// SURVEY DRAFT SERVICES (NEW)
+// SURVEY DRAFT SERVICES
 // ===============================================
 
 /**
@@ -813,65 +816,6 @@ export const approveSurveySubmission = async ({
 };
 
 /**
- * Bulk approve survey submissions
- */
-export const bulkApproveSurveySubmissions = async ({
-  surveyIds,
-  status,
-  adminNotes,
-  reviewedBy,
-  reviewerName
-}) => {
-  const connection = await db.getConnection();
-  
-  try {
-    await connection.beginTransaction();
-    
-    let processed = 0;
-    const errors = [];
-    
-    for (const surveyId of surveyIds) {
-      try {
-        // Get user ID for this survey
-        const [surveyData] = await connection.query(
-          'SELECT user_id FROM surveylog WHERE id = ?',
-          [surveyId]
-        );
-        
-        if (surveyData.length > 0) {
-          await approveSurveySubmission({
-            surveyId,
-            userId: surveyData[0].user_id,
-            status,
-            adminNotes,
-            reviewedBy,
-            reviewerName
-          });
-          processed++;
-        }
-      } catch (error) {
-        errors.push({ surveyId, error: error.message });
-      }
-    }
-    
-    await connection.commit();
-    
-    return {
-      processed,
-      failed: errors.length,
-      errors: errors.length > 0 ? errors : undefined
-    };
-    
-  } catch (error) {
-    await connection.rollback();
-    console.error('❌ Error in bulk approval:', error);
-    throw error;
-  } finally {
-    connection.release();
-  }
-};
-
-/**
  * Get survey analytics data
  */
 export const getSurveyAnalyticsData = async ({ startDate, endDate, groupBy }) => {
@@ -941,57 +885,6 @@ export const getSurveyAnalyticsData = async ({ startDate, endDate, groupBy }) =>
 };
 
 /**
- * Export survey data to CSV
- */
-export const exportSurveyDataToCSV = async (filters = {}) => {
-  try {
-    const { data } = await fetchAllSurveyLogs(filters, { page: 1, limit: 10000 });
-    
-    if (data.length === 0) {
-      return 'No data to export';
-    }
-    
-    // Create CSV header
-    const headers = [
-      'ID',
-      'User ID',
-      'Username',
-      'Email',
-      'Application Type',
-      'Status',
-      'Submitted At',
-      'Reviewed At',
-      'Admin Notes'
-    ];
-    
-    // Create CSV rows
-    const rows = data.map(survey => [
-      survey.id,
-      survey.user_id,
-      survey.username,
-      survey.user_email,
-      survey.application_type,
-      survey.approval_status,
-      survey.createdAt,
-      survey.reviewedAt || '',
-      survey.admin_notes || ''
-    ]);
-    
-    // Convert to CSV format
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-    
-    return csvContent;
-    
-  } catch (error) {
-    console.error('❌ Error exporting survey data:', error);
-    throw new CustomError('Failed to export survey data', 500);
-  }
-};
-
-/**
  * Get specific survey details
  */
 export const getSurveyDetailsById = async (surveyId) => {
@@ -1027,28 +920,6 @@ export const getSurveyDetailsById = async (surveyId) => {
   } catch (error) {
     console.error('❌ Error fetching survey details:', error);
     throw new CustomError('Failed to fetch survey details', 500);
-  }
-};
-
-/**
- * Delete survey log by ID
- */
-export const deleteSurveyLogById = async (surveyId) => {
-  try {
-    const [result] = await db.query(
-      'DELETE FROM surveylog WHERE id = ?',
-      [surveyId]
-    );
-    
-    if (result.affectedRows === 0) {
-      throw new CustomError('Survey not found', 404);
-    }
-    
-    return { affectedRows: result.affectedRows };
-    
-  } catch (error) {
-    console.error('❌ Error deleting survey log:', error);
-    throw error;
   }
 };
 
@@ -1105,23 +976,32 @@ async function sendApprovalEmail(userId) {
   }
 }
 
+// ===============================================
+// EXPORTS
+// ===============================================
+
 export default {
+  // Survey Submission Services
   submitInitialApplicationService,
   submitFullMembershipApplicationService,
+  
+  // Survey Draft Services
+  saveDraftSurvey,
+  getUserSurveyDrafts,
+  deleteSurveyDraft,
+  
+  // Survey Retrieval Services
   fetchSurveyQuestions,
   checkUserSurveyStatus,
   getUserSurveyHistory,
+  
+  // Survey Management Services
   updateUserSurveyResponse,
   deleteUserSurveyResponse,
+  
+  // Admin Survey Services
   fetchAllSurveyLogs,
   approveSurveySubmission,
-  bulkApproveSurveySubmissions,
   getSurveyAnalyticsData,
-  exportSurveyDataToCSV,
-  getSurveyDetailsById,
-  deleteSurveyLogById,
-  // New draft functions
-  saveDraftSurvey,
-  getUserSurveyDrafts,
-  deleteSurveyDraft
+  getSurveyDetailsById
 };

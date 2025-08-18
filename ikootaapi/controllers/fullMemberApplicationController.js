@@ -1,8 +1,8 @@
 // ikootaapi/controllers/fullMemberApplicationController.js
 // ===============================================
-// FULL MEMBERSHIP APPLICATION CONTROLLER
+// FULL MEMBERSHIP APPLICATION CONTROLLER - FIXED VERSION
 // Handles all full membership application processes for pre-members
-// Clean, organized implementation following Phase 3 specifications
+// Clean implementation without duplications
 // ===============================================
 
 import db from '../config/db.js';
@@ -591,240 +591,6 @@ export const logFullMembershipAccess = async (req, res) => {
 };
 
 // =============================================================================
-// EMAIL TEMPLATE GENERATORS
-// =============================================================================
-
-/**
- * Generate user confirmation email HTML
- */
-const generateUserConfirmationEmail = (user, membershipTicket) => {
-  return `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-      
-      <!-- Header -->
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center;">
-        <div style="font-size: 3rem; margin-bottom: 10px;">🎉</div>
-        <h1 style="margin: 0; font-size: 28px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-          Full Membership Application Submitted!
-        </h1>
-        <p style="margin: 10px 0 0 0; opacity: 0.95; font-size: 16px;">
-          Your application is now under review
-        </p>
-      </div>
-      
-      <!-- Content -->
-      <div style="padding: 40px 30px;">
-        <p style="color: #334155; font-size: 18px; line-height: 1.6; margin: 0 0 25px 0;">
-          Dear <strong>${user.username}</strong>,
-        </p>
-        
-        <p style="color: #334155; font-size: 16px; line-height: 1.7; margin: 0 0 30px 0;">
-          Congratulations! Your full membership application has been successfully submitted and is now under review by our membership committee.
-        </p>
-        
-        <!-- Ticket Section -->
-        <div style="background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%); border: 3px solid #f59e0b; border-radius: 16px; padding: 25px; margin: 30px 0; text-align: center;">
-          <h3 style="color: #92400e; margin: 0 0 20px 0; font-size: 20px; font-weight: 700;">
-            🎫 Your Application Ticket
-          </h3>
-          <div style="background: #f59e0b; color: white; padding: 15px 25px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 15px 0;">
-            ${membershipTicket}
-          </div>
-          <p style="color: #92400e; margin: 20px 0 0 0; font-size: 14px; font-weight: 600;">
-            ⚠️ Important: Save this ticket number for your records!
-          </p>
-        </div>
-        
-        <!-- Timeline Section -->
-        <div style="background: #f0f9ff; border: 3px solid #3b82f6; border-radius: 16px; padding: 25px; margin: 30px 0;">
-          <h3 style="color: #1e40af; margin: 0 0 20px 0; font-size: 20px; font-weight: 700;">
-            ⏰ What Happens Next?
-          </h3>
-          <div style="color: #1e40af; font-size: 15px; line-height: 1.8;">
-            <div style="margin: 15px 0; display: flex; align-items: center;">
-              <span style="font-size: 20px; margin-right: 12px;">🔍</span>
-              <div>
-                <strong>Review Period:</strong> 5-7 business days<br>
-                <small style="color: #64748b;">Committee will thoroughly evaluate your application</small>
-              </div>
-            </div>
-            <div style="margin: 15px 0; display: flex; align-items: center;">
-              <span style="font-size: 20px; margin-right: 12px;">📞</span>
-              <div>
-                <strong>Possible Interview:</strong> You may be contacted<br>
-                <small style="color: #64748b;">Some applicants participate in a brief interview</small>
-              </div>
-            </div>
-            <div style="margin: 15px 0; display: flex; align-items: center;">
-              <span style="font-size: 20px; margin-right: 12px;">📧</span>
-              <div>
-                <strong>Decision Notification:</strong> Email with final decision<br>
-                <small style="color: #64748b;">Detailed feedback provided regardless of outcome</small>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <p style="color: #334155; font-size: 16px; line-height: 1.7; margin: 30px 0 0 0;">
-          Thank you for your commitment to becoming a full member of the Ikoota community. We appreciate your patience during the review process.
-        </p>
-        
-        <!-- Footer -->
-        <div style="border-top: 2px solid #e2e8f0; margin: 40px 0 0 0; padding: 30px 0 0 0; text-align: center;">
-          <p style="color: #64748b; font-size: 14px; margin: 0;">
-            Best regards,<br>
-            <strong style="color: #334155;">The Ikoota Membership Committee</strong>
-          </p>
-        </div>
-      </div>
-    </div>
-  `;
-};
-
-/**
- * Generate user confirmation email text version
- */
-const generateUserConfirmationText = (user, membershipTicket) => {
-  return `
-🎉 Full Membership Application Submitted Successfully - Ikoota
-
-Dear ${user.username},
-
-Congratulations! Your full membership application has been successfully submitted and is now under review by our membership committee.
-
-🎫 YOUR APPLICATION TICKET: ${membershipTicket}
-(Please save this number for your records)
-
-⏰ WHAT HAPPENS NEXT:
-• Review Period: 5-7 business days
-• Committee Evaluation: Thorough review of your application  
-• Possible Interview: You may be contacted for a brief discussion
-• Decision Notification: Email with final decision and feedback
-
-📞 NEED HELP?
-Email: support@ikoota.com
-Subject: Full Membership Application - ${membershipTicket}
-Response time: Within 24 hours
-
-Thank you for your commitment to becoming a full member of the Ikoota community!
-
-Best regards,
-The Ikoota Membership Committee
-
----
-This is an automated message. Please do not reply to this email.
-  `;
-};
-
-/**
- * Generate admin notification email HTML
- */
-const generateAdminNotificationEmail = (user, membershipTicket, applicationId) => {
-  return `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-      
-      <!-- Header -->
-      <div style="background: #dc2626; color: white; padding: 30px; text-align: center;">
-        <div style="font-size: 2.5rem; margin-bottom: 10px;">🔔</div>
-        <h1 style="margin: 0; font-size: 24px; font-weight: 700;">
-          NEW Full Membership Application
-        </h1>
-        <p style="margin: 10px 0 0 0; opacity: 0.95; font-size: 16px;">
-          Immediate committee review required
-        </p>
-      </div>
-      
-      <!-- Content -->
-      <div style="padding: 30px;">
-        <div style="background: #fef2f2; border: 2px solid #fca5a5; border-radius: 12px; padding: 20px; margin: 0 0 25px 0;">
-          <h3 style="color: #dc2626; margin: 0 0 15px 0; font-size: 18px;">⚡ Action Required</h3>
-          <p style="color: #7f1d1d; margin: 0; font-weight: 600;">A new full membership application requires committee review and approval.</p>
-        </div>
-        
-        <h3 style="color: #1f2937; margin: 0 0 20px 0; font-size: 20px;">Application Details</h3>
-        
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin: 0 0 25px 0;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-              <td style="padding: 12px 0; font-weight: 600; color: #374151;">🎫 Ticket:</td>
-              <td style="padding: 12px 0; color: #1f2937; font-family: monospace; font-weight: bold;">${membershipTicket}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-              <td style="padding: 12px 0; font-weight: 600; color: #374151;">🆔 Application ID:</td>
-              <td style="padding: 12px 0; color: #1f2937;">${applicationId}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-              <td style="padding: 12px 0; font-weight: 600; color: #374151;">📅 Submitted:</td>
-              <td style="padding: 12px 0; color: #1f2937;">${new Date().toLocaleString()}</td>
-            </tr>
-            <tr>
-              <td style="padding: 12px 0; font-weight: 600; color: #374151;">📊 Current Status:</td>
-              <td style="padding: 12px 0; color: #1f2937;">Pre-Member → <strong style="color: #dc2626;">Pending Full Member</strong></td>
-            </tr>
-          </table>
-        </div>
-        
-        <!-- Action Buttons -->
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/applications" 
-             style="background: #dc2626; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; margin: 0 10px 10px 0; font-size: 16px;">
-            🔍 Review Application
-          </a>
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/users/${user.id}" 
-             style="background: #059669; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; margin: 0 10px 10px 0; font-size: 16px;">
-            👤 View User Profile
-          </a>
-        </div>
-        
-        <div style="background: #fffbeb; border: 1px solid #fbbf24; border-radius: 8px; padding: 15px; margin: 25px 0;">
-          <p style="color: #92400e; margin: 0; font-size: 14px; line-height: 1.5;">
-            <strong>⏰ SLA Reminder:</strong> Full membership applications should be reviewed within 5-7 business days. 
-            The applicant has been notified of this timeline and will expect timely communication.
-          </p>
-        </div>
-        
-        <!-- Footer -->
-        <div style="border-top: 1px solid #e2e8f0; margin: 30px 0 0 0; padding: 20px 0 0 0; text-align: center;">
-          <p style="color: #6b7280; font-size: 13px; margin: 0;">
-            This is an automated notification from the Ikoota membership system.<br>
-            Generated at ${new Date().toLocaleString()}
-          </p>
-        </div>
-      </div>
-    </div>
-  `;
-};
-
-/**
- * Generate admin notification email text version
- */
-const generateAdminNotificationText = (user, membershipTicket, applicationId) => {
-  return `
-🔔 NEW Full Membership Application - Immediate Review Required
-
-⚡ ACTION REQUIRED: A new full membership application needs committee review.
-
-APPLICATION DETAILS:
-👤 Applicant: ${user.username}
-📧 Email: ${user.email}
-🎫 Ticket: ${membershipTicket}
-🆔 Application ID: ${applicationId}
-📅 Submitted: ${new Date().toLocaleString()}
-📊 Status: Pre-Member → Pending Full Member
-
-COMMITTEE ACTIONS:
-Review Application: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/applications
-View User Profile: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/users/${user.id}
-
-⏰ SLA REMINDER: Full membership applications should be reviewed within 5-7 business days.
-
----
-Automated notification from Ikoota membership system
-Generated at ${new Date().toLocaleString()}
-  `;
-};
-
-// =============================================================================
 // APPLICATION MANAGEMENT FUNCTIONS
 // =============================================================================
 
@@ -1039,50 +805,179 @@ export const getFullMembershipRequirements = async (req, res) => {
 };
 
 // =============================================================================
-// DEBUGGING & TESTING UTILITIES
+// EMAIL TEMPLATE GENERATORS
 // =============================================================================
 
 /**
- * Test full membership eligibility (Debug helper)
- * GET /debug/full-membership-eligibility
+ * Generate user confirmation email HTML
  */
-export const testFullMembershipEligibility = async (req, res) => {
-  try {
-    const userId = req.user.id || req.user.user_id;
-    
-    const user = await getUserById(userId);
-    
-    const eligibilityCheck = {
-      userId: user.id,
-      username: user.username,
-      currentStage: user.membership_stage,
-      currentStatus: user.is_member,
-      isEligible: user.membership_stage === 'pre_member' && user.is_member === 'pre_member',
-      requirements: {
-        correctStage: user.membership_stage === 'pre_member',
-        correctStatus: user.is_member === 'pre_member'
-      }
-    };
-    
-    res.json({
-      success: true,
-      eligibilityCheck,
-      recommendations: eligibilityCheck.isEligible ? 
-        ['User is eligible for full membership application'] :
-        [
-          'User must complete initial membership process first',
-          'Current stage must be pre_member',
-          'Current status must be pre_member'
-        ]
-    });
-    
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      debug: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
+const generateUserConfirmationEmail = (user, membershipTicket) => {
+  return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+      
+      <!-- Header -->
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 10px;">🎉</div>
+        <h1 style="margin: 0; font-size: 28px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+          Full Membership Application Submitted!
+        </h1>
+        <p style="margin: 10px 0 0 0; opacity: 0.95; font-size: 16px;">
+          Your application is now under review
+        </p>
+      </div>
+      
+      <!-- Content -->
+      <div style="padding: 40px 30px;">
+        <p style="color: #334155; font-size: 18px; line-height: 1.6; margin: 0 0 25px 0;">
+          Dear <strong>${user.username}</strong>,
+        </p>
+        
+        <p style="color: #334155; font-size: 16px; line-height: 1.7; margin: 0 0 30px 0;">
+          Congratulations! Your full membership application has been successfully submitted and is now under review by our membership committee.
+        </p>
+        
+        <!-- Ticket Section -->
+        <div style="background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%); border: 3px solid #f59e0b; border-radius: 16px; padding: 25px; margin: 30px 0; text-align: center;">
+          <h3 style="color: #92400e; margin: 0 0 20px 0; font-size: 20px; font-weight: 700;">
+            🎫 Your Application Ticket
+          </h3>
+          <div style="background: #f59e0b; color: white; padding: 15px 25px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 15px 0;">
+            ${membershipTicket}
+          </div>
+          <p style="color: #92400e; margin: 20px 0 0 0; font-size: 14px; font-weight: 600;">
+            ⚠️ Important: Save this ticket number for your records!
+          </p>
+        </div>
+        
+        <p style="color: #334155; font-size: 16px; line-height: 1.7; margin: 30px 0 0 0;">
+          Thank you for your commitment to becoming a full member of the Ikoota community. We appreciate your patience during the review process.
+        </p>
+        
+        <!-- Footer -->
+        <div style="border-top: 2px solid #e2e8f0; margin: 40px 0 0 0; padding: 30px 0 0 0; text-align: center;">
+          <p style="color: #64748b; font-size: 14px; margin: 0;">
+            Best regards,<br>
+            <strong style="color: #334155;">The Ikoota Membership Committee</strong>
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+/**
+ * Generate user confirmation email text version
+ */
+const generateUserConfirmationText = (user, membershipTicket) => {
+  return `
+🎉 Full Membership Application Submitted Successfully - Ikoota
+
+Dear ${user.username},
+
+Congratulations! Your full membership application has been successfully submitted and is now under review by our membership committee.
+
+🎫 YOUR APPLICATION TICKET: ${membershipTicket}
+(Please save this number for your records)
+
+⏰ WHAT HAPPENS NEXT:
+• Review Period: 5-7 business days
+• Committee Evaluation: Thorough review of your application  
+• Possible Interview: You may be contacted for a brief discussion
+• Decision Notification: Email with final decision and feedback
+
+Thank you for your commitment to becoming a full member of the Ikoota community!
+
+Best regards,
+The Ikoota Membership Committee
+
+---
+This is an automated message. Please do not reply to this email.
+  `;
+};
+
+/**
+ * Generate admin notification email HTML
+ */
+const generateAdminNotificationEmail = (user, membershipTicket, applicationId) => {
+  return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+      
+      <!-- Header -->
+      <div style="background: #dc2626; color: white; padding: 30px; text-align: center;">
+        <div style="font-size: 2.5rem; margin-bottom: 10px;">🔔</div>
+        <h1 style="margin: 0; font-size: 24px; font-weight: 700;">
+          NEW Full Membership Application
+        </h1>
+        <p style="margin: 10px 0 0 0; opacity: 0.95; font-size: 16px;">
+          Immediate committee review required
+        </p>
+      </div>
+      
+      <!-- Content -->
+      <div style="padding: 30px;">
+        <div style="background: #fef2f2; border: 2px solid #fca5a5; border-radius: 12px; padding: 20px; margin: 0 0 25px 0;">
+          <h3 style="color: #dc2626; margin: 0 0 15px 0; font-size: 18px;">⚡ Action Required</h3>
+          <p style="color: #7f1d1d; margin: 0; font-weight: 600;">A new full membership application requires committee review and approval.</p>
+        </div>
+        
+        <h3 style="color: #1f2937; margin: 0 0 20px 0; font-size: 20px;">Application Details</h3>
+        
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin: 0 0 25px 0;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 12px 0; font-weight: 600; color: #374151;">🎫 Ticket:</td>
+              <td style="padding: 12px 0; color: #1f2937; font-family: monospace; font-weight: bold;">${membershipTicket}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 12px 0; font-weight: 600; color: #374151;">🆔 Application ID:</td>
+              <td style="padding: 12px 0; color: #1f2937;">${applicationId}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 12px 0; font-weight: 600; color: #374151;">📅 Submitted:</td>
+              <td style="padding: 12px 0; color: #1f2937;">${new Date().toLocaleString()}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 0; font-weight: 600; color: #374151;">📊 Current Status:</td>
+              <td style="padding: 12px 0; color: #1f2937;">Pre-Member → <strong style="color: #dc2626;">Pending Full Member</strong></td>
+            </tr>
+          </table>
+        </div>
+        
+        <!-- Footer -->
+        <div style="border-top: 1px solid #e2e8f0; margin: 30px 0 0 0; padding: 20px 0 0 0; text-align: center;">
+          <p style="color: #6b7280; font-size: 13px; margin: 0;">
+            This is an automated notification from the Ikoota membership system.<br>
+            Generated at ${new Date().toLocaleString()}
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+/**
+ * Generate admin notification email text version
+ */
+const generateAdminNotificationText = (user, membershipTicket, applicationId) => {
+  return `
+🔔 NEW Full Membership Application - Immediate Review Required
+
+⚡ ACTION REQUIRED: A new full membership application needs committee review.
+
+APPLICATION DETAILS:
+👤 Applicant: ${user.username}
+📧 Email: ${user.email}
+🎫 Ticket: ${membershipTicket}
+🆔 Application ID: ${applicationId}
+📅 Submitted: ${new Date().toLocaleString()}
+📊 Status: Pre-Member → Pending Full Member
+
+⏰ SLA REMINDER: Full membership applications should be reviewed within 5-7 business days.
+
+---
+Automated notification from Ikoota membership system
+Generated at ${new Date().toLocaleString()}
+  `;
 };
 
 // =============================================================================
@@ -1105,8 +1000,5 @@ export default {
   getFullMembershipRequirements,
   
   // Access Tracking
-  logFullMembershipAccess,
-  
-  // Debug & Testing
-  testFullMembershipEligibility
+  logFullMembershipAccess
 };

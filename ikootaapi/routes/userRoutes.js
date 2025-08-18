@@ -5,7 +5,7 @@
 import express from 'express';
 
 // ✅ FIXED: Use the correct unified middleware path
-import { authenticate, requireMembership } from '../middleware/authMiddleware.js';
+import { authenticate, requireMembership } from '../middleware/auth.js';
 
 // ✅ ROBUST: Create fallback validation middleware
 const validateUserUpdate = (req, res, next) => {

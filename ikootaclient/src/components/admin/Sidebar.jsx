@@ -8,16 +8,32 @@ import './sidbar.css';
 const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) => {
   const location = useLocation();
 
-  // ✅ ADD: Fetch pending full membership applications count
+  // ✅ FIXED: Use correct endpoint based on your backend routes
   const { data: pendingFullMembershipCount } = useQuery({
     queryKey: ['pendingFullMembershipCount'],
     queryFn: async () => {
       try {
-        const { data } = await api.get('/admin/membership/pending-count', { withCredentials: true });
-        return data?.count || 0;
+        // Option 1: Use the full membership stats endpoint
+        const { data } = await api.get('/membership/admin/full-membership-stats', { 
+          withCredentials: true 
+        });
+        return data?.data?.pending_full_applications || data?.pending_full_applications || 0;
       } catch (error) {
         console.error('Failed to fetch pending full membership count:', error);
-        return 0;
+        
+        // Option 2: Fallback to applications endpoint with filtering
+        try {
+          const { data: fallbackData } = await api.get('/membership/admin/applications?status=pending&type=full_membership', { 
+            withCredentials: true 
+          });
+          return fallbackData?.data?.pagination?.total_items || 0;
+        } catch (fallbackError) {
+          console.error('Fallback API call also failed:', fallbackError);
+          
+          // Option 3: Final fallback - return 0 but log for debugging
+          console.log('📊 Using fallback count of 0 for pending full memberships');
+          return 0;
+        }
       }
     },
     refetchInterval: 30000, // Refresh every 30 seconds
@@ -37,10 +53,10 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
     { name: 'UserManagement', to: 'usermanagement', label: 'UserManagement', icon: '👥' },
     { name: 'AudienceClassMgr', to: 'audienceclassmgr', label: 'AudienceClassMgr', icon: '🎯' },
     // ✅ ADD: Full Membership Review item
-    { 
-      name: 'Full Membership Review', 
-      to: 'full-membership-review', 
-      label: 'Full Membership Review', 
+    {
+      name: 'Full Membership Review',
+      to: 'full-membership-review',
+      label: 'Full Membership Review',
       icon: '🎓',
       badge: pendingFullMembershipCount // Add badge count
     }
@@ -90,4 +106,3 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
 };
 
 export default Sidebar;
-

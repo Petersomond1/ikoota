@@ -1,825 +1,1540 @@
-// ikootaapi/controllers/surveyAdminControllers.js
-// SURVEY ADMIN CONTROLLERS - Admin survey management
-// Handles survey approval, logs, analytics, and question management
+// ikootaapi/controllers/surveyAdminController.js
+// ===============================================
+// SURVEY ADMIN CONTROLLER - COMPLETE IMPLEMENTATION
+// Maps to all 10+ admin survey routes from surveyAdminRoutes.js
+// Handles question management, survey approval, analytics, and configuration
+// Administrative control over survey system independent of membership admin
+// ===============================================
 
-import {
-  fetchAllSurveyLogs,
-  approveSurveySubmission,
-  bulkApproveSurveySubmissions,
-  getSurveyAnalyticsData,
-  exportSurveyDataToCSV,
-  deleteSurveyLogById,
-  getSurveyDetailsById
-} from '../services/surveyServices.js';
-import {
-  updateQuestionLabels as updateLabelsService
-} from '../services/questionLabelsService.js';
 import db from '../config/db.js';
-import logger from '../utils/logger.js';
+import surveyServices from '../services/surveyServices.js';
+import questionLabelsService from '../services/questionLabelsService.js';
+import { sendEmail } from '../utils/email.js';
+import { sendNotification } from '../utils/notifications.js';
+import CustomError from '../utils/CustomError.js';
 
-// ===============================================
-// SURVEY LOGS & DETAILS
-// ===============================================
+// =============================================================================
+// QUESTION MANAGEMENT CONTROLLERS
+// =============================================================================
 
 /**
- * Get all survey logs with user information
- * Enhanced for compatibility with membership admin panels
- * GET /api/admin/survey/logs
+ * Get all survey questions
+ * Route: GET /admin/survey/questions
  */
-export const getSurveyLogs = async (req, res) => {
+export const getSurveyQuestions = async (req, res) => {
   try {
-    console.log('🔍 getSurveyLogs admin controller called');
-    console.log('🔍 Admin:', req.user?.id, req.user?.role);
-    
-    // Optional filters from query params (compatible with membership admin)
-    const { 
-      status, 
-      applicationType = 'initial_application', 
-      stage,
-      startDate, 
-      endDate,
-      page = 1,
-      limit = 50,
-      search = ''
-    } = req.query;
-    
-    const filters = {
-      ...(status && { approval_status: status }),
-      ...(applicationType && { application_type: applicationType }),
-      ...(stage && { membership_stage: stage }),
-      ...(startDate && { startDate }),
-      ...(endDate && { endDate }),
-      ...(search && { search })
-    };
-    
-    const logs = await fetchAllSurveyLogs(filters, { page, limit });
-    
-    // Transform data for compatibility with membership admin controllers
-    const transformedData = logs.data.map(log => ({
-      ...log,
-      // Ensure compatibility with membership admin frontend
-      user_id: log.user_id,
-      username: log.username,
-      email: log.user_email || log.email,
-      ticket: log.application_ticket,
-      submittedAt: log.createdAt,
-      status: log.approval_status,
-      stage: log.membership_stage,
-      is_member: log.is_member,
-      mentor_assigned: log.mentor_assigned,
-      class_assigned: log.class_assigned,
-      converse_id_generated: log.converse_id_generated
-    }));
-    
-    console.log(`✅ Retrieved ${transformedData.length} survey logs`);
-    
-    res.status(200).json({
+    console.log('🔍 Survey admin fetching all questions');
+
+    const [questions] = await db.query(`
+      SELECT 
+        id,
+        question,
+        question_type,
+        question_order,
+        is_required,
+        validation_rules,
+        category,
+        is_active,
+        createdAt,
+        updatedAt
+      FROM survey_questions 
+      ORDER BY question_order ASC, id ASC
+    `);
+
+    // Get usage statistics for each question
+    const [usageStats] = await db.query(`
+      SELECT 
+        sq.id as question_id,
+        COUNT(DISTINCT sl.id) as usage_count,
+        COUNT(CASE WHEN sl.approval_status = 'approved' THEN 1 END) as approved_responses,
+        MAX(sl.createdAt) as last_used
+      FROM survey_questions sq
+      LEFT JOIN surveylog sl ON JSON_CONTAINS(sl.answers, CONCAT('"', sq.question, '"'))
+      GROUP BY sq.id
+    `);
+
+    // Merge usage stats with questions
+    const questionsWithStats = questions.map(question => {
+      const stats = usageStats.find(stat => stat.question_id === question.id) || {
+        usage_count: 0,
+        approved_responses: 0,
+        last_used: null
+      };
+      
+      return {
+        ...question,
+        usage_statistics: stats,
+        effectiveness_rate: stats.usage_count > 0 ? 
+          ((stats.approved_responses / stats.usage_count) * 100).toFixed(2) : 0
+      };
+    });
+
+    res.json({
       success: true,
-      data: transformedData,
-      applications: transformedData, // Alias for membership admin compatibility
-      count: logs.count,
-      total: logs.count, // Alias for compatibility
-      page: logs.page,
-      totalPages: logs.totalPages,
-      pagination: {
-        page: logs.page,
-        limit: parseInt(limit),
-        total: logs.count,
-        totalPages: logs.totalPages
+      questions: questionsWithStats,
+      summary: {
+        total_questions: questions.length,
+        active_questions: questions.filter(q => q.is_active).length,
+        required_questions: questions.filter(q => q.is_required).length,
+        categories: [...new Set(questions.map(q => q.category).filter(Boolean))]
       },
-      filters: { status, applicationType, stage, search },
-      reviewer: req.user.username,
-      reviewerRole: req.user.role,
-      message: 'Survey logs fetched successfully'
+      generatedAt: new Date().toISOString()
     });
-    
+
   } catch (error) {
-    console.error('❌ Error in getSurveyLogs:', error);
-    logger.error('Admin survey logs error:', error);
+    console.error('❌ Error fetching survey questions:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to fetch survey logs'
-    });
-  }
-};
-
-/**
- * Get specific survey details
- * GET /api/admin/survey/logs/:id
- */
-export const getSurveyDetails = async (req, res) => {
-  try {
-    console.log('🔍 getSurveyDetails admin controller called');
-    const { id } = req.params;
-    
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Survey ID is required'
-      });
-    }
-    
-    const surveyDetails = await getSurveyDetailsById(id);
-    
-    if (!surveyDetails) {
-      return res.status(404).json({
-        success: false,
-        error: 'Survey not found'
-      });
-    }
-    
-    res.status(200).json({
-      success: true,
-      data: surveyDetails,
-      message: 'Survey details fetched successfully'
-    });
-    
-  } catch (error) {
-    console.error('❌ Error in getSurveyDetails:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch survey details'
-    });
-  }
-};
-
-// ===============================================
-// SURVEY APPROVAL
-// ===============================================
-
-/**
- * Approve or reject a survey with mentor and class assignment
- * Enhanced to work with membershipAdminControllers
- * PUT /api/admin/survey/approve
- */
-export const approveSurvey = async (req, res) => {
-  try {
-    console.log('🔍 approveSurvey admin controller called');
-    console.log('🔍 Request body:', req.body);
-    console.log('🔍 Admin:', req.user?.id, req.user?.role);
-    
-    const { 
-      surveyId, 
-      userId, 
-      status, 
-      adminNotes,
-      mentorId,
-      classId,
-      converseId 
-    } = req.body;
-    
-    // Validate required fields
-    if (!surveyId || !userId || !status) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields',
-        message: 'surveyId, userId, and status are required'
-      });
-    }
-    
-    // Validate status values (compatible with membership controllers)
-    const validStatuses = ['approved', 'declined', 'granted', 'rejected', 'pending'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid status',
-        message: `Status must be one of: ${validStatuses.join(', ')}`
-      });
-    }
-    
-    // Generate converse ID if approving and not provided
-    let finalConverseId = converseId;
-    if ((status === 'approved' || status === 'granted') && !converseId) {
-      try {
-        // This would call your generateUniqueConverseId function
-        finalConverseId = `CVS${Date.now().toString(36).toUpperCase()}`;
-      } catch (err) {
-        console.warn('Could not generate converse ID:', err);
-      }
-    }
-    
-    const result = await approveSurveySubmission({
-      surveyId,
-      userId,
-      status,
-      adminNotes,
-      reviewedBy: req.user.id,
-      reviewerName: req.user.username,
-      mentorId: mentorId || null,
-      classId: classId || null,
-      converseId: finalConverseId
-    });
-    
-    console.log('✅ Survey approval processed:', result);
-    
-    // Log admin action
-    logger.info('Admin survey approval:', {
-      adminId: req.user.id,
-      surveyId,
-      userId,
-      status,
-      mentorId,
-      classId,
-      converseId: finalConverseId,
-      timestamp: new Date().toISOString()
-    });
-    
-    res.status(200).json({
-      success: true,
-      message: `Survey ${status} successfully`,
-      data: {
-        surveyId,
-        userId,
-        status,
-        membershipStage: result.membershipStage,
-        converseId: finalConverseId,
-        mentorAssigned: mentorId,
-        classAssigned: classId,
-        reviewedBy: req.user.username,
-        reviewedAt: new Date().toISOString()
-      }
-    });
-    
-  } catch (error) {
-    console.error('❌ Error in approveSurvey:', error);
-    logger.error('Survey approval error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to update survey status'
-    });
-  }
-};
-
-/**
- * Reject survey (wrapper around approveSurvey with reject status)
- * PUT /api/admin/survey/reject
- */
-export const rejectSurvey = async (req, res) => {
-  try {
-    console.log('🔍 rejectSurvey admin controller called');
-    
-    // Set status to rejected and call approveSurvey
-    const requestWithRejectStatus = {
-      ...req,
-      body: {
-        ...req.body,
-        status: 'rejected'
-      }
-    };
-    
-    return approveSurvey(requestWithRejectStatus, res);
-    
-  } catch (error) {
-    console.error('❌ Error in rejectSurvey:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to reject survey'
-    });
-  }
-};
-
-/**
- * Get pending surveys
- * GET /api/admin/survey/pending
- */
-export const getPendingSurveys = async (req, res) => {
-  try {
-    console.log('🔍 getPendingSurveys admin controller called');
-    
-    const { page = 1, limit = 50 } = req.query;
-    
-    // Use existing fetchAllSurveyLogs with pending filter
-    const filters = { approval_status: 'pending' };
-    const logs = await fetchAllSurveyLogs(filters, { page, limit });
-    
-    res.status(200).json({
-      success: true,
-      data: logs.data,
-      pending: logs.data, // Alias for compatibility
-      count: logs.count,
-      page: logs.page,
-      totalPages: logs.totalPages,
-      message: 'Pending surveys fetched successfully'
-    });
-    
-  } catch (error) {
-    console.error('❌ Error in getPendingSurveys:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch pending surveys'
-    });
-  }
-};
-
-/**
- * Bulk approve surveys
- * POST /api/admin/survey/bulk-approve
- */
-export const bulkApproveSurveys = async (req, res) => {
-  try {
-    console.log('🔍 bulkApproveSurveys admin controller called');
-    
-    const { surveyIds, status, adminNotes } = req.body;
-    
-    if (!surveyIds || !Array.isArray(surveyIds) || surveyIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Survey IDs array is required'
-      });
-    }
-    
-    if (!status) {
-      return res.status(400).json({
-        success: false,
-        error: 'Status is required'
-      });
-    }
-    
-    const result = await bulkApproveSurveySubmissions({
-      surveyIds,
-      status,
-      adminNotes,
-      reviewedBy: req.user.id,
-      reviewerName: req.user.username
-    });
-    
-    logger.info('Admin bulk survey approval:', {
-      adminId: req.user.id,
-      count: surveyIds.length,
-      status,
-      timestamp: new Date().toISOString()
-    });
-    
-    res.status(200).json({
-      success: true,
-      message: `${result.processed} surveys ${status} successfully`,
-      ...result
-    });
-    
-  } catch (error) {
-    console.error('❌ Error in bulkApproveSurveys:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to bulk approve surveys'
-    });
-  }
-};
-
-// ===============================================
-// QUESTION MANAGEMENT
-// ===============================================
-
-/**
- * Update survey questions
- * PUT /api/admin/survey/questions
- */
-export const updateSurveyQuestions = async (req, res) => {
-  try {
-    console.log('🔍 updateSurveyQuestions admin controller called');
-    console.log('🔍 Admin:', req.user?.id, req.user?.role);
-    
-    const { questions } = req.body;
-    
-    if (!questions || !Array.isArray(questions)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Questions array is required',
-        message: 'Please provide an array of questions in the request body'
-      });
-    }
-    
-    const connection = await db.getConnection();
-    
-    try {
-      await connection.beginTransaction();
-      
-      // Clear existing questions
-      await connection.query('DELETE FROM survey_questions');
-      
-      // Insert new questions
-      for (let i = 0; i < questions.length; i++) {
-        const question = questions[i];
-        await connection.query(
-          `INSERT INTO survey_questions 
-           (question, question_order, is_active, createdAt, updatedAt) 
-           VALUES (?, ?, 1, NOW(), NOW())`,
-          [question, i + 1]
-        );
-      }
-      
-      await connection.commit();
-      
-      logger.info('Admin updated survey questions:', {
-        adminId: req.user.id,
-        questionCount: questions.length,
-        timestamp: new Date().toISOString()
-      });
-      
-      res.status(200).json({
-        success: true,
-        message: 'Survey questions updated successfully',
-        questionsUpdated: questions.length
-      });
-      
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
-    }
-    
-  } catch (error) {
-    console.error('❌ Error in updateSurveyQuestions:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to update survey questions'
+      error: 'Failed to fetch survey questions',
+      details: error.message
     });
   }
 };
 
 /**
  * Create new survey question
- * POST /api/admin/survey/questions
+ * Route: POST /admin/survey/questions
  */
 export const createSurveyQuestion = async (req, res) => {
   try {
-    console.log('🔍 createSurveyQuestion admin controller called');
-    
-    const { question, questionOrder, isActive = true } = req.body;
-    
-    if (!question || question.trim() === '') {
+    const {
+      question,
+      question_type = 'text',
+      question_order = null,
+      is_required = false,
+      validation_rules = null,
+      category = 'general',
+      options = null
+    } = req.body;
+
+    const adminId = req.user.id;
+
+    console.log('🔍 Survey admin creating new question');
+
+    if (!question || question.trim().length < 5) {
       return res.status(400).json({
         success: false,
-        error: 'Question text is required'
+        error: 'Question text is required and must be at least 5 characters'
       });
     }
-    
-    // Get the next question order if not provided
-    let order = questionOrder;
-    if (!order) {
-      const [maxOrder] = await db.query(
-        'SELECT MAX(question_order) as max_order FROM survey_questions'
-      );
-      order = (maxOrder[0]?.max_order || 0) + 1;
+
+    // Determine question order if not provided
+    let finalOrder = question_order;
+    if (!finalOrder) {
+      const [maxOrder] = await db.query('SELECT MAX(question_order) as max_order FROM survey_questions');
+      finalOrder = (maxOrder[0]?.max_order || 0) + 1;
     }
-    
-    const [result] = await db.query(
-      `INSERT INTO survey_questions 
-       (question, question_order, is_active, createdAt, updatedAt) 
-       VALUES (?, ?, ?, NOW(), NOW())`,
-      [question.trim(), order, isActive ? 1 : 0]
-    );
-    
-    logger.info('Admin created survey question:', {
-      adminId: req.user.id,
-      questionId: result.insertId,
+
+    // Insert new question
+    const [result] = await db.query(`
+      INSERT INTO survey_questions (
+        question, question_type, question_order, is_required, 
+        validation_rules, category, options, is_active, 
+        created_by, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, NOW(), NOW())
+    `, [
+      question.trim(),
+      question_type,
+      finalOrder,
+      is_required,
+      validation_rules ? JSON.stringify(validation_rules) : null,
+      category,
+      options ? JSON.stringify(options) : null,
+      adminId
+    ]);
+
+    // Log the action
+    await db.query(`
+      INSERT INTO audit_logs (user_id, action, details, createdAt)
+      VALUES (?, 'survey_question_created', ?, NOW())
+    `, [adminId, JSON.stringify({
+      question_id: result.insertId,
       question: question.trim(),
-      timestamp: new Date().toISOString()
-    });
-    
-    res.status(201).json({
+      category: category,
+      created_by: req.user.username
+    })]);
+
+    res.json({
       success: true,
       message: 'Survey question created successfully',
-      data: {
+      question: {
         id: result.insertId,
         question: question.trim(),
-        questionOrder: order,
-        isActive
-      }
+        question_type: question_type,
+        question_order: finalOrder,
+        is_required: is_required,
+        category: category,
+        is_active: true
+      },
+      created_by: req.user.username,
+      created_at: new Date().toISOString()
     });
-    
+
   } catch (error) {
-    console.error('❌ Error in createSurveyQuestion:', error);
+    console.error('❌ Error creating survey question:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to create survey question'
+      error: 'Failed to create survey question',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Update survey questions
+ * Route: PUT /admin/survey/questions
+ */
+export const updateSurveyQuestions = async (req, res) => {
+  try {
+    const { questions } = req.body;
+    const adminId = req.user.id;
+
+    console.log('🔍 Survey admin updating questions');
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Questions array is required'
+      });
+    }
+
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      const updateResults = [];
+
+      for (const questionData of questions) {
+        const { id, question, question_type, is_required, validation_rules, category, is_active } = questionData;
+
+        if (!id) {
+          throw new Error('Question ID is required for updates');
+        }
+
+        const [result] = await connection.query(`
+          UPDATE survey_questions 
+          SET question = ?, question_type = ?, is_required = ?, 
+              validation_rules = ?, category = ?, is_active = ?, 
+              updated_by = ?, updatedAt = NOW()
+          WHERE id = ?
+        `, [
+          question,
+          question_type || 'text',
+          is_required || false,
+          validation_rules ? JSON.stringify(validation_rules) : null,
+          category || 'general',
+          is_active !== false, // Default to true unless explicitly false
+          adminId,
+          id
+        ]);
+
+        updateResults.push({
+          question_id: id,
+          updated: result.affectedRows > 0,
+          question: question
+        });
+      }
+
+      // Log the bulk update
+      await connection.query(`
+        INSERT INTO audit_logs (user_id, action, details, createdAt)
+        VALUES (?, 'survey_questions_bulk_updated', ?, NOW())
+      `, [adminId, JSON.stringify({
+        updated_count: updateResults.filter(r => r.updated).length,
+        total_requested: questions.length,
+        updated_by: req.user.username
+      })]);
+
+      await connection.commit();
+
+      res.json({
+        success: true,
+        message: 'Survey questions updated successfully',
+        results: updateResults,
+        summary: {
+          total_requested: questions.length,
+          successfully_updated: updateResults.filter(r => r.updated).length,
+          failed_updates: updateResults.filter(r => !r.updated).length
+        },
+        updated_by: req.user.username,
+        updatedAt: new Date().toISOString()
+      });
+
+    } catch (updateError) {
+      await connection.rollback();
+      throw updateError;
+    } finally {
+      connection.release();
+    }
+
+  } catch (error) {
+    console.error('❌ Error updating survey questions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update survey questions',
+      details: error.message
     });
   }
 };
 
 /**
  * Delete survey question
- * DELETE /api/admin/survey/questions/:id
+ * Route: DELETE /admin/survey/questions/:id
  */
 export const deleteSurveyQuestion = async (req, res) => {
   try {
-    console.log('🔍 deleteSurveyQuestion admin controller called');
-    
     const { id } = req.params;
-    
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Question ID is required'
-      });
-    }
-    
-    const [result] = await db.query(
-      'DELETE FROM survey_questions WHERE id = ?',
-      [id]
-    );
-    
-    if (result.affectedRows === 0) {
+    const { soft_delete = true } = req.query;
+    const adminId = req.user.id;
+
+    console.log(`🔍 Survey admin deleting question ${id} (soft: ${soft_delete})`);
+
+    // Check if question exists and get details
+    const [questionCheck] = await db.query('SELECT * FROM survey_questions WHERE id = ?', [id]);
+
+    if (!questionCheck.length) {
       return res.status(404).json({
         success: false,
         error: 'Survey question not found'
       });
     }
-    
-    logger.info('Admin deleted survey question:', {
-      adminId: req.user.id,
-      questionId: id,
-      timestamp: new Date().toISOString()
-    });
-    
-    res.status(200).json({
+
+    const question = questionCheck[0];
+
+    // Check if question is in use
+    const [usageCheck] = await db.query(`
+      SELECT COUNT(*) as usage_count 
+      FROM surveylog 
+      WHERE JSON_CONTAINS(answers, CONCAT('"', ?, '"'))
+    `, [question.question]);
+
+    const inUse = usageCheck[0].usage_count > 0;
+
+    let result;
+    let deletionType;
+
+    if (soft_delete === 'true' || inUse) {
+      // Soft delete - mark as inactive
+      [result] = await db.query(`
+        UPDATE survey_questions 
+        SET is_active = 0, deleted_by = ?, deletedAt = NOW(), updatedAt = NOW()
+        WHERE id = ?
+      `, [adminId, id]);
+      deletionType = 'soft_delete';
+    } else {
+      // Hard delete - remove completely
+      [result] = await db.query('DELETE FROM survey_questions WHERE id = ?', [id]);
+      deletionType = 'hard_delete';
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Question not found or already deleted'
+      });
+    }
+
+    // Log the deletion
+    await db.query(`
+      INSERT INTO audit_logs (user_id, action, details, createdAt)
+      VALUES (?, 'survey_question_deleted', ?, NOW())
+    `, [adminId, JSON.stringify({
+      question_id: id,
+      question: question.question,
+      deletion_type: deletionType,
+      was_in_use: inUse,
+      deleted_by: req.user.username
+    })]);
+
+    res.json({
       success: true,
-      message: 'Survey question deleted successfully',
-      deletedId: id
+      message: `Survey question ${deletionType === 'soft_delete' ? 'deactivated' : 'deleted'} successfully`,
+      question: {
+        id: id,
+        question: question.question,
+        category: question.category
+      },
+      deletion_type: deletionType,
+      was_in_use: inUse,
+      deleted_by: req.user.username,
+      deleted_at: new Date().toISOString()
     });
-    
+
   } catch (error) {
-    console.error('❌ Error in deleteSurveyQuestion:', error);
+    console.error('❌ Error deleting survey question:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to delete survey question'
+      error: 'Failed to delete survey question',
+      details: error.message
+    });
+  }
+};
+
+// =============================================================================
+// QUESTION LABELS MANAGEMENT CONTROLLERS
+// =============================================================================
+
+/**
+ * Get question labels
+ * Route: GET /admin/survey/question-labels
+ */
+export const getSurveyQuestionLabels = async (req, res) => {
+  try {
+    console.log('🔍 Survey admin fetching question labels');
+
+    const labels = await questionLabelsService.fetchQuestionLabels();
+    const stats = await questionLabelsService.getLabelStatistics();
+
+    res.json({
+      success: true,
+      labels: labels,
+      statistics: stats,
+      label_count: Object.keys(labels).length,
+      categories: questionLabelsService.categorizeLabels ? 
+        questionLabelsService.categorizeLabels(labels) : null,
+      generatedAt: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching question labels:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch question labels',
+      details: error.message
     });
   }
 };
 
 /**
  * Update question labels
- * PUT /api/admin/survey/question-labels
+ * Route: PUT /admin/survey/question-labels
  */
-export const updateQuestionLabels = async (req, res) => {
+export const updateSurveyQuestionLabels = async (req, res) => {
   try {
-    console.log('🔍 updateQuestionLabels admin controller called');
-    console.log('🔍 Admin:', req.user?.id, req.user?.role);
-    
     const { labels } = req.body;
-    
+    const adminId = req.user.id;
+
+    console.log('🔍 Survey admin updating question labels');
+
     if (!labels || typeof labels !== 'object') {
       return res.status(400).json({
         success: false,
-        error: 'Labels object is required',
-        message: 'Please provide a labels object in the request body'
+        error: 'Labels object is required'
       });
     }
-    
-    const labelCount = Object.keys(labels).length;
-    if (labelCount === 0) {
+
+    // Validate labels
+    if (!questionLabelsService.validateLabels(labels)) {
       return res.status(400).json({
         success: false,
-        error: 'No labels provided',
-        message: 'Please provide at least one question label'
+        error: 'Invalid labels format or missing required fields'
       });
     }
-    
-    console.log(`🔍 Updating ${labelCount} question labels`);
-    
-    await updateLabelsService(labels);
-    
-    logger.info('Admin updated question labels:', {
-      adminId: req.user.id,
-      labelCount,
+
+    // Update labels using service
+    await questionLabelsService.updateQuestionLabels(labels);
+
+    // Log the update
+    await db.query(`
+      INSERT INTO audit_logs (user_id, action, details, createdAt)
+      VALUES (?, 'question_labels_updated', ?, NOW())
+    `, [adminId, JSON.stringify({
+      label_count: Object.keys(labels).length,
+      updated_by: req.user.username,
       timestamp: new Date().toISOString()
-    });
-    
-    res.status(200).json({
+    })]);
+
+    res.json({
       success: true,
       message: 'Question labels updated successfully',
-      labelsUpdated: labelCount
+      updated_labels: Object.keys(labels).length,
+      updated_by: req.user.username,
+      updatedAt: new Date().toISOString()
     });
-    
+
   } catch (error) {
-    console.error('❌ Error in updateQuestionLabels:', error);
+    console.error('❌ Error updating question labels:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to update question labels'
+      error: 'Failed to update question labels',
+      details: error.message
     });
   }
 };
 
 /**
- * Update survey question labels (alias for compatibility)
- * PUT /api/admin/survey/question-labels
+ * Create new question label
+ * Route: POST /admin/survey/question-labels
  */
-export const updateSurveyQuestionLabels = async (req, res) => {
-  // This is just an alias to the existing updateQuestionLabels function
-  return updateQuestionLabels(req, res);
+export const createSurveyQuestionLabel = async (req, res) => {
+  try {
+    const { field_name, label_text } = req.body;
+    const adminId = req.user.id;
+
+    console.log('🔍 Survey admin creating question label');
+
+    if (!field_name || !label_text) {
+      return res.status(400).json({
+        success: false,
+        error: 'Field name and label text are required'
+      });
+    }
+
+    // Create single label using service
+    const result = await questionLabelsService.updateSingleLabel(field_name, label_text);
+
+    // Log the creation
+    await db.query(`
+      INSERT INTO audit_logs (user_id, action, details, createdAt)
+      VALUES (?, 'question_label_created', ?, NOW())
+    `, [adminId, JSON.stringify({
+      field_name: field_name,
+      label_text: label_text,
+      created_by: req.user.username
+    })]);
+
+    res.json({
+      success: true,
+      message: 'Question label created successfully',
+      label: {
+        field_name: field_name,
+        label_text: label_text
+      },
+      created_by: req.user.username,
+      created_at: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating question label:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create question label',
+      details: error.message
+    });
+  }
 };
 
-// ===============================================
-// ANALYTICS & REPORTING
-// ===============================================
+// =============================================================================
+// SURVEY REVIEW & APPROVAL CONTROLLERS
+// =============================================================================
+
+/**
+ * Get pending surveys
+ * Route: GET /admin/survey/pending
+ */
+export const getPendingSurveys = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, application_type = 'all' } = req.query;
+
+    console.log('🔍 Survey admin fetching pending surveys');
+
+    const filters = { approval_status: 'pending' };
+    if (application_type !== 'all') {
+      filters.application_type = application_type;
+    }
+
+    const pagination = { page: parseInt(page), limit: parseInt(limit) };
+    const result = await surveyServices.fetchAllSurveyLogs(filters, pagination);
+
+    // Enhance with survey-specific metadata
+    const enhancedSurveys = result.data.map(survey => ({
+      ...survey,
+      submission_quality: assessSubmissionQuality(survey.answers),
+      review_priority: calculateSurveyReviewPriority(survey),
+      days_pending: Math.floor((Date.now() - new Date(survey.createdAt)) / (1000 * 60 * 60 * 24))
+    }));
+
+    res.json({
+      success: true,
+      surveys: enhancedSurveys,
+      pagination: {
+        page: result.page,
+        totalPages: result.totalPages,
+        total: result.count,
+        limit: parseInt(limit)
+      },
+      summary: {
+        total_pending: result.count,
+        high_priority: enhancedSurveys.filter(s => s.review_priority === 'high').length,
+        low_quality: enhancedSurveys.filter(s => s.submission_quality === 'low').length,
+        average_days_pending: enhancedSurveys.reduce((sum, s) => sum + s.days_pending, 0) / Math.max(1, enhancedSurveys.length)
+      },
+      filters_applied: { application_type, status: 'pending' }
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching pending surveys:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch pending surveys',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Get survey logs
+ * Route: GET /admin/survey/logs
+ */
+export const getSurveyLogs = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 50,
+      status = 'all',
+      type = 'all',
+      startDate = null,
+      endDate = null,
+      search = ''
+    } = req.query;
+
+    console.log('🔍 Survey admin fetching survey logs');
+
+    // Build filters
+    const filters = {};
+    if (status !== 'all') filters.approval_status = status;
+    if (type !== 'all') filters.application_type = type;
+    if (search) filters.search = search;
+    if (startDate) filters.startDate = startDate;
+    if (endDate) filters.endDate = endDate;
+
+    const pagination = { page: parseInt(page), limit: parseInt(limit) };
+    const result = await surveyServices.fetchAllSurveyLogs(filters, pagination);
+
+    // Get additional statistics
+    const [statsResult] = await db.query(`
+      SELECT 
+        COUNT(*) as total_logs,
+        COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_count,
+        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_count,
+        COUNT(CASE WHEN approval_status = 'declined' THEN 1 END) as declined_count,
+        AVG(CASE WHEN reviewedAt IS NOT NULL THEN DATEDIFF(reviewedAt, createdAt) END) as avg_review_days,
+        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 END) as submissions_24h
+      FROM surveylog
+      WHERE createdAt >= COALESCE(?, DATE_SUB(NOW(), INTERVAL 90 DAY))
+        AND createdAt <= COALESCE(?, NOW())
+    `, [startDate, endDate]);
+
+    res.json({
+      success: true,
+      logs: result.data,
+      pagination: {
+        page: result.page,
+        totalPages: result.totalPages,
+        total: result.count,
+        limit: parseInt(limit)
+      },
+      statistics: statsResult[0] || {},
+      filters_applied: { status, type, startDate, endDate, search },
+      generatedAt: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching survey logs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch survey logs',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Approve survey
+ * Route: PUT /admin/survey/approve
+ */
+export const approveSurvey = async (req, res) => {
+  try {
+    const {
+      surveyId,
+      surveyIds = [],
+      adminNotes = '',
+      mentorId = null,
+      classId = null,
+      converseId = null
+    } = req.body;
+
+    const reviewerId = req.user.id;
+    const reviewerName = req.user.username;
+
+    console.log('🔍 Survey admin approving survey(s)');
+
+    // Handle single or bulk approval
+    const idsToApprove = surveyId ? [surveyId] : surveyIds;
+
+    if (!idsToApprove.length) {
+      return res.status(400).json({
+        success: false,
+        error: 'Survey ID or survey IDs are required'
+      });
+    }
+
+    const results = [];
+
+    for (const id of idsToApprove) {
+      try {
+        // Get survey details
+        const [surveyData] = await db.query(`
+          SELECT sl.*, u.username, u.email 
+          FROM surveylog sl
+          JOIN users u ON CAST(sl.user_id AS UNSIGNED) = u.id
+          WHERE sl.id = ? AND sl.approval_status = 'pending'
+        `, [id]);
+
+        if (!surveyData.length) {
+          results.push({
+            survey_id: id,
+            success: false,
+            error: 'Survey not found or already processed'
+          });
+          continue;
+        }
+
+        const survey = surveyData[0];
+
+        // Approve using survey service
+        const approvalResult = await surveyServices.approveSurveySubmission({
+          surveyId: id,
+          userId: survey.user_id,
+          status: 'approved',
+          adminNotes,
+          reviewedBy: reviewerId,
+          reviewerName,
+          mentorId,
+          classId,
+          converseId
+        });
+
+        results.push({
+          survey_id: id,
+          user_id: survey.user_id,
+          username: survey.username,
+          success: true,
+          new_status: 'approved',
+          membership_stage: approvalResult.membershipStage
+        });
+
+      } catch (approvalError) {
+        console.error(`Failed to approve survey ${id}:`, approvalError);
+        results.push({
+          survey_id: id,
+          success: false,
+          error: approvalError.message
+        });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    const failureCount = results.filter(r => !r.success).length;
+
+    res.json({
+      success: successCount > 0,
+      message: `${successCount} survey(s) approved successfully`,
+      results: results,
+      summary: {
+        total_requested: idsToApprove.length,
+        approved: successCount,
+        failed: failureCount
+      },
+      approved_by: reviewerName,
+      approved_at: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error approving survey:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to approve survey',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Reject survey
+ * Route: PUT /admin/survey/reject
+ */
+export const rejectSurvey = async (req, res) => {
+  try {
+    const {
+      surveyId,
+      surveyIds = [],
+      adminNotes = '',
+      rejectionReason = ''
+    } = req.body;
+
+    const reviewerId = req.user.id;
+    const reviewerName = req.user.username;
+
+    console.log('🔍 Survey admin rejecting survey(s)');
+
+    // Handle single or bulk rejection
+    const idsToReject = surveyId ? [surveyId] : surveyIds;
+
+    if (!idsToReject.length) {
+      return res.status(400).json({
+        success: false,
+        error: 'Survey ID or survey IDs are required'
+      });
+    }
+
+    if (!adminNotes && !rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        error: 'Admin notes or rejection reason is required'
+      });
+    }
+
+    const results = [];
+    const finalNotes = adminNotes || rejectionReason;
+
+    for (const id of idsToReject) {
+      try {
+        // Get survey details
+        const [surveyData] = await db.query(`
+          SELECT sl.*, u.username, u.email 
+          FROM surveylog sl
+          JOIN users u ON CAST(sl.user_id AS UNSIGNED) = u.id
+          WHERE sl.id = ? AND sl.approval_status = 'pending'
+        `, [id]);
+
+        if (!surveyData.length) {
+          results.push({
+            survey_id: id,
+            success: false,
+            error: 'Survey not found or already processed'
+          });
+          continue;
+        }
+
+        const survey = surveyData[0];
+
+        // Reject using survey service
+        const rejectionResult = await surveyServices.approveSurveySubmission({
+          surveyId: id,
+          userId: survey.user_id,
+          status: 'declined',
+          adminNotes: finalNotes,
+          reviewedBy: reviewerId,
+          reviewerName
+        });
+
+        results.push({
+          survey_id: id,
+          user_id: survey.user_id,
+          username: survey.username,
+          success: true,
+          new_status: 'declined',
+          rejection_reason: finalNotes
+        });
+
+      } catch (rejectionError) {
+        console.error(`Failed to reject survey ${id}:`, rejectionError);
+        results.push({
+          survey_id: id,
+          success: false,
+          error: rejectionError.message
+        });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    const failureCount = results.filter(r => !r.success).length;
+
+    res.json({
+      success: successCount > 0,
+      message: `${successCount} survey(s) rejected`,
+      results: results,
+      summary: {
+        total_requested: idsToReject.length,
+        rejected: successCount,
+        failed: failureCount
+      },
+      rejected_by: reviewerName,
+      rejected_at: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error rejecting survey:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reject survey',
+      details: error.message
+    });
+  }
+};
+
+// =============================================================================
+// ANALYTICS & REPORTING CONTROLLERS
+// =============================================================================
 
 /**
  * Get survey analytics
- * GET /api/admin/survey/analytics
+ * Route: GET /admin/survey/analytics
  */
 export const getSurveyAnalytics = async (req, res) => {
   try {
-    console.log('🔍 getSurveyAnalytics admin controller called');
-    
-    const { startDate, endDate, groupBy = 'day' } = req.query;
-    
-    const analytics = await getSurveyAnalyticsData({
+    const { 
+      startDate = null, 
+      endDate = null, 
+      groupBy = 'day' 
+    } = req.query;
+
+    console.log('🔍 Survey admin fetching analytics');
+
+    const analytics = await surveyServices.getSurveyAnalyticsData({
       startDate,
       endDate,
       groupBy
     });
-    
-    res.status(200).json({
+
+    // Get additional insights
+    const [questionAnalytics] = await db.query(`
+      SELECT 
+        sq.id,
+        sq.question,
+        sq.category,
+        COUNT(DISTINCT sl.id) as response_count,
+        AVG(CASE WHEN sl.approval_status = 'approved' THEN 1 ELSE 0 END) * 100 as approval_rate,
+        COUNT(CASE WHEN sl.approval_status = 'approved' THEN 1 END) as approved_responses
+      FROM survey_questions sq
+      LEFT JOIN surveylog sl ON JSON_CONTAINS(sl.answers, CONCAT('"', sq.question, '"'))
+      WHERE sq.is_active = 1
+        AND (sl.createdAt >= COALESCE(?, DATE_SUB(NOW(), INTERVAL 30 DAY)) OR sl.createdAt IS NULL)
+        AND (sl.createdAt <= COALESCE(?, NOW()) OR sl.createdAt IS NULL)
+      GROUP BY sq.id, sq.question, sq.category
+      ORDER BY response_count DESC
+    `, [startDate, endDate]);
+
+    res.json({
       success: true,
-      data: analytics,
-      message: 'Survey analytics fetched successfully'
+      analytics: analytics,
+      question_analytics: questionAnalytics,
+      insights: {
+        most_responded_question: questionAnalytics[0] || null,
+        average_approval_rate: analytics.summary ? 
+          (analytics.summary.approved / Math.max(1, analytics.summary.total) * 100).toFixed(2) : 0,
+        total_responses_analyzed: analytics.summary?.total || 0
+      },
+      parameters: { startDate, endDate, groupBy },
+      generatedAt: new Date().toISOString()
     });
-    
+
   } catch (error) {
-    console.error('❌ Error in getSurveyAnalytics:', error);
+    console.error('❌ Error fetching survey analytics:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to fetch survey analytics'
+      error: 'Failed to fetch survey analytics',
+      details: error.message
     });
   }
 };
 
 /**
  * Get survey statistics
- * GET /api/admin/survey/stats
+ * Route: GET /admin/survey/stats
  */
 export const getSurveyStats = async (req, res) => {
   try {
-    console.log('🔍 getSurveyStats admin controller called');
-    
-    // Get basic survey statistics
+    const { period = '30d', detailed = false } = req.query;
+
+    console.log(`🔍 Survey admin fetching statistics (${period})`);
+
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+
+    // Get comprehensive survey statistics
     const [stats] = await db.query(`
       SELECT 
         COUNT(*) as total_surveys,
-        COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_count,
-        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_count,
-        COUNT(CASE WHEN approval_status = 'declined' THEN 1 END) as declined_count,
-        COUNT(CASE WHEN approval_status = 'rejected' THEN 1 END) as rejected_count,
+        COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_surveys,
+        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_surveys,
+        COUNT(CASE WHEN approval_status = 'declined' THEN 1 END) as declined_surveys,
+        
+        -- Application type breakdown
         COUNT(CASE WHEN application_type = 'initial_application' THEN 1 END) as initial_applications,
-        COUNT(CASE WHEN application_type = 'full_membership' THEN 1 END) as full_memberships,
-        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as last_30_days,
-        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as last_7_days,
-        COUNT(CASE WHEN createdAt >= CURDATE() THEN 1 END) as today
+        COUNT(CASE WHEN application_type = 'full_membership' THEN 1 END) as full_membership_applications,
+        
+        -- Quality metrics
+        AVG(CASE WHEN reviewedAt IS NOT NULL THEN DATEDIFF(reviewedAt, createdAt) END) as avg_review_days,
+        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) / COUNT(*) * 100 as approval_rate,
+        
+        -- Time-based metrics
+        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 END) as submissions_24h,
+        COUNT(CASE WHEN reviewedAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 END) as reviews_24h
+        
       FROM surveylog
+      WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
+    `, [days]);
+
+    // Get response quality distribution
+    const [qualityStats] = await db.query(`
+      SELECT 
+        CASE 
+          WHEN JSON_LENGTH(answers) >= 10 THEN 'high'
+          WHEN JSON_LENGTH(answers) >= 5 THEN 'medium'
+          ELSE 'low'
+        END as quality_level,
+        COUNT(*) as count,
+        AVG(CASE WHEN approval_status = 'approved' THEN 1 ELSE 0 END) * 100 as approval_rate
+      FROM surveylog
+      WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        AND answers IS NOT NULL
+      GROUP BY quality_level
+    `, [days]);
+
+    // Get detailed breakdown if requested
+    let detailedBreakdown = null;
+    if (detailed === 'true') {
+      const [breakdown] = await db.query(`
+        SELECT 
+          DATE(createdAt) as date,
+          application_type,
+          COUNT(*) as submissions,
+          COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approvals,
+          COUNT(CASE WHEN approval_status = 'declined' THEN 1 END) as rejections,
+          AVG(CASE WHEN reviewedAt IS NOT NULL THEN DATEDIFF(reviewedAt, createdAt) END) as avg_processing_days
+        FROM surveylog
+        WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        GROUP BY DATE(createdAt), application_type
+        ORDER BY date DESC, application_type
+      `, [days]);
+      
+      detailedBreakdown = breakdown;
+    }
+
+    res.json({
+      success: true,
+      period: period,
+      statistics: stats[0] || {},
+      quality_distribution: qualityStats || [],
+      detailed_breakdown: detailedBreakdown,
+      summary: {
+        total_in_period: stats[0]?.total_surveys || 0,
+        approval_rate: parseFloat((stats[0]?.approval_rate || 0).toFixed(2)),
+        avg_processing_time: parseFloat((stats[0]?.avg_review_days || 0).toFixed(1)),
+        daily_average: Math.round((stats[0]?.total_surveys || 0) / days)
+      },
+      generatedAt: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching survey statistics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch survey statistics',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Get survey completion rates
+ * Route: GET /admin/survey/completion-rates
+ */
+export const getSurveyCompletionRates = async (req, res) => {
+  try {
+    console.log('🔍 Survey admin fetching completion rates');
+
+    // Get completion rates by question
+    const [questionRates] = await db.query(`
+      SELECT 
+        sq.id,
+        sq.question,
+        sq.category,
+        COUNT(sl.id) as total_responses,
+        COUNT(CASE WHEN JSON_EXTRACT(sl.answers, CONCAT('$.', sq.id)) IS NOT NULL THEN 1 END) as completed_responses,
+        (COUNT(CASE WHEN JSON_EXTRACT(sl.answers, CONCAT('$.', sq.id)) IS NOT NULL THEN 1 END) / COUNT(sl.id)) * 100 as completion_rate
+      FROM survey_questions sq
+      LEFT JOIN surveylog sl ON sl.createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+      WHERE sq.is_active = 1
+      GROUP BY sq.id, sq.question, sq.category
+      ORDER BY completion_rate DESC
     `);
-    
-    // Get daily submission trends for the last 30 days
-    const [trends] = await db.query(`
+
+    // Get overall completion trends
+    const [completionTrends] = await db.query(`
       SELECT 
         DATE(createdAt) as date,
-        COUNT(*) as submissions,
-        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved,
-        COUNT(CASE WHEN approval_status = 'declined' THEN 1 END) as declined
-      FROM surveylog 
+        COUNT(*) as total_submissions,
+        AVG(JSON_LENGTH(answers)) as avg_answers_per_submission,
+        COUNT(CASE WHEN JSON_LENGTH(answers) >= 10 THEN 1 END) as complete_submissions,
+        (COUNT(CASE WHEN JSON_LENGTH(answers) >= 10 THEN 1 END) / COUNT(*)) * 100 as completion_rate
+      FROM surveylog
       WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        AND answers IS NOT NULL
       GROUP BY DATE(createdAt)
       ORDER BY date DESC
     `);
-    
-    // Get approval rate
-    const totalProcessed = (stats[0]?.approved_count || 0) + (stats[0]?.declined_count || 0) + (stats[0]?.rejected_count || 0);
-    const approvalRate = totalProcessed > 0 ? 
-      ((stats[0]?.approved_count || 0) / totalProcessed * 100).toFixed(2) : 0;
-    
-    res.status(200).json({
+
+    res.json({
       success: true,
-      data: {
-        summary: {
-          ...stats[0],
-          approval_rate: `${approvalRate}%`,
-          total_processed: totalProcessed
-        },
-        trends: trends.slice(0, 30), // Last 30 days
-        performance: {
-          pending_percentage: stats[0]?.total_surveys > 0 ? 
-            ((stats[0]?.pending_count || 0) / stats[0].total_surveys * 100).toFixed(2) : 0,
-          approval_rate: approvalRate,
-          processing_efficiency: totalProcessed > 0 ? 
-            (((stats[0]?.approved_count || 0) + (stats[0]?.declined_count || 0)) / totalProcessed * 100).toFixed(2) : 0
-        }
+      question_completion_rates: questionRates,
+      completion_trends: completionTrends,
+      summary: {
+        total_questions: questionRates.length,
+        avg_question_completion_rate: questionRates.reduce((sum, q) => sum + q.completion_rate, 0) / Math.max(1, questionRates.length),
+        highest_completion_question: questionRates[0] || null,
+        lowest_completion_question: questionRates[questionRates.length - 1] || null
       },
-      message: 'Survey statistics fetched successfully'
+      generatedAt: new Date().toISOString()
     });
-    
+
   } catch (error) {
-    console.error('❌ Error in getSurveyStats:', error);
+    console.error('❌ Error fetching completion rates:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to fetch survey statistics'
+      error: 'Failed to fetch completion rates',
+      details: error.message
     });
   }
 };
 
+// =============================================================================
+// DATA EXPORT CONTROLLERS
+// =============================================================================
+
 /**
- * Export survey data
- * GET /api/admin/survey/export
+ * Export survey data (super admin only)
+ * Route: GET /admin/survey/export
+ * Route: GET /admin/survey/export/responses
+ * Route: GET /admin/survey/export/analytics
  */
 export const exportSurveyData = async (req, res) => {
   try {
-    console.log('🔍 exportSurveyData admin controller called');
-    
-    const { format = 'csv', status, startDate, endDate } = req.query;
-    
-    const filters = {
-      ...(status && { approval_status: status }),
-      ...(startDate && { startDate }),
-      ...(endDate && { endDate })
-    };
-    
-    const exportData = await exportSurveyDataToCSV(filters);
-    
-    // Set appropriate headers for file download
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="survey-export-${Date.now()}.csv"`);
-    
-    res.status(200).send(exportData);
-    
+    const {
+      exportType = 'all',
+      format = 'csv',
+      startDate = null,
+      endDate = null,
+      includeAnswers = 'false'
+    } = req.query;
+
+    console.log(`🔍 Survey admin exporting ${exportType} data in ${format} format`);
+
+    // Determine what to export based on route or parameter
+    let dataType = exportType;
+    if (req.exportType) {
+      dataType = req.exportType; // Set by route middleware
+    }
+
+    let exportData;
+    let filename;
+
+    switch (dataType) {
+      case 'responses':
+        exportData = await exportSurveyResponses(startDate, endDate, includeAnswers === 'true');
+        filename = `survey_responses_${new Date().toISOString().split('T')[0]}.${format}`;
+        break;
+        
+      case 'analytics':
+        exportData = await exportSurveyAnalytics(startDate, endDate);
+        filename = `survey_analytics_${new Date().toISOString().split('T')[0]}.${format}`;
+        break;
+        
+      default:
+        exportData = await exportAllSurveyData(startDate, endDate, includeAnswers === 'true');
+        filename = `survey_export_${new Date().toISOString().split('T')[0]}.${format}`;
+    }
+
+    // Format data
+    let formattedData;
+    if (format === 'csv') {
+      formattedData = await surveyServices.exportSurveyDataToCSV({ startDate, endDate });
+    } else {
+      formattedData = JSON.stringify(exportData, null, 2);
+    }
+
+    // Log export action
+    await db.query(`
+      INSERT INTO audit_logs (user_id, action, details, createdAt)
+      VALUES (?, 'survey_data_exported', ?, NOW())
+    `, [req.user.id, JSON.stringify({
+      exportType: dataType,
+      format: format,
+      recordCount: exportData.length,
+      includeAnswers: includeAnswers === 'true',
+      exportedBy: req.user.username,
+      dateRange: { startDate, endDate }
+    })]);
+
+    // Set headers for download
+    const contentType = format === 'csv' ? 'text/csv' : 'application/json';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    res.send(formattedData);
+
   } catch (error) {
-    console.error('❌ Error in exportSurveyData:', error);
+    console.error('❌ Error exporting survey data:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to export survey data'
+      error: 'Failed to export survey data',
+      details: error.message
     });
   }
 };
 
-// ===============================================
-// SURVEY MANAGEMENT
-// ===============================================
+// =============================================================================
+// SURVEY CONFIGURATION CONTROLLERS
+// =============================================================================
 
 /**
- * Delete a survey log
- * DELETE /api/admin/survey/logs/:id
+ * Get survey configuration
+ * Route: GET /admin/survey/config
  */
-export const deleteSurveyLog = async (req, res) => {
+export const getSurveyConfig = async (req, res) => {
   try {
-    console.log('🔍 deleteSurveyLog admin controller called');
-    const { id } = req.params;
-    
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Survey ID is required'
-      });
-    }
-    
-    const result = await deleteSurveyLogById(id);
-    
-    logger.info('Admin deleted survey log:', {
-      adminId: req.user.id,
-      surveyId: id,
-      timestamp: new Date().toISOString()
+    console.log('🔍 Survey admin fetching configuration');
+
+    // Get survey system configuration
+    const [configSettings] = await db.query(`
+      SELECT setting_key, setting_value, description
+      FROM system_settings 
+      WHERE setting_key LIKE 'survey.%' AND is_active = 1
+      ORDER BY setting_key
+    `).catch(() => [[]]);
+
+    // Default configuration
+    const defaultConfig = {
+      survey: {
+        auto_save_enabled: true,
+        auto_save_interval: 30000,
+        max_draft_age_days: 30,
+        require_all_fields: false,
+        enable_question_validation: true,
+        max_file_upload_size: 5242880, // 5MB
+        allowed_file_types: ['pdf', 'doc', 'docx', 'txt']
+      },
+      questions: {
+        max_questions_per_survey: 50,
+        allow_conditional_questions: true,
+        enable_question_randomization: false,
+        require_question_categories: true
+      },
+      review: {
+        auto_assign_reviewers: true,
+        require_review_notes: true,
+        enable_bulk_operations: true,
+        review_timeout_days: 7
+      },
+      notifications: {
+        notify_on_submission: true,
+        notify_on_approval: true,
+        notify_on_rejection: true,
+        admin_notification_email: process.env.ADMIN_EMAIL || ''
+      }
+    };
+
+    // Merge with database settings
+    const dbConfig = {};
+    configSettings.forEach(setting => {
+      const keys = setting.setting_key.split('.');
+      let current = dbConfig;
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!current[keys[i]]) current[keys[i]] = {};
+        current = current[keys[i]];
+      }
+      current[keys[keys.length - 1]] = setting.setting_value;
     });
-    
-    res.status(200).json({
+
+    const finalConfig = { ...defaultConfig, ...dbConfig };
+
+    res.json({
       success: true,
-      message: 'Survey log deleted successfully',
-      ...result
+      configuration: finalConfig,
+      settings_count: configSettings.length,
+      editable_settings: [
+        'survey.auto_save_interval',
+        'survey.max_draft_age_days',
+        'questions.max_questions_per_survey',
+        'review.review_timeout_days',
+        'notifications.admin_notification_email'
+      ],
+      generatedAt: new Date().toISOString()
     });
-    
+
   } catch (error) {
-    console.error('❌ Error in deleteSurveyLog:', error);
+    console.error('❌ Error fetching survey configuration:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to delete survey log'
+      error: 'Failed to fetch survey configuration',
+      details: error.message
     });
   }
 };
 
-// ===============================================
-// EXPORTS
-// ===============================================
+/**
+ * Update survey configuration
+ * Route: PUT /admin/survey/config
+ */
+export const updateSurveyConfig = async (req, res) => {
+  try {
+    const { configuration } = req.body;
+    const adminId = req.user.id;
 
-export default {
-  // Survey logs & details
-  getSurveyLogs,
-  getSurveyDetails,
-  
-  // Survey approval
-  approveSurvey,
-  rejectSurvey,
-  getPendingSurveys,
-  bulkApproveSurveys,
-  
-  // Question management
-  updateSurveyQuestions,
-  createSurveyQuestion,
-  deleteSurveyQuestion,
-  updateQuestionLabels,
-  updateSurveyQuestionLabels,
-  
-  // Analytics & reporting
-  getSurveyAnalytics,
-  getSurveyStats,
-  exportSurveyData,
-  
-  // Survey management
-  deleteSurveyLog
+    console.log('🔍 Survey admin updating configuration');
+
+    if (!configuration || typeof configuration !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: 'Configuration object is required'
+      });
+    }
+
+    // Flatten configuration for database storage
+    const settings = [];
+    const flattenObject = (obj, prefix = '') => {
+      for (const [key, value] of Object.entries(obj)) {
+        const settingKey = prefix ? `${prefix}.${key}` : key;
+        if (typeof value === 'object' && value !== null) {
+          flattenObject(value, settingKey);
+        } else {
+          settings.push({
+            key: settingKey,
+            value: value.toString(),
+            type: typeof value
+          });
+        }
+      }
+    };
+
+    flattenObject(configuration);
+
+    // Update in database
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      for (const setting of settings) {
+        await connection.query(`
+          INSERT INTO system_settings (setting_key, setting_value, setting_type, updated_by, updatedAt)
+          VALUES (?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE 
+            setting_value = VALUES(setting_value),
+            updated_by = VALUES(updated_by),
+            updatedAt = VALUES(updatedAt)
+        `, [setting.key, setting.value, setting.type, adminId]);
+      }
+
+      await connection.commit();
+
+      // Log configuration update
+      await db.query(`
+        INSERT INTO audit_logs (user_id, action, details, createdAt)
+        VALUES (?, 'survey_config_updated', ?, NOW())
+      `, [adminId, JSON.stringify({
+        settings_updated: settings.length,
+        updated_by: req.user.username,
+        timestamp: new Date().toISOString()
+      })]);
+
+      res.json({
+        success: true,
+        message: 'Survey configuration updated successfully',
+        settings_updated: settings.length,
+        updated_by: req.user.username,
+        updatedAt: new Date().toISOString()
+      });
+
+    } catch (dbError) {
+      await connection.rollback();
+      throw dbError;
+    } finally {
+      connection.release();
+    }
+
+  } catch (error) {
+    console.error('❌ Error updating survey configuration:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update survey configuration',
+      details: error.message
+    });
+  }
 };
 
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
 
+/**
+ * Assess submission quality based on answers
+ */
+const assessSubmissionQuality = (answers) => {
+  if (!answers) return 'low';
+  
+  try {
+    const parsedAnswers = typeof answers === 'string' ? JSON.parse(answers) : answers;
+    const answerCount = Object.keys(parsedAnswers).length;
+    const nonEmptyAnswers = Object.values(parsedAnswers).filter(value => 
+      value && value.toString().trim().length > 0
+    ).length;
+    
+    const completionRate = nonEmptyAnswers / Math.max(1, answerCount);
+    const avgAnswerLength = Object.values(parsedAnswers)
+      .filter(value => typeof value === 'string')
+      .reduce((sum, value) => sum + value.length, 0) / Math.max(1, nonEmptyAnswers);
+    
+    if (completionRate >= 0.9 && avgAnswerLength >= 50) return 'high';
+    if (completionRate >= 0.7 && avgAnswerLength >= 20) return 'medium';
+    return 'low';
+    
+  } catch (error) {
+    return 'low';
+  }
+};
+
+/**
+ * Calculate survey review priority
+ */
+const calculateSurveyReviewPriority = (survey) => {
+  const daysPending = Math.floor((Date.now() - new Date(survey.createdAt)) / (1000 * 60 * 60 * 24));
+  const quality = assessSubmissionQuality(survey.answers);
+  
+  if (daysPending > 14 || (daysPending > 7 && quality === 'high')) return 'high';
+  if (daysPending > 7 || (daysPending > 3 && quality === 'high')) return 'medium';
+  return 'low';
+};
+
+/**
+ * Export survey responses
+ */
+const exportSurveyResponses = async (startDate, endDate, includeAnswers) => {
+  const whereClause = [];
+  const params = [];
+  
+  if (startDate) {
+    whereClause.push('sl.createdAt >= ?');
+    params.push(startDate);
+  }
+  
+  if (endDate) {
+    whereClause.push('sl.createdAt <= ?');
+    params.push(endDate);
+  }
+  
+  const selectFields = includeAnswers ? 
+    'sl.*, u.username, u.email' : 
+    'sl.id, sl.user_id, sl.application_type, sl.approval_status, sl.createdAt, sl.reviewedAt, u.username';
+  
+  const whereString = whereClause.length > 0 ? `WHERE ${whereClause.join(' AND ')}` : '';
+  
+  const [responses] = await db.query(`
+    SELECT ${selectFields}
+    FROM surveylog sl
+    JOIN users u ON CAST(sl.user_id AS UNSIGNED) = u.id
+    ${whereString}
+    ORDER BY sl.createdAt DESC
+  `, params);
+  
+  return responses;
+};
+
+/**
+ * Export survey analytics
+ */
+const exportSurveyAnalytics = async (startDate, endDate) => {
+  const analytics = await surveyServices.getSurveyAnalyticsData({
+    startDate,
+    endDate,
+    groupBy: 'day'
+  });
+  
+  return {
+    summary: analytics.summary,
+    trends: analytics.trends,
+    breakdown: analytics.statusBreakdown,
+    exported_at: new Date().toISOString(),
+    date_range: { startDate, endDate }
+  };
+};
+
+/**
+ * Export all survey data
+ */
+const exportAllSurveyData = async (startDate, endDate, includeAnswers) => {
+  const responses = await exportSurveyResponses(startDate, endDate, includeAnswers);
+  const analytics = await exportSurveyAnalytics(startDate, endDate);
+  
+  return {
+    responses,
+    analytics,
+    metadata: {
+      total_responses: responses.length,
+      export_date: new Date().toISOString(),
+      includes_answers: includeAnswers,
+      date_range: { startDate, endDate }
+    }
+  };
+};
+
+// =============================================================================
+// EXPORT ALL CONTROLLER FUNCTIONS
+// =============================================================================
+
+export default {
+  // Question Management
+  getSurveyQuestions,
+  createSurveyQuestion,
+  updateSurveyQuestions,
+  deleteSurveyQuestion,
+  
+  // Question Labels Management
+  getSurveyQuestionLabels,
+  updateSurveyQuestionLabels,
+  createSurveyQuestionLabel,
+  
+  // Survey Review & Approval
+  getPendingSurveys,
+  getSurveyLogs,
+  approveSurvey,
+  rejectSurvey,
+  
+  // Analytics & Reporting
+  getSurveyAnalytics,
+  getSurveyStats,
+  getSurveyCompletionRates,
+  
+  // Data Export
+  exportSurveyData,
+  
+  // Configuration
+  getSurveyConfig,
+  updateSurveyConfig,
+  
+  // Helper Functions
+  assessSubmissionQuality,
+  calculateSurveyReviewPriority
+};
+
+// Named exports for specific controller functions
+export {
+  // Question Management
+  getSurveyQuestions,
+  createSurveyQuestion,
+  updateSurveyQuestions,
+  deleteSurveyQuestion,
+  
+  // Question Labels Management
+  getSurveyQuestionLabels,
+  updateSurveyQuestionLabels,
+  createSurveyQuestionLabel,
+  
+  // Survey Review & Approval
+  getPendingSurveys,
+  getSurveyLogs,
+  approveSurvey,
+  rejectSurvey,
+  
+  // Analytics & Reporting
+  getSurveyAnalytics,
+  getSurveyStats,
+  getSurveyCompletionRates,
+  
+  // Data Export
+  exportSurveyData,
+  
+  // Configuration
+  getSurveyConfig,
+  updateSurveyConfig
+};

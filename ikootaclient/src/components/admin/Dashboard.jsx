@@ -6,11 +6,12 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../service/api';
 
-// Update your API functions to handle errors better
+// ✅ FIXED: Update API functions to use correct endpoints
 const fetchMembershipAnalytics = async (period = '30d') => {
   try {
-    const { data } = await api.get(`/admin/membership/analytics?period=${period}&detailed=true`);
-    return data;
+    // Use the correct endpoint from your backend routes
+    const { data } = await api.get(`/membership/admin/analytics?period=${period}&detailed=true`);
+    return data?.data || data; // Handle nested data structure
   } catch (error) {
     console.error('Failed to fetch membership analytics:', error);
     // Return empty structure instead of throwing
@@ -28,8 +29,9 @@ const fetchMembershipAnalytics = async (period = '30d') => {
 
 const fetchMembershipStats = async () => {
   try {
-    const { data } = await api.get('/admin/membership/stats');
-    return data;
+    // Use the correct endpoint from your backend routes
+    const { data } = await api.get('/membership/admin/stats');
+    return data?.data || data; // Handle nested data structure
   } catch (error) {
     console.error('Failed to fetch membership stats:', error);
     return {
@@ -44,28 +46,48 @@ const fetchMembershipStats = async () => {
   }
 };
 
-// ✅ ADD: Fetch full membership specific stats
+// ✅ FIXED: Use correct endpoint for full membership stats
 const fetchFullMembershipStats = async () => {
   try {
-    const { data } = await api.get('/admin/membership/full-membership-stats');
-    return data;
+    const { data } = await api.get('/membership/admin/full-membership-stats');
+    return data?.data || data; // Handle nested data structure
   } catch (error) {
     console.error('Failed to fetch full membership stats:', error);
     return {
-      pendingCount: 0,
-      approvedCount: 0,
-      declinedCount: 0,
-      totalApplications: 0,
-      avgReviewTime: 0
+      pending_full_applications: 0,
+      approved_full_applications: 0,
+      declined_full_applications: 0,
+      total_full_applications: 0,
+      avg_full_processing_days: 0
     };
   }
 };
 
-// Update your queries to handle errors better
+// ✅ FIXED: Add function to fetch pending count specifically
+const fetchPendingCount = async () => {
+  try {
+    // Use the applications endpoint with filtering
+    const { data } = await api.get('/membership/admin/applications?status=pending');
+    const responseData = data?.data || data;
+    return {
+      pending_initial: responseData?.applications?.filter(app => app.application_type === 'initial_application')?.length || 0,
+      pending_full: responseData?.applications?.filter(app => app.application_type === 'full_membership')?.length || 0,
+      total_pending: responseData?.pagination?.total_items || 0
+    };
+  } catch (error) {
+    console.error('Failed to fetch pending count:', error);
+    return {
+      pending_initial: 0,
+      pending_full: 0,
+      total_pending: 0
+    };
+  }
+};
+
 const Dashboard = () => {
   const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
 
-  // Legacy audit logs query with error handling
+  // ✅ FIXED: Update queries to use correct endpoints
   const { data: auditLogs, isLoading: auditLoading, error: auditError } = useQuery({
     queryKey: ['auditLogs'],
     queryFn: async () => {
@@ -74,14 +96,13 @@ const Dashboard = () => {
         return data;
       } catch (error) {
         console.error('Failed to fetch audit logs:', error);
-        return []; // Return empty array instead of throwing
+        return [];
       }
     },
     retry: 3,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
-  // Membership analytics queries with error handling
   const { data: membershipAnalytics, isLoading: analyticsLoading, error: analyticsError } = useQuery({
     queryKey: ['membershipAnalytics', analyticsPeriod],
     queryFn: () => fetchMembershipAnalytics(analyticsPeriod),
@@ -96,13 +117,21 @@ const Dashboard = () => {
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   });
 
-  // ✅ ADD: Full membership stats query
   const { data: fullMembershipStats, isLoading: fullMembershipLoading, error: fullMembershipError } = useQuery({
     queryKey: ['fullMembershipStats'],
     queryFn: fetchFullMembershipStats,
     retry: 3,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
-    refetchInterval: 60000 // Refresh every minute
+    refetchInterval: 60000
+  });
+
+  // ✅ ADD: Query for pending counts
+  const { data: pendingCounts, isLoading: pendingCountsLoading, error: pendingCountsError } = useQuery({
+    queryKey: ['pendingCounts'],
+    queryFn: fetchPendingCount,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchInterval: 30000 // Refresh every 30 seconds
   });
 
   // Helper function for safe access
@@ -121,7 +150,7 @@ const Dashboard = () => {
       {/* Existing components */}
       <KeyStats />
       
-      {/* ✅ ADD: Full Membership Stats Section */}
+      {/* ✅ UPDATED: Full Membership Stats Section with correct data */}
       <div className="full-membership-stats-section">
         <h3>Full Membership Overview</h3>
         
@@ -143,7 +172,10 @@ const Dashboard = () => {
               <div className="stat-icon">⏳</div>
               <div className="stat-content">
                 <h4>Pending Full Membership</h4>
-                <span className="stat-number">{fullMembershipStats?.pendingCount || 0}</span>
+                <span className="stat-number">
+                  {fullMembershipStats?.pending_full_applications || 
+                   pendingCounts?.pending_full || 0}
+                </span>
                 <small>Applications awaiting review</small>
               </div>
             </div>
@@ -152,7 +184,9 @@ const Dashboard = () => {
               <div className="stat-icon">✅</div>
               <div className="stat-content">
                 <h4>Approved This Month</h4>
-                <span className="stat-number">{fullMembershipStats?.approvedCount || 0}</span>
+                <span className="stat-number">
+                  {fullMembershipStats?.approved_full_applications || 0}
+                </span>
                 <small>New full members</small>
               </div>
             </div>
@@ -161,7 +195,9 @@ const Dashboard = () => {
               <div className="stat-icon">❌</div>
               <div className="stat-content">
                 <h4>Declined This Month</h4>
-                <span className="stat-number">{fullMembershipStats?.declinedCount || 0}</span>
+                <span className="stat-number">
+                  {fullMembershipStats?.declined_full_applications || 0}
+                </span>
                 <small>Applications declined</small>
               </div>
             </div>
@@ -170,7 +206,9 @@ const Dashboard = () => {
               <div className="stat-icon">📊</div>
               <div className="stat-content">
                 <h4>Total Applications</h4>
-                <span className="stat-number">{fullMembershipStats?.totalApplications || 0}</span>
+                <span className="stat-number">
+                  {fullMembershipStats?.total_full_applications || 0}
+                </span>
                 <small>All time applications</small>
               </div>
             </div>
@@ -179,19 +217,21 @@ const Dashboard = () => {
               <div className="stat-icon">⏱️</div>
               <div className="stat-content">
                 <h4>Avg Review Time</h4>
-                <span className="stat-number">{(fullMembershipStats?.avgReviewTime || 0).toFixed(1)}</span>
+                <span className="stat-number">
+                  {(fullMembershipStats?.avg_full_processing_days || 0).toFixed(1)}
+                </span>
                 <small>Days to review</small>
               </div>
             </div>
           </div>
         )}
         
-        {/* Quick Actions */}
+        {/* ✅ UPDATED: Quick Actions with correct links */}
         <div className="quick-actions">
           <h4>Quick Actions</h4>
           <div className="action-buttons">
             <a href="/admin/full-membership-review" className="action-btn primary">
-              🎓 Review Applications ({fullMembershipStats?.pendingCount || 0})
+              🎓 Review Applications ({fullMembershipStats?.pending_full_applications || pendingCounts?.pending_full || 0})
             </a>
             <a href="/admin/usermanagement" className="action-btn secondary">
               👥 Manage Users
@@ -206,6 +246,7 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Rest of the component remains the same */}
       {/* Enhanced Membership Analytics Section with Error Handling */}
       <div className="membership-analytics-section">
         <h3>Membership Analytics</h3>
@@ -405,5 +446,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
-

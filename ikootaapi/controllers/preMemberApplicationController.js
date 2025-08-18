@@ -1177,6 +1177,7 @@ export default {
   // Application Management
   submitInitialApplication,
   updateApplicationAnswers,
+  updateInitialApplication,
   withdrawApplication,
   
   // User History & Permissions

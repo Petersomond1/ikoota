@@ -113,7 +113,7 @@ export class AdminService {
         if (newMembershipStage) {
           await db.query(`
             UPDATE users 
-            SET membership_stage = $1, is_member = $1, updated_at = CURRENT_TIMESTAMP
+            SET membership_stage = $1, is_member = $1, updatedAt = CURRENT_TIMESTAMP
             WHERE id = $2
           `, [newMembershipStage, application.user_id]);
         }

@@ -19008,14 +19008,18 @@ export { query };
 //=============================================================================================================
 
 
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
 
-MySQL [ikoota_db]> show tables;
 +--------------------------------+
 | Tables_in_ikoota_db            |
 +--------------------------------+
 | admin_full_membership_overview |
 | admin_membership_overview      |
 | audit_logs                     |
+| bookmarks                      |
 | bulk_email_logs                |
 | bulk_sms_logs                  |
 | chats                          |
@@ -19025,6 +19029,11 @@ MySQL [ikoota_db]> show tables;
 | classes                        |
 | classes_backup                 |
 | comments                       |
+| content_audit_logs             |
+| content_likes                  |
+| content_reports                |
+| content_tags                   |
+| content_views                  |
 | email_logs                     |
 | email_templates                |
 | full_membership_access         |
@@ -19046,6 +19055,7 @@ MySQL [ikoota_db]> show tables;
 | survey_questions               |
 | surveylog                      |
 | system_configuration           |
+| tags                           |
 | teachings                      |
 | user_chats                     |
 | user_class_memberships         |
@@ -19055,188 +19065,7 @@ MySQL [ikoota_db]> show tables;
 | users                          |
 | verification_codes             |
 +--------------------------------+
-41 rows in set (0.144 sec)
-
-MySQL [ikoota_db]> describe Ctrl-C -- exit!
-Bye
-PS C:\Users\peter>  mysql -h  ikootadb.cvugpfnl4vcp.us-east-1.rds.amazonaws.com -P 3306 -u Petersomond -p
-Enter password: **********
-Welcome to the MariaDB monitor.  Commands end with ; or \g.
-Your MySQL connection id is 55552
-Server version: 8.0.40 Source distribution
-
-Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
-
-Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
-
-MySQL [(none)]> show databases;
-+--------------------+
-| Database           |
-+--------------------+
-| ikoota_db          |
-| information_schema |
-| mysql              |
-| performance_schema |
-| phpmyadmin         |
-| sys                |
-+--------------------+
-6 rows in set (0.073 sec)
-
-MySQL [(none)]> use ikoota_db;
-Database changed
-MySQL [ikoota_db]> describe chats;
-+-----------------+---------------------------------------+------+-----+-------------------+-------------------+
-| Field           | Type                                  | Null | Key | Default           | Extra             |
-+-----------------+---------------------------------------+------+-----+-------------------+-------------------+
-| id              | int                                   | NO   | PRI | NULL              | auto_increment    |
-| title           | varchar(255)                          | NO   |     | NULL              |                   |
-| user_id         | char(10)                              | NO   | MUL | NULL              |                   |
-| audience        | varchar(255)                          | YES  |     | NULL              |                   |
-| summary         | text                                  | YES  |     | NULL              |                   |
-| text            | text                                  | YES  |     | NULL              |                   |
-| approval_status | enum('pending','approved','rejected') | YES  | MUL | pending           |                   |
-| media_url1      | varchar(255)                          | YES  |     | NULL              |                   |
-| media_type1     | enum('image','video','audio','file')  | YES  |     | NULL              |                   |
-| media_url2      | varchar(255)                          | YES  |     | NULL              |                   |
-| media_type2     | enum('image','video','audio','file')  | YES  |     | NULL              |                   |
-| media_url3      | varchar(255)                          | YES  |     | NULL              |                   |
-| is_flagged      | tinyint(1)                            | YES  |     | 0                 |                   |
-| media_type3     | enum('image','video','audio','file')  | YES  |     | NULL              |                   |
-| createdAt       | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt       | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| prefixed_id     | varchar(20)                           | YES  | UNI | NULL              |                   |
-| reviewed_by     | int                                   | YES  |     | NULL              |                   |
-| reviewedAt      | timestamp                             | YES  |     | NULL              |                   |
-| admin_notes     | text                                  | YES  |     | NULL              |                   |
-+-----------------+---------------------------------------+------+-----+-------------------+-------------------+
-20 rows in set (0.059 sec)
-
-MySQL [ikoota_db]> describe class_content_access;
-+--------------+----------------------------------------+------+-----+-------------------+-------------------+
-| Field        | Type                                   | Null | Key | Default           | Extra             |
-+--------------+----------------------------------------+------+-----+-------------------+-------------------+
-| id           | int                                    | NO   | PRI | NULL              | auto_increment    |
-| content_id   | int                                    | NO   | MUL | NULL              |                   |
-| content_type | enum('chat','teaching','announcement') | NO   |     | NULL              |                   |
-| class_id     | varchar(12)                            | NO   | MUL | NULL              |                   |
-| access_level | enum('read','comment','contribute')    | YES  |     | read              |                   |
-| createdAt    | timestamp                              | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+--------------+----------------------------------------+------+-----+-------------------+-------------------+
-6 rows in set (0.078 sec)
-
-MySQL [ikoota_db]> describe comments;
-+-------------+--------------------------------------+------+-----+-------------------+-------------------+
-| Field       | Type                                 | Null | Key | Default           | Extra             |
-+-------------+--------------------------------------+------+-----+-------------------+-------------------+
-| id          | int                                  | NO   | PRI | NULL              | auto_increment    |
-| user_id     | char(10)                             | NO   | MUL | NULL              |                   |
-| chat_id     | int                                  | YES  | MUL | NULL              |                   |
-| teaching_id | int                                  | YES  | MUL | NULL              |                   |
-| comment     | text                                 | NO   |     | NULL              |                   |
-| media_url1  | varchar(255)                         | YES  |     | NULL              |                   |
-| media_type1 | enum('image','video','audio','file') | YES  |     | NULL              |                   |
-| media_url2  | varchar(255)                         | YES  |     | NULL              |                   |
-| media_type2 | enum('image','video','audio','file') | YES  |     | NULL              |                   |
-| media_url3  | varchar(255)                         | YES  |     | NULL              |                   |
-| media_type3 | enum('image','video','audio','file') | YES  |     | NULL              |                   |
-| createdAt   | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt   | timestamp                            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+-------------+--------------------------------------+------+-----+-------------------+-------------------+
-13 rows in set (0.070 sec)
-
-MySQL [ikoota_db]> describe teachings;
-+-----------------+-------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field           | Type                                            | Null | Key | Default           | Extra                                         |
-+-----------------+-------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id              | int                                             | NO   | PRI | NULL              | auto_increment                                |
-| topic           | varchar(255)                                    | NO   |     | NULL              |                                               |
-| description     | text                                            | YES  |     | NULL              |                                               |
-| lessonNumber    | varchar(255)                                    | NO   |     | NULL              |                                               |
-| subjectMatter   | varchar(255)                                    | YES  |     | NULL              |                                               |
-| audience        | varchar(255)                                    | YES  |     | NULL              |                                               |
-| content         | text                                            | YES  |     | NULL              |                                               |
-| approval_status | enum('pending','approved','rejected','deleted') | YES  | MUL | pending           |                                               |
-| media_url1      | varchar(255)                                    | YES  |     | NULL              |                                               |
-| media_type1     | enum('image','video','audio','file')            | YES  |     | NULL              |                                               |
-| media_url2      | varchar(255)                                    | YES  |     | NULL              |                                               |
-| media_type2     | enum('image','video','audio','file')            | YES  |     | NULL              |                                               |
-| media_url3      | varchar(255)                                    | YES  |     | NULL              |                                               |
-| media_type3     | enum('image','video','audio','file')            | YES  |     | NULL              |                                               |
-| createdAt       | timestamp                                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt       | timestamp                                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-| user_id         | int                                             | NO   | MUL | NULL              |                                               |
-| prefixed_id     | varchar(20)                                     | YES  | UNI | NULL              |                                               |
-| reviewed_by     | int                                             | YES  |     | NULL              |                                               |
-| reviewedAt      | timestamp                                       | YES  |     | NULL              |                                               |
-| admin_notes     | text                                            | YES  |     | NULL              |                                               |
-+-----------------+-------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-21 rows in set (0.148 sec)
-
-MySQL [ikoota_db]> describe user_chats;
-+----------------------+--------------------------------+------+-----+-------------------+-------------------+
-| Field                | Type                           | Null | Key | Default           | Extra             |
-+----------------------+--------------------------------+------+-----+-------------------+-------------------+
-| id                   | int                            | NO   | PRI | NULL              | auto_increment    |
-| user_id              | char(10)                       | NO   | MUL | NULL              |                   |
-| chat_id              | char(10)                       | NO   |     | NULL              |                   |
-| last_message         | varchar(255)                   | YES  |     | NULL              |                   |
-| is_seen              | tinyint(1)                     | YES  |     | 0                 |                   |
-| role                 | enum('admin','member','owner') | NO   |     | NULL              |                   |
-| is_muted             | tinyint(1)                     | YES  |     | 0                 |                   |
-| last_read_message_id | varchar(36)                    | YES  |     | NULL              |                   |
-| joinedAt             | datetime                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt            | timestamp                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+----------------------+--------------------------------+------+-----+-------------------+-------------------+
-10 rows in set (0.887 sec)
-
-MySQL [ikoota_db]> describe users;
-+---------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| Field                     | Type                                                                                        | Null | Key | Default           | Extra             |
-+---------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| id                        | int                                                                                         | NO   | PRI | NULL              | auto_increment    |
-| username                  | varchar(255)                                                                                | NO   | MUL | NULL              |                   |
-| email                     | varchar(255)                                                                                | NO   | MUL | NULL              |                   |
-| phone                     | varchar(15)                                                                                 | YES  |     | NULL              |                   |
-| avatar                    | varchar(255)                                                                                | YES  |     | NULL              |                   |
-| password_hash             | varchar(255)                                                                                | NO   |     | NULL              |                   |
-| converse_id               | varchar(12)                                                                                 | YES  | UNI | NULL              |                   |
-| application_ticket        | varchar(20)                                                                                 | YES  | MUL | NULL              |                   |
-| mentor_id                 | char(10)                                                                                    | YES  | MUL | NULL              |                   |
-| primary_class_id          | varchar(12)                                                                                 | YES  | MUL | NULL              |                   |
-| is_member                 | enum('applied','pending','suspended','granted','declined','pre_member','member','rejected') | YES  | MUL | applied           |                   |
-| membership_stage          | enum('none','applicant','pre_member','member')                                              | YES  | MUL | none              |                   |
-| full_membership_ticket    | varchar(25)                                                                                 | YES  |     | NULL              |                   |
-| full_membership_status    | enum('not_applied','applied','pending','suspended','approved','declined')                   | YES  | MUL | not_applied       |                   |
-| fullMembershipAppliedAt   | timestamp                                                                                   | YES  | MUL | NULL              |                   |
-| fullMembershipReviewedAt  | timestamp                                                                                   | YES  |     | NULL              |                   |
-| role                      | enum('super_admin','admin','user')                                                          | YES  |     | user              |                   |
-| isblocked                 | json                                                                                        | YES  |     | NULL              |                   |
-| isbanned                  | tinyint(1)                                                                                  | YES  |     | 0                 |                   |
-| createdAt                 | timestamp                                                                                   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt                 | timestamp                                                                                   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| resetToken                | varchar(255)                                                                                | YES  |     | NULL              |                   |
-| resetTokenExpiry          | bigint                                                                                      | YES  |     | NULL              |                   |
-| verification_method       | enum('email','phone')                                                                       | YES  |     | NULL              |                   |
-| verification_code         | varchar(10)                                                                                 | YES  |     | NULL              |                   |
-| is_verified               | tinyint(1)                                                                                  | YES  | MUL | 0                 |                   |
-| codeExpiry                | bigint                                                                                      | YES  |     | NULL              |                   |
-| converse_avatar           | varchar(255)                                                                                | YES  |     | NULL              |                   |
-| is_identity_masked        | tinyint(1)                                                                                  | YES  |     | 0                 |                   |
-| total_classes             | int                                                                                         | YES  |     | 0                 |                   |
-| application_status        | enum('not_submitted','submitted','under_review','approved','declined')                      | YES  | MUL | not_submitted     |                   |
-| applicationSubmittedAt    | timestamp                                                                                   | YES  | MUL | NULL              |                   |
-| applicationReviewedAt     | timestamp                                                                                   | YES  |     | NULL              |                   |
-| reviewed_by               | int                                                                                         | YES  | MUL | NULL              |                   |
-| decline_reason            | text                                                                                        | YES  |     | NULL              |                   |
-| decline_notification_sent | tinyint(1)                                                                                  | YES  |     | 0                 |                   |
-| lastLogin                 | timestamp                                                                                   | YES  |     | NULL              |                   |
-| ban_reason                | text                                                                                        | YES  |     | NULL              |                   |
-+---------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-38 rows in set (0.066 sec)
-
-MySQL [ikoota_db]>
-
-
+48 rows in set (0.356 sec)
 
 //==========================================================================================================
 //============================================================================================================
@@ -19244,11 +19073,19 @@ MySQL [ikoota_db]>
 //=============================================================================================================
 
 
+MySQL [ikoota_db]> show tables;
+ERROR 2006 (HY000): MySQL server has gone away
+No connection. Trying to reconnect...
+Connection id:    56016
+Current database: ikoota_db
 
-
-admin_full_membership_overview |
++--------------------------------+
+| Tables_in_ikoota_db            |
++--------------------------------+
+| admin_full_membership_overview |
 | admin_membership_overview      |
 | audit_logs                     |
+| bookmarks                      |
 | bulk_email_logs                |
 | bulk_sms_logs                  |
 | chats                          |
@@ -19258,6 +19095,11 @@ admin_full_membership_overview |
 | classes                        |
 | classes_backup                 |
 | comments                       |
+| content_audit_logs             |
+| content_likes                  |
+| content_reports                |
+| content_tags                   |
+| content_views                  |
 | email_logs                     |
 | email_templates                |
 | full_membership_access         |
@@ -19279,6 +19121,7 @@ admin_full_membership_overview |
 | survey_questions               |
 | surveylog                      |
 | system_configuration           |
+| tags                           |
 | teachings                      |
 | user_chats                     |
 | user_class_memberships         |
@@ -19286,20 +19129,252 @@ admin_full_membership_overview |
 | user_communication_preferences |
 | user_profiles                  |
 | users                          |
-| verification_codes  
+| verification_codes             |
++--------------------------------+
+48 rows in set (0.356 sec)
 
+MySQL [ikoota_db]> describe admin_full_membership_overview;
++------------------+---------------------------------------------------+------+-----+-------------------+-------------------+
+| Field            | Type                                              | Null | Key | Default           | Extra             |
++------------------+---------------------------------------------------+------+-----+-------------------+-------------------+
+| application_type | varchar(15)                                       | NO   |     |                   |                   |
+| user_id          | int                                               | NO   |     | 0                 |                   |
+| username         | varchar(255)                                      | NO   |     | NULL              |                   |
+| email            | varchar(255)                                      | NO   |     | NULL              |                   |
+| ticket           | varchar(25)                                       | NO   |     | NULL              |                   |
+| status           | enum('pending','suspended','approved','declined') | YES  |     | pending           |                   |
+| submittedAt      | timestamp                                         | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| reviewedAt       | timestamp                                         | YES  |     | NULL              |                   |
+| reviewed_by      | int                                               | YES  |     | NULL              |                   |
+| admin_notes      | text                                              | YES  |     | NULL              |                   |
+| reviewer_name    | varchar(255)                                      | YES  |     | NULL              |                   |
++------------------+---------------------------------------------------+------+-----+-------------------+-------------------+
+11 rows in set (0.098 sec)
 
+MySQL [ikoota_db]> describe admin_membership_overview;
++------------------+---------------------------------------------------------------------------+------+-----+---------------------+-------------------+
+| Field            | Type                                                                      | Null | Key | Default             | Extra             |
++------------------+---------------------------------------------------------------------------+------+-----+---------------------+-------------------+
+| application_type | enum('initial_application','full_membership')                             | YES  |     | initial_application |                   |
+| user_id          | int                                                                       | NO   |     | 0                   |                   |
+| username         | varchar(255)                                                              | NO   |     | NULL                |                   |
+| email            | varchar(255)                                                              | NO   |     | NULL                |                   |
+| ticket           | varchar(20)                                                               | YES  |     | NULL                |                   |
+| status           | enum('pending','approved','rejected','under_review','granted','declined') | YES  |     | pending             |                   |
+| createdAt        | timestamp                                                                 | YES  |     | CURRENT_TIMESTAMP   | DEFAULT_GENERATED |
+| reviewedAt       | timestamp                                                                 | YES  |     | NULL                |                   |
+| reviewed_by      | int                                                                       | YES  |     | NULL                |                   |
+| admin_notes      | text                                                                      | YES  |     | NULL                |                   |
+| reviewer_name    | varchar(255)                                                              | YES  |     | NULL                |                   |
++------------------+---------------------------------------------------------------------------+------+-----+---------------------+-------------------+
+11 rows in set (0.077 sec)
 
+MySQL [ikoota_db]> describe full_membership_access;
++-----------------+-----------+------+-----+-------------------+-----------------------------------------------+
+| Field           | Type      | Null | Key | Default           | Extra                                         |
++-----------------+-----------+------+-----+-------------------+-----------------------------------------------+
+| id              | int       | NO   | PRI | NULL              | auto_increment                                |
+| user_id         | int       | NO   | UNI | NULL              |                                               |
+| firstAccessedAt | timestamp | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| lastAccessedAt  | timestamp | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| access_count    | int       | YES  |     | 1                 |                                               |
+| createdAt       | timestamp | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt       | timestamp | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++-----------------+-----------+------+-----+-------------------+-----------------------------------------------+
+7 rows in set (0.072 sec)
 
+MySQL [ikoota_db]> describe full_membership_access_log;
++----------------+-------------+------+-----+-------------------+-----------------------------------------------+
+| Field          | Type        | Null | Key | Default           | Extra                                         |
++----------------+-------------+------+-----+-------------------+-----------------------------------------------+
+| id             | int         | NO   | PRI | NULL              | auto_increment                                |
+| user_id        | int         | NO   | UNI | NULL              |                                               |
+| firstAccessAt  | timestamp   | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| total_accesses | int         | YES  |     | 1                 |                                               |
+| lastAccessAt   | timestamp   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| ip_address     | varchar(45) | YES  |     | NULL              |                                               |
+| user_agent     | text        | YES  |     | NULL              |                                               |
++----------------+-------------+------+-----+-------------------+-----------------------------------------------+
+7 rows in set (0.068 sec)
 
+MySQL [ikoota_db]> describe full_membership_applications;
++-------------------+---------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field             | Type                                              | Null | Key | Default           | Extra                                         |
++-------------------+---------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id                | int                                               | NO   | PRI | NULL              | auto_increment                                |
+| user_id           | int                                               | NO   | UNI | NULL              |                                               |
+| membership_ticket | varchar(25)                                       | NO   | MUL | NULL              |                                               |
+| answers           | json                                              | NO   |     | NULL              |                                               |
+| status            | enum('pending','suspended','approved','declined') | YES  | MUL | pending           |                                               |
+| submittedAt       | timestamp                                         | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| reviewedAt        | timestamp                                         | YES  |     | NULL              |                                               |
+| reviewed_by       | int                                               | YES  | MUL | NULL              |                                               |
+| admin_notes       | text                                              | YES  |     | NULL              |                                               |
+| createdAt         | timestamp                                         | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt         | timestamp                                         | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++-------------------+---------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+11 rows in set (0.063 sec)
 
+MySQL [ikoota_db]> describe membership_review_history;
++-------------------+-------------------------------------------------------------+------+-----+-------------------+-------------------+
+| Field             | Type                                                        | Null | Key | Default           | Extra             |
++-------------------+-------------------------------------------------------------+------+-----+-------------------+-------------------+
+| id                | int                                                         | NO   | PRI | NULL              | auto_increment    |
+| user_id           | int                                                         | NO   | MUL | NULL              |                   |
+| application_type  | enum('initial_application','full_membership')               | NO   | MUL | NULL              |                   |
+| application_id    | int                                                         | YES  |     | NULL              |                   |
+| reviewer_id       | int                                                         | YES  | MUL | NULL              |                   |
+| previous_status   | enum('pending','suspended','approved','declined')           | YES  |     | NULL              |                   |
+| new_status        | enum('pending','suspended','approved','declined')           | YES  |     | NULL              |                   |
+| review_notes      | text                                                        | YES  |     | NULL              |                   |
+| action_taken      | enum('approve','decline','suspend','request_info','reopen') | NO   |     | NULL              |                   |
+| reviewedAt        | timestamp                                                   | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| notification_sent | tinyint(1)                                                  | YES  |     | 0                 |                   |
++-------------------+-------------------------------------------------------------+------+-----+-------------------+-------------------+
+11 rows in set (0.077 sec)
 
-//==========================================================================================================
-//============================================================================================================
-//============================================================================================================
-//=============================================================================================================
+MySQL [ikoota_db]> describe membership_stats;
++------------------------------+--------+------+-----+---------+-------+
+| Field                        | Type   | Null | Key | Default | Extra |
++------------------------------+--------+------+-----+---------+-------+
+| pre_members_count            | bigint | NO   |     | 0       |       |
+| full_members_count           | bigint | NO   |     | 0       |       |
+| pending_full_applications    | bigint | NO   |     | 0       |       |
+| pending_initial_applications | bigint | NO   |     | 0       |       |
+| total_users                  | bigint | NO   |     | 0       |       |
++------------------------------+--------+------+-----+---------+-------+
+5 rows in set (0.075 sec)
 
+MySQL [ikoota_db]> describe pending_full_memberships;
++-------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+| Field                   | Type                                                                                        | Null | Key | Default           | Extra             |
++-------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+| user_id                 | int                                                                                         | NO   |     | 0                 |                   |
+| username                | varchar(255)                                                                                | NO   |     | NULL              |                   |
+| email                   | varchar(255)                                                                                | NO   |     | NULL              |                   |
+| membership_stage        | enum('none','applicant','pre_member','member')                                              | YES  |     | none              |                   |
+| is_member               | enum('applied','pending','suspended','granted','declined','pre_member','member','rejected') | YES  |     | applied           |                   |
+| full_membership_status  | enum('not_applied','applied','pending','suspended','approved','declined')                   | YES  |     | not_applied       |                   |
+| fullMembershipAppliedAt | timestamp                                                                                   | YES  |     | NULL              |                   |
+| application_id          | int                                                                                         | NO   |     | 0                 |                   |
+| membership_ticket       | varchar(25)                                                                                 | NO   |     | NULL              |                   |
+| application_status      | enum('pending','suspended','approved','declined')                                           | YES  |     | pending           |                   |
+| submittedAt             | timestamp                                                                                   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| reviewedAt              | timestamp                                                                                   | YES  |     | NULL              |                   |
+| admin_notes             | text                                                                                        | YES  |     | NULL              |                   |
++-------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+13 rows in set (0.067 sec)
 
+MySQL [ikoota_db]> describe pending_initial_applications;
++--------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+| Field              | Type                                                                                        | Null | Key | Default           | Extra             |
++--------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+| user_id            | int                                                                                         | NO   |     | 0                 |                   |
+| username           | varchar(255)                                                                                | NO   |     | NULL              |                   |
+| email              | varchar(255)                                                                                | NO   |     | NULL              |                   |
+| membership_stage   | enum('none','applicant','pre_member','member')                                              | YES  |     | none              |                   |
+| is_member          | enum('applied','pending','suspended','granted','declined','pre_member','member','rejected') | YES  |     | applied           |                   |
+| application_status | enum('not_submitted','submitted','under_review','approved','declined')                      | YES  |     | not_submitted     |                   |
+| submittedAt        | timestamp                                                                                   | YES  |     | NULL              |                   |
+| reviewedAt         | timestamp                                                                                   | YES  |     | NULL              |                   |
+| reviewed_by        | int                                                                                         | YES  |     | NULL              |                   |
+| admin_notes        | text                                                                                        | YES  |     | NULL              |                   |
+| survey_id          | int                                                                                         | YES  |     | 0                 |                   |
+| approval_status    | enum('pending','approved','rejected','under_review','granted','declined')                   | YES  |     | pending           |                   |
+| surveySubmittedAt  | timestamp                                                                                   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| surveyReviewedAt   | timestamp                                                                                   | YES  |     | NULL              |                   |
+| surveyAdminNotes   | text                                                                                        | YES  |     | NULL              |                   |
++--------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
+15 rows in set (0.075 sec)
+
+MySQL [ikoota_db]> describe question_labels;
++---------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| Field         | Type         | Null | Key | Default           | Extra                                         |
++---------------+--------------+------+-----+-------------------+-----------------------------------------------+
+| id            | int          | NO   | PRI | NULL              | auto_increment                                |
+| field_name    | varchar(100) | NO   | UNI | NULL              |                                               |
+| label_text    | varchar(500) | NO   |     | NULL              |                                               |
+| display_order | int          | YES  |     | 0                 |                                               |
+| is_active     | tinyint(1)   | YES  | MUL | 1                 |                                               |
+| createdAt     | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt     | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++---------------+--------------+------+-----+-------------------+-----------------------------------------------+
+7 rows in set (0.069 sec)
+
+MySQL [ikoota_db]> describe survey_drafts;
++-------------------+-----------------------------------------------+------+-----+---------------------+-----------------------------------------------+
+| Field             | Type                                          | Null | Key | Default             | Extra                                         |
++-------------------+-----------------------------------------------+------+-----+---------------------+-----------------------------------------------+
+| id                | int                                           | NO   | PRI | NULL                | auto_increment                                |
+| user_id           | int                                           | NO   | MUL | NULL                |                                               |
+| answers           | text                                          | YES  |     | NULL                |                                               |
+| application_type  | enum('initial_application','full_membership') | YES  | MUL | initial_application |                                               |
+| admin_notes       | text                                          | YES  |     | NULL                |                                               |
+| saved_by_admin_id | int                                           | YES  | MUL | NULL                |                                               |
+| createdAt         | timestamp                                     | YES  |     | CURRENT_TIMESTAMP   | DEFAULT_GENERATED                             |
+| updatedAt         | timestamp                                     | YES  | MUL | CURRENT_TIMESTAMP   | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++-------------------+-----------------------------------------------+------+-----+---------------------+-----------------------------------------------+
+8 rows in set (0.067 sec)
+
+MySQL [ikoota_db]> describe survey_questions;
++----------------+------------+------+-----+-------------------+-----------------------------------------------+
+| Field          | Type       | Null | Key | Default           | Extra                                         |
++----------------+------------+------+-----+-------------------+-----------------------------------------------+
+| id             | int        | NO   | PRI | NULL              | auto_increment                                |
+| question       | text       | NO   |     | NULL              |                                               |
+| createdAt      | timestamp  | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt      | timestamp  | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| is_active      | tinyint(1) | YES  |     | 1                 |                                               |
+| question_order | int        | YES  |     | 0                 |                                               |
++----------------+------------+------+-----+-------------------+-----------------------------------------------+
+6 rows in set (0.056 sec)
+
+MySQL [ikoota_db]> describe surveylog;
++--------------------------+---------------------------------------------------------------------------+------+-----+---------------------+-----------------------------------------------+
+| Field                    | Type                                                                      | Null | Key | Default             | Extra                                         |
++--------------------------+---------------------------------------------------------------------------+------+-----+---------------------+-----------------------------------------------+
+| id                       | int                                                                       | NO   | PRI | NULL                | auto_increment                                |
+| user_id                  | int                                                                       | NO   | MUL | NULL                |                                               |
+| answers                  | text                                                                      | YES  |     | NULL                |                                               |
+| verified_by              | char(10)                                                                  | NO   | MUL | NULL                |                                               |
+| rating_remarks           | varchar(255)                                                              | NO   |     | NULL                |                                               |
+| approval_status          | enum('pending','approved','rejected','under_review','granted','declined') | YES  | MUL | pending             |                                               |
+| createdAt                | timestamp                                                                 | YES  |     | CURRENT_TIMESTAMP   | DEFAULT_GENERATED                             |
+| updatedAt                | timestamp                                                                 | YES  |     | CURRENT_TIMESTAMP   | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| processedAt              | timestamp                                                                 | YES  |     | CURRENT_TIMESTAMP   | DEFAULT_GENERATED                             |
+| admin_notes              | text                                                                      | YES  |     | NULL                |                                               |
+| application_type         | enum('initial_application','full_membership')                             | YES  | MUL | initial_application |                                               |
+| reviewedAt               | timestamp                                                                 | YES  | MUL | NULL                |                                               |
+| reviewed_by              | int                                                                       | YES  | MUL | NULL                |                                               |
+| application_ticket       | varchar(255)                                                              | YES  |     | NULL                |                                               |
+| mentor_assigned          | varchar(12)                                                               | YES  | MUL | NULL                |                                               |
+| class_assigned           | varchar(12)                                                               | YES  | MUL | NULL                |                                               |
+| converse_id_generated    | varchar(12)                                                               | YES  |     | NULL                |                                               |
+| approval_decision_reason | text                                                                      | YES  |     | NULL                |                                               |
+| notification_sent        | tinyint(1)                                                                | YES  |     | 0                   |                                               |
++--------------------------+---------------------------------------------------------------------------+------+-----+---------------------+-----------------------------------------------+
+19 rows in set (0.056 sec)
+
+MySQL [ikoota_db]> describe user_class_memberships;
++-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field                 | Type                                           | Null | Key | Default           | Extra                                         |
++-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id                    | int                                            | NO   | PRI | NULL              | auto_increment                                |
+| user_id               | int                                            | NO   | MUL | NULL              |                                               |
+| class_id              | varchar(12)                                    | NO   | MUL | NULL              |                                               |
+| membership_status     | enum('active','pending','suspended','expired') | YES  | MUL | active            |                                               |
+| role_in_class         | enum('member','moderator','assistant')         | YES  | MUL | member            |                                               |
+| joinedAt              | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| assigned_by           | int                                            | YES  | MUL | NULL              |                                               |
+| expiresAt             | timestamp                                      | YES  |     | NULL              |                                               |
+| can_see_class_name    | tinyint(1)                                     | YES  |     | 1                 |                                               |
+| receive_notifications | tinyint(1)                                     | YES  |     | 1                 |                                               |
+| createdAt             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+12 rows in set (0.062 sec)
+
+MySQL [ikoota_db]>
 
 
 

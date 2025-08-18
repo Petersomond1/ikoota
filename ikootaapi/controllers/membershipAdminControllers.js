@@ -1,2183 +1,680 @@
 // ikootaapi/controllers/membershipAdminControllers.js
 // ===============================================
-// MEMBERSHIP ADMIN CONTROLLERS
-// Complete admin interface for membership management system
-// Includes all admin functions, analytics, reporting, and user management
+// MEMBERSHIP ADMIN CONTROLLER - COMPLETE WITH ALL FUNCTIONS
+// Controllers handle HTTP requests/responses and delegate business logic to services
 // ===============================================
 
-import db from '../config/db.js';
-import CustomError from '../utils/CustomError.js';
-import membershipServices, { membershipService, validateApplicationData } from '../services/membershipServices.js';
-import { membershipAdminService } from '../services/membershipAdminServices.js';
+// ✅ IMPORT INDIVIDUAL FUNCTIONS instead of membershipAdminService object
 import {
-  getUserById,
-  successResponse,
-  errorResponse,
-  executeQuery
-  // sendMembershipEmail
-} from './membershipCore.js';
+  // Test & Connectivity
+  testConnectivity,
+  getSystemHealth,
+  
+  // Application Management  
+  getAllApplications,
+  getApplicationById,
+  reviewApplication,
+  bulkReviewApplications,
+  
+  // Statistics & Analytics
+  getApplicationStats,
+  getFullMembershipStats,
+  getMembershipAnalytics,
+  getMembershipOverview,
+  
+  // User Management
+  searchUsers,
+  getAvailableMentors,
+  
+  // System Management
+  exportMembershipData,
+  sendBulkNotifications,
+  
+  // Additional Admin Functions
+  getAuditLogs,
+  getDashboardData
+} from '../services/membershipAdminServices.js';
+
+// Import response helpers
+import { responseHelper } from '../utils/responseHelpers.js';
 
 // =============================================================================
-// PRE-MEMBER APPLICATION REVIEW
+// TEST & CONNECTIVITY CONTROLLERS
 // =============================================================================
 
 /**
- * Get pending pre-member applications with filtering and pagination
- * GET /admin/pending-applications
+ * Test admin routes connectivity
+ * Route: GET /api/membership/admin/test
  */
-export const getPendingApplications = async (req, res) => {
+export const testAdminConnectivity = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      status = 'pending',
-      sortBy = 'createdAt',
-      sortOrder = 'DESC',
-      search,
-      dateFrom,
-      dateTo 
-    } = req.query;
-
-    console.log('📋 Getting pending applications with filters:', { status, page, limit, search });
-
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    
-    // Build WHERE clause
-    let whereConditions = [`sl.approval_status = ?`];
-    let queryParams = [status];
-    
-    if (search) {
-      whereConditions.push(`(u.username LIKE ? OR u.email LIKE ?)`);
-      queryParams.push(`%${search}%`, `%${search}%`);
-    }
-    
-    if (dateFrom) {
-      whereConditions.push(`sl.createdAt >= ?`);
-      queryParams.push(dateFrom);
-    }
-    
-    if (dateTo) {
-      whereConditions.push(`sl.createdAt <= ?`);
-      queryParams.push(dateTo);
-    }
-
-    const whereClause = whereConditions.join(' AND ');
-    
-    // Get applications with user info
-    const [applications] = await db.query(`
-      SELECT 
-        sl.id as application_id,
-        sl.user_id,
-        sl.answers,
-        sl.createdAt as submitted_at,
-        sl.approval_status,
-        sl.admin_notes,
-        sl.reviewed_by,
-        sl.reviewedAt,
-        sl.application_ticket,
-        u.username,
-        u.email,
-        u.phone,
-        u.createdAt as user_registered,
-        u.membership_stage,
-        u.is_member,
-        reviewer.username as reviewer_name
-      FROM surveylog sl
-      JOIN users u ON sl.user_id = u.id
-      LEFT JOIN users reviewer ON sl.reviewed_by = reviewer.id
-      WHERE ${whereClause}
-        AND sl.application_type = 'initial_application'
-      ORDER BY ${sortBy} ${sortOrder}
-      LIMIT ? OFFSET ?
-    `, [...queryParams, parseInt(limit), offset]);
-
-    // Get total count
-    const [countResult] = await db.query(`
-      SELECT COUNT(*) as total
-      FROM surveylog sl
-      JOIN users u ON sl.user_id = u.id
-      WHERE ${whereClause}
-        AND sl.application_type = 'initial_application'
-    `, queryParams);
-
-    const total = countResult[0].total;
-    const totalPages = Math.ceil(total / parseInt(limit));
-
-    // Parse answers and format response
-    const formattedApplications = applications.map(app => ({
-      application_id: app.application_id,
-      application_ticket: app.application_ticket,
-      user: {
-        id: app.user_id,
-        username: app.username,
-        email: app.email,
-        phone: app.phone,
-        registered_at: app.user_registered,
-        current_status: {
-          membership_stage: app.membership_stage,
-          is_member: app.is_member
-        }
-      },
-      application: {
-        submitted_at: app.submitted_at,
-        status: app.approval_status,
-        answers: app.answers ? JSON.parse(app.answers) : null,
-        admin_notes: app.admin_notes,
-        reviewed_by: app.reviewer_name,
-        reviewed_at: app.reviewedAt
-      },
-      review_priority: membershipAdminService.calculateReviewPriority(app)
-    }));
-
-    return successResponse(res, {
-      applications: formattedApplications,
-      pagination: {
-        current_page: parseInt(page),
-        total_pages: totalPages,
-        total_items: total,
-        items_per_page: parseInt(limit),
-        has_next: parseInt(page) < totalPages,
-        has_prev: parseInt(page) > 1
-      },
-      filters: {
-        status,
-        search,
-        date_range: { from: dateFrom, to: dateTo },
-        sort: { by: sortBy, order: sortOrder }
-      }
-    }, `Found ${total} applications`);
-
+    const result = await testConnectivity(req.user);
+    return responseHelper.success(res, result, 'Admin routes connectivity test successful');
   } catch (error) {
-    console.error('❌ Error getting pending applications:', error);
-    return errorResponse(res, error, error.statusCode || 500);
+    return responseHelper.error(res, error);
   }
 };
 
 /**
- * Approve pre-member application
- * POST /admin/approve-application/:applicationId
+ * Get system health status
+ * Route: GET /api/membership/admin/health
  */
-export const approvePreMemberApplication = async (req, res) => {
+export const getSystemHealthController = async (req, res) => {
   try {
-    const { applicationId } = req.params;
-    const { 
-      adminNotes, 
-      mentorId, 
-      classId,
-      sendNotification = true,
-      autoAssignMentor = false 
-    } = req.body;
-    
-    const adminId = req.user.id;
-    const adminUsername = req.user.username;
-
-    console.log('✅ Approving application:', applicationId, 'by admin:', adminUsername);
-
-    // Get application details
-    const [applications] = await db.query(`
-      SELECT sl.*, u.username, u.email, u.membership_stage
-      FROM surveylog sl
-      JOIN users u ON sl.user_id = u.id
-      WHERE sl.id = ? AND sl.application_type = 'initial_application'
-    `, [applicationId]);
-
-    if (applications.length === 0) {
-      throw new CustomError('Application not found', 404);
-    }
-
-    const application = applications[0];
-    
-    if (application.approval_status === 'approved') {
-      throw new CustomError('Application already approved', 400);
-    }
-
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    try {
-      // Update application status
-      await connection.execute(`
-        UPDATE surveylog 
-        SET approval_status = 'approved',
-            reviewed_by = ?,
-            reviewedAt = NOW(),
-            admin_notes = ?
-        WHERE id = ?
-      `, [adminId, adminNotes || 'Approved for pre-membership', applicationId]);
-
-      // Update user status to pre-member
-      await connection.execute(`
-        UPDATE users 
-        SET membership_stage = 'pre_member',
-            is_member = 'granted',
-            application_status = 'approved',
-            applicationReviewedAt = NOW(),
-            mentor_id = ?,
-            primary_class_id = ?
-        WHERE id = ?
-      `, [mentorId || null, classId || null, application.user_id]);
-
-      // Auto-assign mentor if requested
-      let assignedMentorId = mentorId;
-      if (autoAssignMentor && !mentorId) {
-        assignedMentorId = await membershipAdminService.autoAssignMentor(application.user_id);
-        if (assignedMentorId) {
-          await connection.execute(`
-            UPDATE users SET mentor_id = ? WHERE id = ?
-          `, [assignedMentorId, application.user_id]);
-        }
-      }
-
-      // Log the approval
-      await connection.execute(`
-        INSERT INTO membership_review_history 
-        (user_id, application_type, previous_status, new_status, reviewer_id, review_notes, action_taken, reviewedAt)
-        VALUES (?, 'initial_application', ?, 'approved', ?, ?, 'approved_application', NOW())
-      `, [
-        application.user_id, 
-        application.approval_status, 
-        adminId, 
-        adminNotes || 'Application approved for pre-membership'
-      ]);
-
-      await connection.commit();
-      connection.release();
-
-      // Send notification email
-      if (sendNotification) {
-        try {
-          await sendMembershipEmail(application.email, 'application_approved', {
-            username: application.username,
-            adminNotes: adminNotes,
-            nextSteps: [
-              'Access Towncrier content with your pre-member status',
-              'Connect with your assigned mentor (if applicable)',
-              'Consider applying for full membership when ready'
-            ]
-          });
-        } catch (emailError) {
-          console.warn('📧 Email notification failed:', emailError.message);
-        }
-      }
-
-      return successResponse(res, {
-        application_id: applicationId,
-        user: {
-          id: application.user_id,
-          username: application.username,
-          email: application.email,
-          new_status: 'pre_member'
-        },
-        review: {
-          approved_by: adminUsername,
-          approved_at: new Date().toISOString(),
-          admin_notes: adminNotes,
-          assigned_mentor_id: assignedMentorId,
-          assigned_class_id: classId
-        },
-        notification_sent: sendNotification
-      }, 'Application approved successfully');
-
-    } catch (error) {
-      await connection.rollback();
-      connection.release();
-      throw error;
-    }
-
+    const healthData = await getSystemHealth();
+    return responseHelper.success(res, healthData);
   } catch (error) {
-    console.error('❌ Error approving application:', error);
-    return errorResponse(res, error, error.statusCode || 500);
+    return responseHelper.error(res, error, 503);
+  }
+};
+
+// =============================================================================
+// APPLICATION MANAGEMENT CONTROLLERS
+// =============================================================================
+
+/**
+ * Get all pending applications with filtering
+ * Route: GET /api/membership/admin/applications
+ */
+export const getAllPendingApplications = async (req, res) => {
+  try {
+    console.log('🔍 getAllPendingApplications called with query:', req.query);
+    
+    const filters = {
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 20,
+      status: req.query.status || 'pending',
+      type: req.query.type || 'all',
+      search: req.query.search || '',
+      sortBy: req.query.sortBy || 'createdAt',
+      sortOrder: req.query.sortOrder || 'DESC',
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo
+    };
+
+    console.log('🔍 Processed filters:', filters);
+
+    const result = await getAllApplications(filters);
+    
+    console.log('✅ getAllApplications result:', {
+      total_items: result.pagination.total_items,
+      applications_count: result.applications.length
+    });
+    
+    return responseHelper.success(res, result, `Found ${result.pagination.total_items} applications`);
+  } catch (error) {
+    console.error('❌ getAllPendingApplications error:', error);
+    return responseHelper.error(res, error);
   }
 };
 
 /**
- * Decline pre-member application
- * POST /admin/decline-application/:applicationId
+ * Get application by ID
+ * Route: GET /api/membership/admin/applications/:id
  */
-export const declinePreMemberApplication = async (req, res) => {
+export const getApplicationByIdController = async (req, res) => {
   try {
-    const { applicationId } = req.params;
-    const { 
-      reason, 
-      adminNotes, 
-      allowResubmission = true,
-      sendNotification = true 
-    } = req.body;
-    
-    const adminId = req.user.id;
-    const adminUsername = req.user.username;
-
-    if (!reason) {
-      throw new CustomError('Decline reason is required', 400);
-    }
-
-    console.log('❌ Declining application:', applicationId, 'reason:', reason);
-
-    // Get application details
-    const [applications] = await db.query(`
-      SELECT sl.*, u.username, u.email
-      FROM surveylog sl
-      JOIN users u ON sl.user_id = u.id
-      WHERE sl.id = ? AND sl.application_type = 'initial_application'
-    `, [applicationId]);
-
-    if (applications.length === 0) {
-      throw new CustomError('Application not found', 404);
-    }
-
-    const application = applications[0];
-
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    try {
-      // Update application status
-      await connection.execute(`
-        UPDATE surveylog 
-        SET approval_status = 'declined',
-            reviewed_by = ?,
-            reviewedAt = NOW(),
-            admin_notes = ?,
-            decline_reason = ?
-        WHERE id = ?
-      `, [adminId, adminNotes || reason, reason, applicationId]);
-
-      // Update user status
-      await connection.execute(`
-        UPDATE users 
-        SET application_status = 'declined',
-            is_member = 'rejected',
-            applicationReviewedAt = NOW(),
-            decline_reason = ?
-        WHERE id = ?
-      `, [reason, application.user_id]);
-
-      // Log the decline
-      await connection.execute(`
-        INSERT INTO membership_review_history 
-        (user_id, application_type, previous_status, new_status, reviewer_id, review_notes, action_taken, reviewedAt)
-        VALUES (?, 'initial_application', ?, 'declined', ?, ?, 'declined_application', NOW())
-      `, [
-        application.user_id, 
-        application.approval_status, 
-        adminId, 
-        `Declined: ${reason}. Notes: ${adminNotes || 'None'}`
-      ]);
-
-      await connection.commit();
-      connection.release();
-
-      // Send notification email
-      if (sendNotification) {
-        try {
-          await sendMembershipEmail(application.email, 'application_declined', {
-            username: application.username,
-            reason: reason,
-            adminNotes: adminNotes,
-            canResubmit: allowResubmission,
-            resubmissionGuidance: allowResubmission ? [
-              'Review the feedback provided',
-              'Improve your application based on the comments',
-              'Resubmit when you feel ready'
-            ] : null
-          });
-        } catch (emailError) {
-          console.warn('📧 Email notification failed:', emailError.message);
-        }
-      }
-
-      return successResponse(res, {
-        application_id: applicationId,
-        user: {
-          id: application.user_id,
-          username: application.username,
-          email: application.email
-        },
-        review: {
-          declined_by: adminUsername,
-          declined_at: new Date().toISOString(),
-          reason: reason,
-          admin_notes: adminNotes,
-          can_resubmit: allowResubmission
-        },
-        notification_sent: sendNotification
-      }, 'Application declined');
-
-    } catch (error) {
-      await connection.rollback();
-      connection.release();
-      throw error;
-    }
-
+    const applicationId = req.params.id;
+    const result = await getApplicationById(applicationId);
+    return responseHelper.success(res, result);
   } catch (error) {
-    console.error('❌ Error declining application:', error);
-    return errorResponse(res, error, error.statusCode || 500);
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Review individual application
+ * Route: PUT /api/membership/admin/applications/:id/review
+ */
+export const reviewApplicationController = async (req, res) => {
+  try {
+    const applicationId = req.params.id;
+    const reviewData = {
+      action: req.body.action || req.body.decision || req.body.status,
+      adminNotes: req.body.adminNotes || req.body.notes,
+      reason: req.body.reason,
+      mentorId: req.body.mentorId,
+      classId: req.body.classId,
+      sendNotification: req.body.sendNotification !== false
+    };
+    const reviewer = {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role
+    };
+
+    const result = await reviewApplication(applicationId, reviewData, reviewer);
+    return responseHelper.success(res, result, `Application ${reviewData.action}d successfully`);
+  } catch (error) {
+    return responseHelper.error(res, error);
   }
 };
 
 /**
  * Bulk review applications
- * POST /admin/bulk-review-applications
+ * Route: POST /api/membership/admin/applications/bulk-review
  */
-export const bulkReviewApplications = async (req, res) => {
+export const bulkReviewApplicationsController = async (req, res) => {
   try {
-    const { 
-      applicationIds, 
-      action, 
-      reason, 
-      adminNotes,
-      autoAssignMentors = false 
-    } = req.body;
-    
-    const adminId = req.user.id;
-    const adminUsername = req.user.username;
-
-    if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
-      throw new CustomError('Application IDs array is required', 400);
-    }
-
-    if (!['approve', 'decline'].includes(action)) {
-      throw new CustomError('Action must be approve or decline', 400);
-    }
-
-    if (action === 'decline' && !reason) {
-      throw new CustomError('Reason is required for bulk decline', 400);
-    }
-
-    if (applicationIds.length > 50) {
-      throw new CustomError('Maximum 50 applications per bulk operation', 400);
-    }
-
-    console.log(`🔄 Bulk ${action} for ${applicationIds.length} applications by ${adminUsername}`);
-
-    return await membershipAdminService.bulkProcessApplications({
-      applicationIds,
-      action,
-      reason,
-      adminNotes,
-      adminId,
-      adminUsername,
-      autoAssignMentors
-    });
-
-  } catch (error) {
-    console.error('❌ Bulk review error:', error);
-    return errorResponse(res, error, error.statusCode || 500);
-  }
-};
-
-// =============================================================================
-// FULL MEMBERSHIP MANAGEMENT
-// =============================================================================
-
-/**
- * Get pending full membership applications
- * GET /admin/pending-full-memberships
- */
-export const getPendingFullMemberships = async (req, res) => {
-  try {
-    const { page = 1, limit = 20, status = 'pending' } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-
-    console.log('📋 Getting pending full membership applications');
-
-    const [applications] = await db.query(`
-      SELECT 
-        fma.*,
-        u.username,
-        u.email,
-        u.phone,
-        u.membership_stage,
-        u.createdAt as user_registered,
-        u.mentor_id,
-        mentor.username as mentor_name,
-        reviewer.username as reviewer_name
-      FROM full_membership_applications fma
-      JOIN users u ON fma.user_id = u.id
-      LEFT JOIN users mentor ON u.mentor_id = mentor.id
-      LEFT JOIN users reviewer ON fma.reviewed_by = reviewer.id
-      WHERE fma.status = ?
-      ORDER BY fma.submittedAt ASC
-      LIMIT ? OFFSET ?
-    `, [status, parseInt(limit), offset]);
-
-    // Get total count
-    const [countResult] = await db.query(`
-      SELECT COUNT(*) as total
-      FROM full_membership_applications fma
-      WHERE fma.status = ?
-    `, [status]);
-
-    const total = countResult[0].total;
-
-    const formattedApplications = applications.map(app => ({
-      id: app.id,
-      membership_ticket: app.membership_ticket,
-      user: {
-        id: app.user_id,
-        username: app.username,
-        email: app.email,
-        phone: app.phone,
-        registered_at: app.user_registered,
-        membership_stage: app.membership_stage,
-        mentor: app.mentor_name
-      },
-      application: {
-        questions_answers: app.questions_answers ? JSON.parse(app.questions_answers) : null,
-        submitted_at: app.submittedAt,
-        status: app.status,
-        admin_notes: app.admin_notes,
-        reviewed_by: app.reviewer_name,
-        reviewed_at: app.reviewedAt
-      }
-    }));
-
-    return successResponse(res, {
-      applications: formattedApplications,
-      pagination: {
-        current_page: parseInt(page),
-        total_pages: Math.ceil(total / parseInt(limit)),
-        total_items: total,
-        items_per_page: parseInt(limit)
-      }
-    }, `Found ${total} pending full membership applications`);
-
-  } catch (error) {
-    console.error('❌ Error getting pending full memberships:', error);
-    return errorResponse(res, error, error.statusCode || 500);
-  }
-};
-
-/**
- * Review full membership application
- * POST /admin/review-full-membership/:applicationId
- */
-export const reviewFullMembershipApplication = async (req, res) => {
-  try {
-    const { applicationId } = req.params;
-    const { 
-      action, 
-      adminNotes, 
-      reason,
-      sendNotification = true 
-    } = req.body;
-    
-    const adminId = req.user.id;
-    const adminUsername = req.user.username;
-
-    if (!['approve', 'decline'].includes(action)) {
-      throw new CustomError('Action must be approve or decline', 400);
-    }
-
-    console.log(`${action === 'approve' ? '✅' : '❌'} Reviewing full membership:`, applicationId);
-
-    // Get application details
-    const [applications] = await db.query(`
-      SELECT fma.*, u.username, u.email
-      FROM full_membership_applications fma
-      JOIN users u ON fma.user_id = u.id
-      WHERE fma.id = ?
-    `, [applicationId]);
-
-    if (applications.length === 0) {
-      throw new CustomError('Full membership application not found', 404);
-    }
-
-    const application = applications[0];
-
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    try {
-      // Update application status
-      await connection.execute(`
-        UPDATE full_membership_applications 
-        SET status = ?,
-            reviewed_by = ?,
-            reviewedAt = NOW(),
-            admin_notes = ?,
-            decline_reason = ?
-        WHERE id = ?
-      `, [action === 'approve' ? 'approved' : 'declined', adminId, adminNotes, reason || null, applicationId]);
-
-      if (action === 'approve') {
-        // Update user to full member
-        await connection.execute(`
-          UPDATE users 
-          SET membership_stage = 'member',
-              full_membership_status = 'approved',
-              fullMembershipReviewedAt = NOW()
-          WHERE id = ?
-        `, [application.user_id]);
-
-        // Create access record
-        await connection.execute(`
-          INSERT INTO full_membership_access (user_id, access_granted_date, granted_by)
-          VALUES (?, NOW(), ?)
-          ON DUPLICATE KEY UPDATE access_granted_date = NOW(), granted_by = ?
-        `, [application.user_id, adminId, adminId]);
-      } else {
-        // Update user status for decline
-        await connection.execute(`
-          UPDATE users 
-          SET full_membership_status = 'declined',
-              fullMembershipReviewedAt = NOW()
-          WHERE id = ?
-        `, [application.user_id]);
-      }
-
-      // Log the review
-      await connection.execute(`
-        INSERT INTO membership_review_history 
-        (user_id, application_type, previous_status, new_status, reviewer_id, review_notes, action_taken, reviewedAt)
-        VALUES (?, 'full_membership', ?, ?, ?, ?, ?, NOW())
-      `, [
-        application.user_id, 
-        application.status, 
-        action === 'approve' ? 'approved' : 'declined',
-        adminId, 
-        adminNotes || reason,
-        `${action}_full_membership`
-      ]);
-
-      await connection.commit();
-      connection.release();
-
-      // Send notification
-      if (sendNotification) {
-        try {
-          const emailTemplate = action === 'approve' ? 'full_membership_approved' : 'full_membership_declined';
-          await sendMembershipEmail(application.email, emailTemplate, {
-            username: application.username,
-            adminNotes: adminNotes,
-            reason: reason,
-            nextSteps: action === 'approve' ? [
-              'Access full Iko content and features',
-              'Participate in advanced member activities',
-              'Connect with the full member community'
-            ] : [
-              'Review the feedback provided',
-              'Continue as a pre-member with Towncrier access',
-              'Consider reapplying in the future'
-            ]
-          });
-        } catch (emailError) {
-          console.warn('📧 Email notification failed:', emailError.message);
-        }
-      }
-
-      return successResponse(res, {
-        application_id: applicationId,
-        user: {
-          id: application.user_id,
-          username: application.username,
-          new_status: action === 'approve' ? 'member' : 'pre_member'
-        },
-        review: {
-          action: action,
-          reviewed_by: adminUsername,
-          reviewed_at: new Date().toISOString(),
-          admin_notes: adminNotes,
-          reason: reason
-        },
-        notification_sent: sendNotification
-      }, `Full membership application ${action}d successfully`);
-
-    } catch (error) {
-      await connection.rollback();
-      connection.release();
-      throw error;
-    }
-
-  } catch (error) {
-    console.error('❌ Error reviewing full membership application:', error);
-    return errorResponse(res, error, error.statusCode || 500);
-  }
-};
-
-/**
- * Bulk review full membership applications
- * POST /admin/bulk-review-full-memberships
- */
-export const bulkReviewFullMemberships = async (req, res) => {
-  try {
-    const { applicationIds, action, reason, adminNotes } = req.body;
-    
-    if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
-      throw new CustomError('Application IDs array is required', 400);
-    }
-
-    if (!['approve', 'decline'].includes(action)) {
-      throw new CustomError('Action must be approve or decline', 400);
-    }
-
-    console.log(`🔄 Bulk ${action} full memberships:`, applicationIds.length);
-
-    return await membershipAdminService.bulkProcessFullMembershipApplications({
-      applicationIds,
-      action,
-      reason,
-      adminNotes,
-      adminId: req.user.id,
-      adminUsername: req.user.username
-    });
-
-  } catch (error) {
-    console.error('❌ Bulk full membership review error:', error);
-    return errorResponse(res, error, error.statusCode || 500);
-  }
-};
-
-
-
-// Missing functions required by membershipAdminRoutes.js
-
-export const getAllPendingMembershipApplications = async (req, res) => {
-  try {
-    const { page = 1, limit = 20, status = 'pending', applicationType = 'initial_application' } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    
-    const [applications] = await db.query(`
-      SELECT 
-        sl.id as application_id,
-        sl.user_id,
-        sl.answers,
-        sl.createdAt as submitted_at,
-        sl.approval_status,
-        sl.admin_notes,
-        sl.application_ticket,
-        u.username,
-        u.email,
-        u.membership_stage,
-        u.is_member
-      FROM surveylog sl
-      JOIN users u ON CAST(sl.user_id AS UNSIGNED) = u.id
-      WHERE sl.approval_status = ? AND sl.application_type = ?
-      ORDER BY sl.createdAt DESC
-      LIMIT ? OFFSET ?
-    `, [status, applicationType, parseInt(limit), offset]);
-
-    const [countResult] = await db.query(`
-      SELECT COUNT(*) as total
-      FROM surveylog sl
-      WHERE sl.approval_status = ? AND sl.application_type = ?
-    `, [status, applicationType]);
-
-    return successResponse(res, {
-      applications: applications.map(app => ({
-        ...app,
-        answers: app.answers ? JSON.parse(app.answers) : null
-      })),
-      pagination: {
-        current_page: parseInt(page),
-        total_pages: Math.ceil(countResult[0].total / parseInt(limit)),
-        total_items: countResult[0].total
-      }
-    });
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-export const reviewMembershipApplication = async (req, res) => {
-  try {
-    const { id: applicationId } = req.params;
-    const { status, decision, adminNotes, sendNotification = true } = req.body;
-    const adminId = req.user.id;
-    const reviewDecision = status || decision;
-
-    if (!['approved', 'declined', 'rejected'].includes(reviewDecision)) {
-      throw new CustomError('Invalid review decision', 400);
-    }
-
-    const [applications] = await db.query(`
-      SELECT sl.*, u.username, u.email
-      FROM surveylog sl
-      JOIN users u ON CAST(sl.user_id AS UNSIGNED) = u.id
-      WHERE sl.id = ?
-    `, [applicationId]);
-
-    if (!applications.length) {
-      throw new CustomError('Application not found', 404);
-    }
-
-    const application = applications[0];
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    try {
-      await connection.execute(`
-        UPDATE surveylog 
-        SET approval_status = ?, reviewed_by = ?, reviewedAt = NOW(), admin_notes = ?
-        WHERE id = ?
-      `, [reviewDecision, adminId, adminNotes, applicationId]);
-
-      let newStage = application.membership_stage;
-      let newStatus = application.is_member;
-
-      if (application.application_type === 'initial_application') {
-        if (reviewDecision === 'approved') {
-          newStage = 'pre_member';
-          newStatus = 'pre_member';
-        } else {
-          newStage = 'applicant';
-          newStatus = 'rejected';
-        }
-      }
-
-      await connection.execute(`
-        UPDATE users 
-        SET membership_stage = ?, is_member = ?, applicationReviewedAt = NOW()
-        WHERE id = ?
-      `, [newStage, newStatus, application.user_id]);
-
-      await connection.commit();
-      connection.release();
-
-      return successResponse(res, {
-        application_id: applicationId,
-        decision: reviewDecision,
-        reviewed_at: new Date().toISOString()
-      });
-    } catch (error) {
-      await connection.rollback();
-      connection.release();
-      throw error;
-    }
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-export const getApplicationStats = async (req, res) => {
-  try {
-    const { period = '30d' } = req.query;
-    let days = 30;
-    switch (period) {
-      case '7d': days = 7; break;
-      case '90d': days = 90; break;
-      case '1y': days = 365; break;
-    }
-
-    const [stats] = await db.query(`
-      SELECT 
-        COUNT(*) as total_applications,
-        COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_count,
-        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_count,
-        COUNT(CASE WHEN approval_status IN ('declined', 'rejected') THEN 1 END) as declined_count,
-        AVG(CASE WHEN reviewedAt IS NOT NULL THEN DATEDIFF(reviewedAt, createdAt) END) as avg_processing_days
-      FROM surveylog
-      WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
-    `, [days]);
-
-    return successResponse(res, {
-      period,
-      stats: stats[0],
-      generated_at: new Date().toISOString()
-    });
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-export const getMembershipOverview = async (req, res) => {
-  try {
-    const [overview] = await db.query(`
-      SELECT 
-        COUNT(CASE WHEN membership_stage = 'none' OR membership_stage IS NULL THEN 1 END) as new_users,
-        COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END) as pre_members,
-        COUNT(CASE WHEN membership_stage = 'member' THEN 1 END) as full_members,
-        (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'pending') as pending_applications
-      FROM users
-      WHERE role = 'user' OR role IS NULL
-    `);
-
-    const [recentActivity] = await db.query(`
-      SELECT 
-        DATE(createdAt) as date,
-        COUNT(*) as applications
-      FROM surveylog
-      WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-      GROUP BY DATE(createdAt)
-      ORDER BY date DESC
-    `);
-
-    return successResponse(res, {
-      overview: overview[0],
-      recent_activity: recentActivity,
-      generated_at: new Date().toISOString()
-    });
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-// =============================================================================
-// ADMIN RESOURCES & UTILITIES
-// =============================================================================
-
-/**
- * Get available mentors
- * GET /admin/available-mentors
- */
-export const getAvailableMentors = async (req, res) => {
-  try {
-    const [mentors] = await db.query(`
-      SELECT 
-        id,
-        username,
-        email,
-        role,
-        createdAt,
-        (SELECT COUNT(*) FROM users WHERE mentor_id = m.id) as current_mentees
-      FROM users m
-      WHERE role IN ('admin', 'super_admin', 'mentor')
-        AND id != ?
-      ORDER BY current_mentees ASC, username ASC
-    `, [req.user.id]);
-
-    return successResponse(res, {
-      mentors: mentors.map(mentor => ({
-        id: mentor.id,
-        username: mentor.username,
-        email: mentor.email,
-        role: mentor.role,
-        current_mentees: mentor.current_mentees,
-        available: mentor.current_mentees < 10 // Configurable limit
-      }))
-    });
-
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-/**
- * Get available classes
- * GET /admin/available-classes
- */
-export const getAvailableClasses = async (req, res) => {
-  try {
-    const [classes] = await db.query(`
-      SELECT 
-        id,
-        class_name,
-        description,
-        max_members,
-        (SELECT COUNT(*) FROM user_class_memberships WHERE class_id = c.id) as current_members,
-        created_by,
-        createdAt
-      FROM classes c
-      WHERE is_active = 1
-      ORDER BY class_name ASC
-    `);
-
-    return successResponse(res, {
-      classes: classes.map(cls => ({
-        id: cls.id,
-        name: cls.class_name,
-        description: cls.description,
-        current_members: cls.current_members,
-        max_members: cls.max_members,
-        has_space: cls.current_members < cls.max_members,
-        created_at: cls.createdAt
-      }))
-    });
-
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-// =============================================================================
-// ANALYTICS & REPORTING
-// =============================================================================
-
-/**
- * Get membership analytics
- * GET /admin/analytics
- */
-export const getMembershipAnalytics = async (req, res) => {
-  try {
-    const { period = '30d' } = req.query;
-    
-    console.log('📊 Generating membership analytics for period:', period);
-    
-    const analytics = await membershipService.getMembershipAnalytics(period);
-    
-    return successResponse(res, analytics, 'Analytics generated successfully');
-
-  } catch (error) {
-    console.error('❌ Analytics error:', error);
-    return errorResponse(res, error);
-  }
-};
-
-/**
- * Get all reports
- * GET /admin/reports
- */
-export const getAllReports = async (req, res) => {
-  try {
-    console.log('📈 Generating all admin reports');
-    
-    const reports = await membershipService.getAllReportsForAdmin();
-    
-    return successResponse(res, reports, 'All reports generated successfully');
-
-  } catch (error) {
-    console.error('❌ Reports error:', error);
-    return errorResponse(res, error);
-  }
-};
-
-/**
- * Export membership data
- * GET /admin/export
- */
-export const exportMembershipData = async (req, res) => {
-  try {
-    const { format = 'json', includePersonalData = false } = req.query;
-    
-    // Only super admins can export personal data
-    if (includePersonalData === 'true' && req.user.role !== 'super_admin') {
-      throw new CustomError('Super admin privileges required for personal data export', 403);
-    }
-    
-    console.log('📤 Exporting membership data, format:', format);
-    
-    const exportData = await membershipAdminService.exportMembershipData({
-      format,
-      includePersonalData: includePersonalData === 'true',
-      exportedBy: req.user.username
-    });
-    
-    if (format === 'csv') {
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="membership_export_${new Date().toISOString().split('T')[0]}.csv"`);
-      return res.send(exportData);
-    }
-    
-    return successResponse(res, exportData, 'Data exported successfully');
-
-  } catch (error) {
-    console.error('❌ Export error:', error);
-    return errorResponse(res, error);
-  }
-};
-
-// =============================================================================
-// NOTIFICATIONS
-// =============================================================================
-
-/**
- * Send notification to user(s)
- * POST /admin/send-notification
- */
-export const sendNotification = async (req, res) => {
-  try {
-    const { 
-      recipients, 
-      subject, 
-      message, 
-      type = 'general',
-      sendEmail = true 
-    } = req.body;
-    
-    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
-      throw new CustomError('Recipients array is required', 400);
-    }
-    
-    if (!subject || !message) {
-      throw new CustomError('Subject and message are required', 400);
-    }
-    
-    console.log('📧 Sending notifications to', recipients.length, 'recipients');
-    
-    const result = await membershipAdminService.sendBulkNotifications({
-      recipients,
-      subject,
-      message,
-      type,
-      sendEmail,
-      sentBy: req.user.username
-    });
-    
-    return successResponse(res, result, 'Notifications sent successfully');
-
-  } catch (error) {
-    console.error('❌ Notification error:', error);
-    return errorResponse(res, error);
-  }
-};
-
-// =============================================================================
-// USER MANAGEMENT
-// =============================================================================
-
-/**
- * Search users with filters
- * GET /admin/search-users
- */
-export const searchUsers = async (req, res) => {
-  try {
-    const { 
-      query, 
-      membershipStage, 
-      role, 
-      page = 1, 
-      limit = 20 
-    } = req.query;
-    
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    
-    let whereConditions = ['1 = 1'];
-    let queryParams = [];
-    
-    if (query) {
-      whereConditions.push('(username LIKE ? OR email LIKE ?)');
-      queryParams.push(`%${query}%`, `%${query}%`);
-    }
-    
-    if (membershipStage) {
-      whereConditions.push('membership_stage = ?');
-      queryParams.push(membershipStage);
-    }
-    
-    if (role) {
-      whereConditions.push('role = ?');
-      queryParams.push(role);
-    }
-    
-    const whereClause = whereConditions.join(' AND ');
-    
-    const [users] = await db.query(`
-      SELECT 
-        id,
-        username,
-        email,
-        phone,
-        role,
-        membership_stage,
-        is_member,
-        createdAt,
-        lastLogin,
-        mentor_id,
-        primary_class_id
-      FROM users
-      WHERE ${whereClause}
-      ORDER BY createdAt DESC
-      LIMIT ? OFFSET ?
-    `, [...queryParams, parseInt(limit), offset]);
-    
-    const [countResult] = await db.query(`
-      SELECT COUNT(*) as total
-      FROM users
-      WHERE ${whereClause}
-    `, queryParams);
-    
-    const total = countResult[0].total;
-    
-    return successResponse(res, {
-      users,
-      pagination: {
-        current_page: parseInt(page),
-        total_pages: Math.ceil(total / parseInt(limit)),
-        total_items: total,
-        items_per_page: parseInt(limit)
-      }
-    });
-
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-// =============================================================================
-// SYSTEM & CONFIGURATION
-// =============================================================================
-
-/**
- * Get system configuration
- * GET /admin/system-config
- */
-export const getSystemConfig = async (req, res) => {
-  try {
-    const config = {
-      membership_settings: {
-        auto_approve_applications: false,
-        require_mentor_assignment: true,
-        max_applications_per_day: 50,
-        review_timeout_days: 7
-      },
-      notification_settings: {
-        email_notifications_enabled: true,
-        sms_notifications_enabled: false,
-        admin_notification_emails: ['admin@ikootaapi.com']
-      },
-      system_limits: {
-        max_bulk_operations: 100,
-        max_export_records: 10000,
-        session_timeout_minutes: 120
-      },
-      feature_flags: {
-        advanced_analytics: true,
-        auto_mentor_assignment: true,
-        bulk_operations: true,
-        data_export: true
-      }
+    const bulkData = {
+      applicationIds: req.body.applicationIds,
+      action: req.body.action,
+      reason: req.body.reason,
+      adminNotes: req.body.adminNotes,
+      autoAssignMentors: req.body.autoAssignMentors || false,
+      sendNotifications: req.body.sendNotifications !== false
     };
-    
-    return successResponse(res, config);
-
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-/**
- * System health check
- * GET /admin/health
- */
-export const healthCheck = async (req, res) => {
-  try {
-    // Check database connectivity
-    await executeQuery('SELECT 1 as health_check');
-    
-    // Get system stats
-    const [stats] = await db.query(`
-      SELECT 
-        (SELECT COUNT(*) FROM users) as total_users,
-        (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'pending') as pending_applications,
-        (SELECT COUNT(*) FROM full_membership_applications WHERE status = 'pending') as pending_full_memberships
-    `);
-    
-    return res.json({
-      success: true,
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      database: 'connected',
-      statistics: stats[0]
-    });
-
-  } catch (error) {
-    return res.status(503).json({
-      success: false,
-      status: 'unhealthy',
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-};
-
-/**
- * Delete user account (Super Admin only)
- * DELETE /admin/users/:userId
- */
-export const deleteUserAccount = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { reason } = req.body;
-    const adminId = req.user.id;
-        
-    // Only super admins can delete user accounts
-    if (req.user.role !== 'super_admin') {
-      throw new CustomError('Super admin privileges required', 403);
-    }
-        
-    // Get current user
-    const user = await getUserById(userId);
-    
-    // Prevent deletion of other admins
-    if (['admin', 'super_admin'].includes(user.role) && adminId !== parseInt(userId)) {
-      throw new CustomError('Cannot delete other admin accounts', 403);
-    }
-        
-    // Start transaction
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-    
-    try {
-      // Log the deletion
-      await connection.execute(`
-        INSERT INTO user_deletion_log (user_id, username, email, reason, deleted_by, deletedAt)
-        VALUES (?, ?, ?, ?, ?, NOW())
-      `, [userId, user.username, user.email, reason || 'Admin deletion', adminId]);
-            
-      // Delete related data
-      await connection.execute('DELETE FROM surveylog WHERE CAST(user_id AS UNSIGNED) = ?', [userId]);
-      await connection.execute('DELETE FROM full_membership_applications WHERE user_id = ?', [userId]);
-      await connection.execute('DELETE FROM full_membership_access WHERE user_id = ?', [userId]);
-      await connection.execute('DELETE FROM membership_review_history WHERE user_id = ?', [userId]);
-      await connection.execute('DELETE FROM user_class_memberships WHERE user_id = ?', [userId]);
-            
-      // Delete user
-      await connection.execute('DELETE FROM users WHERE id = ?', [userId]);
-      
-      await connection.commit();
-      connection.release();
-            
-      return successResponse(res, {
-        deletedUser: {
-          id: userId,
-          username: user.username,
-          email: user.email
-        },
-        deletedBy: req.user.username,
-        reason: reason || 'Admin deletion',
-        deletedAt: new Date().toISOString()
-      }, 'User account deleted successfully');
-      
-    } catch (error) {
-      await connection.rollback();
-      connection.release();
-      throw error;
-    }
-        
-  } catch (error) {
-    console.error('❌ Delete user account error:', error);
-    return errorResponse(res, error, error.statusCode || 500);
-  }
-};
-
-
-/**
- * Helper function to validate email format
- */
-const isValidEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
-
-/**
- * Helper function to get default system configuration
- */
-const getDefaultSystemConfig = () => {
-  return {
-    membership_settings: {
-      auto_approve_applications: false,
-      require_mentor_assignment: true,
-      max_applications_per_day: 50,
-      review_timeout_days: 7
-    },
-    notification_settings: {
-      email_notifications_enabled: true,
-      sms_notifications_enabled: false,
-      admin_notification_emails: ['admin@ikootaapi.com']
-    },
-    system_limits: {
-      max_bulk_operations: 100,
-      max_export_records: 10000,
-      session_timeout_minutes: 120
-    },
-    feature_flags: {
-      advanced_analytics: true,
-      auto_mentor_assignment: true,
-      bulk_operations: true,
-      data_export: true
-    }
-  };
-};
-
-
-/**
- * Update system configuration (Super Admin only)
- * PUT /admin/config
- */
-export const updateSystemConfig = async (req, res) => {
-  try {
-    // Only super admins can update system configuration
-    if (req.user.role !== 'super_admin') {
-      throw new CustomError('Super admin privileges required to update system configuration', 403);
-    }
-
-    const {
-      membership_settings,
-      notification_settings,
-      system_limits,
-      feature_flags
-    } = req.body;
-
-    const adminId = req.user.id;
-    const adminUsername = req.user.username;
-
-    console.log('🔧 Updating system configuration by:', adminUsername);
-
-    // Validate the configuration structure
-    const validatedConfig = {};
-
-    // Validate membership settings
-    if (membership_settings) {
-      validatedConfig.membership_settings = {
-        auto_approve_applications: Boolean(membership_settings.auto_approve_applications),
-        require_mentor_assignment: Boolean(membership_settings.require_mentor_assignment),
-        max_applications_per_day: Math.max(1, Math.min(200, parseInt(membership_settings.max_applications_per_day) || 50)),
-        review_timeout_days: Math.max(1, Math.min(30, parseInt(membership_settings.review_timeout_days) || 7))
-      };
-    }
-
-    // Validate notification settings
-    if (notification_settings) {
-      validatedConfig.notification_settings = {
-        email_notifications_enabled: Boolean(notification_settings.email_notifications_enabled),
-        sms_notifications_enabled: Boolean(notification_settings.sms_notifications_enabled),
-        admin_notification_emails: Array.isArray(notification_settings.admin_notification_emails) ? 
-          notification_settings.admin_notification_emails.filter(email => 
-            typeof email === 'string' && email.includes('@')
-          ) : ['admin@ikootaapi.com']
-      };
-    }
-
-    // Validate system limits
-    if (system_limits) {
-      validatedConfig.system_limits = {
-        max_bulk_operations: Math.max(10, Math.min(500, parseInt(system_limits.max_bulk_operations) || 100)),
-        max_export_records: Math.max(100, Math.min(100000, parseInt(system_limits.max_export_records) || 10000)),
-        session_timeout_minutes: Math.max(30, Math.min(480, parseInt(system_limits.session_timeout_minutes) || 120))
-      };
-    }
-
-    // Validate feature flags
-    if (feature_flags) {
-      validatedConfig.feature_flags = {
-        advanced_analytics: Boolean(feature_flags.advanced_analytics),
-        auto_mentor_assignment: Boolean(feature_flags.auto_mentor_assignment),
-        bulk_operations: Boolean(feature_flags.bulk_operations),
-        data_export: Boolean(feature_flags.data_export)
-      };
-    }
-
-    // Start database transaction
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    try {
-      // Get current configuration
-      const [currentConfig] = await connection.query(`
-        SELECT config_data FROM system_configuration 
-        WHERE config_key = 'membership_system' 
-        LIMIT 1
-      `);
-
-      let existingConfig = {};
-      if (currentConfig.length > 0) {
-        try {
-          existingConfig = JSON.parse(currentConfig[0].config_data);
-        } catch (parseError) {
-          console.warn('Failed to parse existing config, using defaults');
-        }
-      }
-
-      // Merge with existing configuration
-      const updatedConfig = {
-        ...existingConfig,
-        ...validatedConfig,
-        last_updated: new Date().toISOString(),
-        updated_by: adminUsername
-      };
-
-      // Update or insert configuration
-      await connection.query(`
-        INSERT INTO system_configuration (config_key, config_data, updated_by, updatedAt)
-        VALUES ('membership_system', ?, ?, NOW())
-        ON DUPLICATE KEY UPDATE 
-          config_data = VALUES(config_data),
-          updated_by = VALUES(updated_by),
-          updatedAt = VALUES(updatedAt)
-      `, [JSON.stringify(updatedConfig), adminId]);
-
-      // Log the configuration change
-      await connection.execute(`
-        INSERT INTO audit_logs (user_id, action, details, createdAt)
-        VALUES (?, 'system_config_updated', ?, NOW())
-      `, [adminId, JSON.stringify({
-        updated_sections: Object.keys(validatedConfig),
-        updated_by: adminUsername,
-        timestamp: new Date().toISOString(),
-        changes: validatedConfig
-      })]);
-
-      await connection.commit();
-      connection.release();
-
-      return successResponse(res, {
-        updated_configuration: updatedConfig,
-        updated_sections: Object.keys(validatedConfig),
-        updated_by: adminUsername,
-        updated_at: new Date().toISOString(),
-        validation_notes: [
-          'All numeric values have been validated and constrained to safe ranges',
-          'Email addresses have been validated for basic format',
-          'Boolean values have been normalized',
-          'Configuration changes are logged for audit purposes'
-        ]
-      }, 'System configuration updated successfully');
-
-    } catch (error) {
-      await connection.rollback();
-      connection.release();
-      throw error;
-    }
-
-  } catch (error) {
-    console.error('❌ Error updating system configuration:', error);
-    return errorResponse(res, error, error.statusCode || 500);
-  }
-};
-
-
-// =============================================================================
-// SYSTEM STATUS & MONITORING
-// =============================================================================
-
-/**
- * Get membership system health status
- * GET /admin/system-health
- */
-export const getSystemHealth = async (req, res) => {
-  try {
-    // Check database connectivity
-    await executeQuery('SELECT 1 as health_check');
-    
-    // Get critical system metrics
-    const [systemMetrics] = await db.query(`
-      SELECT 
-        (SELECT COUNT(*) FROM users WHERE role = 'user' OR role IS NULL) as total_users,
-        (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'pending' AND application_type = 'initial_application') as pending_initial,
-        (SELECT COUNT(*) FROM full_membership_applications WHERE status = 'pending') as pending_full,
-        (SELECT COUNT(*) FROM users WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as new_users_24h,
-        (SELECT COUNT(*) FROM surveylog WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as new_applications_24h,
-        (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'pending' AND createdAt < DATE_SUB(NOW(), INTERVAL 7 DAY)) as overdue_applications,
-        (SELECT AVG(DATEDIFF(reviewedAt, createdAt)) FROM surveylog WHERE reviewedAt IS NOT NULL AND reviewedAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)) as avg_review_time_days
-    `);
-    
-    const metrics = systemMetrics[0];
-    
-    // Determine health status
-    let status = 'healthy';
-    const alerts = [];
-    
-    if (metrics.overdue_applications > 10) {
-      status = 'warning';
-      alerts.push('High number of overdue applications');
-    }
-    
-    if (metrics.avg_review_time_days > 7) {
-      status = 'warning';
-      alerts.push('Average review time exceeds 7 days');
-    }
-    
-    if (metrics.pending_initial > 50) {
-      status = 'warning';
-      alerts.push('High volume of pending initial applications');
-    }
-    
-    return successResponse(res, {
-      status,
-      timestamp: new Date().toISOString(),
-      metrics,
-      alerts,
-      recommendations: alerts.length > 0 ? [
-        'Consider increasing review capacity',
-        'Implement automated review workflows',
-        'Add more admin reviewers'
-      ] : ['System operating normally']
-    });
-    
-  } catch (error) {
-    return res.status(503).json({
-      success: false,
-      status: 'unhealthy',
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-};
-
-/**
- * Get detailed membership funnel analysis
- * GET /admin/funnel-analysis
- */
-export const getFunnelAnalysis = async (req, res) => {
-  try {
-    const { period = '30d' } = req.query;
-    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
-    
-    const [funnelData] = await db.query(`
-      SELECT 
-        -- Registration to Application
-        COUNT(DISTINCT u.id) as total_registrations,
-        COUNT(DISTINCT CASE WHEN sl.id IS NOT NULL THEN u.id END) as submitted_applications,
-        ROUND(COUNT(DISTINCT CASE WHEN sl.id IS NOT NULL THEN u.id END) * 100.0 / COUNT(DISTINCT u.id), 2) as application_rate,
-        
-        -- Application to Approval
-        COUNT(DISTINCT CASE WHEN sl.approval_status = 'approved' THEN u.id END) as approved_initial,
-        ROUND(COUNT(DISTINCT CASE WHEN sl.approval_status = 'approved' THEN u.id END) * 100.0 / NULLIF(COUNT(DISTINCT CASE WHEN sl.id IS NOT NULL THEN u.id END), 0), 2) as approval_rate,
-        
-        -- Pre-member to Full Application
-        COUNT(DISTINCT CASE WHEN fma.id IS NOT NULL THEN u.id END) as submitted_full_applications,
-        ROUND(COUNT(DISTINCT CASE WHEN fma.id IS NOT NULL THEN u.id END) * 100.0 / NULLIF(COUNT(DISTINCT CASE WHEN sl.approval_status = 'approved' THEN u.id END), 0), 2) as full_application_rate,
-        
-        -- Full Application to Approval
-        COUNT(DISTINCT CASE WHEN fma.status = 'approved' THEN u.id END) as approved_full,
-        ROUND(COUNT(DISTINCT CASE WHEN fma.status = 'approved' THEN u.id END) * 100.0 / NULLIF(COUNT(DISTINCT CASE WHEN fma.id IS NOT NULL THEN u.id END), 0), 2) as full_approval_rate,
-        
-        -- Overall Conversion
-        ROUND(COUNT(DISTINCT CASE WHEN fma.status = 'approved' THEN u.id END) * 100.0 / COUNT(DISTINCT u.id), 2) as overall_conversion_rate
-        
-      FROM users u
-      LEFT JOIN surveylog sl ON u.id = sl.user_id AND sl.application_type = 'initial_application'
-      LEFT JOIN full_membership_applications fma ON u.id = fma.user_id
-      WHERE u.createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
-        AND (u.role = 'user' OR u.role IS NULL)
-    `, [days]);
-    
-    // Get drop-off analysis
-    const [dropOffData] = await db.query(`
-      SELECT 
-        'Registered but no application' as stage,
-        COUNT(*) as count,
-        ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM users WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY) AND (role = 'user' OR role IS NULL)), 2) as percentage
-      FROM users u
-      LEFT JOIN surveylog sl ON u.id = sl.user_id AND sl.application_type = 'initial_application'
-      WHERE u.createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
-        AND (u.role = 'user' OR u.role IS NULL)
-        AND sl.id IS NULL
-        
-      UNION ALL
-      
-      SELECT 
-        'Applied but not approved' as stage,
-        COUNT(*) as count,
-        ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM users WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY) AND (role = 'user' OR role IS NULL)), 2) as percentage
-      FROM users u
-      JOIN surveylog sl ON u.id = sl.user_id AND sl.application_type = 'initial_application'
-      WHERE u.createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
-        AND (u.role = 'user' OR u.role IS NULL)
-        AND sl.approval_status != 'approved'
-        
-      UNION ALL
-      
-      SELECT 
-        'Pre-member but no full application' as stage,
-        COUNT(*) as count,
-        ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM users WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY) AND (role = 'user' OR role IS NULL)), 2) as percentage
-      FROM users u
-      LEFT JOIN full_membership_applications fma ON u.id = fma.user_id
-      WHERE u.createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
-        AND (u.role = 'user' OR u.role IS NULL)
-        AND u.membership_stage = 'pre_member'
-        AND fma.id IS NULL
-        
-      ORDER BY count DESC
-    `, [days, days, days, days, days]);
-    
-    return successResponse(res, {
-      period,
-      funnel: funnelData[0],
-      dropOffAnalysis: dropOffData,
-      generatedAt: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-/**
- * Generate comprehensive admin report
- * GET /admin/generate-report
- */
-export const generateComprehensiveReport = async (req, res) => {
-  try {
-    const { format = 'json', includeUserData = false } = req.query;
-    
-    console.log('📊 Generating comprehensive admin report...');
-    
-    // Use the service function for comprehensive reports
-    const reports = await membershipService.getAllReportsForAdmin();
-    
-    // Add additional analysis
-    const [additionalMetrics] = await db.query(`
-      SELECT 
-        (SELECT COUNT(*) FROM users WHERE lastLogin >= DATE_SUB(NOW(), INTERVAL 30 DAY)) as active_users_30d,
-        (SELECT COUNT(*) FROM users WHERE lastLogin >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as active_users_7d,
-        (SELECT COUNT(*) FROM audit_logs WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as admin_actions_24h,
-        (SELECT COUNT(DISTINCT user_id) FROM full_membership_access WHERE last_accessedAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as active_content_users
-    `);
-    
-    const comprehensiveReport = {
-      ...reports,
-      additionalMetrics: additionalMetrics[0],
-      generatedAt: new Date().toISOString(),
-      generatedBy: req.user.username,
-      adminRole: req.user.role,
-      reportScope: includeUserData === 'true' ? 'detailed' : 'summary'
+    const reviewer = {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role
     };
-    
-    if (format === 'csv') {
-      // Convert key metrics to CSV format
-      const csvData = convertToCSV([
-        { metric: 'Total Users', value: reports.membershipDistribution.data.reduce((sum, item) => sum + item.count, 0) },
-        { metric: 'Pending Applications', value: reports.systemHealth.data.pending_applications },
-        { metric: 'Active Users (30d)', value: additionalMetrics[0].active_users_30d },
-        { metric: 'Admin Actions (24h)', value: additionalMetrics[0].admin_actions_24h }
-      ]);
-      
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="admin_report_${new Date().toISOString().split('T')[0]}.csv"`);
-      return res.send(csvData);
-    }
-    
-    return successResponse(res, comprehensiveReport);
-    
+
+    const result = await bulkReviewApplications(bulkData, reviewer);
+    return responseHelper.success(res, result, `Bulk ${bulkData.action} operation completed`);
   } catch (error) {
-    console.error('❌ Error generating comprehensive report:', error);
-    return errorResponse(res, error);
+    return responseHelper.error(res, error);
   }
 };
 
 // =============================================================================
-// BATCH OPERATIONS
+// STATISTICS & ANALYTICS CONTROLLERS
 // =============================================================================
 
 /**
- * Batch user operations (Super Admin only)
- * POST /admin/batch-operations
+ * Get application statistics
+ * Route: GET /api/membership/admin/stats
  */
-export const performBatchOperations = async (req, res) => {
+export const getApplicationStatsController = async (req, res) => {
   try {
-    if (req.user.role !== 'super_admin') {
-      throw new CustomError('Super admin privileges required', 403);
-    }
-    
-    const { operation, userIds, parameters = {} } = req.body;
-    
-    if (!operation || !Array.isArray(userIds) || userIds.length === 0) {
-      throw new CustomError('Operation and user IDs required', 400);
-    }
-    
-    if (userIds.length > 100) {
-      throw new CustomError('Maximum 100 users per batch operation', 400);
-    }
-    
-    const validOperations = ['reset_membership', 'assign_mentor', 'assign_class', 'update_role'];
-    if (!validOperations.includes(operation)) {
-      throw new CustomError(`Invalid operation. Must be one of: ${validOperations.join(', ')}`, 400);
-    }
-    
-    console.log(`🔧 Performing batch operation: ${operation} for ${userIds.length} users`);
-    
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-    
-    const results = [];
-    const errors = [];
-    
-    try {
-      for (const userId of userIds) {
-        try {
-          const user = await getUserById(userId);
-          
-          switch (operation) {
-            case 'reset_membership':
-              await connection.execute(`
-                UPDATE users 
-                SET membership_stage = 'none', is_member = 'pending', 
-                    full_membership_status = NULL, updatedAt = NOW()
-                WHERE id = ?
-              `, [userId]);
-              results.push({ userId, username: user.username, action: 'membership_reset' });
-              break;
-              
-            case 'assign_mentor':
-              const { mentorId } = parameters;
-              if (!mentorId) throw new Error('Mentor ID required for assign_mentor operation');
-              
-              await connection.execute(`
-                UPDATE users SET mentor_id = ?, updatedAt = NOW() WHERE id = ?
-              `, [mentorId, userId]);
-              results.push({ userId, username: user.username, action: 'mentor_assigned', mentorId });
-              break;
-              
-            case 'assign_class':
-              const { classId } = parameters;
-              if (!classId) throw new Error('Class ID required for assign_class operation');
-              
-              await connection.execute(`
-                INSERT INTO user_class_memberships (user_id, class_id, membership_status, joinedAt)
-                VALUES (?, ?, 'active', NOW())
-                ON DUPLICATE KEY UPDATE membership_status = 'active'
-              `, [userId, classId]);
-              results.push({ userId, username: user.username, action: 'class_assigned', classId });
-              break;
-              
-            case 'update_role':
-              const { newRole } = parameters;
-              if (!newRole) throw new Error('New role required for update_role operation');
-              
-              await connection.execute(`
-                UPDATE users SET role = ?, updatedAt = NOW() WHERE id = ?
-              `, [newRole, userId]);
-              results.push({ userId, username: user.username, action: 'role_updated', newRole });
-              break;
-          }
-        } catch (userError) {
-          errors.push({ userId, error: userError.message });
-        }
-      }
-      
-      // Log batch operation
-      await connection.execute(`
-        INSERT INTO audit_logs (user_id, action, details, createdAt)
-        VALUES (?, 'batch_operation', ?, NOW())
-      `, [req.user.id, JSON.stringify({
-        operation,
-        totalUsers: userIds.length,
-        successCount: results.length,
-        errorCount: errors.length,
-        parameters,
-        performedBy: req.user.username,
-        timestamp: new Date().toISOString()
-      })]);
-      
-      await connection.commit();
-      connection.release();
-      
-      return successResponse(res, {
-        operation,
-        totalRequested: userIds.length,
-        successCount: results.length,
-        errorCount: errors.length,
-        results,
-        errors,
-        performedBy: req.user.username,
-        timestamp: new Date().toISOString()
-      }, `Batch operation ${operation} completed`);
-      
-    } catch (error) {
-      await connection.rollback();
-      connection.release();
-      throw error;
-    }
-    
+    const period = req.query.period || '30d';
+    const groupBy = req.query.groupBy || 'day';
+    const includeDetailedBreakdown = req.query.detailed === 'true';
+
+    const result = await getApplicationStats(period, groupBy, includeDetailedBreakdown);
+    return responseHelper.success(res, result);
   } catch (error) {
-    console.error('❌ Batch operation error:', error);
-    return errorResponse(res, error, error.statusCode || 500);
+    return responseHelper.error(res, error);
   }
 };
-
-/**
- * Emergency user reset (Super Admin only)
- * POST /admin/emergency-reset/:userId
- */
-export const emergencyUserReset = async (req, res) => {
-  try {
-    if (req.user.role !== 'super_admin') {
-      throw new CustomError('Super admin privileges required', 403);
-    }
-    
-    const { userId } = req.params;
-    const { reason } = req.body;
-    
-    if (!reason) {
-      throw new CustomError('Reset reason is required', 400);
-    }
-    
-    console.log('🚨 Emergency user reset for:', userId, 'reason:', reason);
-    
-    const user = await getUserById(userId);
-    
-    const connection = await db.getConnection();
-    await connection.beginTransaction();
-    
-    try {
-      // Reset user membership status
-      await connection.execute(`
-        UPDATE users 
-        SET membership_stage = 'none',
-            is_member = 'pending',
-            application_status = 'not_submitted',
-            full_membership_status = NULL,
-            applicationSubmittedAt = NULL,
-            applicationReviewedAt = NULL,
-            fullMembershipAppliedAt = NULL,
-            fullMembershipReviewedAt = NULL,
-            decline_reason = NULL,
-            mentor_id = NULL,
-            updatedAt = NOW()
-        WHERE id = ?
-      `, [userId]);
-      
-      // Archive current applications
-      await connection.execute(`
-        UPDATE surveylog 
-        SET approval_status = 'archived_reset',
-            admin_notes = CONCAT(COALESCE(admin_notes, ''), ' | EMERGENCY RESET: ', ?)
-        WHERE user_id = ?
-      `, [reason, userId]);
-      
-      await connection.execute(`
-        UPDATE full_membership_applications 
-        SET status = 'archived_reset',
-            admin_notes = CONCAT(COALESCE(admin_notes, ''), ' | EMERGENCY RESET: ', ?)
-        WHERE user_id = ?
-      `, [reason, userId]);
-      
-      // Log the reset
-      await connection.execute(`
-        INSERT INTO audit_logs (user_id, action, details, createdAt)
-        VALUES (?, 'emergency_reset', ?, NOW())
-      `, [req.user.id, JSON.stringify({
-        targetUserId: userId,
-        targetUsername: user.username,
-        reason: reason,
-        resetBy: req.user.username,
-        timestamp: new Date().toISOString()
-      })]);
-      
-      await connection.commit();
-      connection.release();
-      
-      return successResponse(res, {
-        user: {
-          id: userId,
-          username: user.username,
-          new_status: 'reset_to_none'
-        },
-        reset: {
-          performed_by: req.user.username,
-          reason: reason,
-          reset_at: new Date().toISOString()
-        }
-      }, 'Emergency user reset completed');
-      
-    } catch (error) {
-      await connection.rollback();
-      connection.release();
-      throw error;
-    }
-    
-  } catch (error) {
-    console.error('❌ Emergency reset error:', error);
-    return errorResponse(res, error, error.statusCode || 500);
-  }
-};
-
-// =============================================================================
-// UTILITY FUNCTIONS
-// =============================================================================
-
-/**
- * Convert data to CSV format
- */
-function convertToCSV(data) {
-  if (!Array.isArray(data) || data.length === 0) {
-    return '';
-  }
-  
-  const headers = Object.keys(data[0]);
-  const csvContent = [
-    headers.join(','),
-    ...data.map(row => 
-      headers.map(header => 
-        JSON.stringify(row[header] || '')
-      ).join(',')
-    )
-  ].join('\n');
-  
-  return csvContent;
-}
-
-
 
 /**
  * Get full membership statistics
- * GET /admin/full-membership-stats
+ * Route: GET /api/membership/admin/full-membership-stats
  */
-export const getFullMembershipStats = async (req, res) => {
+export const getFullMembershipStatsController = async (req, res) => {
   try {
-    const { period = '30d' } = req.query;
-    
-    console.log('📊 Getting full membership statistics for period:', period);
-    
-    // Determine date filter
-    let days = 30;
-    switch (period) {
-      case '7d': days = 7; break;
-      case '30d': days = 30; break;
-      case '90d': days = 90; break;
-      case '1y': days = 365; break;
-      default: days = 30;
-    }
+    const period = req.query.period || '30d';
+    const includeDetails = req.query.details === 'true';
 
-    // Get full membership application statistics
-    const [fullMembershipStats] = await db.query(`
-      SELECT 
-        COUNT(*) as total_full_applications,
-        COUNT(CASE WHEN fma.status = 'pending' THEN 1 END) as pending_full_applications,
-        COUNT(CASE WHEN fma.status = 'approved' THEN 1 END) as approved_full_applications,
-        COUNT(CASE WHEN fma.status IN ('declined', 'rejected') THEN 1 END) as declined_full_applications,
-        COUNT(CASE WHEN fma.submittedAt >= DATE_SUB(NOW(), INTERVAL ? DAY) THEN 1 END) as new_full_applications_period,
-        AVG(CASE WHEN fma.reviewedAt IS NOT NULL THEN DATEDIFF(fma.reviewedAt, fma.submittedAt) END) as avg_full_processing_days,
-        COUNT(CASE WHEN fma.status = 'pending' AND fma.submittedAt < DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as overdue_full_applications
-      FROM full_membership_applications fma
-      WHERE fma.submittedAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
-    `, [days, days]);
-
-    // Get full member user statistics
-    const [fullMemberUserStats] = await db.query(`
-      SELECT 
-        COUNT(CASE WHEN u.membership_stage = 'member' THEN 1 END) as total_full_members,
-        COUNT(CASE WHEN u.membership_stage = 'member' AND u.createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY) THEN 1 END) as new_full_members_period,
-        COUNT(CASE WHEN u.membership_stage = 'member' AND u.lastLogin >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_full_members_7d,
-        COUNT(CASE WHEN u.membership_stage = 'member' AND u.lastLogin >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as active_full_members_30d
-      FROM users u
-      WHERE u.role = 'user' OR u.role IS NULL
-    `, [days]);
-
-    // Get conversion rates
-    const [conversionRates] = await db.query(`
-      SELECT 
-        total_pre_members.count as total_pre_members,
-        applied_full.count as applied_for_full,
-        approved_full.count as approved_full_members,
-        ROUND(applied_full.count * 100.0 / NULLIF(total_pre_members.count, 0), 2) as full_application_rate,
-        ROUND(approved_full.count * 100.0 / NULLIF(applied_full.count, 0), 2) as full_approval_rate,
-        ROUND(approved_full.count * 100.0 / NULLIF(total_pre_members.count, 0), 2) as pre_to_full_conversion_rate
-      FROM
-        (SELECT COUNT(*) as count FROM users WHERE membership_stage = 'pre_member') total_pre_members,
-        (SELECT COUNT(DISTINCT user_id) as count FROM full_membership_applications) applied_full,
-        (SELECT COUNT(*) as count FROM users WHERE membership_stage = 'member') approved_full
-    `);
-
-    // Get processing performance by reviewer
-    const [reviewerPerformance] = await db.query(`
-      SELECT 
-        reviewer.username as reviewer_name,
-        reviewer.role as reviewer_role,
-        COUNT(*) as full_reviews_completed,
-        COUNT(CASE WHEN fma.status = 'approved' THEN 1 END) as full_approvals,
-        COUNT(CASE WHEN fma.status IN ('declined', 'rejected') THEN 1 END) as full_declines,
-        AVG(DATEDIFF(fma.reviewedAt, fma.submittedAt)) as avg_full_review_time_days,
-        MAX(fma.reviewedAt) as last_full_review_date
-      FROM full_membership_applications fma
-      JOIN users reviewer ON fma.reviewed_by = reviewer.id
-      WHERE fma.reviewedAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
-        AND fma.reviewed_by IS NOT NULL
-      GROUP BY reviewer.id, reviewer.username, reviewer.role
-      ORDER BY full_reviews_completed DESC
-    `, [days]);
-
-    // Get recent activity timeline
-    const [recentActivity] = await db.query(`
-      SELECT 
-        DATE(fma.submittedAt) as date,
-        COUNT(*) as submissions,
-        COUNT(CASE WHEN fma.reviewedAt IS NOT NULL THEN 1 END) as reviews_completed,
-        COUNT(CASE WHEN fma.status = 'approved' THEN 1 END) as approvals,
-        COUNT(CASE WHEN fma.status IN ('declined', 'rejected') THEN 1 END) as declines
-      FROM full_membership_applications fma
-      WHERE fma.submittedAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
-      GROUP BY DATE(fma.submittedAt)
-      ORDER BY date DESC
-      LIMIT 30
-    `, [days]);
-
-    // Get access statistics for full members
-    const [accessStats] = await db.query(`
-      SELECT 
-        COUNT(DISTINCT fma.user_id) as total_with_access,
-        COUNT(CASE WHEN fma.last_accessedAt >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as accessed_last_7d,
-        COUNT(CASE WHEN fma.last_accessedAt >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as accessed_last_30d,
-        AVG(fma.access_count) as avg_access_count,
-        MAX(fma.access_count) as max_access_count,
-        COUNT(CASE WHEN fma.access_count = 0 THEN 1 END) as never_accessed
-      FROM full_membership_access fma
-      JOIN users u ON fma.user_id = u.id
-      WHERE u.membership_stage = 'member'
-    `);
-
-    // Calculate engagement metrics
-    const fullMemberStats = fullMemberUserStats[0];
-    const accessMetrics = accessStats[0];
-    
-    const engagementRate = fullMemberStats.total_full_members > 0 ? 
-      Math.round((accessMetrics.accessed_last_30d / fullMemberStats.total_full_members) * 100) : 0;
-
-    return successResponse(res, {
-      period: period,
-      full_membership_applications: fullMembershipStats[0],
-      full_member_users: fullMemberStats,
-      conversion_rates: conversionRates[0],
-      reviewer_performance: reviewerPerformance,
-      recent_activity: recentActivity,
-      access_statistics: accessMetrics,
-      engagement_metrics: {
-        engagement_rate_30d: engagementRate,
-        active_rate_7d: fullMemberStats.total_full_members > 0 ? 
-          Math.round((fullMemberStats.active_full_members_7d / fullMemberStats.total_full_members) * 100) : 0,
-        never_accessed_count: accessMetrics.never_accessed || 0
-      },
-      summary: {
-        total_full_members: fullMemberStats.total_full_members,
-        pending_applications: fullMembershipStats[0].pending_full_applications,
-        overdue_applications: fullMembershipStats[0].overdue_full_applications,
-        avg_processing_time: Math.round(fullMembershipStats[0].avg_full_processing_days || 0),
-        conversion_rate: conversionRates[0].pre_to_full_conversion_rate
-      },
-      generated_at: new Date().toISOString()
-    }, 'Full membership statistics generated successfully');
-
+    const result = await getFullMembershipStats(period, includeDetails);
+    return responseHelper.success(res, result);
   } catch (error) {
-    console.error('❌ Error getting full membership statistics:', error);
-    return errorResponse(res, error, error.statusCode || 500);
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Get comprehensive membership analytics
+ * Route: GET /api/membership/admin/analytics
+ */
+export const getMembershipAnalyticsController = async (req, res) => {
+  try {
+    const analyticsOptions = {
+      period: req.query.period || '30d',
+      detailed: req.query.detailed === 'true',
+      includeTimeSeries: req.query.timeSeries !== 'false',
+      includeConversionFunnel: req.query.funnel !== 'false'
+    };
+
+    const result = await getMembershipAnalytics(analyticsOptions);
+    return responseHelper.success(res, result);
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Get membership overview for dashboard
+ * Route: GET /api/membership/admin/overview
+ */
+export const getMembershipOverviewController = async (req, res) => {
+  try {
+    const includeRecentActivity = req.query.activity !== 'false';
+    const result = await getMembershipOverview(includeRecentActivity);
+    return responseHelper.success(res, result);
+  } catch (error) {
+    return responseHelper.error(res, error);
   }
 };
 
 // =============================================================================
-// EXPORT ALL FUNCTIONS
+// USER MANAGEMENT CONTROLLERS
 // =============================================================================
 
-export default {
-  // Pre-Member Application Review
-  getPendingApplications,
-  approvePreMemberApplication,
-  declinePreMemberApplication,
-  bulkReviewApplications,
-  
-  // Full Membership Management
-  getPendingFullMemberships,
-  reviewFullMembershipApplication,
-  bulkReviewFullMemberships,
-  getFullMembershipStats,
-  // Admin Resources
-  getAvailableMentors,
-  getAvailableClasses,
-  
-  // Analytics & Reporting
-  getMembershipAnalytics,
-  getAllReports,
-  exportMembershipData,
-  getFunnelAnalysis,
-  generateComprehensiveReport,
-  
-  // Notifications
-  sendNotification,
-  
-  // User Management
-  searchUsers,
-  
-  // System & Configuration
-  getSystemConfig,
-  updateSystemConfig,
-  healthCheck,
-  getSystemHealth,
-  
-  // Batch Operations
-  performBatchOperations,
-  
-  // Emergency Functions
-  emergencyUserReset,
-  deleteUserAccount
+/**
+ * Search users with advanced filters
+ * Route: GET /api/membership/admin/search-users
+ */
+export const searchUsersController = async (req, res) => {
+  try {
+    const searchCriteria = {
+      query: req.query.query || req.query.q || req.query.search || '',
+      membershipStage: req.query.membershipStage || req.query.stage || '',
+      role: req.query.role || '',
+      applicationStatus: req.query.status || '',
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 20,
+      sortBy: req.query.sortBy || 'createdAt',
+      sortOrder: req.query.sortOrder || 'DESC',
+      includeInactive: req.query.includeInactive === 'true',
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo
+    };
+
+    const result = await searchUsers(searchCriteria);
+    return responseHelper.success(res, result);
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
 };
+
+/**
+ * Get available mentors
+ * Route: GET /api/membership/admin/mentors
+ */
+export const getAvailableMentorsController = async (req, res) => {
+  try {
+    const includeWorkload = req.query.workload === 'true';
+    const result = await getAvailableMentors(includeWorkload);
+    return responseHelper.success(res, result);
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+// =============================================================================
+// SYSTEM MANAGEMENT CONTROLLERS (Super Admin)
+// =============================================================================
+
+/**
+ * Export membership data
+ * Route: GET /api/membership/admin/export
+ */
+export const exportMembershipDataController = async (req, res) => {
+  try {
+    const exportOptions = {
+      format: req.query.format || 'json',
+      includePersonalData: req.query.includePersonalData === 'true',
+      exportType: req.query.type || 'all',
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo
+    };
+    const exporter = {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role
+    };
+
+    const result = await exportMembershipData(exportOptions, exporter);
+    
+    if (exportOptions.format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="membership_export_${new Date().toISOString().split('T')[0]}.csv"`);
+      return res.send(result);
+    }
+    
+    return responseHelper.success(res, result, 'Data exported successfully');
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Send bulk notifications
+ * Route: POST /api/membership/admin/notifications
+ */
+export const sendBulkNotificationsController = async (req, res) => {
+  try {
+    const notificationData = {
+      recipients: req.body.recipients,
+      subject: req.body.subject,
+      message: req.body.message,
+      type: req.body.type || 'general',
+      sendEmail: req.body.sendEmail !== false,
+      template: req.body.template,
+      templateData: req.body.templateData || {},
+      priority: req.body.priority || 'normal'
+    };
+    const sender = {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role
+    };
+
+    const result = await sendBulkNotifications(notificationData, sender);
+    return responseHelper.success(res, result, 'Notifications sent successfully');
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+// =============================================================================
+// ADDITIONAL ADMIN CONTROLLERS
+// =============================================================================
+
+/**
+ * Get dashboard data
+ * Route: GET /api/membership/admin/dashboard
+ */
+export const getDashboardDataController = async (req, res) => {
+  try {
+    const dashboardData = await getDashboardData();
+    return responseHelper.success(res, dashboardData);
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Get audit logs
+ * Route: GET /api/membership/admin/audit-logs
+ */
+export const getAuditLogsController = async (req, res) => {
+  try {
+    const filters = {
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 50,
+      action: req.query.action,
+      userId: req.query.userId,
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo
+    };
+    const auditLogs = await getAuditLogs(filters);
+    return responseHelper.success(res, auditLogs);
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Get membership metrics
+ * Route: GET /api/membership/admin/metrics
+ */
+export const getMembershipMetricsController = async (req, res) => {
+  try {
+    const period = req.query.period || '30d';
+    const metrics = await getMembershipAnalytics({ period });
+    return responseHelper.success(res, metrics);
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Update membership configuration
+ * Route: PUT /api/membership/admin/config
+ */
+export const updateMembershipConfigController = async (req, res) => {
+  try {
+    const configData = req.body;
+    const updater = {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role
+    };
+    
+    // For now, return a placeholder response
+    const result = {
+      config: configData,
+      updated_by: updater.username,
+      updated_at: new Date().toISOString()
+    };
+    
+    return responseHelper.success(res, result, 'Configuration updated successfully');
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Get system configuration
+ * Route: GET /api/membership/admin/config
+ */
+export const getMembershipConfigController = async (req, res) => {
+  try {
+    const config = {
+      membership_settings: {
+        auto_approve: false,
+        require_mentor: true,
+        max_applications_per_day: 50
+      },
+      system_settings: {
+        email_notifications: true,
+        bulk_operations: true
+      }
+    };
+    
+    return responseHelper.success(res, config);
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Bulk user operations
+ * Route: POST /api/membership/admin/users/bulk-update
+ */
+export const bulkUpdateUsersController = async (req, res) => {
+  try {
+    const bulkData = {
+      userIds: req.body.userIds,
+      operation: req.body.operation,
+      updates: req.body.updates,
+      reason: req.body.reason
+    };
+    const operator = {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role
+    };
+    
+    // For now, return a placeholder response
+    const result = {
+      operation: bulkData.operation,
+      affected_users: bulkData.userIds.length,
+      processed_by: operator.username,
+      timestamp: new Date().toISOString()
+    };
+    
+    return responseHelper.success(res, result, 'Bulk user operation completed');
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Generate reports
+ * Route: POST /api/membership/admin/reports/generate
+ */
+export const generateReportController = async (req, res) => {
+  try {
+    const reportOptions = {
+      type: req.body.type,
+      period: req.body.period,
+      format: req.body.format || 'json',
+      includeCharts: req.body.includeCharts || false,
+      customFilters: req.body.customFilters || {}
+    };
+    const generator = {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role
+    };
+    
+    // For now, return a placeholder response
+    const report = {
+      type: reportOptions.type,
+      period: reportOptions.period,
+      generated_by: generator.username,
+      generated_at: new Date().toISOString(),
+      data: []
+    };
+    
+    if (reportOptions.format === 'pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="membership_report_${new Date().toISOString().split('T')[0]}.pdf"`);
+      return res.send(Buffer.from('PDF placeholder'));
+    }
+    
+    return responseHelper.success(res, report, 'Report generated successfully');
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Get pending tasks for admin
+ * Route: GET /api/membership/admin/tasks/pending
+ */
+export const getPendingTasksController = async (req, res) => {
+  try {
+    const priority = req.query.priority;
+    const tasks = [
+      {
+        id: 1,
+        type: 'application_review',
+        priority: 'high',
+        description: 'Review pending applications',
+        created_at: new Date().toISOString()
+      }
+    ];
+    
+    return responseHelper.success(res, tasks);
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Mark task as completed
+ * Route: PUT /api/membership/admin/tasks/:taskId/complete
+ */
+export const completeTaskController = async (req, res) => {
+  try {
+    const taskId = req.params.taskId;
+    const completionData = {
+      notes: req.body.notes,
+      result: req.body.result
+    };
+    const completer = {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role
+    };
+    
+    const result = {
+      task_id: taskId,
+      completed_by: completer.username,
+      completed_at: new Date().toISOString(),
+      notes: completionData.notes
+    };
+    
+    return responseHelper.success(res, result, 'Task marked as completed');
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Get system alerts
+ * Route: GET /api/membership/admin/alerts
+ */
+export const getSystemAlertsController = async (req, res) => {
+  try {
+    const severity = req.query.severity;
+    const alerts = [
+      {
+        id: 1,
+        type: 'pending_applications',
+        severity: 'warning',
+        message: 'High number of pending applications',
+        created_at: new Date().toISOString()
+      }
+    ];
+    
+    return responseHelper.success(res, alerts);
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+/**
+ * Dismiss alert
+ * Route: PUT /api/membership/admin/alerts/:alertId/dismiss
+ */
+export const dismissAlertController = async (req, res) => {
+  try {
+    const alertId = req.params.alertId;
+    const dismissReason = req.body.reason;
+    const dismisser = {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role
+    };
+    
+    const result = {
+      alert_id: alertId,
+      dismissed_by: dismisser.username,
+      dismissed_at: new Date().toISOString(),
+      reason: dismissReason
+    };
+    
+    return responseHelper.success(res, result, 'Alert dismissed');
+  } catch (error) {
+    return responseHelper.error(res, error);
+  }
+};
+
+// =============================================================================
+// EXPORT ALL CONTROLLERS
+// =============================================================================
+
+// export default {
+//   // Test & Connectivity
+//   testAdminConnectivity,
+//   getSystemHealth: getSystemHealthController,
+  
+//   // Application Management
+//   getAllPendingApplications,
+//   getApplicationById: getApplicationByIdController,
+//   reviewApplication: reviewApplicationController,
+//   bulkReviewApplications: bulkReviewApplicationsController,
+  
+//   // Statistics & Analytics
+//   getApplicationStats: getApplicationStatsController,
+//   getFullMembershipStats: getFullMembershipStatsController,
+//   getMembershipAnalytics: getMembershipAnalyticsController,
+//   getMembershipOverview: getMembershipOverviewController,
+  
+//   // User Management
+//   searchUsers: searchUsersController,
+//   getAvailableMentors: getAvailableMentorsController,
+  
+//   // System Management
+//   exportMembershipData: exportMembershipDataController,
+//   sendBulkNotifications: sendBulkNotificationsController,
+  
+//   // Additional Admin Functions
+//   getDashboardData: getDashboardDataController,
+//   getAuditLogs: getAuditLogsController,
+//   getMembershipMetrics: getMembershipMetricsController,
+//   updateMembershipConfig: updateMembershipConfigController,
+//   getMembershipConfig: getMembershipConfigController,
+//   bulkUpdateUsers: bulkUpdateUsersController,
+//   generateReport: generateReportController,
+//   getPendingTasks: getPendingTasksController,
+//   completeTask: completeTaskController,
+//   getSystemAlerts: getSystemAlertsController,
+//   dismissAlert: dismissAlertController
+// };

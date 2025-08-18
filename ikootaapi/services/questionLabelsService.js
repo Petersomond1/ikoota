@@ -1,6 +1,9 @@
 // ikootaapi/services/questionLabelsService.js
+// ===============================================
 // QUESTION LABELS SERVICE - Dynamic form label management
+// Handles survey form labels, validation, and dynamic form structure
 // Enhanced version for survey system reorganization
+// ===============================================
 
 import db from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
@@ -100,7 +103,9 @@ export const fetchQuestionLabels = async () => {
     
   } catch (error) {
     console.error('❌ Error fetching question labels:', error);
-    logger.error('Question labels fetch error:', error);
+    if (logger?.error) {
+      logger.error('Question labels fetch error:', error);
+    }
     // Fallback to defaults on error
     return DEFAULT_QUESTION_LABELS;
   }

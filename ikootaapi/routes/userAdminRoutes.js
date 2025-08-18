@@ -3,7 +3,7 @@
 // Administrative control over user accounts and permissions
 
 import express from 'express';
-import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 
 // Import admin user controllers
 import {

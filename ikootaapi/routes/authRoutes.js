@@ -17,7 +17,7 @@ import {
 } from '../controllers/authControllers.js';
 
 // Import your existing middleware
-import { authenticate } from '../middleware/authMiddleware.js';
+import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 

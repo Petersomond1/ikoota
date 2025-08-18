@@ -1,4 +1,4 @@
-// ikootaapi/middleware/membershipMiddleware.js
+// ikootaapi/middlewares/membershipMiddleware.js
 // ===============================================
 // MEMBERSHIP MIDDLEWARE - COMPLETE ACCESS CONTROL & VALIDATION
 // Clean, organized implementation following Phase 3 specifications

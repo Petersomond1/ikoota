@@ -3,7 +3,7 @@
 // Supports chats, teachings, comments with approval workflow
 
 import express from 'express';
-import { authenticate, authorize } from '../middleware/authMiddleware.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 import { uploadMiddleware, uploadToS3 } from '../middleware/uploadMiddleware.js';
 
 // ===============================================
