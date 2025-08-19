@@ -1,33 +1,43 @@
 // ikootaapi/controllers/userAdminControllers.js
-// ADMIN USER MANAGEMENT CONTROLLER - UPDATED TO USE SERVICES
+// ADMIN USER MANAGEMENT CONTROLLERS - COMPLETE FILE
 // Administrative control over user accounts and permissions
 
 import {
-  getAllUsersService,
-  createUserService,
-  updateUserByAdminService,
-  deleteUserService,
-  banUserService,
-  unbanUserService,
+  // User Management Services
+  getAllUsersAdminService,
+  getUserByIdAdminService,
+  createUserAdminService,
+  updateUserAdminService,
+  deleteUserAdminService,
+  searchUsersAdminService,
+  
+  // User Actions Services
+  banUserAdminService,
+  unbanUserAdminService,
+  
+  // ID Generation Services
   generateBulkIdsService,
   generateConverseIdService,
+  generateClassIdService,
+  
+  // Identity Services
   maskUserIdentityService,
-  exportUsersDataService,
-  generateClassIdService
+  
+  // Data Export Services
+  exportUserDataAdminService,
+  
+  // Statistics Services
+  getUserStatsAdminService
 } from '../services/userAdminServices.js';
 
 import {
-  getUserProfileService,
-  //getAllUsers,
-  getAllMentorsForAdmin,
-  getUserStats,
-  getAllClasses
+  getAllMentorsForAdmin
 } from '../services/userServices.js';
 
 import { generateUniqueClassId } from '../utils/idGenerator.js';
 
 // ===============================================
-// USER MANAGEMENT
+// USER MANAGEMENT CONTROLLERS
 // ===============================================
 
 /**
@@ -42,6 +52,7 @@ export const getAllUsers = async (req, res) => {
       page = 1, 
       limit = 50, 
       role, 
+      membership_stage,
       is_member, 
       isblocked, 
       isbanned, 
@@ -50,28 +61,20 @@ export const getAllUsers = async (req, res) => {
 
     const filters = {
       role,
+      membership_stage,
       is_member,
       isblocked: isblocked === 'true' ? true : isblocked === 'false' ? false : undefined,
       isbanned: isbanned === 'true' ? true : isbanned === 'false' ? false : undefined,
       search,
-      limit: parseInt(limit),
-      offset: (parseInt(page) - 1) * parseInt(limit)
+      page: parseInt(page),
+      limit: parseInt(limit)
     };
 
-    const result = await getAllUsersService(filters);
+    const result = await getAllUsersAdminService(filters);
     
     res.status(200).json({
       success: true,
-      data: {
-        users: result.users || [],
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: result.total,
-          pages: Math.ceil(result.total / parseInt(limit))
-        },
-        filters: { role, is_member, isblocked, isbanned, search }
-      },
+      data: result,
       message: `Found ${result.users?.length || 0} users`
     });
     
@@ -104,11 +107,11 @@ export const getUserById = async (req, res) => {
 
     console.log('🔍 Admin fetching user by ID:', id);
     
-    const userProfile = await getUserProfileService(id);
+    const user = await getUserByIdAdminService(id);
     
     res.status(200).json({
       success: true,
-      data: userProfile,
+      data: user,
       message: 'User retrieved successfully'
     });
     
@@ -133,7 +136,7 @@ export const createUser = async (req, res) => {
   try {
     console.log('👤 Admin creating new user:', req.body.username);
 
-    const newUser = await createUserService(req.body, req.user);
+    const newUser = await createUserAdminService(req.body, req.user);
     
     res.status(201).json({
       success: true,
@@ -184,7 +187,7 @@ export const updateUser = async (req, res) => {
 
     console.log('🔧 Admin updating user:', id);
 
-    const updatedUser = await updateUserByAdminService(id, updateData, req.user);
+    const updatedUser = await updateUserAdminService(id, updateData, req.user);
     
     res.status(200).json({
       success: true,
@@ -214,7 +217,7 @@ export const updateUser = async (req, res) => {
  * Delete user (Super Admin only)
  * DELETE /api/admin/users/:id
  */
-export const deleteUserAdmin = async (req, res) => {
+export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -228,7 +231,7 @@ export const deleteUserAdmin = async (req, res) => {
 
     console.log('🗑️ Super admin deleting user:', id);
 
-    const result = await deleteUserService(id, req.user, reason);
+    const result = await deleteUserAdminService(id, req.user, reason);
     
     res.status(200).json({
       success: true,
@@ -269,28 +272,19 @@ export const searchUsers = async (req, res) => {
 
     console.log('🔍 Admin searching users:', { query, role, membership_stage });
 
-    const filters = {
+    const searchFilters = {
       search: query,
       role: role || undefined,
       membership_stage: membership_stage || undefined,
-      limit: parseInt(limit),
-      offset: (parseInt(page) - 1) * parseInt(limit)
+      page: parseInt(page),
+      limit: parseInt(limit)
     };
 
-    const result = await getAllUsersService(filters);
+    const result = await searchUsersAdminService(searchFilters);
     
     res.status(200).json({
       success: true,
-      data: {
-        users: result.users || [],
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: result.total,
-          totalPages: Math.ceil(result.total / parseInt(limit))
-        },
-        searchCriteria: { query, role, membership_stage }
-      },
+      data: result,
       message: `Found ${result.users?.length || 0} users matching criteria`
     });
     
@@ -307,7 +301,7 @@ export const searchUsers = async (req, res) => {
 };
 
 // ===============================================
-// USER PERMISSIONS & ROLES
+// USER PERMISSIONS & ROLES CONTROLLERS
 // ===============================================
 
 /**
@@ -341,7 +335,7 @@ export const updateUserRole = async (req, res) => {
       Object.entries(updateData).filter(([_, v]) => v !== undefined)
     );
 
-    const updatedUser = await updateUserByAdminService(userId, cleanData, req.user);
+    const updatedUser = await updateUserAdminService(userId, cleanData, req.user);
     
     res.status(200).json({
       success: true,
@@ -384,7 +378,7 @@ export const grantPostingRights = async (req, res) => {
       posting_rights_granted_by: req.user.id
     };
 
-    const updatedUser = await updateUserByAdminService(userId, updateData, req.user);
+    const updatedUser = await updateUserAdminService(userId, updateData, req.user);
 
     res.status(200).json({
       success: true,
@@ -426,7 +420,7 @@ export const banUser = async (req, res) => {
 
     console.log('🚫 Admin banning user:', { userId, reason, duration });
 
-    const result = await banUserService(userId, { reason, duration }, req.user);
+    const result = await banUserAdminService(userId, { reason, duration }, req.user);
     
     res.status(200).json({
       success: true,
@@ -468,7 +462,7 @@ export const unbanUser = async (req, res) => {
 
     console.log('✅ Admin unbanning user:', { userId, reason });
 
-    const result = await unbanUserService(userId, reason, req.user);
+    const result = await unbanUserAdminService(userId, reason, req.user);
     
     res.status(200).json({
       success: true,
@@ -493,7 +487,7 @@ export const unbanUser = async (req, res) => {
 };
 
 // ===============================================
-// ID GENERATION
+// ID GENERATION CONTROLLERS
 // ===============================================
 
 /**
@@ -623,7 +617,7 @@ export const generateClassIdForAdmin = async (req, res) => {
 };
 
 // ===============================================
-// IDENTITY MANAGEMENT
+// IDENTITY MANAGEMENT CONTROLLERS
 // ===============================================
 
 /**
@@ -668,7 +662,7 @@ export const maskUserIdentity = async (req, res) => {
 };
 
 // ===============================================
-// DATA EXPORT
+// DATA EXPORT CONTROLLERS
 // ===============================================
 
 /**
@@ -681,17 +675,24 @@ export const exportUserData = async (req, res) => {
     
     console.log('📊 Admin exporting user data:', { format, includePersonalData });
 
-    const result = await exportUsersDataService({ 
+    const result = await exportUserDataAdminService({ 
       format, 
       includePersonalData: includePersonalData === 'true' 
     }, req.user);
     
     if (format === 'csv') {
       // Convert to CSV format
-      const csvHeaders = Object.keys(result.users[0] || {}).join(',');
+      if (!result.users || result.users.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'No user data found for export'
+        });
+      }
+      
+      const csvHeaders = Object.keys(result.users[0]).join(',');
       const csvRows = result.users.map(user => 
         Object.values(user).map(value => 
-          typeof value === 'string' ? `"${value}"` : value
+          typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value
         ).join(',')
       );
       const csvContent = [csvHeaders, ...csvRows].join('\n');
@@ -723,7 +724,7 @@ export const exportUserData = async (req, res) => {
 };
 
 // ===============================================
-// STATISTICS & ANALYTICS
+// STATISTICS & ANALYTICS CONTROLLERS
 // ===============================================
 
 /**
@@ -734,7 +735,7 @@ export const getUserStatsAdmin = async (req, res) => {
   try {
     console.log('📊 Admin fetching user statistics');
     
-    const stats = await getUserStats();
+    const stats = await getUserStatsAdminService();
     
     res.status(200).json({
       success: true,
@@ -755,7 +756,7 @@ export const getUserStatsAdmin = async (req, res) => {
 };
 
 // ===============================================
-// MENTORS MANAGEMENT
+// MENTORS MANAGEMENT CONTROLLERS
 // ===============================================
 
 /**
@@ -808,9 +809,7 @@ export const assignMentorRole = async (req, res) => {
 
     // Update user role to mentor
     const updateData = { role: 'mentor' };
-    const updatedUser = await updateUserByAdminService(userId, updateData, req.user);
-    
-    // TODO: Add to mentors table if exists (could be moved to service)
+    const updatedUser = await updateUserAdminService(userId, updateData, req.user);
     
     res.status(200).json({
       success: true,
@@ -854,11 +853,11 @@ export const removeMentorRole = async (req, res) => {
     console.log('❌ Admin removing mentor role:', id);
 
     // Get user details first
-    const user = await getUserProfileService(id);
+    const user = await getUserByIdAdminService(id);
     
     // Update user role back to regular user
     const updateData = { role: 'user' };
-    await updateUserByAdminService(id, updateData, req.user);
+    await updateUserAdminService(id, updateData, req.user);
     
     res.status(200).json({
       success: true,
@@ -885,14 +884,14 @@ export const removeMentorRole = async (req, res) => {
 };
 
 // ===============================================
-// TESTING ENDPOINTS
+// TESTING CONTROLLERS
 // ===============================================
 
 /**
  * Admin user routes test
  * GET /api/admin/users/test
  */
-export const testAdminUserRoutes = (req, res) => {
+export const testAdminRoutes = (req, res) => {
   const testData = {
     success: true,
     message: 'Admin user routes are working!',
@@ -946,67 +945,82 @@ export const testAdminUserRoutes = (req, res) => {
   res.status(200).json(testData);
 };
 
-export const deleteUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
-      });
-    }
-
-    console.log('🗑️ Admin deleting user:', id);
-
-    const result = await deleteUserService(id, req.user);
-    
-    res.status(200).json({
-      success: true,
-      message: 'User deleted successfully',
-      data: result
-    });
-    
-  } catch (error) {
-    console.error('❌ Error deleting user:', error);
-    
-    let statusCode = 500;
-    if (error.message.includes('not found')) statusCode = 404;
-    if (error.message.includes('Super administrator')) statusCode = 403;
-    
-    res.status(statusCode).json({
-      success: false,
-      error: error.message || 'Failed to delete user',
-      path: req.path,
-      timestamp: new Date().toISOString()
-    });
-  }
-};
-
 // ===============================================
 // EXPORT ALL FUNCTIONS
 // ===============================================
 
-export {
-  //getAllUsers,
-  //getUserById,
-  //createUser,
-  //updateUser,
-  //deleteUserAdmin as deleteUser,
-  //deleteUser,
-  //searchUsers,
-  //updateUserRole,
-  //grantPostingRights,
-  //banUser,
-  //unbanUser,
-  //generateBulkIds,
-  //generateConverseId,,
-  //generateClassIdForAdmin,
-  //maskUserIdentity,
-  //exportUserData,
-  getUserStatsAdmin as getUserStats,
-  //getMentors,
-  //assignMentorRole,
- // removeMentorRole,
-  //testAdminUserRoutes
-};
+// export {
+//   // User Management
+//   getAllUsers,
+//   getUserById,
+//   createUser,
+//   updateUser,
+//   deleteUser,
+//   searchUsers,
+  
+//   // User Permissions & Actions
+//   updateUserRole,
+//   grantPostingRights,
+//   banUser,
+//   unbanUser,
+  
+//   // ID Generation
+//   generateBulkIds,
+//   generateConverseId,
+//   generateClassIdForAdmin,
+  
+//   // Identity Management
+//   maskUserIdentity,
+  
+//   // Data Export
+//   exportUserData,
+  
+//   // Statistics
+//   getUserStatsAdmin,
+  
+//   // Mentors Management
+//   getMentors,
+//   assignMentorRole,
+//   removeMentorRole,
+  
+//   // Testing
+//   testAdminRoutes
+// };
+
+// export default {
+//   // User Management
+//   getAllUsers,
+//   getUserById,
+//   createUser,
+//   updateUser,
+//   deleteUser,
+//   searchUsers,
+  
+//   // User Permissions & Actions
+//   updateUserRole,
+//   grantPostingRights,
+//   banUser,
+//   unbanUser,
+  
+//   // ID Generation
+//   generateBulkIds,
+//   generateConverseId,
+//   generateClassIdForAdmin,
+  
+//   // Identity Management
+//   maskUserIdentity,
+  
+//   // Data Export
+//   exportUserData,
+  
+//   // Statistics
+//   getUserStatsAdmin,
+  
+//   // Mentors Management
+//   getMentors,
+//   assignMentorRole,
+//   removeMentorRole,
+  
+//   // Testing
+//   testAdminRoutes
+// };

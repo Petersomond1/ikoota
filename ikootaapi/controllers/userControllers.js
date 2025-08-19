@@ -1,68 +1,38 @@
 // ikootaapi/controllers/userControllers.js
-// USER PROFILE & SETTINGS CONTROLLER - UPDATED TO USE SERVICES
-// Handles basic user operations: profile management, settings, preferences
+// USER PROFILE & SETTINGS CONTROLLERS
+// Handles profile management, settings, notifications, and user activity
 
 import {
+  // Profile services
   getUserProfileService,
   updateUserProfileService,
-  deleteUser,
-  getUserActivity
+  deleteUserService,
+  
+  // Settings services
+  getUserSettingsService,
+  updateUserSettingsService,
+  updatePasswordService,
+  
+  // Notification services
+  getUserNotificationsService,
+  markNotificationReadService,
+  
+  // Activity services
+  getUserActivityService,
+  getUserContentHistoryService
 } from '../services/userServices.js';
 
-import {
-  getUserPermissionsService
-} from '../services/userStatusServices.js';
-
 // ===============================================
-// PROFILE MANAGEMENT
+// PROFILE CONTROLLERS
 // ===============================================
 
 /**
- * Get current user's profile
+ * Get user profile
  * GET /api/users/profile
  */
-export const getUserProfile = async (req, res) => {
+export const getProfile = async (req, res) => {
   try {
-    const userId = req.user?.id;
-    
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'User authentication required',
-        message: 'Please login to access your profile'
-      });
-    }
-
-    console.log('🔍 Getting profile for user:', userId);
-    
-    const userProfile = await getUserProfileService(userId);
-    
-    res.status(200).json({
-      success: true,
-      data: userProfile,
-      message: 'Profile retrieved successfully'
-    });
-    
-  } catch (error) {
-    console.error('❌ Error in getUserProfile:', error);
-    
-    const statusCode = error.statusCode || (error.message.includes('not found') ? 404 : 500);
-    res.status(statusCode).json({
-      success: false,
-      error: error.message || 'Failed to fetch user profile',
-      path: req.path,
-      timestamp: new Date().toISOString()
-    });
-  }
-};
-
-/**
- * Update current user's profile
- * PUT /api/users/profile
- */
-export const updateUserProfile = async (req, res) => {
-  try {
-    const userId = req.user?.id;
+    const userId = req.user.id;
     
     if (!userId) {
       return res.status(401).json({
@@ -71,24 +41,58 @@ export const updateUserProfile = async (req, res) => {
       });
     }
 
-    console.log('🔧 Updating profile for user:', userId, 'with data:', req.body);
+    console.log('👤 Getting profile for user:', userId);
+    
+    const profile = await getUserProfileService(userId);
+    
+    res.status(200).json({
+      success: true,
+      data: profile,
+      message: 'Profile retrieved successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ getProfile error:', error);
+    
+    let statusCode = 500;
+    if (error.message.includes('not found')) statusCode = 404;
+    
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to get profile',
+      path: req.path,
+      timestamp: new Date().toISOString()
+    });
+  }
+};
 
-    // Basic validation
-    if (req.body.email && !req.body.email.includes('@')) {
+/**
+ * Update user profile
+ * PUT /api/users/profile
+ */
+export const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const updateData = req.body;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+    }
+    
+    // Validation
+    if (updateData.email && !updateData.email.includes('@')) {
       return res.status(400).json({
         success: false,
         error: 'Invalid email format'
       });
     }
 
-    if (req.body.phone && req.body.phone.length < 5) {
-      return res.status(400).json({
-        success: false,
-        error: 'Phone number must be at least 5 characters'
-      });
-    }
-
-    const updatedProfile = await updateUserProfileService(userId, req.body);
+    console.log('🔧 Updating profile for user:', userId);
+    
+    const updatedProfile = await updateUserProfileService(userId, updateData);
     
     res.status(200).json({
       success: true,
@@ -97,15 +101,15 @@ export const updateUserProfile = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error in updateUserProfile:', error);
+    console.error('❌ updateProfile error:', error);
     
-    const statusCode = error.statusCode || 
-                      (error.message.includes('not found') ? 404 : 
-                       error.message.includes('required') ? 400 : 500);
+    let statusCode = 500;
+    if (error.message.includes('not found')) statusCode = 404;
+    if (error.message.includes('Invalid')) statusCode = 400;
     
     res.status(statusCode).json({
       success: false,
-      error: error.message || 'Failed to update user profile',
+      error: error.message || 'Failed to update profile',
       path: req.path,
       timestamp: new Date().toISOString()
     });
@@ -113,12 +117,12 @@ export const updateUserProfile = async (req, res) => {
 };
 
 /**
- * Delete user profile (self-deletion)
+ * Delete user profile
  * DELETE /api/users/profile
  */
-export const deleteUserProfile = async (req, res) => {
+export const deleteProfile = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user.id;
     
     if (!userId) {
       return res.status(401).json({
@@ -126,34 +130,31 @@ export const deleteUserProfile = async (req, res) => {
         error: 'User authentication required'
       });
     }
-
+    
     // Prevent admin self-deletion
     if (['admin', 'super_admin'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        error: 'Admin accounts cannot be self-deleted',
-        message: 'Please contact super administrator for account deletion'
+        error: 'Admin accounts cannot be self-deleted'
       });
     }
 
-    console.log('🗑️ Self-deleting user:', userId);
+    console.log('🗑️ Deleting profile for user:', userId);
     
-    const result = await deleteUser(userId);
+    const result = await deleteUserService(userId);
     
     res.status(200).json({
       success: true,
-      message: 'Account deleted successfully',
-      data: {
-        deleted: true,
-        username: result.username,
-        deletedAt: new Date().toISOString()
-      }
+      data: result,
+      message: 'Profile deleted successfully'
     });
     
   } catch (error) {
-    console.error('❌ Error in deleteUserProfile:', error);
+    console.error('❌ deleteProfile error:', error);
     
-    const statusCode = error.statusCode || 500;
+    let statusCode = 500;
+    if (error.message.includes('not found')) statusCode = 404;
+    
     res.status(statusCode).json({
       success: false,
       error: error.message || 'Failed to delete profile',
@@ -164,16 +165,16 @@ export const deleteUserProfile = async (req, res) => {
 };
 
 // ===============================================
-// USER SETTINGS
+// SETTINGS & PREFERENCES CONTROLLERS
 // ===============================================
 
 /**
- * Update user settings
- * PUT /api/users/settings
+ * Get user settings
+ * GET /api/users/settings
  */
-export const updateUserSettings = async (req, res) => {
+export const getUserSettings = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user.id;
     
     if (!userId) {
       return res.status(401).json({
@@ -182,45 +183,60 @@ export const updateUserSettings = async (req, res) => {
       });
     }
 
-    console.log('⚙️ Updating settings for user:', userId);
-
-    // If preferencesOnly flag is set, only update preference fields
-    if (req.preferencesOnly) {
-      const preferenceFields = {
-        email_notifications: req.body.email_notifications,
-        sms_notifications: req.body.sms_notifications,
-        marketing_emails: req.body.marketing_emails,
-        preferred_language: req.body.preferred_language,
-        timezone: req.body.timezone
-      };
-      
-      // Filter out undefined values
-      const cleanPreferences = Object.fromEntries(
-        Object.entries(preferenceFields).filter(([_, v]) => v !== undefined)
-      );
-
-      const updatedProfile = await updateUserProfileService(userId, cleanPreferences);
-      
-      return res.status(200).json({
-        success: true,
-        data: updatedProfile,
-        message: 'Preferences updated successfully'
-      });
-    }
-
-    // Update general settings
-    const updatedProfile = await updateUserProfileService(userId, req.body);
+    console.log('⚙️ Getting settings for user:', userId);
+    
+    const settings = await getUserSettingsService(userId);
     
     res.status(200).json({
       success: true,
-      data: updatedProfile,
+      data: settings,
+      message: 'Settings retrieved successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ getUserSettings error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get settings',
+      path: req.path,
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * Update user settings
+ * PUT /api/users/settings
+ */
+export const updateUserSettings = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const settingsData = req.body;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+    }
+
+    console.log('🔧 Updating settings for user:', userId);
+    
+    const updatedSettings = await updateUserSettingsService(userId, settingsData);
+    
+    res.status(200).json({
+      success: true,
+      data: updatedSettings,
       message: 'Settings updated successfully'
     });
     
   } catch (error) {
-    console.error('❌ Error in updateUserSettings:', error);
+    console.error('❌ updateUserSettings error:', error);
     
-    res.status(error.statusCode || 500).json({
+    let statusCode = 500;
+    if (error.message.includes('No valid')) statusCode = 400;
+    
+    res.status(statusCode).json({
       success: false,
       error: error.message || 'Failed to update settings',
       path: req.path,
@@ -235,7 +251,7 @@ export const updateUserSettings = async (req, res) => {
  */
 export const updateUserPassword = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user.id;
     const { currentPassword, newPassword } = req.body;
     
     if (!userId) {
@@ -244,14 +260,15 @@ export const updateUserPassword = async (req, res) => {
         error: 'User authentication required'
       });
     }
-
+    
+    // Validation
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         success: false,
         error: 'Current password and new password are required'
       });
     }
-
+    
     if (newPassword.length < 6) {
       return res.status(400).json({
         success: false,
@@ -260,19 +277,22 @@ export const updateUserPassword = async (req, res) => {
     }
 
     console.log('🔐 Updating password for user:', userId);
-
-    // TODO: Implement password verification and update service
-    // For now, return a placeholder response
+    
+    await updatePasswordService(userId, currentPassword, newPassword);
+    
     res.status(200).json({
       success: true,
-      message: 'Password updated successfully',
-      timestamp: new Date().toISOString()
+      message: 'Password updated successfully'
     });
     
   } catch (error) {
-    console.error('❌ Error in updateUserPassword:', error);
+    console.error('❌ updateUserPassword error:', error);
     
-    res.status(500).json({
+    let statusCode = 500;
+    if (error.message.includes('Current password')) statusCode = 400;
+    if (error.message.includes('not found')) statusCode = 404;
+    
+    res.status(statusCode).json({
       success: false,
       error: error.message || 'Failed to update password',
       path: req.path,
@@ -282,50 +302,7 @@ export const updateUserPassword = async (req, res) => {
 };
 
 // ===============================================
-// USER PERMISSIONS & ACCESS
-// ===============================================
-
-/**
- * Get user permissions
- * GET /api/users/permissions
- */
-export const getUserPermissions = async (req, res) => {
-  try {
-    const userId = req.user?.id;
-    const userRole = req.user?.role || 'user';
-    const membershipStage = req.user?.membership_stage || 'none';
-    
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'User authentication required'
-      });
-    }
-
-    console.log('🔒 Getting permissions for user:', userId, 'role:', userRole);
-
-    const permissionsData = getUserPermissionsService(userId, userRole, membershipStage);
-    
-    res.status(200).json({
-      success: true,
-      data: permissionsData,
-      message: 'Permissions retrieved successfully'
-    });
-    
-  } catch (error) {
-    console.error('❌ Error in getUserPermissions:', error);
-    
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to get permissions',
-      path: req.path,
-      timestamp: new Date().toISOString()
-    });
-  }
-};
-
-// ===============================================
-// NOTIFICATIONS MANAGEMENT
+// NOTIFICATIONS CONTROLLERS
 // ===============================================
 
 /**
@@ -334,7 +311,8 @@ export const getUserPermissions = async (req, res) => {
  */
 export const getUserNotifications = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user.id;
+    const { page = 1, limit = 20, type, unread_only } = req.query;
     
     if (!userId) {
       return res.status(401).json({
@@ -343,22 +321,23 @@ export const getUserNotifications = async (req, res) => {
       });
     }
 
-    // TODO: Implement notifications service
     console.log('🔔 Getting notifications for user:', userId);
+    
+    const notifications = await getUserNotificationsService(userId, { 
+      page: parseInt(page), 
+      limit: parseInt(limit), 
+      type,
+      unread_only: unread_only === 'true'
+    });
     
     res.status(200).json({
       success: true,
-      data: {
-        notifications: [],
-        unread_count: 0,
-        total_count: 0
-      },
+      data: notifications,
       message: 'Notifications retrieved successfully'
     });
     
   } catch (error) {
-    console.error('❌ Error in getUserNotifications:', error);
-    
+    console.error('❌ getUserNotifications error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get notifications',
@@ -374,7 +353,7 @@ export const getUserNotifications = async (req, res) => {
  */
 export const markNotificationAsRead = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user.id;
     const { id } = req.params;
     
     if (!userId) {
@@ -384,28 +363,23 @@ export const markNotificationAsRead = async (req, res) => {
       });
     }
 
-    if (req.markAllAsRead) {
-      console.log('📖 Marking all notifications as read for user:', userId);
-      
-      res.status(200).json({
-        success: true,
-        message: 'All notifications marked as read',
-        data: { marked_count: 0 }
-      });
-    } else {
-      console.log('📖 Marking notification as read:', id, 'for user:', userId);
-      
-      res.status(200).json({
-        success: true,
-        message: 'Notification marked as read',
-        data: { notification_id: id }
-      });
-    }
+    console.log('📖 Marking notification as read:', { userId, notificationId: id });
+    
+    const result = await markNotificationReadService(userId, id);
+    
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: 'Notification marked as read'
+    });
     
   } catch (error) {
-    console.error('❌ Error in markNotificationAsRead:', error);
+    console.error('❌ markNotificationAsRead error:', error);
     
-    res.status(500).json({
+    let statusCode = 500;
+    if (error.message.includes('not found')) statusCode = 404;
+    
+    res.status(statusCode).json({
       success: false,
       error: error.message || 'Failed to mark notification as read',
       path: req.path,
@@ -414,17 +388,54 @@ export const markNotificationAsRead = async (req, res) => {
   }
 };
 
+/**
+ * Mark all notifications as read
+ * PUT /api/users/notifications/mark-all-read
+ */
+export const markAllNotificationsAsRead = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+    }
+
+    console.log('📖 Marking all notifications as read for user:', userId);
+    
+    const result = await markNotificationReadService(userId, null, { markAll: true });
+    
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: 'All notifications marked as read'
+    });
+    
+  } catch (error) {
+    console.error('❌ markAllNotificationsAsRead error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to mark all notifications as read',
+      path: req.path,
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
 // ===============================================
-// USER ACTIVITY & HISTORY
+// ACTIVITY & HISTORY CONTROLLERS
 // ===============================================
 
 /**
- * Get user activity history
+ * Get user activity
  * GET /api/users/activity
  */
-export const getUserActivityHistory = async (req, res) => {
+export const getUserActivity = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user.id;
+    const { page = 1, limit = 20, type } = req.query;
     
     if (!userId) {
       return res.status(401).json({
@@ -435,17 +446,20 @@ export const getUserActivityHistory = async (req, res) => {
 
     console.log('📊 Getting activity for user:', userId);
     
-    const activity = await getUserActivity(userId);
+    const activity = await getUserActivityService(userId, { 
+      page: parseInt(page), 
+      limit: parseInt(limit), 
+      type 
+    });
     
     res.status(200).json({
       success: true,
       data: activity,
-      message: 'Activity retrieved successfully'
+      message: 'User activity retrieved successfully'
     });
     
   } catch (error) {
-    console.error('❌ Error in getUserActivityHistory:', error);
-    
+    console.error('❌ getUserActivity error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get user activity',
@@ -456,12 +470,13 @@ export const getUserActivityHistory = async (req, res) => {
 };
 
 /**
- * Get user's content creation history
+ * Get user content history
  * GET /api/users/content-history
  */
 export const getUserContentHistory = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user.id;
+    const { page = 1, limit = 20 } = req.query;
     
     if (!userId) {
       return res.status(401).json({
@@ -472,22 +487,19 @@ export const getUserContentHistory = async (req, res) => {
 
     console.log('📚 Getting content history for user:', userId);
     
-    const activity = await getUserActivity(userId);
+    const contentHistory = await getUserContentHistoryService(userId, { 
+      page: parseInt(page), 
+      limit: parseInt(limit) 
+    });
     
-    // Return only content-related activity
     res.status(200).json({
       success: true,
-      data: {
-        content_statistics: activity.statistics,
-        recent_content: activity.recent_activity,
-        user_id: userId
-      },
+      data: contentHistory,
       message: 'Content history retrieved successfully'
     });
     
   } catch (error) {
-    console.error('❌ Error in getUserContentHistory:', error);
-    
+    console.error('❌ getUserContentHistory error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get content history',
@@ -498,127 +510,26 @@ export const getUserContentHistory = async (req, res) => {
 };
 
 // ===============================================
-// TESTING ENDPOINTS
-// ===============================================
-
-/**
- * User routes test endpoint
- * GET /api/users/test
- */
-export const testUserRoutes = (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'User routes are working!',
-    data: {
-      user: {
-        id: req.user?.id,
-        username: req.user?.username,
-        role: req.user?.role,
-        membership_stage: req.user?.membership_stage
-      },
-      endpoint: req.path,
-      method: req.method,
-      timestamp: new Date().toISOString(),
-      server_status: 'operational'
-    }
-  });
-};
-
-/**
- * Get user activity history
- * GET /api/users/activity
- */
-// export const getUserActivityHistory = async (req, res) => {
-//   try {
-//     const userId = req.user?.id;
-    
-//     if (!userId) {
-//       return res.status(401).json({
-//         success: false,
-//         error: 'User authentication required'
-//       });
-//     }
-
-//     console.log('📊 Getting activity for user:', userId);
-    
-//     const activity = await getUserActivity(userId);
-    
-//     res.status(200).json({
-//       success: true,
-//       data: activity,
-//       message: 'Activity retrieved successfully'
-//     });
-    
-//   } catch (error) {
-//     console.error('❌ Error in getUserActivityHistory:', error);
-    
-//     res.status(500).json({
-//       success: false,
-//       error: error.message || 'Failed to get user activity',
-//       path: req.path,
-//       timestamp: new Date().toISOString()
-//     });
-//   }
-// };
-
-/**
- * Get user's content creation history
- * GET /api/users/content-history
- */
-// export const getUserContentHistory = async (req, res) => {
-//   try {
-//     const userId = req.user?.id;
-    
-//     if (!userId) {
-//       return res.status(401).json({
-//         success: false,
-//         error: 'User authentication required'
-//       });
-//     }
-
-//     console.log('📚 Getting content history for user:', userId);
-    
-//     const activity = await getUserActivity(userId);
-    
-//     res.status(200).json({
-//       success: true,
-//       data: {
-//         content_statistics: activity.statistics,
-//         recent_content: activity.recent_activity,
-//         user_id: userId
-//       },
-//       message: 'Content history retrieved successfully'
-//     });
-    
-//   } catch (error) {
-//     console.error('❌ Error in getUserContentHistory:', error);
-    
-//     res.status(500).json({
-//       success: false,
-//       error: error.message || 'Failed to get content history',
-//       path: req.path,
-//       timestamp: new Date().toISOString()
-//     });
-//   }
-// };
-
-
-
-
-// ===============================================
 // EXPORT ALL FUNCTIONS
 // ===============================================
 
 export default {
-  getUserProfile,
-  updateUserProfile,
-  deleteUserProfile,
+  // Profile management
+  getProfile,
+  updateProfile,
+  deleteProfile,
+  
+  // Settings & password
+  getUserSettings,
   updateUserSettings,
   updateUserPassword,
-  getUserPermissions,
+  
+  // Notifications
   getUserNotifications,
   markNotificationAsRead,
-  getUserActivityHistory,
-  getUserContentHistory,
-  testUserRoutes
+  markAllNotificationsAsRead,
+  
+  // Activity & history
+  getUserActivity,
+  getUserContentHistory
 };

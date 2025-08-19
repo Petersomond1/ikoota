@@ -9,8 +9,8 @@
 import db from '../config/db.js';
 import surveyServices from '../services/surveyServices.js';
 import questionLabelsService from '../services/questionLabelsService.js';
-import { sendEmail } from '../utils/email.js';
-import { sendNotification } from '../utils/notifications.js';
+//import { sendEmail } from '../utils/email.js';
+import { sendEmail, sendNotification, sendSurveySubmissionNotification } from '../utils/notifications.js';
 import { generateUniqueId } from '../utils/idGenerator.js';
 import CustomError from '../utils/CustomError.js';
 
@@ -926,38 +926,51 @@ const generateRecommendations = (status) => {
 // EXPORT CONTROLLER FUNCTIONS
 // =============================================================================
 
-export default {
-  // Survey Submission
-  submitSurvey,
+// export default {
+//   // Survey Submission
+//   submitSurvey,
   
-  // Draft Management
-  saveSurveyDraft,
-  getSurveyDrafts,
-  deleteSurveyDraftController,
+//   // Draft Management
+//   saveSurveyDraft,
+//   getSurveyDrafts,
+//   deleteSurveyDraftController,
   
-  // Questions & Labels
-  getSurveyQuestions,
-  getQuestionLabels,
+//   // Questions & Labels
+//   getSurveyQuestions,
+//   getQuestionLabels,
   
-  // Status & History
-  getSurveyStatus,
-  getSurveyHistory,
+//   // Status & History
+//   getSurveyStatus,
+//   getSurveyHistory,
   
-  // Response Management
-  updateSurveyResponse,
-  deleteSurveyResponse
-};
+//   // Response Management
+//   updateSurveyResponse,
+//   deleteSurveyResponse
+// };
 
-// Named exports for specific functions
-export {
-  submitSurvey,
-  saveSurveyDraft,
-  getSurveyDrafts,
-  deleteSurveyDraftController,
-  getSurveyQuestions,
-  getQuestionLabels,
-  getSurveyStatus,
-  getSurveyHistory,
-  updateSurveyResponse,
-  deleteSurveyResponse
-};
+// // Named exports for specific functions
+// export {
+//   submitSurvey,
+//   saveSurveyDraft,
+//   getSurveyDrafts,
+//   deleteSurveyDraftController,
+//   getSurveyQuestions,
+//   getQuestionLabels,
+//   getSurveyStatus,
+//   getSurveyHistory,
+//   updateSurveyResponse,
+//   deleteSurveyResponse
+// };
+
+
+
+
+// // In your survey controllers, you can now safely use:
+// import { generateUniqueId } from '../utils/idGenerator.js';
+// import { sendEmail, sendNotification, sendSurveySubmissionNotification } from '../utils/notifications.js';
+
+// // Generate survey ID
+// const surveyId = await generateUniqueId('survey');
+
+// // Send submission confirmation
+// await sendSurveySubmissionNotification(userEmail, surveyData);

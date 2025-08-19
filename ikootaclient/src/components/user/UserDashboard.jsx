@@ -15,7 +15,8 @@ import axios from 'axios';
 const fetchUserDashboard = async () => {
   const token = localStorage.getItem("token");
   // ✅ FIXED: Use correct API endpoint
-  const { data } = await api.get('/user-status/dashboard', {
+  //   const { data } = await api.get('/membership/dashboard', {
+  const { data } = await api.get('/users/dashboard', {
     headers: { Authorization: `Bearer ${token}` }
   });
   return data;

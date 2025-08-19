@@ -1,186 +1,116 @@
 // ikootaapi/services/userServices.js
-// USER SERVICES - Business Logic Layer
-// Handles all user-related business operations and database interactions
+// USER PROFILE & SETTINGS SERVICES
+// Business logic for profile management, settings, notifications, and activity
 
 import db from '../config/db.js';
-import CustomError from '../utils/CustomError.js';
+import bcrypt from 'bcrypt';
+import  CustomError  from '../utils/CustomError.js';
 import { hashPassword } from '../utils/passwordUtils.js';
 
 // ===============================================
-// USER PROFILE SERVICES
+// PROFILE SERVICES
 // ===============================================
 
 /**
- * Get user profile by ID
+ * Get user profile service
  * @param {number} userId - User ID
+ * @param {Object} options - Options for profile retrieval
  * @returns {Object} User profile data
  */
-// export const getUserProfileService = async (userId) => {
-//   try {
-//     console.log('🔍 Getting user profile for ID:', userId);
-    
-//     const [users] = await db.query(`
-//       SELECT 
-//         u.id,
-//         u.username,
-//         u.email,
-//         u.phone,
-//         u.role,
-//         u.membership_stage,
-//         u.is_member,
-//         u.full_membership_status,
-//         u.converse_id,
-//         u.mentor_id,
-//         u.primary_class_id,
-//         u.total_classes,
-//         u.is_identity_masked,
-//         u.createdAt,
-//         u.updatedAt,
-//         u.lastLogin,
-//         u.isblocked,
-//         u.isbanned,
-//         u.ban_reason,
-//         u.decline_reason,
-//         mentor.username as mentor_name,
-//         mentor.email as mentor_email,
-//         class.class_name as primary_class_name
-//       FROM users u
-//       LEFT JOIN users mentor ON u.mentor_id = mentor.id
-//       LEFT JOIN classes class ON u.primary_class_id = class.id
-//       WHERE u.id = ?
-//     `, [userId]);
-
-//     console.log('🔍 USERS RESULT:', users);
-// console.log('🔍 FIRST USER:', users[0]);
-    
-//     if (users.length === 0) {
-//       throw new CustomError('User not found', 404);
-//     }
-    
-//     console.log('🔍 DATABASE RESULT DEBUG:', JSON.stringify(result, null, 2));
-
-//     const user = users[0];
-    
-//     // Format response
-//     return {
-//       id: user.id,
-//       username: user.username,
-//       email: user.email,
-//       phone: user.phone,
-//       role: user.role,
-//       membership_stage: user.membership_stage,
-//       is_member: user.is_member,
-//       full_membership_status: user.full_membership_status,
-//       converse_id: user.converse_id,
-//       is_identity_masked: !!user.is_identity_masked,
-//       member_since: user.createdAt,
-//       last_updated: user.updatedAt,
-//       lastLogin: user.lastLogin,
-//       mentor: {
-//         id: user.mentor_id,
-//         name: user.mentor_name,
-//         email: user.mentor_email
-//       },
-//       class: {
-//         id: user.primary_class_id,
-//         name: user.primary_class_name
-//       },
-//       status: {
-//         is_blocked: !!user.isblocked,
-//         is_banned: !!user.isbanned,
-//         ban_reason: user.ban_reason,
-//         decline_reason: user.decline_reason
-//       },
-//       permissions: {
-//         can_edit_profile: true,
-//         can_delete_account: !['admin', 'super_admin'].includes(user.role),
-//         can_access_admin: ['admin', 'super_admin'].includes(user.role)
-//       }
-//     };
-    
-//   } catch (error) {
-//     console.error('❌ Error in getUserProfileService:', error);
-//     throw error;
-//   }
-// };
-
-// FIXED: userServices.js - Proper destructuring handling
-export const getUserProfileService = async (userId) => {
+export const getUserProfileService = async (userId, options = {}) => {
   try {
     console.log('🔍 Getting user profile for ID:', userId);
-
+    
+    // ✅ Safe SQL with string interpolation for LIMIT
+    const limitClause = options.basic ? 'LIMIT 1' : '';
+    
     const [users] = await db.query(`
-      SELECT
-        u.id,
-        u.username,
-        u.email,
-        u.phone,
-        u.role,
-        u.membership_stage,
-        u.is_member,
-        u.full_membership_status,
-        u.converse_id,
-        u.mentor_id,
-        u.primary_class_id,
-        u.total_classes,
-        u.is_identity_masked,
-        u.createdAt,
-        u.updatedAt,
-        u.lastLogin,
-        u.isblocked,
-        u.isbanned,
-        u.ban_reason,
-        u.decline_reason,
-        m.username as mentor_name,
-        m.email as mentor_email,
+      SELECT 
+        u.id, u.username, u.email, u.phone, u.role,
+        u.membership_stage, u.is_member, u.full_membership_status,
+        u.converse_id, u.mentor_id, u.primary_class_id,
+        u.total_classes, u.is_identity_masked,
+        u.createdAt, u.updatedAt, u.lastLogin,
+        u.isblocked, u.isbanned, u.ban_reason,
+        m.username as mentor_name, m.email as mentor_email,
         c.class_name as primary_class_name
       FROM users u
       LEFT JOIN users m ON u.mentor_id = m.id
       LEFT JOIN classes c ON u.primary_class_id = c.id
       WHERE u.id = ?
+      ${limitClause}
     `, [userId]);
-
-    console.log('🔍 USERS RESULT:', users);
     
-    // ✅ FIX: users is already the user object from destructuring
-    if (!users) {
+    // ✅ Safe result access
+    if (!users || (Array.isArray(users) && users.length === 0)) {
       throw new CustomError('User not found', 404);
     }
-
-    // ✅ FIX: users IS the user object, not an array
-    const user = users;
     
-    console.log('🔍 UserService: User found:', user.username);
-
+    const user = Array.isArray(users) ? users[0] : users;
+    
+    if (options.basic) {
+      return {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          membership_stage: user.membership_stage,
+          is_member: user.is_member,
+          full_membership_status: user.full_membership_status,
+          converse_id: user.converse_id,
+          mentor_id: user.mentor_id,
+          mentor_name: user.mentor_name,
+          mentor_email: user.mentor_email,
+          primary_class_id: user.primary_class_id,
+          primary_class_name: user.primary_class_name,
+          total_classes: user.total_classes,
+          is_identity_masked: user.is_identity_masked,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          lastLogin: user.lastLogin,
+          isblocked: user.isblocked,
+          isbanned: user.isbanned
+        }
+      };
+    }
+    
     return {
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        membershipStage: user.membership_stage,
-        isMember: user.is_member,
-        fullMembershipStatus: user.full_membership_status,
-        converseId: user.converse_id,
-        mentorId: user.mentor_id,
-        primaryClassId: user.primary_class_id,
-        totalClasses: user.total_classes,
-        isIdentityMasked: user.is_identity_masked,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-        lastLogin: user.lastLogin,
-        isBlocked: user.isblocked,
-        isBanned: user.isbanned,
-        banReason: user.ban_reason,
-        declineReason: user.decline_reason,
-        mentorName: user.mentor_name,
-        mentorEmail: user.mentor_email,
-        primaryClassName: user.primary_class_name
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      membership_stage: user.membership_stage,
+      is_member: user.is_member,
+      full_membership_status: user.full_membership_status,
+      converse_id: user.converse_id,
+      mentor: {
+        id: user.mentor_id,
+        name: user.mentor_name,
+        email: user.mentor_email
+      },
+      class: {
+        id: user.primary_class_id,
+        name: user.primary_class_name
+      },
+      statistics: {
+        total_classes: user.total_classes || 0
+      },
+      timestamps: {
+        created_at: user.createdAt,
+        updated_at: user.updatedAt,
+        last_login: user.lastLogin
+      },
+      status: {
+        is_blocked: !!user.isblocked,
+        is_banned: !!user.isbanned,
+        ban_reason: user.ban_reason,
+        is_identity_masked: !!user.is_identity_masked
       }
     };
-
+    
   } catch (error) {
     console.error('❌ Error in getUserProfileService:', error);
     throw error;
@@ -188,43 +118,37 @@ export const getUserProfileService = async (userId) => {
 };
 
 /**
- * Update user profile
+ * Update user profile service
  * @param {number} userId - User ID
  * @param {Object} updateData - Data to update
  * @returns {Object} Updated user profile
  */
 export const updateUserProfileService = async (userId, updateData) => {
   try {
-    console.log('🔧 Updating user profile:', userId, 'with:', updateData);
+    console.log('🔧 Updating user profile:', userId);
     
     // Validate user exists
-    const currentUser = await getUserProfileService(userId);
+    await getUserProfileService(userId);
     
-    // Filter allowed fields for regular users
-    const allowedFields = [
-      'username', 'email', 'phone', 'preferred_language', 'timezone',
-      'email_notifications', 'sms_notifications', 'marketing_emails'
-    ];
-    
-    const sanitizedData = Object.fromEntries(
+    // Filter allowed fields
+    const allowedFields = ['username', 'email', 'phone'];
+    const filteredData = Object.fromEntries(
       Object.entries(updateData).filter(([key]) => allowedFields.includes(key))
     );
     
-    if (Object.keys(sanitizedData).length === 0) {
+    if (Object.keys(filteredData).length === 0) {
       throw new CustomError('No valid fields to update', 400);
     }
     
-    // Build dynamic update query
-    const updateFields = Object.keys(sanitizedData).map(field => `${field} = ?`).join(', ');
-    const updateValues = Object.values(sanitizedData);
+    // Build update query
+    const updateFields = Object.keys(filteredData).map(field => `${field} = ?`).join(', ');
+    const updateValues = Object.values(filteredData);
     
-    const query = `
+    await db.query(`
       UPDATE users 
       SET ${updateFields}, updatedAt = NOW()
       WHERE id = ?
-    `;
-    
-    await db.query(query, [...updateValues, userId]);
+    `, [...updateValues, userId]);
     
     // Return updated profile
     return await getUserProfileService(userId);
@@ -236,11 +160,11 @@ export const updateUserProfileService = async (userId, updateData) => {
 };
 
 /**
- * Delete user account
+ * Delete user service
  * @param {number} userId - User ID
  * @returns {Object} Deletion result
  */
-export const deleteUser = async (userId) => {
+export const deleteUserService = async (userId) => {
   try {
     console.log('🗑️ Deleting user:', userId);
     
@@ -255,12 +179,16 @@ export const deleteUser = async (userId) => {
       await db.query('DELETE FROM surveylog WHERE user_id = ?', [userId]);
       await db.query('DELETE FROM full_membership_applications WHERE user_id = ?', [userId]);
       await db.query('DELETE FROM user_preferences WHERE user_id = ?', [userId]);
+      await db.query('DELETE FROM user_settings WHERE user_id = ?', [userId]);
+      await db.query('DELETE FROM notifications WHERE user_id = ?', [userId]);
+      await db.query('DELETE FROM user_activities WHERE user_id = ?', [userId]);
       
-      // Delete main user record
+      // Delete user
       const [result] = await db.query('DELETE FROM users WHERE id = ?', [userId]);
       
-      if (result.affectedRows === 0) {
-        throw new CustomError('User not found', 404);
+      // ✅ Safe result access
+      if (!result || (result.affectedRows && result.affectedRows === 0)) {
+        throw new CustomError('User not found or deletion failed', 404);
       }
       
       await db.query('COMMIT');
@@ -268,7 +196,7 @@ export const deleteUser = async (userId) => {
       return {
         username: user.username,
         deleted: true,
-        deletedAt: new Date().toISOString()
+        deleted_at: new Date().toISOString()
       };
       
     } catch (error) {
@@ -277,236 +205,536 @@ export const deleteUser = async (userId) => {
     }
     
   } catch (error) {
-    console.error('❌ Error in deleteUser:', error);
+    console.error('❌ Error in deleteUserService:', error);
     throw error;
   }
 };
 
 // ===============================================
-// USER ACTIVITY SERVICES
+// SETTINGS SERVICES
 // ===============================================
 
 /**
- * Get user activity statistics
+ * Get user settings service
  * @param {number} userId - User ID
- * @returns {Object} Activity data
+ * @returns {Object} User settings
  */
-export const getUserActivity = async (userId) => {
+export const getUserSettingsService = async (userId) => {
   try {
-    console.log('📊 Getting activity for user:', userId);
+    console.log('⚙️ Getting settings for user:', userId);
     
-    // Get content statistics (adjust table names as needed)
-    const [stats] = await db.query(`
+    const [settings] = await db.query(`
       SELECT 
-        (SELECT COUNT(*) FROM chats WHERE user_id = ? AND chats.id IS NOT NULL) as total_chats,
-        (SELECT COUNT(*) FROM teachings WHERE user_id = ? AND teachings.id IS NOT NULL) as total_teachings,
-        (SELECT COUNT(*) FROM comments WHERE user_id = ? AND comments.id IS NOT NULL) as total_comments,
-        (SELECT COUNT(*) FROM surveylog WHERE user_id = ?) as total_applications
-    `, [userId, userId, userId, userId]);
-    
-    // Get recent activity (adjust based on your actual activity tracking)
-    const [recentActivity] = await db.query(`
-      SELECT 
-        'login' as activity_type,
-        lastLogin as activity_date,
-        'User logged in' as description
-      FROM users 
-      WHERE id = ? AND lastLogin IS NOT NULL
-      
-      UNION ALL
-      
-      SELECT 
-        'application' as activity_type,
-        createdAt as activity_date,
-        CONCAT('Application submitted: ', approval_status) as description
-      FROM surveylog 
+        email_notifications,
+        sms_notifications,
+        newsletter_subscription,
+        privacy_level,
+        preferred_communication_method,
+        timezone,
+        language_preference,
+        two_factor_enabled,
+        profile_visibility
+      FROM user_settings 
       WHERE user_id = ?
-      
-      ORDER BY activity_date DESC
-      LIMIT 10
-    `, [userId, userId]);
+    `, [userId]);
+    
+    // Default settings if none exist
+    const defaultSettings = {
+      email_notifications: true,
+      sms_notifications: false,
+      newsletter_subscription: true,
+      privacy_level: 'standard',
+      preferred_communication_method: 'email',
+      timezone: 'UTC',
+      language_preference: 'en',
+      two_factor_enabled: false,
+      profile_visibility: 'members_only'
+    };
+    
+    const userSettings = (Array.isArray(settings) && settings.length > 0) ? settings[0] : defaultSettings;
     
     return {
-      statistics: {
-        total_chats: stats[0]?.total_chats || 0,
-        total_teachings: stats[0]?.total_teachings || 0,
-        total_comments: stats[0]?.total_comments || 0,
-        total_applications: stats[0]?.total_applications || 0
-      },
-      recent_activity: recentActivity || []
+      user_id: userId,
+      settings: userSettings
     };
     
   } catch (error) {
-    console.error('❌ Error in getUserActivity:', error);
-    // Return empty data instead of throwing to prevent breaking the app
+    console.error('❌ Error in getUserSettingsService:', error);
+    // Return default settings instead of throwing
     return {
-      statistics: {
-        total_chats: 0,
-        total_teachings: 0,
-        total_comments: 0,
-        total_applications: 0
-      },
-      recent_activity: []
+      user_id: userId,
+      settings: {
+        email_notifications: true,
+        sms_notifications: false,
+        newsletter_subscription: true,
+        privacy_level: 'standard',
+        preferred_communication_method: 'email',
+        timezone: 'UTC',
+        language_preference: 'en',
+        two_factor_enabled: false,
+        profile_visibility: 'members_only'
+      }
     };
   }
 };
 
+/**
+ * Update user settings service
+ * @param {number} userId - User ID
+ * @param {Object} settingsData - Settings data to update
+ * @returns {Object} Updated settings
+ */
+export const updateUserSettingsService = async (userId, settingsData) => {
+  try {
+    console.log('🔧 Updating settings for user:', userId);
+    
+    const allowedSettings = [
+      'email_notifications', 'sms_notifications', 'newsletter_subscription',
+      'privacy_level', 'preferred_communication_method', 'timezone',
+      'language_preference', 'two_factor_enabled', 'profile_visibility'
+    ];
+    
+    const filteredSettings = Object.fromEntries(
+      Object.entries(settingsData).filter(([key]) => allowedSettings.includes(key))
+    );
+    
+    if (Object.keys(filteredSettings).length === 0) {
+      throw new CustomError('No valid settings to update', 400);
+    }
+    
+    // Build upsert query
+    const fields = Object.keys(filteredSettings);
+    const values = Object.values(filteredSettings);
+    const placeholders = fields.map(() => '?').join(', ');
+    const updateClause = fields.map(field => `${field} = VALUES(${field})`).join(', ');
+    
+    await db.query(`
+      INSERT INTO user_settings (user_id, ${fields.join(', ')}, createdAt, updatedAt)
+      VALUES (?, ${placeholders}, NOW(), NOW())
+      ON DUPLICATE KEY UPDATE
+        ${updateClause},
+        updatedAt = NOW()
+    `, [userId, ...values]);
+    
+    return await getUserSettingsService(userId);
+    
+  } catch (error) {
+    console.error('❌ Error in updateUserSettingsService:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update user password service
+ * @param {number} userId - User ID
+ * @param {string} currentPassword - Current password
+ * @param {string} newPassword - New password
+ * @returns {Object} Update result
+ */
+export const updatePasswordService = async (userId, currentPassword, newPassword) => {
+  try {
+    console.log('🔐 Updating password for user:', userId);
+    
+    // Get current password hash
+    const [users] = await db.query(`
+      SELECT password_hash FROM users WHERE id = ?
+    `, [userId]);
+    
+    if (!users || (Array.isArray(users) && users.length === 0)) {
+      throw new CustomError('User not found', 404);
+    }
+    
+    const user = Array.isArray(users) ? users[0] : users;
+    
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isCurrentPasswordValid) {
+      throw new CustomError('Current password is incorrect', 400);
+    }
+    
+    // Hash new password
+    const saltRounds = 12;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+    
+    // Update password
+    await db.query(`
+      UPDATE users 
+      SET password_hash = ?, password_updated_at = NOW(), updatedAt = NOW()
+      WHERE id = ?
+    `, [newPasswordHash, userId]);
+    
+    return {
+      success: true,
+      message: 'Password updated successfully',
+      updated_at: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in updatePasswordService:', error);
+    throw error;
+  }
+};
+
 // ===============================================
-// ADMIN USER SERVICES
+// NOTIFICATIONS SERVICES
 // ===============================================
 
 /**
- * Get all users for admin (with filters)
- * @param {Object} filters - Filter options
- * @returns {Object} Users list with pagination
+ * Get user notifications service
+ * @param {number} userId - User ID
+ * @param {Object} options - Query options
+ * @returns {Object} User notifications
  */
-export const getAllUsers = async (filters = {}) => {
+export const getUserNotificationsService = async (userId, options = {}) => {
   try {
-    console.log('🔍 Getting all users with filters:', filters);
+    console.log('🔔 Getting notifications for user:', userId);
     
-    let whereClause = 'WHERE 1=1';
-    const queryParams = [];
+    const { page = 1, limit = 20, type, unread_only = false } = options;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
     
-    // Build dynamic WHERE clause
-    if (filters.role) {
-      whereClause += ' AND role = ?';
-      queryParams.push(filters.role);
+    let whereClause = 'WHERE user_id = ?';
+    const queryParams = [userId];
+    
+    if (type) {
+      whereClause += ' AND notification_type = ?';
+      queryParams.push(type);
     }
     
-    if (filters.membership_stage) {
-      whereClause += ' AND membership_stage = ?';
-      queryParams.push(filters.membership_stage);
-    }
-    
-    if (filters.is_member) {
-      whereClause += ' AND is_member = ?';
-      queryParams.push(filters.is_member);
-    }
-    
-    if (filters.isblocked !== undefined) {
-      whereClause += ' AND isblocked = ?';
-      queryParams.push(filters.isblocked);
-    }
-    
-    if (filters.isbanned !== undefined) {
-      whereClause += ' AND isbanned = ?';
-      queryParams.push(filters.isbanned);
-    }
-    
-    if (filters.search) {
-      whereClause += ' AND (username LIKE ? OR email LIKE ?)';
-      queryParams.push(`%${filters.search}%`, `%${filters.search}%`);
+    if (unread_only) {
+      whereClause += ' AND is_read = false';
     }
     
     // Get total count
     const [countResult] = await db.query(`
-      SELECT COUNT(*) as total FROM users ${whereClause}
+      SELECT COUNT(*) as total FROM notifications ${whereClause}
     `, queryParams);
     
-    const total = countResult[0].total;
+    const total = (countResult && Array.isArray(countResult) && countResult[0]) ? countResult[0].total : 0;
     
-    // Get users with pagination
-    const limit = filters.limit || 50;
-    const offset = filters.offset || 0;
-    
-    const [users] = await db.query(`
+    // Get notifications with pagination
+    const [notifications] = await db.query(`
       SELECT 
-        id, username, email, phone, role, membership_stage, 
-        is_member, converse_id, createdAt, updatedAt, 
-        isblocked, isbanned, lastLogin
-      FROM users 
+        id, notification_type, title, message, data,
+        is_read, created_at, updated_at, expires_at
+      FROM notifications 
       ${whereClause}
-      ORDER BY createdAt DESC
-      LIMIT ? OFFSET ?
-    `, [...queryParams, limit, offset]);
+      ORDER BY created_at DESC
+      LIMIT ${parseInt(limit)} OFFSET ${offset}
+    `, queryParams);
+    
+    // ✅ Safe array access
+    const safeNotifications = Array.isArray(notifications) ? notifications : [];
+    
+    // Get unread count
+    const [unreadResult] = await db.query(`
+      SELECT COUNT(*) as unread_count FROM notifications 
+      WHERE user_id = ? AND is_read = false
+    `, [userId]);
+    
+    const unreadCount = (unreadResult && Array.isArray(unreadResult) && unreadResult[0]) ? unreadResult[0].unread_count : 0;
     
     return {
-      users,
-      total,
-      limit,
-      offset
+      notifications: safeNotifications.map(notif => ({
+        id: notif.id,
+        type: notif.notification_type,
+        title: notif.title,
+        message: notif.message,
+        data: notif.data ? JSON.parse(notif.data) : null,
+        is_read: !!notif.is_read,
+        created_at: notif.created_at,
+        updated_at: notif.updated_at,
+        expires_at: notif.expires_at
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: total,
+        pages: Math.ceil(total / parseInt(limit))
+      },
+      summary: {
+        total_notifications: total,
+        unread_count: unreadCount
+      }
     };
     
   } catch (error) {
-    console.error('❌ Error in getAllUsers:', error);
-    throw error;
+    console.error('❌ Error in getUserNotificationsService:', error);
+    // Return empty notifications instead of throwing
+    return {
+      notifications: [],
+      pagination: { page: 1, limit: 20, total: 0, pages: 0 },
+      summary: { total_notifications: 0, unread_count: 0 }
+    };
   }
 };
 
 /**
- * Update user by admin
+ * Mark notification as read service
  * @param {number} userId - User ID
- * @param {Object} updateData - Data to update
- * @returns {Object} Updated user profile
+ * @param {number} notificationId - Notification ID (null for mark all)
+ * @param {Object} options - Additional options
+ * @returns {Object} Update result
  */
-export const updateUserByAdmin = async (userId, updateData) => {
+export const markNotificationReadService = async (userId, notificationId, options = {}) => {
   try {
-    console.log('🔧 Admin updating user:', userId, 'with:', updateData);
+    console.log('📖 Marking notification as read:', { userId, notificationId, options });
     
-    // Validate user exists
-    const currentUser = await getUserProfileService(userId);
-    
-    // Admin can update more fields
-    const allowedFields = [
-      'username', 'email', 'phone', 'role', 'membership_stage', 
-      'is_member', 'full_membership_status', 'converse_id', 
-      'mentor_id', 'primary_class_id', 'isblocked', 'isbanned',
-      'ban_reason', 'unban_reason', 'is_identity_masked'
-    ];
-    
-    const sanitizedData = Object.fromEntries(
-      Object.entries(updateData).filter(([key]) => allowedFields.includes(key))
-    );
-    
-    if (Object.keys(sanitizedData).length === 0) {
-      throw new CustomError('No valid fields to update', 400);
+    if (options.markAll) {
+      // Mark all notifications as read for user
+      const [result] = await db.query(`
+        UPDATE notifications 
+        SET is_read = true, updated_at = NOW()
+        WHERE user_id = ? AND is_read = false
+      `, [userId]);
+      
+      const affectedRows = (result && result.affectedRows) ? result.affectedRows : 0;
+      
+      return {
+        success: true,
+        message: 'All notifications marked as read',
+        marked_count: affectedRows
+      };
+    } else {
+      // Mark specific notification as read
+      const [result] = await db.query(`
+        UPDATE notifications 
+        SET is_read = true, updated_at = NOW()
+        WHERE id = ? AND user_id = ?
+      `, [notificationId, userId]);
+      
+      if (!result || result.affectedRows === 0) {
+        throw new CustomError('Notification not found or already read', 404);
+      }
+      
+      return {
+        success: true,
+        message: 'Notification marked as read',
+        notification_id: notificationId
+      };
     }
     
-    // Build dynamic update query
-    const updateFields = Object.keys(sanitizedData).map(field => `${field} = ?`).join(', ');
-    const updateValues = Object.values(sanitizedData);
-    
-    const query = `
-      UPDATE users 
-      SET ${updateFields}, updatedAt = NOW()
-      WHERE id = ?
-    `;
-    
-    await db.query(query, [...updateValues, userId]);
-    
-    // Return updated profile
-    return await getUserProfileService(userId);
-    
   } catch (error) {
-    console.error('❌ Error in updateUserByAdmin:', error);
+    console.error('❌ Error in markNotificationReadService:', error);
     throw error;
   }
 };
 
+// ===============================================
+// ACTIVITY SERVICES
+// ===============================================
+
 /**
- * Get all users for admin export
- * @returns {Array} All users data
+ * Get user activity service
+ * @param {number} userId - User ID
+ * @param {Object} options - Query options
+ * @returns {Object} User activity data
  */
-export const getAllUsersForAdmin = async () => {
+export const getUserActivityService = async (userId, options = {}) => {
   try {
-    console.log('📊 Getting all users for admin export');
+    console.log('📊 Getting activity for user:', userId);
     
-    const [users] = await db.query(`
+    const { page = 1, limit = 20, type } = options;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Get activity statistics
+    const [stats] = await db.query(`
       SELECT 
-        id, username, email, phone, role, membership_stage, 
-        is_member, full_membership_status, converse_id, 
-        createdAt, updatedAt, isblocked, isbanned, lastLogin
-      FROM users 
-      ORDER BY createdAt DESC
-    `);
+        (SELECT COUNT(*) FROM user_activities WHERE user_id = ? AND activity_type = 'login') as login_count,
+        (SELECT COUNT(*) FROM user_activities WHERE user_id = ? AND activity_type = 'content_created') as content_created_count,
+        (SELECT COUNT(*) FROM user_activities WHERE user_id = ? AND activity_type = 'comment_posted') as comment_count,
+        (SELECT MAX(created_at) FROM user_activities WHERE user_id = ?) as last_activity
+    `, [userId, userId, userId, userId]);
     
-    return users;
+    const activityStats = (Array.isArray(stats) && stats[0]) ? stats[0] : {
+      login_count: 0,
+      content_created_count: 0,
+      comment_count: 0,
+      last_activity: null
+    };
+    
+    // Get recent activity with optional type filter
+    let whereClause = 'WHERE user_id = ?';
+    const queryParams = [userId];
+    
+    if (type) {
+      whereClause += ' AND activity_type = ?';
+      queryParams.push(type);
+    }
+    
+    const [activities] = await db.query(`
+      SELECT 
+        id, activity_type, activity_data, created_at, ip_address
+      FROM user_activities 
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT ${parseInt(limit)} OFFSET ${offset}
+    `, queryParams);
+    
+    // ✅ Safe array access
+    const safeActivities = Array.isArray(activities) ? activities : [];
+    
+    return {
+      user_id: userId,
+      statistics: {
+        total_logins: activityStats.login_count || 0,
+        total_content_created: activityStats.content_created_count || 0,
+        total_comments: activityStats.comment_count || 0,
+        last_activity: activityStats.last_activity
+      },
+      recent_activity: safeActivities.map(activity => ({
+        id: activity.id,
+        type: activity.activity_type,
+        data: activity.activity_data ? JSON.parse(activity.activity_data) : null,
+        timestamp: activity.created_at,
+        ip_address: activity.ip_address
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: safeActivities.length
+      }
+    };
     
   } catch (error) {
-    console.error('❌ Error in getAllUsersForAdmin:', error);
-    throw error;
+    console.error('❌ Error in getUserActivityService:', error);
+    // Return empty activity instead of throwing
+    return {
+      user_id: userId,
+      statistics: {
+        total_logins: 0,
+        total_content_created: 0,
+        total_comments: 0,
+        last_activity: null
+      },
+      recent_activity: [],
+      pagination: { page: 1, limit: 20, total: 0 }
+    };
   }
 };
+
+/**
+ * Get user content history service
+ * @param {number} userId - User ID
+ * @param {Object} options - Query options
+ * @returns {Object} User content history
+ */
+export const getUserContentHistoryService = async (userId, options = {}) => {
+  try {
+    console.log('📚 Getting content history for user:', userId);
+    
+    const { page = 1, limit = 20 } = options;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Get content from various tables (handle missing tables gracefully)
+    let contentHistory = [];
+    
+    try {
+      // Try to get teachings
+      const [teachings] = await db.query(`
+        SELECT 
+          id, title as content_title, 'teaching' as content_type,
+          status, created_at, updated_at, is_published
+        FROM teachings 
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ${parseInt(limit)} OFFSET ${offset}
+      `, [userId]);
+      
+      const safeTeachings = Array.isArray(teachings) ? teachings : [];
+      contentHistory = contentHistory.concat(safeTeachings);
+      
+    } catch (teachingsError) {
+      console.warn('Teachings table may not exist:', teachingsError.message);
+    }
+    
+    try {
+      // Try to get chats
+      const [chats] = await db.query(`
+        SELECT 
+          id, title as content_title, 'chat' as content_type,
+          status, created_at, updated_at, is_public
+        FROM chats 
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ${parseInt(limit)} OFFSET ${offset}
+      `, [userId]);
+      
+      const safeChats = Array.isArray(chats) ? chats : [];
+      contentHistory = contentHistory.concat(safeChats);
+      
+    } catch (chatsError) {
+      console.warn('Chats table may not exist:', chatsError.message);
+    }
+    
+    try {
+      // Try to get comments
+      const [comments] = await db.query(`
+        SELECT 
+          id, SUBSTRING(content, 1, 50) as content_title, 'comment' as content_type,
+          status, created_at, updated_at, is_approved
+        FROM comments 
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ${parseInt(limit)} OFFSET ${offset}
+      `, [userId]);
+      
+      const safeComments = Array.isArray(comments) ? comments : [];
+      contentHistory = contentHistory.concat(safeComments);
+      
+    } catch (commentsError) {
+      console.warn('Comments table may not exist:', commentsError.message);
+    }
+    
+    // Sort all content by creation date
+    contentHistory.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    
+    // Apply pagination to combined results
+    const paginatedContent = contentHistory.slice(0, parseInt(limit));
+    
+    return {
+      user_id: userId,
+      content_history: paginatedContent.map(content => ({
+        id: content.id,
+        title: content.content_title,
+        type: content.content_type,
+        status: content.status,
+        is_published: content.is_published || content.is_public || content.is_approved || false,
+        created_at: content.created_at,
+        updated_at: content.updated_at
+      })),
+      summary: {
+        total_content: contentHistory.length,
+        by_type: {
+          teachings: contentHistory.filter(c => c.content_type === 'teaching').length,
+          chats: contentHistory.filter(c => c.content_type === 'chat').length,
+          comments: contentHistory.filter(c => c.content_type === 'comment').length
+        }
+      },
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: contentHistory.length
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in getUserContentHistoryService:', error);
+    // Return empty content history instead of throwing
+    return {
+      user_id: userId,
+      content_history: [],
+      summary: {
+        total_content: 0,
+        by_type: { teachings: 0, chats: 0, comments: 0 }
+      },
+      pagination: { page: 1, limit: 20, total: 0 }
+    };
+  }
+};
+
+// ===============================================
+// ADMIN HELPER SERVICES
+// ===============================================
 
 /**
  * Get all mentors for admin
@@ -525,160 +753,14 @@ export const getAllMentorsForAdmin = async () => {
       ORDER BY role, username
     `);
     
-    return mentors;
+    return Array.isArray(mentors) ? mentors : [];
     
   } catch (error) {
     console.error('❌ Error in getAllMentorsForAdmin:', error);
-    throw error;
-  }
-};
-
-/**
- * Get user statistics for admin dashboard
- * @returns {Object} User statistics
- */
-export const getUserStats = async () => {
-  try {
-    console.log('📊 Getting user statistics');
-    
-    const [stats] = await db.query(`
-      SELECT 
-        COUNT(*) as total_users,
-        COUNT(CASE WHEN role = 'admin' THEN 1 END) as total_admins,
-        COUNT(CASE WHEN role = 'super_admin' THEN 1 END) as total_super_admins,
-        COUNT(CASE WHEN role = 'mentor' THEN 1 END) as total_mentors,
-        COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END) as pre_members,
-        COUNT(CASE WHEN membership_stage = 'member' THEN 1 END) as full_members,
-        COUNT(CASE WHEN membership_stage = 'applicant' THEN 1 END) as applicants,
-        COUNT(CASE WHEN isblocked = 1 THEN 1 END) as blocked_users,
-        COUNT(CASE WHEN isbanned = 1 THEN 1 END) as banned_users,
-        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as new_users_30_days,
-        COUNT(CASE WHEN lastLogin >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_users_7_days
-      FROM users
-    `);
-    
-    return {
-      user_counts: {
-        total: stats[0].total_users,
-        admins: stats[0].total_admins,
-        super_admins: stats[0].total_super_admins,
-        mentors: stats[0].total_mentors,
-        pre_members: stats[0].pre_members,
-        full_members: stats[0].full_members,
-        applicants: stats[0].applicants
-      },
-      user_status: {
-        blocked: stats[0].blocked_users,
-        banned: stats[0].banned_users
-      },
-      activity_metrics: {
-        new_users_30_days: stats[0].new_users_30_days,
-        active_users_7_days: stats[0].active_users_7_days
-      },
-      generated_at: new Date().toISOString()
-    };
-    
-  } catch (error) {
-    console.error('❌ Error in getUserStats:', error);
-    throw error;
-  }
-};
-
-/**
- * Get membership overview statistics
- * @returns {Object} Membership statistics
- */
-export const getMembershipOverviewStats = async () => {
-  try {
-    console.log('📊 Getting membership overview stats');
-    
-    const [membershipStats] = await db.query(`
-      SELECT 
-        COUNT(CASE WHEN sl.approval_status = 'pending' THEN 1 END) as pending_initial_applications,
-        COUNT(CASE WHEN sl.approval_status = 'approved' THEN 1 END) as approved_initial_applications,
-        COUNT(CASE WHEN sl.approval_status = 'declined' THEN 1 END) as declined_initial_applications,
-        COUNT(CASE WHEN fma.status = 'pending' THEN 1 END) as pending_full_applications,
-        COUNT(CASE WHEN fma.status = 'approved' THEN 1 END) as approved_full_applications,
-        COUNT(CASE WHEN fma.status = 'declined' THEN 1 END) as declined_full_applications
-      FROM users u
-      LEFT JOIN surveylog sl ON u.id = sl.user_id 
-        AND sl.application_type = 'initial_application'
-      LEFT JOIN full_membership_applications fma ON u.id = fma.user_id
-    `);
-    
-    return {
-      initial_applications: {
-        pending: membershipStats[0].pending_initial_applications,
-        approved: membershipStats[0].approved_initial_applications,
-        declined: membershipStats[0].declined_initial_applications
-      },
-      full_membership_applications: {
-        pending: membershipStats[0].pending_full_applications,
-        approved: membershipStats[0].approved_full_applications,
-        declined: membershipStats[0].declined_full_applications
-      },
-      generated_at: new Date().toISOString()
-    };
-    
-  } catch (error) {
-    console.error('❌ Error in getMembershipOverviewStats:', error);
-    throw error;
-  }
-};
-
-/**
- * Get all classes for admin
- * @returns {Array} Classes data
- */
-export const getAllClasses = async () => {
-  try {
-    console.log('🏫 Getting all classes');
-    
-    const [classes] = await db.query(`
-      SELECT 
-        id, class_id, class_name, class_type, 
-        created_by, createdAt, updatedAt
-      FROM classes 
-      ORDER BY class_name
-    `);
-    
-    return classes;
-    
-  } catch (error) {
-    console.error('❌ Error in getAllClasses:', error);
-    // Return empty array instead of throwing to prevent breaking the app
     return [];
   }
 };
 
-// ===============================================
-// HELPER FUNCTIONS
-// ===============================================
-
-/**
- * Get user by ID (simple version)
- * @param {number} userId - User ID
- * @returns {Object} Basic user data
- */
-export const getUserById = async (userId) => {
-  try {
-    const [users] = await db.query(`
-      SELECT id, username, email, role, membership_stage, is_member, converse_id
-      FROM users 
-      WHERE id = ?
-    `, [userId]);
-    
-    if (users.length === 0) {
-      throw new CustomError('User not found', 404);
-    }
-    
-    return users[0];
-    
-  } catch (error) {
-    console.error('❌ Error in getUserById:', error);
-    throw error;
-  }
-};
 
 // ===============================================
 // EXPORT ALL SERVICES
@@ -688,18 +770,21 @@ export default {
   // Profile services
   getUserProfileService,
   updateUserProfileService,
-  deleteUser,
-  getUserActivity,
+  deleteUserService,
   
-  // Admin services
-  getAllUsers,
-  updateUserByAdmin,
-  getAllUsersForAdmin,
-  getAllMentorsForAdmin,
-  getUserStats,
-  getMembershipOverviewStats,
-  getAllClasses,
+  // Settings services
+  getUserSettingsService,
+  updateUserSettingsService,
+  updatePasswordService,
   
-  // Helper functions
-  getUserById
+  // Notifications services
+  getUserNotificationsService,
+  markNotificationReadService,
+  
+  // Activity services
+  getUserActivityService,
+  getUserContentHistoryService,
+  
+  // Admin helper services
+  getAllMentorsForAdmin
 };

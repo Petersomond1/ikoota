@@ -23289,6 +23289,4160 @@ export const useUploadCommentFiles = () => {
 
 
 
+// ikootaclient/src/components/admin/FullMembershipReviewControls.jsx
+// COMPLETELY FIXED VERSION - Direct API integration without custom fetch wrapper
+
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
+import api from '../service/api'; // Use the fixed api service
+import './FullMembershipReviewControls.css';
+
+const FullMembershipReviewControls = () => {
+  const [selectedApplications, setSelectedApplications] = useState([]);
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('pending');
+  const [searchTerm, setSearchTerm] = useState('');
+  const queryClient = useQueryClient();
+  const location = useLocation();
+
+  // Detect if we're in admin context
+  const isInAdminContext = location.pathname.includes('/admin');
+
+  // Add context class to body for CSS targeting
+  useEffect(() => {
+    const bodyClass = 'full-membership-review-in-admin';
+    
+    if (isInAdminContext) {
+      document.body.classList.add(bodyClass);
+    } else {
+      document.body.classList.remove(bodyClass);
+    }
+
+    return () => {
+      document.body.classList.remove(bodyClass);
+    };
+  }, [isInAdminContext]);
+
+  // ✅ FIXED: Direct API calls using the axios instance
+  const testAdminEndpoints = async () => {
+    try {
+      console.log('🧪 Testing admin endpoints...');
+      
+      // Test 1: Simple admin test endpoint
+      console.log('🧪 Testing admin test endpoint...');
+      const testResponse = await api.get('/admin/membership/test');
+      console.log('✅ Admin test response:', testResponse.data);
+
+      // Test 2: Applications endpoint
+      console.log('🧪 Testing applications endpoint...');
+      const appsResponse = await api.get('/admin/membership/applications?status=pending');
+      console.log('✅ Applications response:', appsResponse.data);
+
+      // Test 3: Stats endpoint
+      console.log('🧪 Testing stats endpoint...');
+      const statsResponse = await api.get('/admin/membership/full-membership-stats');
+      console.log('✅ Stats response:', statsResponse.data);
+
+    } catch (error) {
+      console.error('❌ Admin endpoint test failed:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        url: error.url
+      });
+    }
+  };
+
+  // ✅ Run tests on component mount (development only)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🧪 Running admin endpoint tests...');
+      testAdminEndpoints();
+    }
+  }, []); // Empty dependency array means run once on mount
+
+  // ✅ FIXED: Applications query using direct axios calls
+  const { 
+    data: applicationsData, 
+    isLoading: applicationsLoading, 
+    error: applicationsError, 
+    refetch: refetchApplications 
+  } = useQuery({
+    queryKey: ['admin', 'membership', 'applications', filterStatus],
+    queryFn: async () => {
+      try {
+        console.log('🔍 QUERY: Fetching applications with status:', filterStatus);
+        
+        const response = await api.get(`/admin/membership/applications?status=${filterStatus}`);
+        console.log("✅ SUCCESS: Applications response:", response.data);
+        
+        // Handle your backend response structure
+        if (response.data?.success && response.data?.data) {
+          return Array.isArray(response.data.data) ? response.data.data : [];
+        } else if (Array.isArray(response.data)) {
+          return response.data;
+        } else {
+          console.warn('⚠️ Unexpected response structure:', response.data);
+          return [];
+        }
+        
+      } catch (error) {
+        console.error('❌ Applications query failed:', error);
+        throw error; // Let React Query handle the error
+      }
+    },
+    retry: 2,
+    retryDelay: 1000,
+    initialData: [],
+    keepPreviousData: true
+  });
+
+  // ✅ FIXED: Stats query using direct axios calls
+  const { 
+    data: stats, 
+    isLoading: statsLoading, 
+    error: statsError 
+  } = useQuery({
+    queryKey: ['admin', 'membership', 'stats'],
+    queryFn: async () => {
+      try {
+        console.log('🔍 QUERY: Fetching membership stats');
+        
+        const response = await api.get('/admin/membership/full-membership-stats');
+        console.log("✅ STATS SUCCESS: Response:", response.data);
+        
+        // Handle your backend response structure
+        if (response.data?.success && response.data?.data) {
+          return response.data.data;
+        } else if (response.data?.pending !== undefined) {
+          // Direct stats object
+          return {
+            pending: response.data.pending || 0,
+            approved: response.data.approved || 0,
+            declined: response.data.declined || 0,
+            suspended: response.data.suspended || 0,
+            total: response.data.total || 0
+          };
+        } else {
+          console.warn('⚠️ Unexpected stats response:', response.data);
+          return { pending: 0, approved: 0, declined: 0, suspended: 0, total: 0 };
+        }
+        
+      } catch (error) {
+        console.error('❌ Stats query failed:', error);
+        return { pending: 0, approved: 0, declined: 0, suspended: 0, total: 0 };
+      }
+    },
+    retry: 1,
+    retryDelay: 1000,
+    initialData: { pending: 0, approved: 0, declined: 0, suspended: 0, total: 0 }
+  });
+
+  // ✅ Ensure applications is always an array
+  const applications = React.useMemo(() => {
+    if (!applicationsData) {
+      console.log('📋 No applications data, returning empty array');
+      return [];
+    }
+    
+    if (Array.isArray(applicationsData)) {
+      console.log('📋 Applications is array with', applicationsData.length, 'items');
+      return applicationsData;
+    }
+    
+    console.warn('⚠️ Applications data is not array:', applicationsData);
+    return [];
+  }, [applicationsData]);
+
+  // ✅ FIXED: Review mutation using direct axios calls
+  const reviewMutation = useMutation({
+    mutationFn: async ({ applicationId, decision, notes }) => {
+      console.log('🔍 REVIEW: Reviewing application:', { applicationId, decision, notes });
+      
+      const response = await api.put(`/admin/membership/applications/${applicationId}/review`, {
+        status: decision, 
+        adminNotes: notes || ''
+      });
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      console.log('✅ Application review completed:', variables);
+      queryClient.invalidateQueries(['admin', 'membership']);
+      setSelectedApplications([]);
+      alert(`Application ${variables.decision}d successfully!`);
+    },
+    onError: (error) => {
+      console.error('❌ Error reviewing application:', error);
+      const errorMessage = error.message || 'Unknown error';
+      alert('Failed to review application: ' + errorMessage);
+    }
+  });
+
+  // ✅ FIXED: Bulk review mutation using direct axios calls
+  const bulkReviewMutation = useMutation({
+    mutationFn: async ({ applicationIds, decision, notes }) => {
+      console.log('🔍 BULK: Bulk reviewing applications:', { applicationIds, decision, notes });
+      
+      const response = await api.post('/admin/membership/applications/bulk-review', {
+        applicationIds, 
+        decision, 
+        notes: notes || '' 
+      });
+      return response.data;
+    },
+    onSuccess: (data, variables) => {
+      console.log('✅ Bulk review completed:', variables);
+      queryClient.invalidateQueries(['admin', 'membership']);
+      setSelectedApplications([]);
+      alert(`${variables.applicationIds.length} applications ${variables.decision}d successfully!`);
+    },
+    onError: (error) => {
+      console.error('❌ Error in bulk review:', error);
+      const errorMessage = error.message || 'Unknown error';
+      alert('Failed to bulk review: ' + errorMessage);
+    }
+  });
+
+  // Handle individual review
+  const handleReview = (applicationId, decision, notes = '') => {
+    if (!applicationId) {
+      alert('Invalid application ID');
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to ${decision} this application?`;
+    if (window.confirm(confirmMessage)) {
+      reviewMutation.mutate({ applicationId, decision, notes });
+    }
+  };
+
+  // Handle bulk review
+  const handleBulkReview = (decision, notes = '') => {
+    if (selectedApplications.length === 0) {
+      alert('Please select applications to review');
+      return;
+    }
+    
+    const confirmMessage = `Are you sure you want to ${decision} ${selectedApplications.length} application(s)?`;
+    if (window.confirm(confirmMessage)) {
+      bulkReviewMutation.mutate({ 
+        applicationIds: selectedApplications, 
+        decision, 
+        notes 
+      });
+    }
+  };
+
+  // Toggle application selection
+  const toggleSelection = (applicationId) => {
+    setSelectedApplications(prev => 
+      prev.includes(applicationId)
+        ? prev.filter(id => id !== applicationId)
+        : [...prev, applicationId]
+    );
+  };
+
+  // Select all applications
+  const selectAll = () => {
+    if (filteredApplications && filteredApplications.length > 0) {
+      const allIds = filteredApplications.map(app => app.id || app.user_id);
+      setSelectedApplications(allIds);
+    }
+  };
+
+  // Clear selection
+  const clearSelection = () => {
+    setSelectedApplications([]);
+  };
+
+  // ✅ Enhanced application answers rendering
+  const renderApplicationAnswers = (answers) => {
+    try {
+      if (!answers) {
+        return (
+          <div className="no-answers">
+            <em>No answers provided</em>
+          </div>
+        );
+      }
+
+      let parsedAnswers;
+
+      // Handle string JSON data
+      if (typeof answers === 'string') {
+        try {
+          parsedAnswers = JSON.parse(answers);
+        } catch (parseError) {
+          return (
+            <div className="invalid-answers">
+              <strong>Application Response:</strong>
+              <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
+                {answers}
+              </pre>
+            </div>
+          );
+        }
+      } else {
+        parsedAnswers = answers;
+      }
+
+      // Handle array format (most common)
+      if (Array.isArray(parsedAnswers)) {
+        return (
+          <div className="full-membership-answers">
+            {parsedAnswers.map((answer, index) => (
+              <div key={index} className="answer-item">
+                <div className="question-label">
+                  <strong>Question {index + 1}:</strong>
+                </div>
+                <div className="answer-value">
+                  {answer || 'No response provided'}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // Handle object format
+      if (typeof parsedAnswers === 'object') {
+        return (
+          <div className="full-membership-answers-object">
+            {Object.entries(parsedAnswers).map(([key, value], index) => (
+              <div key={index} className="answer-item">
+                <div className="question-label">
+                  <strong>{formatQuestionLabel(key)}:</strong>
+                </div>
+                <div className="answer-value">
+                  {formatAnswerValue(value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // Fallback
+      return (
+        <div className="fallback-answers">
+          <strong>Application Response:</strong>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
+            {JSON.stringify(parsedAnswers, null, 2)}
+          </pre>
+        </div>
+      );
+
+    } catch (error) {
+      console.error('❌ Error rendering answers:', error);
+      return (
+        <div className="error-answers">
+          <em style={{ color: 'red' }}>Error displaying answers: {error.message}</em>
+        </div>
+      );
+    }
+  };
+
+  // Helper function to format question labels
+  const formatQuestionLabel = (questionKey) => {
+    const labelMap = {
+      whyFullMembership: 'Why do you want full membership?',
+      contributionPlans: 'How will you contribute as a full member?',
+      educationalGoals: 'What are your educational goals?',
+      communityInvolvement: 'How do you plan to be involved in the community?',
+      previousExperience: 'Previous relevant experience?',
+      availability: 'What is your availability?',
+      specialSkills: 'What special skills do you bring?',
+      mentorshipInterest: 'Interest in mentoring others?',
+      researchInterests: 'Research interests and areas of expertise?',
+      collaborationStyle: 'Preferred collaboration style?'
+    };
+
+    return labelMap[questionKey] || 
+           questionKey.charAt(0).toUpperCase() + questionKey.slice(1);
+  };
+
+  // Helper function to format answer values
+  const formatAnswerValue = (answer) => {
+    if (answer === true || answer === 'true') {
+      return <span style={{ color: 'green' }}>✅ Yes</span>;
+    }
+    if (answer === false || answer === 'false') {
+      return <span style={{ color: 'red' }}>❌ No</span>;
+    }
+    if (!answer || answer === '') {
+      return <em style={{ color: '#888' }}>Not provided</em>;
+    }
+    return answer;
+  };
+
+  // ✅ Filter applications
+  const filteredApplications = React.useMemo(() => {
+    if (!Array.isArray(applications)) {
+      return [];
+    }
+    
+    return applications.filter(app => {
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      
+      // Check various possible field names for compatibility
+      const searchableFields = [
+        app?.email,
+        app?.username,
+        app?.membership_ticket
+      ].filter(Boolean);
+      
+      // Check if any field contains the search term
+      const fieldMatch = searchableFields.some(field => 
+        field.toLowerCase().includes(searchLower)
+      );
+      
+      return fieldMatch;
+    });
+  }, [applications, searchTerm]);
+
+  if (applicationsLoading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading membership applications...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="membership-review-container">
+      {/* Context-aware header */}
+      <div className="review-header">
+        <h2>Full Membership Review</h2>
+        {isInAdminContext && (
+          <small style={{ fontSize: '0.8rem', color: '#666', marginLeft: '10px' }}>
+            (Admin Panel - Pre-member → Member Applications)
+          </small>
+        )}
+        
+        {/* ✅ Enhanced error display with debugging info */}
+        {applicationsError && (
+          <div style={{ backgroundColor: '#fee', padding: '10px', borderRadius: '5px', marginTop: '10px', border: '1px solid #fcc' }}>
+            <details>
+              <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
+                ⚠️ API Error: {applicationsError.message}
+              </summary>
+              <div style={{ marginTop: '10px', fontSize: '0.9em' }}>
+                <p><strong>Debugging Information:</strong></p>
+                <ul>
+                  <li>Error Type: {applicationsError.name}</li>
+                  <li>Error Message: {applicationsError.message}</li>
+                  <li>Status Code: {applicationsError.status}</li>
+                  <li>URL: {applicationsError.url}</li>
+                  <li>Applications Count: {applications.length}</li>
+                  <li>Current Filter: {filterStatus}</li>
+                </ul>
+                <button 
+                  onClick={() => refetchApplications()} 
+                  style={{ marginTop: '10px', padding: '5px 10px' }}
+                >
+                  🔄 Retry Fetch
+                </button>
+              </div>
+            </details>
+          </div>
+        )}
+        
+        {/* Stats Overview */}
+        {stats && !statsError && (
+          <div className="stats-overview">
+            <div className="stat-card">
+              <h4>Pending</h4>
+              <span className="stat-number">{stats?.pending || 0}</span>
+            </div>
+            <div className="stat-card">
+              <h4>Approved</h4>
+              <span className="stat-number approved">{stats?.approved || 0}</span>
+            </div>
+            <div className="stat-card">
+              <h4>Declined</h4>
+              <span className="stat-number declined">{stats?.declined || 0}</span>
+            </div>
+            <div className="stat-card">
+              <h4>Total</h4>
+              <span className="stat-number">{stats?.total || 0}</span>
+            </div>
+          </div>
+        )}
+
+        {statsError && (
+          <div style={{ backgroundColor: '#fff3cd', padding: '10px', borderRadius: '5px', marginTop: '10px' }}>
+            <small>⚠️ Stats temporarily unavailable: {statsError.message}</small>
+          </div>
+        )}
+      </div>
+
+      {/* Enhanced Controls */}
+      <div className="review-controls">
+        <div className="control-group">
+          <label>Filter by Status:</label>
+          <select 
+            value={filterStatus} 
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="status-filter"
+          >
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="declined">Declined</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+
+        <div className="control-group">
+          <label>Search Applications:</label>
+          <input
+            type="text"
+            placeholder="Search by email, name, ticket..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Bulk Actions */}
+        {selectedApplications.length > 0 && (
+          <div className="bulk-actions">
+            <span className="selection-count">
+              {selectedApplications.length} selected
+            </span>
+            <button 
+              onClick={() => handleBulkReview('approved')}
+              className="bulk-btn approve-btn"
+              disabled={bulkReviewMutation.isPending}
+            >
+              Approve Selected
+            </button>
+            <button 
+              onClick={() => handleBulkReview('declined')}
+              className="bulk-btn decline-btn"
+              disabled={bulkReviewMutation.isPending}
+            >
+              Decline Selected
+            </button>
+            <button onClick={clearSelection} className="bulk-btn clear-btn">
+              Clear Selection
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Selection Controls */}
+      <div className="selection-controls">
+        <button onClick={selectAll} className="select-all-btn">
+          Select All ({filteredApplications.length})
+        </button>
+        <button onClick={clearSelection} className="clear-selection-btn">
+          Clear Selection
+        </button>
+      </div>
+
+      {/* Applications List */}
+      <div className="applications-list">
+        {filteredApplications.length === 0 ? (
+          <div className="no-applications">
+            <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📋</div>
+            <h4>No Full Membership Applications</h4>
+            <p>No applications found for the current filters.</p>
+            <div style={{ marginTop: '20px', fontSize: '0.9em', color: '#666' }}>
+              <p><strong>Debug Info:</strong></p>
+              <ul style={{ textAlign: 'left', display: 'inline-block' }}>
+                <li>Raw applications data: {Array.isArray(applications) ? `Array(${applications.length})` : typeof applications}</li>
+                <li>Current filter: "{filterStatus}"</li>
+                <li>Search term: "{searchTerm}"</li>
+                <li>Has error: {!!applicationsError}</li>
+                <li>Is loading: {applicationsLoading}</li>
+              </ul>
+              <button 
+                onClick={() => refetchApplications()}
+                style={{ marginTop: '10px', padding: '5px 10px', fontSize: '0.8em' }}
+              >
+                🔄 Retry Fetch
+              </button>
+              <button 
+                onClick={() => testAdminEndpoints()}
+                style={{ marginTop: '10px', marginLeft: '10px', padding: '5px 10px', fontSize: '0.8em' }}
+              >
+                🧪 Test Admin APIs
+              </button>
+            </div>
+          </div>
+        ) : (
+          filteredApplications.map((application) => (
+            <EnhancedApplicationCard
+              key={application.id || application.user_id}
+              application={application}
+              isSelected={selectedApplications.includes(application.id || application.user_id)}
+              onToggleSelection={() => toggleSelection(application.id || application.user_id)}
+              onReview={handleReview}
+              isReviewing={reviewMutation.isPending}
+              renderAnswers={renderApplicationAnswers}
+              selectedForDetails={selectedApplication}
+              onToggleDetails={setSelectedApplication}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Loading states */}
+      {(reviewMutation.isPending || bulkReviewMutation.isPending) && (
+        <div className="review-loading-overlay">
+          <div className="loading-spinner"></div>
+          <p>
+            {reviewMutation.isPending && 'Processing review...'}
+            {bulkReviewMutation.isPending && 'Processing bulk review...'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ✅ Enhanced Application Card Component
+const EnhancedApplicationCard = ({ 
+  application, 
+  isSelected, 
+  onToggleSelection, 
+  onReview, 
+  isReviewing,
+  renderAnswers,
+  selectedForDetails,
+  onToggleDetails
+}) => {
+  const [reviewNotes, setReviewNotes] = useState('');
+  const applicationId = application.id || application.user_id;
+  const showDetails = selectedForDetails === applicationId;
+
+  return (
+    <div className={`application-card ${isSelected ? 'selected' : ''}`}>
+      <div className="application-header">
+        <div className="application-info">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onToggleSelection}
+            className="selection-checkbox"
+          />
+          <div className="user-info">
+            <h4>
+              {application.username || 'Unknown User'}
+              <span style={{ fontSize: '0.8em', color: '#666', marginLeft: '10px' }}>
+                #{applicationId}
+              </span>
+            </h4>
+            <p className="user-email">{application.email}</p>
+            <p className="submission-date">
+              Submitted: {
+                application.submittedAt ? new Date(application.submittedAt).toLocaleDateString() : 
+                'Unknown date'
+              }
+            </p>
+            {application.membership_ticket && (
+              <p style={{ margin: '0', color: '#666', fontSize: '0.8em' }}>
+                <strong>Ticket:</strong> 
+                <span style={{ 
+                  fontFamily: 'monospace', 
+                  backgroundColor: '#f0f0f0', 
+                  padding: '2px 6px', 
+                  borderRadius: '3px',
+                  marginLeft: '5px'
+                }}>
+                  {application.membership_ticket}
+                </span>
+              </p>
+            )}
+          </div>
+        </div>
+        
+        <div className="application-status">
+          <span className={`status-badge ${application.status || 'pending'}`}>
+            {(application.status || 'pending').toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      {/* Enhanced application answers display */}
+      <div className="application-answers-section">
+        <h5>📝 Application Responses:</h5>
+        {renderAnswers(application.answers)}
+      </div>
+
+      <div className="application-actions">
+        <button 
+          onClick={() => onToggleDetails(showDetails ? null : applicationId)}
+          className="toggle-details-btn"
+        >
+          {showDetails ? 'Hide Details' : 'Show Details'}
+        </button>
+        
+        {(application.status === 'pending' || !application.status) && (
+          <div className="review-actions">
+            <button 
+              onClick={() => onReview(applicationId, 'approved', reviewNotes)}
+              className="approve-btn"
+              disabled={isReviewing}
+            >
+              {isReviewing ? '⏳ Processing...' : '✅ Approve'}
+            </button>
+            <button 
+              onClick={() => onReview(applicationId, 'declined', reviewNotes)}
+              className="decline-btn"
+              disabled={isReviewing}
+            >
+              {isReviewing ? '⏳ Processing...' : '❌ Decline'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {showDetails && (
+        <div className="application-details">
+          <h5>Full Application Details:</h5>
+          <div className="review-notes-section">
+            <label>Review Notes:</label>
+            <textarea
+              value={reviewNotes}
+              onChange={(e) => setReviewNotes(e.target.value)}
+              placeholder="Add notes for this review..."
+              className="review-notes-input"
+            />
+          </div>
+          <details style={{ marginTop: '15px' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>Raw Application Data</summary>
+            <pre style={{ 
+              whiteSpace: 'pre-wrap', 
+              fontSize: '0.85em',
+              maxHeight: '300px',
+              overflow: 'auto',
+              backgroundColor: '#f8f9fa',
+              padding: '10px',
+              borderRadius: '4px',
+              marginTop: '10px'
+            }}>
+              {JSON.stringify(application, null, 2)}
+            </pre>
+          </details>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default FullMembershipReviewControls;
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+// ikootaclient/src/components/admin/UserManagement.jsx
+// OPTIMIZED VERSION - Reduced API calls and improved performance
+
+import React, { useState, useMemo, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../service/api';
+import './userManagement.css';
+import { 
+  generateUniqueConverseId, 
+  generateRandomId, 
+  validateIdFormat, 
+  formatIdForDisplay 
+} from '../service/idGenerationService';
+
+// ==================================================
+// OPTIMIZED API FUNCTIONS WITH BETTER ERROR HANDLING
+// ==================================================
+
+// Optimized API calls with better error handling and caching
+const fetchMembershipOverview = async () => {
+  try {
+    const { data } = await api.get('/admin/membership/overview');
+    return data?.overview || data || {};
+  } catch (error) {
+    console.error('❌ Error fetching membership overview:', error);
+    throw new Error('Failed to fetch membership overview');
+  }
+};
+
+const fetchPendingApplications = async (filters = {}) => {
+  try {
+    const params = new URLSearchParams(filters);
+    const { data } = await api.get(`/admin/membership/applications?${params}`);
+    return data || { applications: [], pagination: { total: 0, page: 1, totalPages: 1 } };
+  } catch (error) {
+    console.error('❌ Error fetching pending applications:', error);
+    return { applications: [], pagination: { total: 0, page: 1, totalPages: 1 } };
+  }
+};
+
+const fetchUsers = async () => {
+  try {
+    const { data } = await api.get('/admin/users/');
+    
+    // Handle different response formats safely
+    if (data?.success && Array.isArray(data.users)) {
+      return data.users;
+    }
+    if (data?.users && Array.isArray(data.users)) {
+      return data.users;
+    }
+    if (Array.isArray(data)) {
+      return data;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('❌ Error fetching users:', error);
+    return [];
+  }
+};
+
+const fetchReports = async () => {
+  try {
+    const { data } = await api.get('/content/admin/reports');
+    
+    // Handle different response formats safely
+    if (data?.success && Array.isArray(data.data)) {
+      return data.data;
+    }
+    if (data?.reports && Array.isArray(data.reports)) {
+      return data.reports;
+    }
+    if (Array.isArray(data)) {
+      return data;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('❌ Error fetching reports:', error);
+    return [];
+  }
+};
+
+const fetchClasses = async () => {
+  try {
+    const { data } = await api.get('/classes/');
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('❌ Error fetching classes:', error);
+    return [];
+  }
+};
+
+const fetchMentors = async () => {
+  try {
+    const { data } = await api.get('/admin/users/mentors');
+    return Array.isArray(data?.mentors) ? data.mentors : [];
+  } catch (error) {
+    console.error('❌ Error fetching mentors:', error);
+    return [];
+  }
+};
+
+// REMOVED: fetchPendingCount - we'll get this from overview instead
+
+// ==================================================
+// OPTIMIZED QUERY CONFIGURATIONS
+// ==================================================
+
+const QUERY_CONFIG = {
+  // Longer stale times to reduce unnecessary refetches
+  users: {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 15 * 60 * 1000, // 15 minutes
+    refetchInterval: false, // Stop automatic polling
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    retry: 2
+  },
+  overview: {
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    retry: 2
+  },
+  reports: {
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    retry: 2
+  },
+  applications: {
+    staleTime: 1 * 60 * 1000, // 1 minute (more frequent for pending items)
+    cacheTime: 5 * 60 * 1000, // 5 minutes
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    retry: 2
+  },
+  static: {
+    staleTime: 10 * 60 * 1000, // 10 minutes for classes/mentors
+    cacheTime: 30 * 60 * 1000, // 30 minutes
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    retry: 1
+  }
+};
+
+// ==================================================
+// MAIN COMPONENT - OPTIMIZED
+// ==================================================
+
+const UserManagement = () => {
+  const queryClient = useQueryClient();
+  
+  // State management
+  const [activeTab, setActiveTab] = useState('membership_overview');
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [filters, setFilters] = useState({
+    page: 1,
+    limit: 20,
+    search: '',
+    sortBy: 'submittedAt',
+    sortOrder: 'ASC'
+  });
+
+  // ===== OPTIMIZED REACT QUERY HOOKS =====
+
+  // Users query with optimized config
+  const { 
+    data: rawUsers, 
+    isLoading: usersLoading, 
+    isError: usersError, 
+    error: usersErrorData 
+  } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+    ...QUERY_CONFIG.users,
+    onError: (error) => {
+      console.error('❌ Users query error:', error);
+    }
+  });
+
+  // Overview query - replaces the constant polling of pending-count
+  const { 
+    data: membershipOverview, 
+    isLoading: overviewLoading, 
+    error: overviewError 
+  } = useQuery({
+    queryKey: ['membershipOverview'],
+    queryFn: fetchMembershipOverview,
+    ...QUERY_CONFIG.overview
+  });
+
+  // Reports query with optimized config
+  const { 
+    data: rawReports, 
+    isLoading: reportsLoading, 
+    error: reportsError 
+  } = useQuery({
+    queryKey: ['reports'],
+    queryFn: fetchReports,
+    ...QUERY_CONFIG.reports,
+    onError: (error) => {
+      console.error('❌ Reports query error:', error);
+    }
+  });
+
+  // Applications query - only fetch when needed
+  const { 
+    data: pendingApplications, 
+    isLoading: applicationsLoading, 
+    error: applicationsError 
+  } = useQuery({
+    queryKey: ['pendingApplications', activeTab, filters],
+    queryFn: () => fetchPendingApplications({
+      ...filters,
+      stage: activeTab === 'membership_pending' ? 'initial' : 'full_membership'
+    }),
+    enabled: activeTab === 'membership_pending' || activeTab === 'membership_full',
+    ...QUERY_CONFIG.applications
+  });
+
+  // Static data queries - least frequent updates
+  const { data: classes } = useQuery({
+    queryKey: ['classes'],
+    queryFn: fetchClasses,
+    ...QUERY_CONFIG.static
+  });
+
+  const { data: mentors } = useQuery({
+    queryKey: ['mentors'],
+    queryFn: fetchMentors,
+    ...QUERY_CONFIG.static
+  });
+
+  // ===== MEMOIZED DATA PROCESSING =====
+
+  const users = useMemo(() => {
+    if (!rawUsers) return [];
+    if (Array.isArray(rawUsers)) return rawUsers;
+    if (rawUsers.users && Array.isArray(rawUsers.users)) return rawUsers.users;
+    return [];
+  }, [rawUsers]);
+
+  const reports = useMemo(() => {
+    if (!rawReports) return [];
+    if (Array.isArray(rawReports)) return rawReports;
+    if (rawReports.reports && Array.isArray(rawReports.reports)) return rawReports.reports;
+    return [];
+  }, [rawReports]);
+
+  // Memoized statistics to reduce calculations
+  const statistics = useMemo(() => {
+    return {
+      totalUsers: users?.length || 0,
+      activeMembers: users?.filter(u => u?.is_member === 'granted').length || 0,
+      pendingApplications: users?.filter(u => u?.is_member === 'applied').length || 0,
+      totalReports: reports?.length || 0,
+      pendingReports: reports?.filter(r => r?.status === 'pending').length || 0
+    };
+  }, [users, reports]);
+
+  const filteredUsers = useMemo(() => {
+    try {
+      const userArray = Array.isArray(users) ? users : [];
+      
+      switch (activeTab) {
+        case 'legacy_pending':
+          return userArray.filter(user => user?.is_member === 'applied');
+        case 'legacy_granted':
+          return userArray.filter(user => user?.is_member === 'granted');
+        case 'legacy_declined':
+          return userArray.filter(user => user?.is_member === 'declined');
+        default:
+          return userArray;
+      }
+    } catch (error) {
+      console.error('❌ Error filtering users:', error);
+      return [];
+    }
+  }, [users, activeTab]);
+
+  // ===== OPTIMIZED EVENT HANDLERS =====
+
+  // Throttled refresh function to prevent excessive API calls
+  const handleRefreshData = useCallback(() => {
+    // Only invalidate queries that are currently needed
+    const queriesToInvalidate = ['users', 'membershipOverview', 'reports'];
+    
+    if (activeTab === 'membership_pending' || activeTab === 'membership_full') {
+      queriesToInvalidate.push('pendingApplications');
+    }
+    
+    queriesToInvalidate.forEach(queryKey => {
+      queryClient.invalidateQueries([queryKey]);
+    });
+    
+    alert('Data refreshed successfully!');
+  }, [queryClient, activeTab]);
+
+  const handleTabChange = useCallback((newTab) => {
+    try {
+      setActiveTab(newTab);
+      setSelectedUsers([]);
+      
+      // Pre-fetch data for the new tab if needed
+      if (newTab === 'membership_pending' || newTab === 'membership_full') {
+        queryClient.prefetchQuery({
+          queryKey: ['pendingApplications', newTab, filters],
+          queryFn: () => fetchPendingApplications({
+            ...filters,
+            stage: newTab === 'membership_pending' ? 'initial' : 'full_membership'
+          }),
+          ...QUERY_CONFIG.applications
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error changing tab:', error);
+    }
+  }, [queryClient, filters]);
+
+  // ===== UTILITY FUNCTIONS =====
+
+  const formatUserDisplayName = useCallback((user) => {
+    if (!user) return 'Unknown User';
+    if (user.is_identity_masked && user.converse_id) {
+      return user.converse_id;
+    }
+    return user.username || user.email || 'Unknown User';
+  }, []);
+
+  const getStatusBadgeClass = useCallback((status) => {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+      case 'granted':
+        return 'status-success';
+      case 'rejected':
+      case 'declined':
+        return 'status-danger';
+      case 'pending':
+      case 'applied':
+        return 'status-warning';
+      default:
+        return 'status-default';
+    }
+  }, []);
+
+  // ===== ERROR BOUNDARY =====
+  
+  if (usersError && reportsError) {
+    return (
+      <div className="user-management-container">
+        <div className="error-state major">
+          <div className="error-icon">⚠️</div>
+          <h3>System Error</h3>
+          <p>Unable to load essential data. Please try refreshing the page.</p>
+          <div className="error-actions">
+            <button onClick={handleRefreshData} className="btn-retry">
+              🔄 Retry
+            </button>
+            <button onClick={() => window.location.reload()} className="btn-reload">
+              🔃 Reload Page
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ===== MAIN RENDER =====
+
+  return (
+    <div className="user-management-container">
+      <div className="header-section">
+        <h2>User Management System</h2>
+        <div className="header-actions">
+          <button onClick={handleRefreshData} className="btn-refresh">
+            🔄 Refresh Data
+          </button>
+          <div className="last-updated">
+            Last updated: {new Date().toLocaleTimeString()}
+          </div>
+        </div>
+      </div>
+
+      {/* Optimized Tab Navigation with Real-time Counts */}
+      <div className="tab-navigation">
+        <button 
+          className={`tab-btn ${activeTab === 'membership_overview' ? 'active' : ''}`} 
+          onClick={() => handleTabChange('membership_overview')}
+        >
+          <span>Overview</span>
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'membership_pending' ? 'active' : ''}`} 
+          onClick={() => handleTabChange('membership_pending')}
+        >
+          <span>Pending Applications</span>
+          <span className="tab-count">({statistics.pendingApplications})</span>
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'all_users' ? 'active' : ''}`} 
+          onClick={() => handleTabChange('all_users')}
+        >
+          <span>All Users</span>
+          <span className="tab-count">({statistics.totalUsers})</span>
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'reports' ? 'active' : ''}`} 
+          onClick={() => handleTabChange('reports')}
+        >
+          <span>Reports</span>
+          <span className="tab-count">({statistics.totalReports})</span>
+        </button>
+      </div>
+
+      {/* ===== OVERVIEW TAB ===== */}
+      {activeTab === 'membership_overview' && (
+        <div className="overview-section">
+          <h3>System Overview</h3>
+          {overviewLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Loading overview...</p>
+            </div>
+          ) : overviewError ? (
+            <div className="error-state">
+              <p>Error loading overview: {overviewError.message}</p>
+            </div>
+          ) : (
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon">👥</div>
+                <div className="stat-content">
+                  <h4>Total Users</h4>
+                  <span className="stat-number">{statistics.totalUsers}</span>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">✅</div>
+                <div className="stat-content">
+                  <h4>Active Members</h4>
+                  <span className="stat-number">{statistics.activeMembers}</span>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">⏳</div>
+                <div className="stat-content">
+                  <h4>Pending Applications</h4>
+                  <span className="stat-number">{statistics.pendingApplications}</span>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">📊</div>
+                <div className="stat-content">
+                  <h4>Active Reports</h4>
+                  <span className="stat-number">{statistics.pendingReports}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== ALL USERS TAB ===== */}
+      {activeTab === 'all_users' && (
+        <div className="all-users-section">
+          <div className="section-header">
+            <h3>All Users ({statistics.totalUsers})</h3>
+          </div>
+          
+          {usersLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Loading users...</p>
+            </div>
+          ) : usersError ? (
+            <div className="error-state">
+              <div className="error-icon">⚠️</div>
+              <p>Error loading users: {usersErrorData?.message || 'Unknown error'}</p>
+              <button 
+                onClick={() => queryClient.invalidateQueries(['users'])}
+                className="retry-btn"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : !users?.length ? (
+            <div className="empty-state">
+              <div className="empty-icon">👥</div>
+              <h4>No Users Found</h4>
+              <p>No users are registered in the system yet.</p>
+            </div>
+          ) : (
+            <div className="users-table-container">
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id} className="user-row">
+                      <td className="user-cell">
+                        <div className="user-info">
+                          <div className="user-avatar small">
+                            {(user.username || 'U').charAt(0).toUpperCase()}
+                          </div>
+                          <div className="user-details">
+                            <span className="username">{formatUserDisplayName(user)}</span>
+                            <span className="user-id">ID: {user.id}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="email-cell">{user.email}</td>
+                      <td className="role-cell">
+                        <span className={`role-badge role-${user.role}`}>{user.role}</span>
+                      </td>
+                      <td className="status-cell">
+                        <span className={`status-badge ${getStatusBadgeClass(user.is_member)}`}>
+                          {user.is_member}
+                        </span>
+                        {user.isblocked && <span className="status-badge blocked">Blocked</span>}
+                        {user.isbanned && <span className="status-badge banned">Banned</span>}
+                      </td>
+                      <td className="joined-cell">
+                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== REPORTS TAB ===== */}
+      {activeTab === 'reports' && (
+        <div className="reports-section">
+          <div className="section-header">
+            <h3>User Reports ({statistics.totalReports})</h3>
+          </div>
+          
+          {reportsLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Loading reports...</p>
+            </div>
+          ) : reportsError ? (
+            <div className="error-state">
+              <div className="error-icon">⚠️</div>
+              <p>Error loading reports: {reportsError.message}</p>
+              <button 
+                onClick={() => queryClient.invalidateQueries(['reports'])}
+                className="retry-btn"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : !reports?.length ? (
+            <div className="empty-state">
+              <div className="empty-icon">📋</div>
+              <h4>No Reports Found</h4>
+              <p>No user reports have been submitted yet.</p>
+            </div>
+          ) : (
+            <div className="reports-list">
+              {reports.map(report => (
+                <div key={report.id} className="report-card">
+                  <div className="report-header">
+                    <span className="report-id">Report #{report.id}</span>
+                    <span className={`status-badge ${getStatusBadgeClass(report.status)}`}>
+                      {report.status}
+                    </span>
+                    <span className="report-date">
+                      {new Date(report.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="report-content">
+                    <p><strong>Reporter:</strong> {report.reporter_id}</p>
+                    <p><strong>Reported User:</strong> {report.reported_id}</p>
+                    <p><strong>Reason:</strong> {report.reason}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== PENDING APPLICATIONS TAB ===== */}
+      {activeTab === 'membership_pending' && (
+        <div className="pending-applications-section">
+          <div className="section-header">
+            <h3>Pending Applications ({pendingApplications?.pagination?.total || 0})</h3>
+          </div>
+          
+          {applicationsLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <p>Loading applications...</p>
+            </div>
+          ) : applicationsError ? (
+            <div className="error-state">
+              <div className="error-icon">⚠️</div>
+              <p>Error loading applications: {applicationsError.message}</p>
+              <button 
+                onClick={() => queryClient.invalidateQueries(['pendingApplications'])}
+                className="retry-btn"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : !pendingApplications?.applications?.length ? (
+            <div className="empty-state">
+              <div className="empty-icon">📋</div>
+              <h4>No Applications Found</h4>
+              <p>No pending applications at this time.</p>
+            </div>
+          ) : (
+            <div className="applications-list">
+              {pendingApplications.applications.map((application) => (
+                <div key={application.application_id} className="application-card">
+                  <div className="application-header">
+                    <div className="user-info">
+                      <h4 className="username">{application.username}</h4>
+                      <p className="email">{application.email}</p>
+                      <span className="user-id">ID: {application.user_id}</span>
+                    </div>
+                    
+                    <div className="application-meta">
+                      <div className="timing-info">
+                        <span className="days-pending">
+                          {application.days_pending} day{application.days_pending !== 1 ? 's' : ''} pending
+                        </span>
+                        <span className="submitted-date">
+                          Submitted: {new Date(application.submittedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <span className={`status-badge ${getStatusBadgeClass(application.status)}`}>
+                        {application.status}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="application-details">
+                    <div className="detail-grid">
+                      <div className="detail-item">
+                        <strong>Stage:</strong> 
+                        <span>{application.membership_stage || 'Initial Application'}</span>
+                      </div>
+                      {application.application_ticket && (
+                        <div className="detail-item">
+                          <strong>Ticket:</strong> 
+                          <span className="ticket-number">{application.application_ticket}</span>
+                        </div>
+                      )}
+                      {application.admin_notes && (
+                        <div className="detail-item">
+                          <strong>Admin Notes:</strong> 
+                          <span className="admin-note">{application.admin_notes}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="application-actions">
+                    <button 
+                      onClick={() => console.log('Approve', application.user_id)}
+                      className="btn-approve"
+                      title="Approve this application"
+                    >
+                      <span className="btn-icon">✅</span>
+                      Approve
+                    </button>
+                    <button 
+                      onClick={() => console.log('Reject', application.user_id)}
+                      className="btn-reject"
+                      title="Reject this application"
+                    >
+                      <span className="btn-icon">❌</span>
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Footer with Optimized Statistics */}
+      <div className="footer-info">
+        <div className="system-stats">
+          <span>Total Users: {statistics.totalUsers}</span>
+          <span>•</span>
+          <span>Active Members: {statistics.activeMembers}</span>
+          <span>•</span>
+          <span>Pending Reports: {statistics.pendingReports}</span>
+          <span>•</span>
+          <span>Last Updated: {new Date().toLocaleTimeString()}</span>
+        </div>
+        <div className="version-info">
+          <small>User Management System v3.1 - Performance Optimized</small>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default UserManagement;
+
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+// ikootaclient/src/components/admin/Sidebar.jsx
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import api from '../service/api';
+import './sidbar.css';
+
+const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) => {
+  const location = useLocation();
+
+  // ✅ FIXED: Use correct endpoint based on your backend routes
+  const { data: pendingFullMembershipCount } = useQuery({
+    queryKey: ['pendingFullMembershipCount'],
+    queryFn: async () => {
+      try {
+        // Option 1: Use the full membership stats endpoint
+        const { data } = await api.get('/membership/admin/full-membership-stats', { 
+          withCredentials: true 
+        });
+        return data?.data?.pending_full_applications || data?.pending_full_applications || 0;
+      } catch (error) {
+        console.error('Failed to fetch pending full membership count:', error);
+        
+        // Option 2: Fallback to applications endpoint with filtering
+        try {
+          const { data: fallbackData } = await api.get('/membership/admin/applications?status=pending&type=full_membership', { 
+            withCredentials: true 
+          });
+          return fallbackData?.data?.pagination?.total_items || 0;
+        } catch (fallbackError) {
+          console.error('Fallback API call also failed:', fallbackError);
+          
+          // Option 3: Final fallback - return 0 but log for debugging
+          console.log('📊 Using fallback count of 0 for pending full memberships');
+          return 0;
+        }
+      }
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+    retry: 1
+  });
+
+  // ✅ UPDATED: Add Full Membership Review to sidebar items
+  const sidebarItems = [
+    { name: 'Dashboard', to: '', label: 'Dashboard', icon: '📊' },
+    { name: 'Towncrier', to: 'towncrier', label: 'Towncrier', icon: '📢' },
+    { name: 'Towncrier Controls', to: 'towncriercontrols', label: 'Towncrier Controls', icon: '🎛️' },
+    { name: 'Iko', to: 'iko', label: 'Iko', icon: '🤖' },
+    { name: 'Iko Controls', to: 'ikocontrols', label: 'Iko Controls', icon: '⚙️' },
+    { name: 'AuthControls', to: 'authcontrols', label: 'AuthControls', icon: '🔐' },
+    { name: 'SearchControls', to: 'searchcontrols', label: 'SearchControls', icon: '🔍' },
+    { name: 'Reports', to: 'reports', label: 'Reports', icon: '📈' },
+    { name: 'UserManagement', to: 'usermanagement', label: 'UserManagement', icon: '👥' },
+    { name: 'AudienceClassMgr', to: 'audienceclassmgr', label: 'AudienceClassMgr', icon: '🎯' },
+    // ✅ ADD: Full Membership Review item
+    {
+      name: 'Full Membership Review',
+      to: 'full-membership-review',
+      label: 'Full Membership Review',
+      icon: '🎓',
+      badge: pendingFullMembershipCount // Add badge count
+    }
+  ];
+
+  const handleItemClick = (itemName) => {
+    setSelectedItem(itemName);
+    
+    // Close mobile menu when item is clicked on mobile
+    if (isMobile && closeMobileMenu) {
+      setTimeout(() => {
+        closeMobileMenu();
+      }, 150); // Small delay for better UX
+    }
+  };
+
+  return (
+    <div className="admin_sidebar">
+      {sidebarItems.map((item) => (
+        <Link
+          key={item.name}
+          to={item.to}
+          className={`admin_sidebar_item ${selectedItem === item.name ? 'active' : ''}`}
+          onClick={() => handleItemClick(item.name)}
+          data-discover="true"
+        >
+          {/* Icon */}
+          <span className="sidebar-icon" style={{ marginRight: '8px' }}>
+            {item.icon}
+          </span>
+          
+          {/* Label */}
+          <span className="sidebar-label">
+            {item.label}
+          </span>
+          
+          {/* ✅ ADD: Badge for pending count */}
+          {item.badge && item.badge > 0 && (
+            <span className="sidebar-badge">
+              {item.badge}
+            </span>
+          )}
+        </Link>
+      ))}
+    </div>
+  );
+};
+
+export default Sidebar;
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+// ikootaclient/src/components/admin/Dashboard.jsx
+import KeyStats from './KeyStats';
+import PendingReports from './PendingReports';
+import Analytics from './Analytics';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import api from '../service/api';
+
+// ✅ FIXED: Update API functions to use correct endpoints
+const fetchMembershipAnalytics = async (period = '30d') => {
+  try {
+    // Use the correct endpoint from your backend routes
+    const { data } = await api.get(`/membership/admin/analytics?period=${period}&detailed=true`);
+    return data?.data || data; // Handle nested data structure
+  } catch (error) {
+    console.error('Failed to fetch membership analytics:', error);
+    // Return empty structure instead of throwing
+    return {
+      conversionFunnel: {
+        total_registrations: 0,
+        started_application: 0,
+        approved_initial: 0,
+        full_members: 0
+      },
+      timeSeries: []
+    };
+  }
+};
+
+const fetchMembershipStats = async () => {
+  try {
+    // Use the correct endpoint from your backend routes
+    const { data } = await api.get('/membership/admin/stats');
+    return data?.data || data; // Handle nested data structure
+  } catch (error) {
+    console.error('Failed to fetch membership stats:', error);
+    return {
+      stats: {
+        total_users: 0,
+        new_registrations: 0,
+        conversion_to_pre_member: 0,
+        conversion_to_full_member: 0,
+        avg_approval_days: 0
+      }
+    };
+  }
+};
+
+// ✅ FIXED: Use correct endpoint for full membership stats
+const fetchFullMembershipStats = async () => {
+  try {
+    const { data } = await api.get('/membership/admin/full-membership-stats');
+    return data?.data || data; // Handle nested data structure
+  } catch (error) {
+    console.error('Failed to fetch full membership stats:', error);
+    return {
+      pending_full_applications: 0,
+      approved_full_applications: 0,
+      declined_full_applications: 0,
+      total_full_applications: 0,
+      avg_full_processing_days: 0
+    };
+  }
+};
+
+// ✅ FIXED: Add function to fetch pending count specifically
+const fetchPendingCount = async () => {
+  try {
+    // Use the applications endpoint with filtering
+    const { data } = await api.get('/membership/admin/applications?status=pending');
+    const responseData = data?.data || data;
+    return {
+      pending_initial: responseData?.applications?.filter(app => app.application_type === 'initial_application')?.length || 0,
+      pending_full: responseData?.applications?.filter(app => app.application_type === 'full_membership')?.length || 0,
+      total_pending: responseData?.pagination?.total_items || 0
+    };
+  } catch (error) {
+    console.error('Failed to fetch pending count:', error);
+    return {
+      pending_initial: 0,
+      pending_full: 0,
+      total_pending: 0
+    };
+  }
+};
+
+const Dashboard = () => {
+  const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
+
+  // ✅ FIXED: Update queries to use correct endpoints
+  const { data: auditLogs, isLoading: auditLoading, error: auditError } = useQuery({
+    queryKey: ['auditLogs'],
+    queryFn: async () => {
+      try {
+        const { data } = await api.get('/content/admin/audit-logs');
+        return data;
+      } catch (error) {
+        console.error('Failed to fetch audit logs:', error);
+        return [];
+      }
+    },
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+  });
+
+  const { data: membershipAnalytics, isLoading: analyticsLoading, error: analyticsError } = useQuery({
+    queryKey: ['membershipAnalytics', analyticsPeriod],
+    queryFn: () => fetchMembershipAnalytics(analyticsPeriod),
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+  });
+
+  const { data: membershipStats, isLoading: statsLoading, error: statsError } = useQuery({
+    queryKey: ['membershipStats'],
+    queryFn: fetchMembershipStats,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+  });
+
+  const { data: fullMembershipStats, isLoading: fullMembershipLoading, error: fullMembershipError } = useQuery({
+    queryKey: ['fullMembershipStats'],
+    queryFn: fetchFullMembershipStats,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchInterval: 60000
+  });
+
+  // ✅ ADD: Query for pending counts
+  const { data: pendingCounts, isLoading: pendingCountsLoading, error: pendingCountsError } = useQuery({
+    queryKey: ['pendingCounts'],
+    queryFn: fetchPendingCount,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchInterval: 30000 // Refresh every 30 seconds
+  });
+
+  // Helper function for safe access
+  const safeAccess = (obj, path, fallback = 0) => {
+    try {
+      return path.split('.').reduce((current, key) => current?.[key], obj) ?? fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  return (
+    <div className="dashboard">
+      <h2>Admin Dashboard</h2>
+      
+      {/* Existing components */}
+      <KeyStats />
+      
+      {/* ✅ UPDATED: Full Membership Stats Section with correct data */}
+      <div className="full-membership-stats-section">
+        <h3>Full Membership Overview</h3>
+        
+        {fullMembershipError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Full membership stats temporarily unavailable.</span>
+          </div>
+        )}
+
+        {fullMembershipLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading full membership stats...</p>
+          </div>
+        ) : (
+          <div className="full-membership-cards">
+            <div className="stat-card pending">
+              <div className="stat-icon">⏳</div>
+              <div className="stat-content">
+                <h4>Pending Full Membership</h4>
+                <span className="stat-number">
+                  {fullMembershipStats?.pending_full_applications || 
+                   pendingCounts?.pending_full || 0}
+                </span>
+                <small>Applications awaiting review</small>
+              </div>
+            </div>
+            
+            <div className="stat-card approved">
+              <div className="stat-icon">✅</div>
+              <div className="stat-content">
+                <h4>Approved This Month</h4>
+                <span className="stat-number">
+                  {fullMembershipStats?.approved_full_applications || 0}
+                </span>
+                <small>New full members</small>
+              </div>
+            </div>
+            
+            <div className="stat-card declined">
+              <div className="stat-icon">❌</div>
+              <div className="stat-content">
+                <h4>Declined This Month</h4>
+                <span className="stat-number">
+                  {fullMembershipStats?.declined_full_applications || 0}
+                </span>
+                <small>Applications declined</small>
+              </div>
+            </div>
+            
+            <div className="stat-card total">
+              <div className="stat-icon">📊</div>
+              <div className="stat-content">
+                <h4>Total Applications</h4>
+                <span className="stat-number">
+                  {fullMembershipStats?.total_full_applications || 0}
+                </span>
+                <small>All time applications</small>
+              </div>
+            </div>
+            
+            <div className="stat-card review-time">
+              <div className="stat-icon">⏱️</div>
+              <div className="stat-content">
+                <h4>Avg Review Time</h4>
+                <span className="stat-number">
+                  {(fullMembershipStats?.avg_full_processing_days || 0).toFixed(1)}
+                </span>
+                <small>Days to review</small>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* ✅ UPDATED: Quick Actions with correct links */}
+        <div className="quick-actions">
+          <h4>Quick Actions</h4>
+          <div className="action-buttons">
+            <a href="/admin/full-membership-review" className="action-btn primary">
+              🎓 Review Applications ({fullMembershipStats?.pending_full_applications || pendingCounts?.pending_full || 0})
+            </a>
+            <a href="/admin/usermanagement" className="action-btn secondary">
+              👥 Manage Users
+            </a>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="action-btn tertiary"
+            >
+              🔄 Refresh Stats
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Rest of the component remains the same */}
+      {/* Enhanced Membership Analytics Section with Error Handling */}
+      <div className="membership-analytics-section">
+        <h3>Membership Analytics</h3>
+        
+        <div className="period-selector">
+          <label>Time Period:</label>
+          <select 
+            value={analyticsPeriod} 
+            onChange={(e) => setAnalyticsPeriod(e.target.value)}
+          >
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="90d">Last 90 Days</option>
+            <option value="1y">Last Year</option>
+          </select>
+        </div>
+
+        {/* Error States */}
+        {analyticsError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Analytics temporarily unavailable. Some features may be limited.</span>
+          </div>
+        )}
+
+        {analyticsLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading analytics...</p>
+          </div>
+        ) : (
+          <div className="analytics-grid">
+            {/* Safe Conversion Funnel */}
+            <div className="funnel-chart">
+              <h4>Membership Conversion Funnel</h4>
+              <div className="funnel-steps">
+                <div className="funnel-step">
+                  <span className="step-label">Total Registrations</span>
+                  <span className="step-value">
+                    {safeAccess(membershipAnalytics, 'conversionFunnel.total_registrations')}
+                  </span>
+                </div>
+                <div className="funnel-step">
+                  <span className="step-label">Started Application</span>
+                  <span className="step-value">
+                    {safeAccess(membershipAnalytics, 'conversionFunnel.started_application')}
+                  </span>
+                  <span className="step-percentage">
+                    {membershipAnalytics?.conversionFunnel?.total_registrations > 0 
+                      ? ((safeAccess(membershipAnalytics, 'conversionFunnel.started_application') / 
+                          safeAccess(membershipAnalytics, 'conversionFunnel.total_registrations')) * 100).toFixed(1)
+                      : 0}%
+                  </span>
+                </div>
+                <div className="funnel-step">
+                  <span className="step-label">Approved Initial</span>
+                  <span className="step-value">
+                    {safeAccess(membershipAnalytics, 'conversionFunnel.approved_initial')}
+                  </span>
+                  <span className="step-percentage">
+                    {membershipAnalytics?.conversionFunnel?.started_application > 0 
+                      ? ((safeAccess(membershipAnalytics, 'conversionFunnel.approved_initial') / 
+                          safeAccess(membershipAnalytics, 'conversionFunnel.started_application')) * 100).toFixed(1)
+                      : 0}%
+                  </span>
+                </div>
+                <div className="funnel-step">
+                  <span className="step-label">Full Members</span>
+                  <span className="step-value">
+                    {safeAccess(membershipAnalytics, 'conversionFunnel.full_members')}
+                  </span>
+                  <span className="step-percentage">
+                    {membershipAnalytics?.conversionFunnel?.approved_initial > 0 
+                      ? ((safeAccess(membershipAnalytics, 'conversionFunnel.full_members') / 
+                          safeAccess(membershipAnalytics, 'conversionFunnel.approved_initial')) * 100).toFixed(1)
+                      : 0}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Safe Time Series Chart */}
+            <div className="time-series-chart">
+              <h4>Registration & Approval Trends</h4>
+              <div className="chart-container">
+                <div className="simple-chart">
+                  {membershipAnalytics?.timeSeries?.length > 0 ? (
+                    membershipAnalytics.timeSeries.map((point, index) => (
+                      <div key={index} className="chart-point">
+                        <span>{new Date(point.date).toLocaleDateString()}</span>
+                        <span>Registrations: {point.registrations || 0}</span>
+                        <span>Approvals: {point.approvals || 0}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="no-data">No trend data available</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Safe Membership Stats Overview */}
+        {statsError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Stats temporarily unavailable.</span>
+          </div>
+        )}
+
+        {statsLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading stats...</p>
+          </div>
+        ) : (
+          <div className="membership-stats">
+            <h4>Current Status Distribution</h4>
+            <div className="stats-breakdown">
+              <div className="stat-item">
+                <span>Total Users:</span>
+                <span>{safeAccess(membershipStats, 'stats.total_users')}</span>
+              </div>
+              <div className="stat-item">
+                <span>New Registrations ({analyticsPeriod}):</span>
+                <span>{safeAccess(membershipStats, 'stats.new_registrations')}</span>
+              </div>
+              <div className="stat-item">
+                <span>Pre-Members:</span>
+                <span>{safeAccess(membershipStats, 'stats.conversion_to_pre_member')}</span>
+              </div>
+              <div className="stat-item">
+                <span>Full Members:</span>
+                <span>{safeAccess(membershipStats, 'stats.conversion_to_full_member')}</span>
+              </div>
+              <div className="stat-item">
+                <span>Avg. Approval Time:</span>
+                <span>{safeAccess(membershipStats, 'stats.avg_approval_days', 0).toFixed(1)} days</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Existing components */}
+      <Analytics />
+      <PendingReports />
+
+      {/* Safe Audit Logs */}
+      <div className="audit-logs-section">
+        <h3>Audit Logs</h3>
+        
+        {auditError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Audit logs temporarily unavailable.</span>
+          </div>
+        )}
+
+        {auditLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading audit logs...</p>
+          </div>
+        ) : (
+          <div className="audit-table-container">
+            {auditLogs?.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Details</th>
+                    <th>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.map(log => (
+                    <tr key={log.id}>
+                      <td>{log.action || 'N/A'}</td>
+                      <td>{log.target_id || 'N/A'}</td>
+                      <td>{log.details || 'N/A'}</td>
+                      <td>{log.updatedAt ? new Date(log.updatedAt).toLocaleString() : 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="no-data">No audit logs available</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+// ikootaclient/src/components/admin/Admin.jsx
+import React, { useState, useEffect } from 'react';
+import './admin.css';
+import Navbar from './Navbar';
+import Sidebar from './Sidebar';
+import { Outlet, useLocation } from "react-router-dom";
+import FullMembershipReviewControls from './FullMembershipReviewControls';
+
+const Admin = () => {
+  const [selectedItem, setSelectedItem] = useState('Dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const location = useLocation();
+
+  // Check if device is mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+      // Close mobile menu when switching to desktop
+      if (window.innerWidth > 768) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Update selected item based on current route
+  useEffect(() => {
+    const path = location.pathname;
+    
+    if (path === '/admin' || path === '/admin/') {
+      setSelectedItem('Dashboard');
+    } else if (path.includes('towncrier')) {
+      setSelectedItem(path.includes('controls') ? 'Towncrier Controls' : 'Towncrier');
+    } else if (path.includes('iko')) {
+      setSelectedItem(path.includes('controls') ? 'Iko Controls' : 'Iko');
+    } else if (path.includes('authcontrols')) {
+      setSelectedItem('AuthControls');
+    } else if (path.includes('searchcontrols')) {
+      setSelectedItem('SearchControls');
+    } else if (path.includes('reports')) {
+      setSelectedItem('Reports');
+    } else if (path.includes('usermanagement')) {
+      setSelectedItem('UserManagement');
+    } else if (path.includes('audienceclassmgr')) {
+      setSelectedItem('AudienceClassMgr');
+    } else if (path.includes('full-membership-review')) {
+      // ✅ ADD: Handle full membership review route
+      setSelectedItem('Full Membership Review');
+    }
+  }, [location.pathname]);
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    if (isMobile) {
+      setIsMobileMenuOpen(false);
+    }
+  }, [location.pathname, isMobile]);
+
+  // Handle mobile menu toggle
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  // Handle overlay click (close menu)
+  const handleOverlayClick = () => {
+    setIsMobileMenuOpen(false);
+  };
+
+  // Handle escape key press
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isMobileMenuOpen) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isMobileMenuOpen]);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileMenuOpen]);
+
+  return (
+    <div className='adminContainer'>
+      {/* Mobile Overlay */}
+      {isMobile && (
+        <div 
+          className={`mobile-overlay ${isMobileMenuOpen ? 'active' : ''}`}
+          onClick={handleOverlayClick}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={`adminSidebar ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
+        {/* Mobile Sidebar Header */}
+        {isMobile && (
+          <div className="mobile-sidebar-header">
+            <span className="mobile-sidebar-title">Admin Menu</span>
+            <button 
+              className="mobile-close-btn"
+              onClick={toggleMobileMenu}
+              aria-label="Close menu"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        <Sidebar 
+          selectedItem={selectedItem} 
+          setSelectedItem={setSelectedItem}
+          isMobile={isMobile}
+          closeMobileMenu={() => setIsMobileMenuOpen(false)}
+        />
+      </div>
+
+      <div className='headerContent'>
+        <div className='adminNav'>
+          {/* Mobile Menu Toggle Button */}
+          {isMobile && (
+            <button 
+              className="mobile-menu-toggle"
+              onClick={toggleMobileMenu}
+              aria-label="Toggle menu"
+            >
+              ☰
+            </button>
+          )}
+          
+          {/* ✅ Navbar component now contains all action buttons */}
+          <Navbar />
+        </div>
+        
+        <div className="mainContent">
+          <Outlet />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Admin;
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+// ikootaclient/src/components/auth/Applicationsurvey.jsx - CORRECTED TO STOP AUTO REDIRECTS
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from './UserStatus';
+import './applicationSurvey.css';
+import api from '../service/api';
+import { useDynamicLabels } from '../../hooks/useDynamicLabels';
+
+
+const ApplicationSurvey = () => {
+  const navigate = useNavigate();
+  const { labels: dynamicLabels, loading: labelsLoading } = useDynamicLabels();
+  const { user, isAuthenticated } = useUser();
+  const [loading, setLoading] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [error, setError] = useState('');
+  const [currentStep, setCurrentStep] = useState(1);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const totalSteps = 4;
+
+  // ✅ ADD REFS TO PREVENT API LOOPS
+  const statusCheckRef = useRef(false);
+  const hasCheckedStatus = useRef(false);
+  const initialLoadComplete = useRef(false);
+
+  // Storage key for this user's application data
+  const STORAGE_KEY = `ikoota_application_${user?.id || 'guest'}`;
+  const STEP_STORAGE_KEY = `ikoota_application_step_${user?.id || 'guest'}`;
+
+  // Initial form data
+  const initialFormData = {
+    // Personal Information
+    fullName: '',
+    dateOfBirth: '',
+    nationality: '',
+    currentLocation: '',
+    phoneNumber: '',
+    
+    // Educational Background
+    highestEducation: '',
+    fieldOfStudy: '',
+    currentInstitution: '',
+    graduationYear: '',
+    
+    // Professional Background
+    currentOccupation: '',
+    workExperience: '',
+    professionalSkills: [],
+    careerGoals: '',
+    
+    // Interest in Ikoota
+    howDidYouHear: '',
+    reasonForJoining: '',
+    expectedContributions: '',
+    educationalGoals: '',
+    
+    // Additional Information
+    previousMemberships: '',
+    specialSkills: '',
+    languagesSpoken: [],
+    availabilityForEvents: '',
+    
+    // Agreements
+    agreeToTerms: false,
+    agreeToCodeOfConduct: false,
+    agreeToDataProcessing: false
+  };
+
+  // Form state with auto-save functionality
+  const [formData, setFormData] = useState(initialFormData);
+
+  // Load saved data from localStorage
+  const loadSavedData = useCallback(() => {
+    try {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      const savedStep = localStorage.getItem(STEP_STORAGE_KEY);
+      
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        console.log('📂 Loading saved application data:', Object.keys(parsedData).length, 'fields');
+        
+        setFormData(prev => ({
+          ...prev,
+          ...parsedData
+        }));
+        
+        const savedTime = parsedData._savedAt;
+        if (savedTime) {
+          setLastSaved(new Date(savedTime));
+        }
+      }
+      
+      if (savedStep) {
+        const stepNumber = parseInt(savedStep, 10);
+        if (stepNumber >= 1 && stepNumber <= totalSteps) {
+          setCurrentStep(stepNumber);
+          console.log('📂 Resuming from step:', stepNumber);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading saved data:', error);
+      // If there's corrupted data, clear it
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STEP_STORAGE_KEY);
+    }
+  }, [STORAGE_KEY, STEP_STORAGE_KEY, totalSteps]);
+
+  // Save data to localStorage
+  const saveToStorage = useCallback((dataToSave, stepToSave = currentStep) => {
+    try {
+      const saveData = {
+        ...dataToSave,
+        _savedAt: new Date().toISOString(),
+        _version: '1.0' // For future migrations if needed
+      };
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+      localStorage.setItem(STEP_STORAGE_KEY, stepToSave.toString());
+      setLastSaved(new Date());
+      
+      console.log('💾 Auto-saved application data');
+    } catch (error) {
+      console.error('❌ Error saving data:', error);
+      // Handle storage quota exceeded
+      if (error.name === 'QuotaExceededError') {
+        alert('Storage space is full. Please clear some browser data and try again.');
+      }
+    }
+  }, [STORAGE_KEY, STEP_STORAGE_KEY, currentStep]);
+
+  // Clear saved data
+  const clearSavedData = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STEP_STORAGE_KEY);
+    setLastSaved(null);
+    console.log('🗑️ Cleared saved application data');
+  }, [STORAGE_KEY, STEP_STORAGE_KEY]);
+
+  // ✅ FIXED: Status check with NO AUTO-REDIRECT
+  const checkApplicationStatus = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (statusCheckRef.current || hasCheckedStatus.current) {
+      console.log('🚫 Skipping status check - already in progress or completed');
+      return;
+    }
+
+    statusCheckRef.current = true;
+    hasCheckedStatus.current = true;
+
+    try {
+      console.log('🔍 Checking application status... (ONE TIME ONLY)');
+      
+      const response = await api.get('/user-status/survey/check-status');
+      console.log('✅ Response data:', response.data);
+      
+      // ✅ CRITICAL FIX: DO NOT REDIRECT IF SURVEY NOT COMPLETED
+      // Let the user stay on the survey page to complete it
+      if (response.data.survey_completed) {
+        console.log('✅ Survey already completed, redirecting to status page');
+        clearSavedData();
+        navigate('/application-status');
+        return;
+      }
+
+      // ✅ If survey not completed, let user fill it out - DON'T REDIRECT
+      console.log('📝 Survey not completed - allowing user to fill it out');
+      
+      // Only load saved data if survey not completed and we haven't loaded yet
+      if (!initialLoadComplete.current) {
+        loadSavedData();
+        initialLoadComplete.current = true;
+      }
+      
+      return response.data;
+      
+    } catch (error) {
+      console.error('❌ Error checking application status:', error);
+      // Don't block the user from continuing with their saved data
+      if (!initialLoadComplete.current) {
+        loadSavedData();
+        initialLoadComplete.current = true;
+      }
+    } finally {
+      statusCheckRef.current = false;
+    }
+  }, [clearSavedData, loadSavedData, navigate]);
+
+  // Auto-save with debouncing
+  useEffect(() => {
+    if (!user?.id || !initialLoadComplete.current) return; // Don't save if no user or not loaded
+
+    const timeoutId = setTimeout(() => {
+      setIsAutoSaving(true);
+      saveToStorage(formData, currentStep);
+      setTimeout(() => setIsAutoSaving(false), 500);
+    }, 2000); // Auto-save after 2 seconds of no changes
+
+    return () => clearTimeout(timeoutId);
+  }, [formData, currentStep, saveToStorage, user?.id]);
+
+  // ✅ FIXED: Check authentication and application status ONCE
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    // Only check status once on mount
+    if (!hasCheckedStatus.current) {
+      console.log('🚀 Applicationsurvey mounted - checking status once');
+      checkApplicationStatus();
+    }
+  }, [isAuthenticated, navigate, checkApplicationStatus]);
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    
+    setFormData(prev => {
+      let newData = { ...prev };
+      
+      if (type === 'checkbox') {
+        if (name === 'professionalSkills' || name === 'languagesSpoken') {
+          // Handle array checkboxes
+          newData[name] = checked 
+            ? [...prev[name], value]
+            : prev[name].filter(item => item !== value);
+        } else {
+          newData[name] = checked;
+        }
+      } else {
+        newData[name] = value;
+      }
+      
+      return newData;
+    });
+  };
+
+  const validateStep = (step) => {
+    const errors = [];
+    
+    switch (step) {
+      case 1: // Personal Information
+        if (!formData.fullName) errors.push('Full name is required');
+        if (!formData.dateOfBirth) errors.push('Date of birth is required');
+        if (!formData.nationality) errors.push('Nationality is required');
+        if (!formData.currentLocation) errors.push('Current location is required');
+        break;
+        
+      case 2: // Educational Background
+        if (!formData.highestEducation) errors.push('Highest education is required');
+        if (!formData.fieldOfStudy) errors.push('Field of study is required');
+        break;
+        
+      case 3: // Professional Background & Interest
+        if (!formData.currentOccupation) errors.push('Current occupation is required');
+        if (!formData.reasonForJoining) errors.push('Reason for joining is required');
+        if (!formData.educationalGoals) errors.push('Educational goals are required');
+        break;
+        
+      case 4: // Agreements
+        if (!formData.agreeToTerms) errors.push('You must agree to terms and conditions');
+        if (!formData.agreeToCodeOfConduct) errors.push('You must agree to code of conduct');
+        if (!formData.agreeToDataProcessing) errors.push('You must agree to data processing');
+        break;
+    }
+    
+    if (errors.length > 0) {
+      setError(errors.join(', '));
+      return false;
+    }
+    
+    setError('');
+    return true;
+  };
+
+  const nextStep = () => {
+    if (validateStep(currentStep)) {
+      const newStep = Math.min(currentStep + 1, totalSteps);
+      setCurrentStep(newStep);
+      // Save immediately when moving to next step
+      saveToStorage(formData, newStep);
+    }
+  };
+
+  const prevStep = () => {
+    const newStep = Math.max(currentStep - 1, 1);
+    setCurrentStep(newStep);
+    setError('');
+    // Save immediately when moving to previous step
+    saveToStorage(formData, newStep);
+  };
+
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+    
+  //   if (!validateStep(currentStep)) {
+  //     return;
+  //   }
+
+  //   setLoading(true);
+  //   setError('');
+
+  //   try {
+  //     // Prepare answers array for backend
+  //     const answers = Object.entries(formData)
+  //       .filter(([key]) => !key.startsWith('_')) // Exclude internal keys like _savedAt
+  //       .map(([key, value]) => ({
+  //         question: key,
+  //         answer: Array.isArray(value) ? value.join(', ') : value.toString()
+  //       }));
+
+  //     const response = await api.post('/membership/survey/submit-application', {
+  //       answers,
+  //       applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`
+  //     });
+
+  //     const data = response.data;
+
+  //     // Clear saved data after successful submission
+  //     clearSavedData();
+      
+  //     setSubmitSuccess(true);
+      
+  //     // Redirect to success page after delay
+  //     setTimeout(() => {
+  //       navigate('/pending-verification', {
+  //         state: {
+  //           applicationTicket: data.applicationTicket,
+  //           username: user.username
+  //         }
+  //       });
+  //     }, 3000);
+
+  //   } catch (error) {
+  //     console.error('Error submitting application:', error);
+      
+  //     if (error.response) {
+  //       setError(error.response.data?.error || error.response.data?.message || 'Failed to submit application');
+  //     } else if (error.request) {
+  //       setError('Network error. Please check your connection and try again.');
+  //     } else {
+  //       setError('An unexpected error occurred. Please try again.');
+  //     }
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  // Manual save function
+  
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateStep(currentStep)) {
+    return;
+  }
+
+  setLoading(true);
+  setError('');
+
+  try {
+    // Prepare answers array for backend
+    const answers = Object.entries(formData)
+      .filter(([key]) => !key.startsWith('_')) // Exclude internal keys like _savedAt
+      .map(([key, value]) => ({
+        question: key,
+        answer: Array.isArray(value) ? value.join(', ') : value.toString()
+      }));
+
+    const response = await api.post('/membership/survey/submit-application', {
+      answers,
+      applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`,
+      username: user.username, // ADD THIS LINE
+      userId: user.id || user.user_id // ADD THIS LINE TOO
+    });
+
+    const data = response.data;
+
+    // Clear saved data after successful submission
+    clearSavedData();
+    
+    setSubmitSuccess(true);
+    
+    // Redirect to success page after delay
+    setTimeout(() => {
+      navigate('/pending-verification', {
+        state: {
+          applicationTicket: data.applicationTicket,
+          username: user.username
+        }
+      });
+    }, 3000);
+
+  } catch (error) {
+    console.error('Error submitting application:', error);
+    
+    if (error.response) {
+      setError(error.response.data?.error || error.response.data?.message || 'Failed to submit application');
+    } else if (error.request) {
+      setError('Network error. Please check your connection and try again.');
+    } else {
+      setError('An unexpected error occurred. Please try again.');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+  
+  
+  const handleManualSave = () => {
+    setIsAutoSaving(true);
+    saveToStorage(formData, currentStep);
+    setTimeout(() => setIsAutoSaving(false), 1000);
+  };
+
+  // Clear data confirmation
+  const handleClearData = () => {
+    if (window.confirm('Are you sure you want to clear all saved data? This action cannot be undone.')) {
+      clearSavedData();
+      setFormData(initialFormData);
+      setCurrentStep(1);
+    }
+  };
+
+  // Auto-save indicator component
+  const AutoSaveIndicator = () => {
+    if (isAutoSaving) {
+      return (
+        <div className="auto-save-indicator saving">
+          <span className="save-spinner">⟳</span>
+          Saving...
+        </div>
+      );
+    }
+    
+    if (lastSaved) {
+      const timeDiff = Date.now() - lastSaved.getTime();
+      const minutes = Math.floor(timeDiff / 60000);
+      const seconds = Math.floor((timeDiff % 60000) / 1000);
+      
+      let timeText;
+      if (minutes > 0) {
+        timeText = `${minutes}m ago`;
+      } else if (seconds > 5) {
+        timeText = `${seconds}s ago`;
+      } else {
+        timeText = 'just now';
+      }
+      
+      return (
+        <div className="auto-save-indicator saved">
+          <span className="save-icon">✓</span>
+          Saved {timeText}
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
+
+ const renderStep1 = () => (
+    <div className="survey-step">
+      <h3>📋 Personal Information</h3>
+      
+      <div className="form-group">
+        <label htmlFor="fullName">{dynamicLabels.fullName} *</label>
+        <input
+          type="text"
+          id="fullName"
+          name="fullName"
+          value={formData.fullName}
+          onChange={handleInputChange}
+          placeholder="Enter your full legal name"
+          required
+        />
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor="dateOfBirth">{dynamicLabels.dateOfBirth} *</label>
+          <input
+            type="date"
+            id="dateOfBirth"
+            name="dateOfBirth"
+            value={formData.dateOfBirth}
+            onChange={handleInputChange}
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="nationality">{dynamicLabels.nationality} *</label>
+          <input
+            type="text"
+            id="nationality"
+            name="nationality"
+            value={formData.nationality}
+            onChange={handleInputChange}
+            placeholder="Your nationality"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="currentLocation">{dynamicLabels.currentLocation} *</label>
+        <input
+          type="text"
+          id="currentLocation"
+          name="currentLocation"
+          value={formData.currentLocation}
+          onChange={handleInputChange}
+          placeholder="City, Country"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="phoneNumber">{dynamicLabels.phoneNumber}</label>
+        <input
+          type="tel"
+          id="phoneNumber"
+          name="phoneNumber"
+          value={formData.phoneNumber}
+          onChange={handleInputChange}
+          placeholder="+1 (555) 123-4567"
+        />
+      </div>
+    </div>
+  );
+
+  const renderStep2 = () => (
+    <div className="survey-step">
+      <h3>🎓 Educational Background</h3>
+      
+      <div className="form-group">
+        <label htmlFor="highestEducation">{dynamicLabels.highestEducation} *</label>
+        <select
+          id="highestEducation"
+          name="highestEducation"
+          value={formData.highestEducation}
+          onChange={handleInputChange}
+          required
+        >
+          <option value="">Select your highest education</option>
+          <option value="high_school">High School</option>
+          <option value="associate">Associate Degree</option>
+          <option value="bachelor">Bachelor's Degree</option>
+          <option value="master">Master's Degree</option>
+          <option value="doctorate">Doctorate/PhD</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor="fieldOfStudy">{dynamicLabels.fieldOfStudy} *</label>
+          <input
+            type="text"
+            id="fieldOfStudy"
+            name="fieldOfStudy"
+            value={formData.fieldOfStudy}
+            onChange={handleInputChange}
+            placeholder="e.g., Computer Science, Business, etc."
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="graduationYear">{dynamicLabels.graduationYear}</label>
+          <input
+            type="number"
+            id="graduationYear"
+            name="graduationYear"
+            value={formData.graduationYear}
+            onChange={handleInputChange}
+            placeholder="YYYY"
+            min="1950"
+            max="2030"
+          />
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="currentInstitution">{dynamicLabels.currentInstitution}</label>
+        <input
+          type="text"
+          id="currentInstitution"
+          name="currentInstitution"
+          value={formData.currentInstitution}
+          onChange={handleInputChange}
+          placeholder="University or institution name"
+        />
+      </div>
+    </div>
+  );
+
+  const renderStep3 = () => (
+    <div className="survey-step">
+      <h3>💼 Professional Background & Interests</h3>
+      
+      <div className="form-group">
+        <label htmlFor="currentOccupation">{dynamicLabels.currentOccupation} *</label>
+        <input
+          type="text"
+          id="currentOccupation"
+          name="currentOccupation"
+          value={formData.currentOccupation}
+          onChange={handleInputChange}
+          placeholder="Your current job title or status"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="workExperience">{dynamicLabels.workExperience}</label>
+        <select
+          id="workExperience"
+          name="workExperience"
+          value={formData.workExperience}
+          onChange={handleInputChange}
+        >
+          <option value="">Select experience level</option>
+          <option value="0-1">0-1 years</option>
+          <option value="2-5">2-5 years</option>
+          <option value="6-10">6-10 years</option>
+          <option value="11-15">11-15 years</option>
+          <option value="16+">16+ years</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="reasonForJoining">{dynamicLabels.reasonForJoining} *</label>
+        <textarea
+          id="reasonForJoining"
+          name="reasonForJoining"
+          value={formData.reasonForJoining}
+          onChange={handleInputChange}
+          placeholder="Tell us what motivates you to join our educational community..."
+          rows="4"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="educationalGoals">{dynamicLabels.educationalGoals} *</label>
+        <textarea
+          id="educationalGoals"
+          name="educationalGoals"
+          value={formData.educationalGoals}
+          onChange={handleInputChange}
+          placeholder="Describe what you hope to learn or achieve through Ikoota..."
+          rows="4"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="expectedContributions">{dynamicLabels.expectedContributions}</label>
+        <textarea
+          id="expectedContributions"
+          name="expectedContributions"
+          value={formData.expectedContributions}
+          onChange={handleInputChange}
+          placeholder="Share your skills, knowledge, or ways you'd like to help..."
+          rows="3"
+        />
+      </div>
+    </div>
+  );
+
+  const renderStep4 = () => (
+    <div className="survey-step">
+      <h3>📄 Additional Information & Agreements</h3>
+      
+      <div className="form-group">
+        <label htmlFor="howDidYouHear">{dynamicLabels.howDidYouHear}</label>
+        <select
+          id="howDidYouHear"
+          name="howDidYouHear"
+          value={formData.howDidYouHear}
+          onChange={handleInputChange}
+        >
+          <option value="">Please select</option>
+          <option value="social_media">Social Media</option>
+          <option value="friend_referral">Friend/Colleague Referral</option>
+          <option value="web_search">Web Search</option>
+          <option value="online_community">Online Community</option>
+          <option value="educational_institution">Educational Institution</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label>{dynamicLabels.languagesSpoken}</label>
+        <div className="checkbox-group">
+          {['English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese', 'Arabic', 'Other'].map(lang => (
+            <label key={lang} className="checkbox-label">
+              <input
+                type="checkbox"
+                name="languagesSpoken"
+                value={lang}
+                checked={formData.languagesSpoken.includes(lang)}
+                onChange={handleInputChange}
+              />
+              {lang}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="agreements-section">
+        <h4>📋 Required Agreements</h4>
+        
+        <div className="agreement-item">
+          <label className="agreement-label">
+            <input
+              type="checkbox"
+              name="agreeToTerms"
+              checked={formData.agreeToTerms}
+              onChange={handleInputChange}
+              required
+            />
+            <span className="checkmark"></span>
+            {dynamicLabels.agreeToTerms} * <a href="/terms" target="_blank">(View Terms)</a>
+          </label>
+        </div>
+
+        <div className="agreement-item">
+          <label className="agreement-label">
+            <input
+              type="checkbox"
+              name="agreeToCodeOfConduct"
+              checked={formData.agreeToCodeOfConduct}
+              onChange={handleInputChange}
+              required
+            />
+            <span className="checkmark"></span>
+            {dynamicLabels.agreeToCodeOfConduct} * <a href="/code-of-conduct" target="_blank">(View Code)</a>
+          </label>
+        </div>
+
+        <div className="agreement-item">
+          <label className="agreement-label">
+            <input
+              type="checkbox"
+              name="agreeToDataProcessing"
+              checked={formData.agreeToDataProcessing}
+              onChange={handleInputChange}
+              required
+            />
+            <span className="checkmark"></span>
+            {dynamicLabels.agreeToDataProcessing} * <a href="/privacy" target="_blank">(View Policy)</a>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ✅ Show loading state while labels are being fetched
+  if (labelsLoading) {
+    return (
+      <div className="survey-container">
+        <div className="survey-card">
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <div className="loading-spinner"></div>
+            <p>Loading survey form...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+  if (submitSuccess) {
+    return (
+      <div className="survey-container">
+        <div className="survey-card success-card">
+          <div className="success-icon">🎉</div>
+          <h2>Application Submitted Successfully!</h2>
+          <p>Thank you for completing your membership application. You will be redirected shortly...</p>
+          <div className="loading-spinner"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="survey-container">
+      <div className="survey-card">
+        <div className="survey-header">
+          <div className="header-top">
+            <h1>🎯 Membership Application Survey</h1>
+            <div className="header-actions">
+              <AutoSaveIndicator />
+              <button 
+                type="button" 
+                onClick={handleManualSave}
+                className="btn-save-manual"
+                disabled={isAutoSaving}
+                title="Save progress manually"
+              >
+                💾
+              </button>
+              <button 
+                type="button" 
+                onClick={handleClearData}
+                className="btn-clear-data"
+                title="Clear all saved data"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+          <p>Help us get to know you better and understand your educational goals.</p>
+          
+          <div className="progress-bar">
+            <div className="progress-steps">
+              {[1, 2, 3, 4].map(step => (
+                <div 
+                  key={step} 
+                  className={`progress-step ${currentStep >= step ? 'active' : ''} ${currentStep > step ? 'completed' : ''}`}
+                >
+                  <span className="step-number">{step}</span>
+                  <span className="step-label">
+                    {step === 1 && 'Personal'}
+                    {step === 2 && 'Education'}
+                    {step === 3 && 'Professional'}
+                    {step === 4 && 'Agreements'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="progress-fill" style={{ width: `${(currentStep / totalSteps) * 100}%` }}></div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="survey-form">
+          {currentStep === 1 && renderStep1()}
+          {currentStep === 2 && renderStep2()}
+          {currentStep === 3 && renderStep3()}
+          {currentStep === 4 && renderStep4()}
+
+          {error && (
+            <div className="error-message">
+              <span className="error-icon">⚠️</span>
+              {error}
+            </div>
+          )}
+
+          <div className="form-navigation">
+            {currentStep > 1 && (
+              <button 
+                type="button" 
+                onClick={prevStep}
+                className="btn-secondary"
+                disabled={loading}
+              >
+                ← Previous
+              </button>
+            )}
+            
+            <div className="nav-spacer"></div>
+            
+            {currentStep < totalSteps ? (
+              <button 
+                type="button" 
+                onClick={nextStep}
+                className="btn-primary"
+                disabled={loading}
+              >
+                Next →
+              </button>
+            ) : (
+              <button 
+                type="submit" 
+                className="btn-primary submit-btn"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="loading-spinner"></span>
+                    Submitting...
+                  </>
+                ) : (
+                  '📤 Submit Application'
+                )}
+              </button>
+            )}
+          </div>
+        </form>
+
+        <div className="survey-footer">
+          <p>Step {currentStep} of {totalSteps} • All required fields marked with *</p>
+          {lastSaved && (
+            <p className="auto-save-info">
+              💾 Your progress is automatically saved as you type
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ApplicationSurvey;
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+//ikootaclient/src/components/auth/AuthControls.jsx
+import React, { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
+import api from "../service/api";
+import "./authControls.css";
+
+const AuthControls = () => {
+  const queryClient = useQueryClient();
+  const location = useLocation();
+  const [surveyQuestions, setSurveyQuestions] = useState([]);
+  const [selectedSurvey, setSelectedSurvey] = useState(null);
+  const [userRoleUpdates, setUserRoleUpdates] = useState({ userId: "", role: "" });
+
+  // ✅ Detect if we're in admin context
+  const isInAdminContext = location.pathname.includes('/admin');
+
+  // ✅ Add context class to body for CSS targeting
+  useEffect(() => {
+    const bodyClass = 'auth-controls-in-admin';
+    
+    if (isInAdminContext) {
+      document.body.classList.add(bodyClass);
+    } else {
+      document.body.classList.remove(bodyClass);
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove(bodyClass);
+    };
+  }, [isInAdminContext]);
+
+  // ✅ Fetch question labels
+  const { data: questionLabels, refetch: fetchQuestionLabels, isLoading: labelsLoading } = useQuery({
+    queryKey: ["fetchQuestionLabels"],
+    queryFn: async () => {
+      console.log('🔍 Fetching question labels...');
+      try {
+        const res = await api.get("/admin/survey/question-labels");
+        console.log("✅ Question labels response:", res.data);
+        
+        // Handle different response formats from API
+        if (res.data?.success && res.data?.data) {
+          return res.data.data; // New format: {success: true, data: {...}}
+        } else if (res.data?.labels) {
+          return res.data.labels; // Backup format with labels field
+        } else if (Array.isArray(res.data)) {
+          // Convert array to object format if needed
+          const labelsObj = {};
+          res.data.forEach((item, index) => {
+            if (typeof item === 'object' && item.label) {
+              labelsObj[item.id || `field_${index}`] = item.label;
+            }
+          });
+          return labelsObj;
+        } else if (typeof res.data === 'object') {
+          return res.data; // Direct object format
+        } else {
+          console.warn('⚠️ Unexpected labels format:', res.data);
+          return {}; // Fallback to empty object
+        }
+      } catch (error) {
+        console.error('❌ Error fetching question labels:', error);
+        return {};
+      }
+    },
+    retry: 2,
+    retryDelay: 1000,
+  });
+
+  // ✅ Fetch survey logs with enhanced error handling
+  const { 
+    data: surveys, 
+    refetch: fetchSurveyLogs, 
+    isLoading: surveysLoading,
+    error: surveysError 
+  } = useQuery({
+    queryKey: ["fetchSurveyLogs"],
+    queryFn: async () => {
+      console.log('🔍 Fetching survey logs...');
+      try {
+        const res = await api.get("/admin/survey/logs");
+        console.log("✅ Survey logs response:", res.data);
+        
+        // Handle different response formats
+        if (res.data?.success && res.data?.data) {
+          return Array.isArray(res.data.data) ? res.data.data : [];
+        } else if (Array.isArray(res.data)) {
+          return res.data; // Direct array format
+        } else if (res.data?.logs) {
+          return Array.isArray(res.data.logs) ? res.data.logs : [];
+        } else {
+          console.warn('⚠️ Unexpected survey logs format:', res.data);
+          return [];
+        }
+      } catch (error) {
+        console.error('❌ Survey logs fetch error:', error);
+        if (error.response?.status === 403) {
+          throw new Error('Admin privileges required to view survey logs');
+        }
+        throw error;
+      }
+    },
+    retry: 2,
+    retryDelay: 1000,
+    onError: (error) => {
+      console.error('❌ Survey logs query error:', error);
+    }
+  });
+
+  // ✅ Update question labels mutation
+  const { mutate: updateLabels, isLoading: updatingLabels } = useMutation({
+    mutationFn: (labels) => {
+      console.log('🔍 Updating question labels:', labels);
+      
+      if (!labels || Object.keys(labels).length === 0) {
+        throw new Error('Please provide at least one question label before saving');
+      }
+      
+      return api.put("/admin/survey/question-labels", { labels });
+    },
+    onSuccess: () => {
+      console.log('✅ Question labels updated successfully');
+      fetchQuestionLabels();
+      alert('Survey question labels updated successfully!');
+    },
+    onError: (error) => {
+      console.error('❌ Error updating question labels:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update question labels';
+      alert('Failed to update question labels: ' + errorMessage);
+    }
+  });
+
+  // ✅ Update approval status mutation
+  const { mutate: updateApprovalStatus, isLoading: updatingApproval } = useMutation({
+    mutationFn: ({ surveyId, userId, status }) => {
+      console.log('🔍 Updating approval status:', { surveyId, userId, status });
+      return api.put("/admin/survey/approve", { surveyId, userId, status });
+    },
+    onSuccess: (data, variables) => {
+      console.log('✅ Approval status updated:', variables);
+      fetchSurveyLogs();
+      alert(`Application ${variables.status} successfully!`);
+    },
+    onError: (error) => {
+      console.error('❌ Error updating approval status:', error);
+      alert('Failed to update approval status: ' + error.message);
+    }
+  });
+
+  // ✅ Update user role mutation
+  const { mutate: updateUserRole, isLoading: updatingRole } = useMutation({
+    mutationFn: ({ userId, role }) => {
+      console.log('🔍 Updating user role:', { userId, role });
+      return api.put("/admin/users/role", { userId, role });
+    },
+    onSuccess: () => {
+      console.log('✅ User role updated successfully');
+      alert("User role updated successfully.");
+      setUserRoleUpdates({ userId: "", role: "" });
+    },
+    onError: (error) => {
+      console.error('❌ Error updating user role:', error);
+      alert('Failed to update user role: ' + error.message);
+    }
+  });
+
+  // ✅ Convert question labels to editable format
+  useEffect(() => {
+    if (questionLabels) {
+      console.log('🔍 Setting question labels:', questionLabels);
+      // Convert labels object to editable array format for the UI
+      if (typeof questionLabels === 'object') {
+        const labelsArray = Object.entries(questionLabels).map(([field, label]) => ({
+          field,
+          label: typeof label === 'string' ? label : String(label)
+        }));
+        setSurveyQuestions(labelsArray.length > 0 ? labelsArray : [{ field: '', label: '' }]);
+      } else {
+        setSurveyQuestions([{ field: '', label: '' }]);
+      }
+    } else {
+      // If no labels loaded, start with one empty entry
+      setSurveyQuestions([{ field: '', label: '' }]);
+    }
+  }, [questionLabels]);
+
+  // ✅ Handle question label changes
+  const handleQuestionChange = (index, field, value) => {
+    const updatedQuestions = [...surveyQuestions];
+    updatedQuestions[index] = {
+      ...updatedQuestions[index],
+      [field]: value
+    };
+    setSurveyQuestions(updatedQuestions);
+  };
+
+  // ✅ Add new question label
+  const addQuestionLabel = () => {
+    setSurveyQuestions([...surveyQuestions, { field: '', label: '' }]);
+  };
+
+  // ✅ Remove question label
+  const removeQuestionLabel = (index) => {
+    if (surveyQuestions.length > 1) {
+      const newQuestions = surveyQuestions.filter((_, i) => i !== index);
+      setSurveyQuestions(newQuestions);
+    }
+  };
+
+  // ✅ Load current form labels from your actual form
+  const loadCurrentFormLabels = () => {
+    const currentFormLabels = [
+      { field: 'fullName', label: 'Full Name' },
+      { field: 'dateOfBirth', label: 'Date of Birth' },
+      { field: 'nationality', label: 'Nationality' },
+      { field: 'currentLocation', label: 'Current Location' },
+      { field: 'phoneNumber', label: 'Phone Number' },
+      { field: 'highestEducation', label: 'Highest Level of Education' },
+      { field: 'fieldOfStudy', label: 'Field of Study' },
+      { field: 'currentInstitution', label: 'Current/Most Recent Institution' },
+      { field: 'graduationYear', label: 'Graduation Year' },
+      { field: 'currentOccupation', label: 'Current Occupation' },
+      { field: 'workExperience', label: 'Years of Work Experience' },
+      { field: 'reasonForJoining', label: 'Why do you want to join Ikoota?' },
+      { field: 'educationalGoals', label: 'What are your educational goals?' },
+      { field: 'expectedContributions', label: 'How do you plan to contribute to the community?' },
+      { field: 'howDidYouHear', label: 'How did you hear about Ikoota?' },
+      { field: 'languagesSpoken', label: 'Languages Spoken' },
+      { field: 'agreeToTerms', label: 'I agree to the Terms and Conditions' },
+      { field: 'agreeToCodeOfConduct', label: 'I agree to follow the Community Code of Conduct' },
+      { field: 'agreeToDataProcessing', label: 'I consent to processing of my personal data' }
+    ];
+    setSurveyQuestions(currentFormLabels);
+  };
+
+  // ✅ Save question labels
+  const saveQuestionLabels = () => {
+    // Convert array format back to object format for API
+    const labelsObject = {};
+    surveyQuestions.forEach(item => {
+      if (item.field && item.field.trim() && item.label && item.label.trim()) {
+        labelsObject[item.field.trim()] = item.label.trim();
+      }
+    });
+    
+    updateLabels(labelsObject);
+  };
+
+  // ✅ Handle approval/decline actions
+  const handleApproveOrDecline = (surveyId, userId, status) => {
+    console.log('🔍 Handling approval/decline:', { surveyId, userId, status });
+    updateApprovalStatus({ surveyId, userId, status });
+  };
+
+  // ✅ Send feedback email
+  const handleSendFeedback = (email, status) => {
+    console.log('🔍 Sending feedback:', { email, status });
+    const feedbackTemplate = status === "granted" ? "approveverifyinfo" : "suspendedverifyinfo";
+    api.post("/communication/email/send", { email, template: feedbackTemplate, status })
+      .then(() => {
+        console.log('✅ Feedback sent successfully');
+        alert('Feedback email sent successfully!');
+      })
+      .catch((error) => {
+        console.error('❌ Error sending feedback:', error);
+        alert('Failed to send feedback email: ' + error.message);
+      });
+  };
+
+  // ✅ FIXED: Enhanced survey answers rendering with proper error handling
+  const renderSurveyAnswers = (answers) => {
+    try {
+      console.log('🔍 Raw answers data:', answers, typeof answers);
+      
+      if (!answers) {
+        return (
+          <div className="no-answers">
+            <em>No answers provided</em>
+          </div>
+        );
+      }
+
+      let parsedAnswers;
+
+      // Handle string JSON data
+      if (typeof answers === 'string') {
+        try {
+          parsedAnswers = JSON.parse(answers);
+        } catch (parseError) {
+          console.warn('⚠️ Error parsing JSON string:', parseError);
+          return (
+            <div className="invalid-answers">
+              <strong>Raw Answer Data:</strong>
+              <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
+                {String(answers)}
+              </pre>
+            </div>
+          );
+        }
+      } else {
+        parsedAnswers = answers;
+      }
+
+      console.log('🔍 Parsed answers:', parsedAnswers);
+
+      // Handle array of question-answer objects (new format)
+      if (Array.isArray(parsedAnswers)) {
+        // Check if it's array of objects with question/answer structure
+        if (parsedAnswers.length > 0 && typeof parsedAnswers[0] === 'object' && parsedAnswers[0].question) {
+          return (
+            <div className="survey-answers-detailed">
+              {parsedAnswers.map((item, index) => (
+                <div key={index} className="answer-item">
+                  <div className="question-label">
+                    <strong>{formatQuestionLabel(String(item.question))}:</strong>
+                  </div>
+                  <div className="answer-value">
+                    {formatAnswerValue(item.answer)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        } 
+        // Handle simple array format (old format)
+        else {
+          return (
+            <div className="survey-answers-simple">
+              <div className="answer-list">
+                {parsedAnswers.map((answer, index) => (
+                  <div key={index} className="simple-answer">
+                    <strong>Answer {index + 1}:</strong> {String(answer || 'No response')}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
+      }
+
+      // Handle object format (alternative format)
+      if (typeof parsedAnswers === 'object' && parsedAnswers !== null) {
+        return (
+          <div className="survey-answers-object">
+            {Object.entries(parsedAnswers).map(([key, value], index) => (
+              <div key={index} className="answer-item">
+                <div className="question-label">
+                  <strong>{formatQuestionLabel(String(key))}:</strong>
+                </div>
+                <div className="answer-value">
+                  {formatAnswerValue(value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      // Fallback for any other format
+      return (
+        <div className="fallback-answers">
+          <strong>Survey Response:</strong>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.9em' }}>
+            {JSON.stringify(parsedAnswers, null, 2)}
+          </pre>
+        </div>
+      );
+
+    } catch (error) {
+      console.error('❌ Critical error in renderSurveyAnswers:', error);
+      return (
+        <div className="error-answers">
+          <em style={{ color: 'red' }}>Error displaying answers: {error.message}</em>
+          <details style={{ marginTop: '10px' }}>
+            <summary>Raw Data (for debugging)</summary>
+            <pre style={{ fontSize: '0.8em', background: '#f5f5f5', padding: '10px' }}>
+              {JSON.stringify(answers, null, 2)}
+            </pre>
+          </details>
+        </div>
+      );
+    }
+  };
+
+  // ✅ Helper function to format question labels
+  const formatQuestionLabel = (questionKey) => {
+    if (!questionKey || typeof questionKey !== 'string') {
+      return 'Unknown Question';
+    }
+
+    const labelMap = {
+      fullName: 'Full Name',
+      dateOfBirth: 'Date of Birth',
+      nationality: 'Nationality',
+      currentLocation: 'Current Location',
+      phoneNumber: 'Phone Number',
+      highestEducation: 'Highest Education',
+      fieldOfStudy: 'Field of Study',
+      currentInstitution: 'Current Institution',
+      graduationYear: 'Graduation Year',
+      currentOccupation: 'Current Occupation',
+      workExperience: 'Work Experience',
+      professionalSkills: 'Professional Skills',
+      careerGoals: 'Career Goals',
+      howDidYouHear: 'How Did You Hear About Us',
+      reasonForJoining: 'Reason for Joining',
+      expectedContributions: 'Expected Contributions',
+      educationalGoals: 'Educational Goals',
+      previousMemberships: 'Previous Memberships',
+      specialSkills: 'Special Skills',
+      languagesSpoken: 'Languages Spoken',
+      availabilityForEvents: 'Availability for Events',
+      agreeToTerms: 'Agree to Terms',
+      agreeToCodeOfConduct: 'Agree to Code of Conduct',
+      agreeToDataProcessing: 'Agree to Data Processing'
+    };
+
+    return labelMap[questionKey] || questionKey.charAt(0).toUpperCase() + questionKey.slice(1);
+  };
+
+  // ✅ FIXED: Helper function to format answer values - prevent object rendering
+  const formatAnswerValue = (answer) => {
+    if (answer === null || answer === undefined) {
+      return <em style={{ color: '#888' }}>Not provided</em>;
+    }
+
+    if (answer === true || answer === 'true') {
+      return <span style={{ color: 'green' }}>✅ Yes</span>;
+    }
+    if (answer === false || answer === 'false') {
+      return <span style={{ color: 'red' }}>❌ No</span>;
+    }
+    if (answer === '' || (typeof answer === 'string' && answer.trim() === '')) {
+      return <em style={{ color: '#888' }}>Not provided</em>;
+    }
+
+    // CRITICAL FIX: Handle objects and arrays properly
+    if (typeof answer === 'object') {
+      if (Array.isArray(answer)) {
+        return <span>{answer.join(', ')}</span>;
+      } else {
+        // Don't render objects directly - convert to string
+        return <span>{JSON.stringify(answer)}</span>;
+      }
+    }
+
+    // Convert everything else to string safely
+    return <span>{String(answer)}</span>;
+  };
+
+  return (
+    <div className="auth_controls_body">
+      {/* ✅ Context-aware header */}
+      <div className="admin_controls_header">
+        Auth Controls
+        {isInAdminContext && (
+          <small style={{ fontSize: '0.8rem', color: '#666', marginLeft: '10px' }}>
+            (Admin Panel)
+          </small>
+        )}
+      </div>
+
+      {/* Section: Edit Survey Question Labels */}
+      <div className="section">
+        <h3>Edit Survey Question Labels</h3>
+        <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
+          Update the labels/text that appear in your survey form. These changes will be reflected in the 
+          Applicationsurvey.jsx form that users fill out.
+        </p>
+        
+        {labelsLoading && <p>Loading question labels...</p>}
+        
+        {/* ✅ Question label management interface */}
+        <div className="question-labels-container">
+          {Array.isArray(surveyQuestions) && surveyQuestions.map((item, index) => (
+            <div key={index} className="question-label-item" style={{ 
+              marginBottom: '15px', 
+              padding: '15px', 
+              border: '1px solid #ddd', 
+              borderRadius: '6px',
+              backgroundColor: '#f9f9f9'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ minWidth: '60px', fontWeight: 'bold', color: '#666' }}>
+                    #{index + 1}
+                  </span>
+                  <div style={{ flex: 1, display: 'flex', gap: '10px' }}>
+                    <div style={{ flex: '0 0 200px' }}>
+                      <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>
+                        Field Name
+                      </label>
+                      <input
+                        type="text"
+                        value={item.field || ''}
+                        onChange={(e) => handleQuestionChange(index, 'field', e.target.value)}
+                        disabled={updatingLabels}
+                        placeholder="e.g., fullName"
+                        style={{ 
+                          width: '100%', 
+                          padding: '8px', 
+                          border: '1px solid #ccc', 
+                          borderRadius: '4px',
+                          fontSize: '13px'
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>
+                        Label Text (What users see)
+                      </label>
+                      <input
+                        type="text"
+                        value={item.label || ''}
+                        onChange={(e) => handleQuestionChange(index, 'label', e.target.value)}
+                        disabled={updatingLabels}
+                        placeholder="e.g., Full Name"
+                        style={{ 
+                          width: '100%', 
+                          padding: '8px', 
+                          border: '1px solid #ccc', 
+                          borderRadius: '4px',
+                          fontSize: '13px'
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {surveyQuestions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeQuestionLabel(index)}
+                      disabled={updatingLabels}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                      title="Remove this question label"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* ✅ Action buttons */}
+        <div className="question-labels-actions" style={{ 
+          marginTop: '20px', 
+          display: 'flex', 
+          gap: '10px', 
+          flexWrap: 'wrap',
+          alignItems: 'center'
+        }}>
+          <button
+            type="button"
+            onClick={addQuestionLabel}
+            disabled={updatingLabels}
+            style={{
+              padding: '10px 15px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            ➕ Add Label
+          </button>
+          
+          <button
+            type="button"
+            onClick={loadCurrentFormLabels}
+            disabled={updatingLabels}
+            style={{
+              padding: '10px 15px',
+              backgroundColor: '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            📋 Load Current Form Labels
+          </button>
+          
+          <button 
+            onClick={saveQuestionLabels}
+            disabled={updatingLabels || !Array.isArray(surveyQuestions)}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: updatingLabels ? '#6c757d' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: updatingLabels ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold'
+            }}
+          >
+            {updatingLabels ? '⏳ Saving...' : '💾 Save Labels'}
+          </button>
+        </div>
+        
+        {/* ✅ Helpful info */}
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '15px', 
+          backgroundColor: '#e8f4f8', 
+          borderRadius: '6px',
+          fontSize: '14px',
+          color: '#0c5460'
+        }}>
+          <strong>📌 How This Works:</strong>
+          <ul style={{ marginLeft: '20px', marginBottom: '0', marginTop: '8px' }}>
+            <li><strong>Field Name:</strong> Must match the field names in your Applicationsurvey.jsx component</li>
+            <li><strong>Label Text:</strong> This is what users will see as the question/label text</li>
+            <li><strong>Dynamic Updates:</strong> Changes here will update the actual survey form users fill out</li>
+            <li><strong>Load Current:</strong> Use "Load Current Form Labels" to see your existing form fields</li>
+          </ul>
+        </div>
+        
+        {/* ✅ Preview section */}
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '15px', 
+          backgroundColor: '#f8f9fa', 
+          borderRadius: '6px',
+          border: '1px solid #dee2e6'
+        }}>
+          <h4 style={{ margin: '0 0 15px 0', color: '#495057' }}>📋 Preview of Current Labels:</h4>
+          <div style={{ fontSize: '13px', color: '#6c757d' }}>
+            {surveyQuestions.filter(item => item.field && item.label).length > 0 ? (
+              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                {surveyQuestions
+                  .filter(item => item.field && item.label)
+                  .map((item, index) => (
+                    <div key={index} style={{ marginBottom: '5px' }}>
+                      <strong>{item.field}:</strong> "{item.label}"
+                    </div>
+                  ))
+                }
+              </div>
+            ) : (
+              <em>No valid labels configured yet. Use "Load Current Form Labels" to get started.</em>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Section: Fetch and Vet Survey Forms */}
+      <div className="section">
+        <h3>Vetting Survey Forms</h3>
+        
+        {/* ✅ Survey logs loading and error states */}
+        {surveysLoading && (
+          <div className="loading-state">
+            <p>Loading survey submissions...</p>
+          </div>
+        )}
+        
+        {surveysError && (
+          <div className="error-state" style={{ color: 'red', padding: '10px', border: '1px solid red', borderRadius: '4px', marginBottom: '10px' }}>
+            <strong>Error loading surveys:</strong> {surveysError.message}
+            <button 
+              onClick={() => fetchSurveyLogs()} 
+              style={{ marginLeft: '10px', padding: '5px 10px' }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* ✅ Display survey submissions */}
+        {surveys && Array.isArray(surveys) && surveys.length > 0 ? (
+          <div className="surveys-list">
+            {surveys.map((survey, index) => (
+              <div key={survey.id || index} className="survey-item" style={{
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                padding: '15px',
+                marginBottom: '15px',
+                backgroundColor: survey.approval_status === 'approved' ? '#f0f8f0' : 
+                               survey.approval_status === 'declined' ? '#fff0f0' : '#fff'
+              }}>
+                {/* ✅ Survey header with user info */}
+                <div className="survey-header" style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: '10px',
+                  paddingBottom: '10px',
+                  borderBottom: '1px solid #eee'
+                }}>
+                  <div className="user-info">
+                    <h4 style={{ margin: '0 0 5px 0' }}>
+                      Survey #{survey.id} - {survey.username || 'Unknown User'}
+                    </h4>
+                    <p style={{ margin: '0', color: '#666', fontSize: '0.9em' }}>
+                      Email: {survey.user_email || 'No email'}
+                    </p>
+                    <p style={{ margin: '0', color: '#666', fontSize: '0.9em' }}>
+                      Submitted: {survey.createdAt ? new Date(survey.createdAt).toLocaleDateString() : 'Unknown date'}
+                    </p>
+                    {survey.application_ticket && (
+                      <p style={{ margin: '0', color: '#666', fontSize: '0.8em' }}>
+                        Ticket: {survey.application_ticket}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="status-badge">
+                    <span style={{
+                      padding: '5px 10px',
+                      borderRadius: '15px',
+                      fontSize: '0.8em',
+                      fontWeight: 'bold',
+                      backgroundColor: survey.approval_status === 'approved' ? '#d4edda' : 
+                                     survey.approval_status === 'declined' ? '#f8d7da' : 
+                                     survey.approval_status === 'granted' ? '#d4edda' : '#fff3cd',
+                      color: survey.approval_status === 'approved' ? '#155724' : 
+                             survey.approval_status === 'declined' ? '#721c24' : 
+                             survey.approval_status === 'granted' ? '#155724' : '#856404'
+                    }}>
+                      {survey.approval_status?.toUpperCase() || 'PENDING'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* ✅ Basic Info Grid */}
+                <div className="survey-info" style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '10px',
+                  marginBottom: '20px'
+                }}>
+                  <div><strong>User ID:</strong> {survey.user_id}</div>
+                  <div><strong>Email:</strong> {survey.user_email || 'N/A'}</div>
+                  <div><strong>Application Type:</strong> {survey.application_type || 'initial_application'}</div>
+                  <div><strong>Membership Stage:</strong> {survey.membership_stage || 'N/A'}</div>
+                </div>
+
+                {/* ✅ Survey answers display */}
+                <div className="survey-answers-section" style={{
+                  backgroundColor: '#f8f9fa',
+                  padding: '15px',
+                  borderRadius: '5px',
+                  marginBottom: '15px'
+                }}>
+                  <h5 style={{ marginTop: '0', marginBottom: '15px', color: '#495057' }}>
+                    📝 Survey Responses:
+                  </h5>
+                  {renderSurveyAnswers(survey.answers)}
+                </div>
+
+                {/* Admin Notes */}
+                {survey.admin_notes && (
+                  <div style={{ 
+                    backgroundColor: '#e8f4fd', 
+                    padding: '10px', 
+                    borderRadius: '5px',
+                    marginBottom: '15px'
+                  }}>
+                    <strong>Admin Notes:</strong> {survey.admin_notes}
+                  </div>
+                )}
+
+                {/* ✅ Action buttons */}
+                <div className="survey-actions" style={{ 
+                  marginTop: '15px', 
+                  paddingTop: '15px', 
+                  borderTop: '1px solid #eee',
+                  display: 'flex',
+                  gap: '10px',
+                  flexWrap: 'wrap'
+                }}>
+                  <button
+                    onClick={() => handleApproveOrDecline(survey.id, survey.user_id, 'approved')}
+                    disabled={updatingApproval || survey.approval_status === 'approved' || survey.approval_status === 'granted'}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: (survey.approval_status === 'approved' || survey.approval_status === 'granted') ? '#95a5a6' : '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: (survey.approval_status === 'approved' || survey.approval_status === 'granted') ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {(survey.approval_status === 'approved' || survey.approval_status === 'granted') ? '✅ Already Approved' : 
+                     updatingApproval ? 'Processing...' : '✅ Approve'}
+                  </button>
+                  
+                  <button
+                    onClick={() => handleApproveOrDecline(survey.id, survey.user_id, 'declined')}
+                    disabled={updatingApproval || survey.approval_status === 'declined'}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: survey.approval_status === 'declined' ? '#95a5a6' : '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: survey.approval_status === 'declined' ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {survey.approval_status === 'declined' ? '❌ Already Declined' : 
+                     updatingApproval ? 'Processing...' : '❌ Decline'}
+                  </button>
+                  
+                  {survey.user_email && (
+                    <button
+                      onClick={() => handleSendFeedback(survey.user_email, survey.approval_status)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      📧 Send Feedback
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setSelectedSurvey(selectedSurvey === survey.id ? null : survey.id)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#6c757d',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {selectedSurvey === survey.id ? 'Hide Details' : 'View Details'}
+                  </button>
+                </div>
+
+                {/* ✅ Detailed view when selected */}
+                {selectedSurvey === survey.id && (
+                  <div className="survey-details" style={{
+                    marginTop: '15px',
+                    padding: '15px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '4px'
+                  }}>
+                    <h5>Full Survey Details:</h5>
+                    <pre style={{ 
+                      whiteSpace: 'pre-wrap', 
+                      fontSize: '0.85em',
+                      maxHeight: '300px',
+                      overflow: 'auto'
+                    }}>
+                      {JSON.stringify(survey, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          !surveysLoading && !surveysError && (
+            <div className="no-surveys" style={{ 
+              textAlign: 'center', 
+              padding: '20px', 
+              color: '#666',
+              fontStyle: 'italic'
+            }}>
+              No survey submissions found.
+            </div>
+          )
+        )}
+
+        {/* ✅ Refresh button */}
+        <div style={{ marginTop: '20px' }}>
+          <button 
+            onClick={() => fetchSurveyLogs()}
+            disabled={surveysLoading}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            {surveysLoading ? 'Refreshing...' : 'Refresh Survey List'}
+          </button>
+        </div>
+      </div>
+
+      {/* Section: Update User Roles */}
+      <div className="section">
+        <h3>Update User Roles</h3>
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            placeholder="User ID"
+            value={userRoleUpdates.userId}
+            onChange={(e) => setUserRoleUpdates({ ...userRoleUpdates, userId: e.target.value })}
+            disabled={updatingRole}
+            style={{ padding: '8px', minWidth: '200px' }}
+          />
+          <select
+            value={userRoleUpdates.role}
+            onChange={(e) => setUserRoleUpdates({ ...userRoleUpdates, role: e.target.value })}
+            disabled={updatingRole}
+            style={{ padding: '8px', minWidth: '150px' }}
+          >
+            <option value="">Select Role</option>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+            <option value="moderator">Moderator</option>
+            <option value="member">Member</option>
+          </select>
+          <button
+            onClick={() => updateUserRole(userRoleUpdates)}
+            disabled={updatingRole || !userRoleUpdates.userId || !userRoleUpdates.role}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            {updatingRole ? 'Updating...' : 'Update Role'}
+          </button>
+        </div>
+        <small style={{ color: '#666' }}>
+          Enter the user ID and select a new role to update user permissions.
+        </small>
+      </div>
+
+      {/* ✅ Context-aware footer */}
+      <div className="auth-controls-footer" style={{ 
+        marginTop: '30px', 
+        paddingTop: '20px', 
+        borderTop: '1px solid #eee',
+        fontSize: '0.9em',
+        color: '#666'
+      }}>
+        {isInAdminContext ? (
+          <p>You are viewing AuthControls in Admin Panel context with full administrative privileges.</p>
+        ) : (
+          <p>AuthControls running in standalone mode.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AuthControls;
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
 
 
 
@@ -23332,4 +27486,146 @@ export const useUploadCommentFiles = () => {
 
 
 
-V
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+
+
+//==========================================================================================================
+//============================================================================================================
+//============================================================================================================
+//=============================================================================================================
+
+
+
+
+
+
+
+
+

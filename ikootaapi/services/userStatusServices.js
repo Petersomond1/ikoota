@@ -1,5 +1,5 @@
 // ikootaapi/services/userStatusServices.js
-// USER STATUS & DASHBOARD SERVICES
+// USER STATUS & DASHBOARD SERVICES - COMPLETE FILE
 // Business logic for user status checks, dashboards, and system health
 
 import db from '../config/db.js';
@@ -77,11 +77,12 @@ export const getUserDashboardService = async (userId) => {
       WHERE u.id = ?
     `, [userId]);
 
-    if (userDashboard.length === 0) {
+    // ✅ Safe result access
+    if (!userDashboard || (Array.isArray(userDashboard) && userDashboard.length === 0)) {
       throw new CustomError('User not found', 404);
     }
 
-    const user = userDashboard[0];
+    const user = Array.isArray(userDashboard) ? userDashboard[0] : userDashboard;
 
     // Get user's content statistics
     const contentStats = await getUserContentStatsService(userId);
@@ -124,7 +125,7 @@ export const getUserDashboardService = async (userId) => {
     // Generate recommended actions
     const recommendedActions = generateRecommendedActions(accessInfo, user);
 
-     // ✅ BUILD CLEAN RESPONSE OBJECT (avoid circular refs)
+    // ✅ BUILD CLEAN RESPONSE OBJECT
     const cleanResponse = {
       user_profile: {
         id: user.id,
@@ -196,19 +197,6 @@ export const getUserDashboardService = async (userId) => {
       }
     };
 
-    // ✅ DEBUG: Log the response size and structure
-    console.log('📊 Dashboard response size:', JSON.stringify(cleanResponse).length, 'characters');
-    console.log('📊 Dashboard response keys:', Object.keys(cleanResponse));
-    
-    // ✅ SAFETY: Check for circular references
-    try {
-      JSON.stringify(cleanResponse);
-      console.log('✅ Dashboard response serializable - no circular refs');
-    } catch (circularError) {
-      console.error('❌ CIRCULAR REFERENCE DETECTED:', circularError.message);
-      throw new Error('Dashboard response contains circular references');
-    }
-
     return cleanResponse;
 
   } catch (error) {
@@ -235,8 +223,9 @@ export const getUserContentStatsService = async (userId) => {
           (SELECT COUNT(*) FROM comments WHERE user_id = ? AND comments.id IS NOT NULL) as total_comments
       `, [userId, userId, userId]);
       
-      if (stats && stats.length > 0) {
-        contentStats = stats[0];
+      if (stats && (Array.isArray(stats) ? stats.length > 0 : stats)) {
+        const statsData = Array.isArray(stats) ? stats[0] : stats;
+        contentStats = statsData;
       }
     } catch (statsError) {
       console.warn('Content stats tables may not exist:', statsError.message);
@@ -378,13 +367,12 @@ export const getCurrentMembershipStatusService = async (userId) => {
       WHERE u.id = ?
     `, [userId]);
     
-    // ✅ FIXED: userStatus is already the user object from destructuring
-    if (!userStatus) {
+    // ✅ Safe result access
+    if (!userStatus || (Array.isArray(userStatus) && userStatus.length === 0)) {
       throw new CustomError('User not found', 404);
     }
     
-    // ✅ FIXED: userStatus IS the user object, not an array
-    const user = userStatus;
+    const user = Array.isArray(userStatus) ? userStatus[0] : userStatus;
     
     // Determine if user needs to complete survey
     const needsSurvey = (
@@ -538,13 +526,12 @@ export const checkSurveyStatusService = async (userId) => {
       LIMIT 1
     `, [userId]);
 
-    // ✅ FIXED: Check for results properly
-    if (!userResults) {
+    // ✅ Safe result access
+    if (!userResults || (Array.isArray(userResults) && userResults.length === 0)) {
       throw new CustomError('User not found', 404);
     }
 
-    // ✅ FIXED: userResults IS the user object, not an array
-    const user = userResults;
+    const user = Array.isArray(userResults) ? userResults[0] : userResults;
     
     const surveyCompleted = !!user.answers;
     const needsSurvey = !surveyCompleted && !['granted', 'member', 'pre_member'].includes(user.is_member);
@@ -651,7 +638,6 @@ export const getApplicationStatusService = async (userId) => {
   try {
     console.log('📋 Checking application status for user:', userId);
 
-    // Get application status from both initial and full membership applications
     const [applications] = await db.query(`
       SELECT 
         'initial_application' as application_type,
@@ -684,7 +670,9 @@ export const getApplicationStatusService = async (userId) => {
       ORDER BY submitted_at DESC
     `, [userId, userId]);
 
-    const applicationHistory = applications.map(app => ({
+    // ✅ Safe array access
+    const safeApplications = Array.isArray(applications) ? applications : [];
+    const applicationHistory = safeApplications.map(app => ({
       application_type: app.application_type,
       status: app.status,
       submitted_at: app.submitted_at,
@@ -694,7 +682,7 @@ export const getApplicationStatusService = async (userId) => {
       ticket: app.application_ticket
     }));
 
-    const latestApplication = applications[0] || null;
+    const latestApplication = safeApplications.length > 0 ? safeApplications[0] : null;
 
     return {
       user_id: userId,
@@ -709,8 +697,8 @@ export const getApplicationStatusService = async (userId) => {
       } : null,
       application_history: applicationHistory,
       summary: {
-        total_applications: applications.length,
-        has_pending: applications.some(app => app.status === 'pending'),
+        total_applications: safeApplications.length,
+        has_pending: safeApplications.some(app => app.status === 'pending'),
         latest_status: latestApplication?.status || 'none'
       }
     };
@@ -730,7 +718,6 @@ export const getApplicationHistoryService = async (userId) => {
   try {
     console.log('📚 Getting application history for user:', userId);
 
-    // Get comprehensive application history
     const [history] = await db.query(`
       SELECT 
         mrh.id,
@@ -749,34 +736,50 @@ export const getApplicationHistoryService = async (userId) => {
       ORDER BY mrh.reviewedAt DESC
     `, [userId]);
 
+    // ✅ Safe array access with fallback
+    const safeHistory = Array.isArray(history) ? history : [];
+
     return {
       user_id: userId,
-      application_history: history.map(record => ({
-        id: record.id,
-        application_type: record.application_type,
-        status_change: {
-          from: record.previous_status,
-          to: record.new_status
-        },
-        action_taken: record.action_taken,
-        review_notes: record.review_notes,
-        reviewed_at: record.reviewedAt,
-        reviewer: {
-          name: record.reviewer_name,
-          role: record.reviewer_role
-        },
-        notification_sent: !!record.notification_sent
-      })),
+      data: {
+        application_history: safeHistory.map(record => ({
+          id: record.id,
+          application_type: record.application_type,
+          status_change: {
+            from: record.previous_status,
+            to: record.new_status
+          },
+          action_taken: record.action_taken,
+          review_notes: record.review_notes,
+          reviewed_at: record.reviewedAt,
+          reviewer: {
+            name: record.reviewer_name,
+            role: record.reviewer_role
+          },
+          notification_sent: !!record.notification_sent
+        }))
+      },
       summary: {
-        total_reviews: history.length,
-        last_review: history[0]?.reviewedAt || null,
-        status_changes: history.length
+        total_reviews: safeHistory.length,
+        last_review: safeHistory.length > 0 ? safeHistory[0].reviewedAt : null,
+        status_changes: safeHistory.length
       }
     };
 
   } catch (error) {
     console.error('❌ Error in getApplicationHistoryService:', error);
-    throw error;
+    // Return empty history instead of throwing to prevent breaking the app
+    return {
+      user_id: userId,
+      data: {
+        application_history: []
+      },
+      summary: {
+        total_reviews: 0,
+        last_review: null,
+        status_changes: 0
+      }
+    };
   }
 };
 
@@ -795,6 +798,9 @@ export const getSystemHealthService = async () => {
     // Check database connectivity
     const [dbTest] = await db.query('SELECT 1 as health_check, NOW() as current_time');
     
+    // ✅ Safe result access
+    const healthCheck = Array.isArray(dbTest) ? dbTest[0] : dbTest;
+    
     // Get basic system stats
     const [stats] = await db.query(`
       SELECT 
@@ -805,19 +811,22 @@ export const getSystemHealthService = async () => {
       FROM users
     `);
     
+    // ✅ Safe result access
+    const systemStats = Array.isArray(stats) ? stats[0] : stats;
+    
     return {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       database: {
         connected: true,
         response_time: 'normal',
-        current_time: dbTest[0].current_time
+        current_time: healthCheck?.current_time
       },
       statistics: {
-        total_users: stats[0].total_users,
-        new_users_24h: stats[0].new_users_24h,
-        pending_applications: stats[0].pending_applications,
-        pending_full_memberships: stats[0].pending_full_memberships
+        total_users: systemStats?.total_users || 0,
+        new_users_24h: systemStats?.new_users_24h || 0,
+        pending_applications: systemStats?.pending_applications || 0,
+        pending_full_memberships: systemStats?.pending_full_memberships || 0
       },
       version: '3.0.0',
       environment: process.env.NODE_ENV || 'development',
@@ -852,45 +861,38 @@ export const getSystemStatusService = async () => {
         (SELECT COUNT(*) FROM users WHERE membership_stage = 'member') as full_members,
         (SELECT COUNT(*) FROM users WHERE membership_stage = 'applicant') as applicants,
         (SELECT COUNT(*) FROM users WHERE membership_stage = 'none' OR membership_stage IS NULL) as unregistered,
-        (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'pending') as pending_initial_applications,
-        (SELECT COUNT(*) FROM full_membership_applications WHERE status = 'pending') as pending_full_applications,
         (SELECT COUNT(*) FROM users WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as new_users_today,
-        (SELECT COUNT(*) FROM surveylog WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as new_applications_today,
-        (SELECT COUNT(*) FROM full_membership_applications WHERE submittedAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as new_full_apps_today
+        (SELECT COUNT(*) FROM users WHERE lastLogin >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as active_users_7_days
     `);
+    
+    // ✅ Safe result access
+    const stats = (Array.isArray(systemStats) && systemStats[0]) ? systemStats[0] : {
+      total_users: 0,
+      pre_members: 0,
+      full_members: 0,
+      applicants: 0,
+      unregistered: 0,
+      new_users_today: 0,
+      active_users_7_days: 0
+    };
     
     // Check database performance
     const startTime = Date.now();
     await db.query('SELECT 1');
     const dbResponseTime = Date.now() - startTime;
     
-    // Get recent activity
-    const [recentActivity] = await db.query(`
-      SELECT 
-        'initial_application' as activity_type,
-        sl.approval_status as status,
-        sl.createdAt as activity_time,
-        u.username
-      FROM surveylog sl
-      JOIN users u ON sl.user_id = u.id
-      WHERE sl.createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-      
-      UNION ALL
-      
-      SELECT 
-        'full_membership' as activity_type,
-        fma.status,
-        fma.submittedAt as activity_time,
-        u.username
-      FROM full_membership_applications fma
-      JOIN users u ON fma.user_id = u.id
-      WHERE fma.submittedAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-      
-      ORDER BY activity_time DESC
-      LIMIT 20
-    `);
-    
-    const stats = systemStats[0];
+    // Get pending applications (with error handling)
+    let pendingApplications = 0;
+    try {
+      const [pendingResult] = await db.query(`
+        SELECT COUNT(*) as pending_count 
+        FROM surveylog 
+        WHERE approval_status = 'pending'
+      `);
+      pendingApplications = (Array.isArray(pendingResult) && pendingResult[0]) ? pendingResult[0].pending_count : 0;
+    } catch (pendingError) {
+      console.warn('Could not fetch pending applications:', pendingError.message);
+    }
     
     return {
       system_health: {
@@ -910,31 +912,22 @@ export const getSystemStatusService = async () => {
           pre_members: stats.pre_members,
           full_members: stats.full_members
         },
-        growth_metrics: {
+        activity_metrics: {
           new_users_today: stats.new_users_today,
-          new_applications_today: stats.new_applications_today,
-          new_full_applications_today: stats.new_full_apps_today
+          active_users_7_days: stats.active_users_7_days
         }
       },
       
       application_queue: {
-        pending_initial_applications: stats.pending_initial_applications,
-        pending_full_applications: stats.pending_full_applications,
-        total_pending: stats.pending_initial_applications + stats.pending_full_applications
+        pending_applications: pendingApplications,
+        processing_status: pendingApplications < 50 ? 'normal' : 'backlog'
       },
       
       health_indicators: {
         database: dbResponseTime < 1000 ? 'healthy' : 'slow',
-        application_processing: (stats.pending_initial_applications + stats.pending_full_applications) < 100 ? 'normal' : 'backlog',
+        application_processing: pendingApplications < 100 ? 'normal' : 'backlog',
         user_growth: stats.new_users_today > 0 ? 'active' : 'stable'
       },
-      
-      recent_activity: recentActivity.map(activity => ({
-        type: activity.activity_type,
-        status: activity.status,
-        time: activity.activity_time,
-        username: activity.username
-      })),
       
       generated_at: new Date().toISOString()
     };
@@ -964,33 +957,54 @@ export const getUserPreferencesService = async (userId) => {
     
     const [preferences] = await db.query(`
       SELECT 
-        email_notifications,
-        sms_notifications,
-        newsletter_subscription,
-        privacy_level,
-        preferred_communication_method,
-        timezone,
-        language_preference
+        notification_preferences,
+        display_preferences,
+        privacy_preferences,
+        content_preferences
       FROM user_preferences 
       WHERE user_id = ?
     `, [userId]);
     
-    // Default preferences if none exist
+    // Default preferences
     const defaultPreferences = {
-      email_notifications: true,
-      sms_notifications: false,
-      newsletter_subscription: true,
-      privacy_level: 'standard',
-      preferred_communication_method: 'email',
-      timezone: 'UTC',
-      language_preference: 'en'
+      notification_preferences: {
+        email_on_comment: true,
+        email_on_mention: true,
+        email_weekly_digest: true,
+        push_notifications: false
+      },
+      display_preferences: {
+        theme: 'light',
+        font_size: 'medium',
+        compact_view: false,
+        show_avatars: true
+      },
+      privacy_preferences: {
+        profile_visibility: 'members_only',
+        activity_visibility: 'members_only',
+        email_visibility: 'admins_only'
+      },
+      content_preferences: {
+        content_language: 'en',
+        mature_content: false,
+        auto_expand_content: true
+      }
     };
     
-    const userPreferences = preferences.length > 0 ? preferences[0] : defaultPreferences;
+    let userPreferences = defaultPreferences;
+    if (Array.isArray(preferences) && preferences.length > 0) {
+      const prefs = preferences[0];
+      userPreferences = {
+        notification_preferences: prefs.notification_preferences ? JSON.parse(prefs.notification_preferences) : defaultPreferences.notification_preferences,
+        display_preferences: prefs.display_preferences ? JSON.parse(prefs.display_preferences) : defaultPreferences.display_preferences,
+        privacy_preferences: prefs.privacy_preferences ? JSON.parse(prefs.privacy_preferences) : defaultPreferences.privacy_preferences,
+        content_preferences: prefs.content_preferences ? JSON.parse(prefs.content_preferences) : defaultPreferences.content_preferences
+      };
+    }
     
     return {
-      preferences: userPreferences,
-      user_id: userId
+      user_id: userId,
+      preferences: userPreferences
     };
     
   } catch (error) {
@@ -1005,51 +1019,48 @@ export const getUserPreferencesService = async (userId) => {
  * @param {Object} preferenceData - Preference data to update
  * @returns {Object} Update result
  */
-export const updateUserPreferencesService = async (userId, preferenceData) => {
+export const updateUserPreferencesService = async (userId, preferencesData) => {
   try {
     console.log('🔧 Updating preferences for user:', userId);
     
-    const {
-      email_notifications,
-      sms_notifications,
-      newsletter_subscription,
-      privacy_level,
-      preferred_communication_method,
-      timezone,
-      language_preference
-    } = preferenceData;
+    const allowedPreferenceTypes = [
+      'notification_preferences',
+      'display_preferences', 
+      'privacy_preferences',
+      'content_preferences'
+    ];
     
-    // Update or insert preferences
+    const filteredPreferences = Object.fromEntries(
+      Object.entries(preferencesData).filter(([key]) => allowedPreferenceTypes.includes(key))
+    );
+    
+    if (Object.keys(filteredPreferences).length === 0) {
+      throw new CustomError('No valid preferences to update', 400);
+    }
+    
+    // Convert objects to JSON strings for database storage
+    const processedPreferences = Object.fromEntries(
+      Object.entries(filteredPreferences).map(([key, value]) => [
+        key, 
+        typeof value === 'object' ? JSON.stringify(value) : value
+      ])
+    );
+    
+    // Build upsert query
+    const fields = Object.keys(processedPreferences);
+    const values = Object.values(processedPreferences);
+    const placeholders = fields.map(() => '?').join(', ');
+    const updateClause = fields.map(field => `${field} = VALUES(${field})`).join(', ');
+    
     await db.query(`
-      INSERT INTO user_preferences 
-      (user_id, email_notifications, sms_notifications, newsletter_subscription, 
-       privacy_level, preferred_communication_method, timezone, language_preference, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      INSERT INTO user_preferences (user_id, ${fields.join(', ')}, createdAt, updatedAt)
+      VALUES (?, ${placeholders}, NOW(), NOW())
       ON DUPLICATE KEY UPDATE
-        email_notifications = VALUES(email_notifications),
-        sms_notifications = VALUES(sms_notifications),
-        newsletter_subscription = VALUES(newsletter_subscription),
-        privacy_level = VALUES(privacy_level),
-        preferred_communication_method = VALUES(preferred_communication_method),
-        timezone = VALUES(timezone),
-        language_preference = VALUES(language_preference),
+        ${updateClause},
         updatedAt = NOW()
-    `, [
-      userId,
-      email_notifications !== undefined ? email_notifications : true,
-      sms_notifications !== undefined ? sms_notifications : false,
-      newsletter_subscription !== undefined ? newsletter_subscription : true,
-      privacy_level || 'standard',
-      preferred_communication_method || 'email',
-      timezone || 'UTC',
-      language_preference || 'en'
-    ]);
+    `, [userId, ...values]);
     
-    return {
-      message: 'Preferences updated successfully',
-      user_id: userId,
-      updated_at: new Date().toISOString()
-    };
+    return await getUserPreferencesService(userId);
     
   } catch (error) {
     console.error('❌ Error in updateUserPreferencesService:', error);
@@ -1083,6 +1094,8 @@ export const getUserPermissionsService = (userId, userRole = 'user', membershipS
       can_view_content: ['pre_member', 'member'].includes(membershipStage) || ['admin', 'super_admin'].includes(userRole),
       can_create_content: membershipStage === 'member' || ['admin', 'super_admin'].includes(userRole),
       can_comment: ['pre_member', 'member'].includes(membershipStage) || ['admin', 'super_admin'].includes(userRole),
+      can_edit_own_content: true,
+      can_delete_own_content: true,
       
       // Membership permissions
       can_apply_membership: !membershipStage || membershipStage === 'none',
@@ -1095,10 +1108,17 @@ export const getUserPermissionsService = (userId, userRole = 'user', membershipS
       can_manage_users: ['admin', 'super_admin'].includes(userRole),
       can_review_applications: ['admin', 'super_admin'].includes(userRole),
       can_delete_users: userRole === 'super_admin',
+      can_ban_users: ['admin', 'super_admin'].includes(userRole),
       
       // System permissions
       can_view_reports: ['admin', 'super_admin'].includes(userRole),
-      can_send_notifications: ['admin', 'super_admin'].includes(userRole)
+      can_send_notifications: ['admin', 'super_admin'].includes(userRole),
+      can_export_data: ['admin', 'super_admin'].includes(userRole),
+      
+      // Feature permissions
+      can_use_advanced_search: ['member'].includes(membershipStage) || ['admin', 'super_admin'].includes(userRole),
+      can_create_groups: membershipStage === 'member' || ['admin', 'super_admin'].includes(userRole),
+      can_moderate_content: ['admin', 'super_admin'].includes(userRole)
     };
     
     return {
@@ -1107,6 +1127,11 @@ export const getUserPermissionsService = (userId, userRole = 'user', membershipS
         role: userRole,
         membership_stage: membershipStage,
         user_id: userId
+      },
+      access_levels: {
+        content_access: permissions.can_view_content ? 'granted' : 'denied',
+        creation_access: permissions.can_create_content ? 'granted' : 'denied',
+        admin_access: permissions.can_access_admin ? 'granted' : 'denied'
       }
     };
     
@@ -1117,209 +1142,297 @@ export const getUserPermissionsService = (userId, userRole = 'user', membershipS
 };
 
 // ===============================================
-// DEBUG SERVICES
+// ACTIVITY TRACKING SERVICES
 // ===============================================
 
 /**
- * Debug application status consistency
- * @param {number} userId - User ID to debug
- * @returns {Object} Debug analysis
+ * Get user activity statistics
+ * @param {number} userId - User ID
+ * @returns {Object} Activity statistics
  */
-export const debugApplicationStatusService = async (userId) => {
+export const getUserActivityStatsService = async (userId) => {
   try {
-    console.log('🐛 Debug application status for user:', userId);
+    console.log('📈 Getting activity stats for user:', userId);
     
-    const [userInfo] = await db.query(`
+    const [activityStats] = await db.query(`
       SELECT 
-        u.*,
-        sl.id as survey_id,
-        sl.approval_status as survey_status,
-        sl.createdAt as survey_created,
-        sl.reviewedAt as survey_reviewed,
-        sl.answers as survey_answers,
-        fma.id as full_app_id,
-        fma.status as full_app_status,
-        fma.submittedAt as full_app_submitted,
-        fma.reviewedAt as full_app_reviewed
-      FROM users u
-      LEFT JOIN surveylog sl ON u.id = sl.user_id 
-        AND sl.application_type = 'initial_application'
-      LEFT JOIN full_membership_applications fma ON u.id = fma.user_id
-      WHERE u.id = ?
-      ORDER BY sl.createdAt DESC, fma.submittedAt DESC
-    `, [userId]);
+        (SELECT COUNT(*) FROM user_activity_log WHERE user_id = ? AND activity_type = 'login') as total_logins,
+        (SELECT COUNT(*) FROM user_activity_log WHERE user_id = ? AND activity_type = 'content_view' AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)) as content_views_30d,
+        (SELECT COUNT(*) FROM user_activity_log WHERE user_id = ? AND activity_type = 'comment' AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)) as comments_30d,
+        (SELECT MAX(created_at) FROM user_activity_log WHERE user_id = ? AND activity_type = 'login') as last_login,
+        (SELECT COUNT(DISTINCT DATE(created_at)) FROM user_activity_log WHERE user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)) as active_days_30d
+    `, [userId, userId, userId, userId, userId]);
     
-    if (userInfo.length === 0) {
-      throw new CustomError('User not found', 404);
-    }
-    
-    const user = userInfo[0];
-    
-    // Analyze status consistency
-    const analysis = {
-      user_table_status: {
-        membership_stage: user.membership_stage,
-        is_member: user.is_member,
-        application_status: user.application_status,
-        full_membership_status: user.full_membership_status,
-        applicationSubmittedAt: user.applicationSubmittedAt,
-        applicationReviewedAt: user.applicationReviewedAt,
-        fullMembershipAppliedAt: user.fullMembershipAppliedAt,
-        fullMembershipReviewedAt: user.fullMembershipReviewedAt
-      },
-      survey_table_status: {
-        has_survey: !!user.survey_id,
-        survey_status: user.survey_status,
-        survey_created: user.survey_created,
-        survey_reviewed: user.survey_reviewed,
-        has_answers: !!user.survey_answers
-      },
-      full_membership_table_status: {
-        has_full_app: !!user.full_app_id,
-        full_app_status: user.full_app_status,
-        full_app_submitted: user.full_app_submitted,
-        full_app_reviewed: user.full_app_reviewed
-      },
-      consistency_check: {
-        user_survey_status_match: user.application_status === user.survey_status,
-        user_full_app_status_match: user.full_membership_status === user.full_app_status,
-        dates_consistent: true, // Could add more detailed date validation
-        membership_stage_logical: true // Could add validation logic
-      }
+    // ✅ Safe result access
+    const stats = (Array.isArray(activityStats) && activityStats[0]) ? activityStats[0] : {
+      total_logins: 0,
+      content_views_30d: 0,
+      comments_30d: 0,
+      last_login: null,
+      active_days_30d: 0
     };
     
-    // Add recommendations
-    const recommendations = [];
-    if (!analysis.consistency_check.user_survey_status_match) {
-      recommendations.push('User table and survey table statuses do not match');
-    }
-    if (!analysis.consistency_check.user_full_app_status_match) {
-      recommendations.push('User table and full membership application statuses do not match');
-    }
-    if (analysis.survey_table_status.has_survey && !analysis.survey_table_status.has_answers) {
-      recommendations.push('Survey record exists but no answers found');
-    }
-    if (recommendations.length === 0) {
-      recommendations.push('No consistency issues detected');
-    }
-    
     return {
-      userId: parseInt(userId),
-      username: user.username,
-      analysis,
-      recommendations,
-      data_sources: {
-        users_table: 'Primary user information',
-        surveylog_table: 'Initial application data',
-        full_membership_applications_table: 'Full membership data'
+      user_id: userId,
+      activity_summary: {
+        total_logins: stats.total_logins || 0,
+        last_login: stats.last_login,
+        active_days_last_30: stats.active_days_30d || 0
       },
-      debug_timestamp: new Date().toISOString()
+      engagement_metrics: {
+        content_views_30d: stats.content_views_30d || 0,
+        comments_30d: stats.comments_30d || 0,
+        engagement_score: calculateEngagementScore(stats)
+      },
+      generated_at: new Date().toISOString()
     };
     
   } catch (error) {
-    console.error('❌ Error in debugApplicationStatusService:', error);
-    throw error;
-  }
-};
-
-// ===============================================
-// LEGACY COMPATIBILITY SERVICES
-// ===============================================
-
-/**
- * Get legacy membership status format
- * @param {number} userId - User ID
- * @returns {Object} Legacy format membership status
- */
-export const getLegacyMembershipStatusService = async (userId) => {
-  try {
-    console.log('🔄 Getting legacy membership status for user:', userId);
-    
-    // Get user basic info
-    const [users] = await db.query(`
-      SELECT id, username, email, role, membership_stage, is_member, converse_id
-      FROM users WHERE id = ?
-    `, [userId]);
-    
-    // ✅ FIXED: users is already the user object from destructuring
-    if (!users) {
-      throw new CustomError('User not found', 404);
-    }
-    
-    // ✅ FIXED: users IS the user object, not an array
-    const user = users;
-    
-    // Get application status from surveylog
-    const [applications] = await db.query(`
-      SELECT approval_status, createdAt, reviewedAt 
-      FROM surveylog 
-      WHERE user_id = ? AND application_type = 'initial_application'
-      ORDER BY createdAt DESC 
-      LIMIT 1
-    `, [userId]);
-    
-    const latestApp = applications[0] || null;
-    
-    // Legacy format response
+    console.error('❌ Error in getUserActivityStatsService:', error);
+    // Return default stats instead of throwing
     return {
-      user_id: user.id,
-      username: user.username,
-      email: user.email,
-      member_status: user.is_member || 'pending',
-      membership_level: user.membership_stage || 'none',
-      application_status: latestApp?.approval_status || 'not_submitted',
-      application_date: latestApp?.createdAt,
-      review_date: latestApp?.reviewedAt,
-      is_active: ['pre_member', 'member'].includes(user.membership_stage),
-      can_access_content: ['pre_member', 'member'].includes(user.membership_stage) || ['admin', 'super_admin'].includes(user.role)
+      user_id: userId,
+      activity_summary: {
+        total_logins: 0,
+        last_login: null,
+        active_days_last_30: 0
+      },
+      engagement_metrics: {
+        content_views_30d: 0,
+        comments_30d: 0,
+        engagement_score: 0
+      },
+      generated_at: new Date().toISOString()
     };
-    
-  } catch (error) {
-    console.error('❌ Error in getLegacyMembershipStatusService:', error);
-    throw error;
   }
 };
 
 /**
- * Get simplified user status
- * @param {number} userId - User ID
- * @returns {Object} Simplified user status
+ * Calculate user engagement score
+ * @param {Object} stats - Activity statistics
+ * @returns {number} Engagement score (0-100)
  */
-export const getUserStatusService = async (userId) => {
+const calculateEngagementScore = (stats) => {
+  const weights = {
+    active_days: 0.4,
+    content_views: 0.3,
+    comments: 0.3
+  };
+  
+  // Normalize values to 0-100 scale
+  const normalizedActiveDays = Math.min((stats.active_days_30d || 0) / 30, 1) * 100;
+  const normalizedContentViews = Math.min((stats.content_views_30d || 0) / 100, 1) * 100;
+  const normalizedComments = Math.min((stats.comments_30d || 0) / 20, 1) * 100;
+  
+  const engagementScore = (
+    normalizedActiveDays * weights.active_days +
+    normalizedContentViews * weights.content_views +
+    normalizedComments * weights.comments
+  );
+  
+  return Math.round(engagementScore);
+};
+
+// ===============================================
+// NOTIFICATION SERVICES
+// ===============================================
+
+/**
+ * Get user notifications
+ * @param {number} userId - User ID
+ * @param {Object} options - Query options
+ * @returns {Object} Notifications
+ */
+export const getUserNotificationsService = async (userId, options = {}) => {
   try {
-    console.log('👤 Getting simplified user status for:', userId);
+    console.log('🔔 Getting notifications for user:', userId);
     
-    const [users] = await db.query(`
-      SELECT id, username, role, membership_stage, is_member
-      FROM users WHERE id = ?
-    `, [userId]);
+    const {
+      limit = 20,
+      offset = 0,
+      unread_only = false,
+      notification_type = null
+    } = options;
     
-    // ✅ FIXED: users is already the user object from destructuring
-    if (!users) {
-      throw new CustomError('User not found', 404);
+    let whereClause = 'WHERE user_id = ?';
+    let queryParams = [userId];
+    
+    if (unread_only) {
+      whereClause += ' AND is_read = FALSE';
     }
     
-    // ✅ FIXED: users IS the user object, not an array
-    const user = users;
+    if (notification_type) {
+      whereClause += ' AND notification_type = ?';
+      queryParams.push(notification_type);
+    }
     
-    // Simplified status response
+    const [notifications] = await db.query(`
+      SELECT 
+        id,
+        notification_type,
+        title,
+        message,
+        data,
+        is_read,
+        priority,
+        created_at,
+        read_at,
+        expires_at
+      FROM user_notifications 
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `, [...queryParams, limit, offset]);
+    
+    // Get total count
+    const [countResult] = await db.query(`
+      SELECT COUNT(*) as total_count
+      FROM user_notifications 
+      ${whereClause}
+    `, queryParams);
+    
+    const safeNotifications = Array.isArray(notifications) ? notifications : [];
+    const totalCount = (Array.isArray(countResult) && countResult[0]) ? countResult[0].total_count : 0;
+    
     return {
-      user_id: user.id,
-      username: user.username,
-      status: user.is_member,
-      stage: user.membership_stage,
-      role: user.role,
-      is_authenticated: true,
-      permissions: {
-        can_access_towncrier: ['pre_member', 'member'].includes(user.membership_stage) || ['admin', 'super_admin'].includes(user.role),
-        can_access_iko: user.membership_stage === 'member' || ['admin', 'super_admin'].includes(user.role),
-        can_apply_initial: !user.membership_stage || user.membership_stage === 'none' || (user.membership_stage === 'applicant' && user.is_member === 'rejected'),
-        can_apply_full: user.membership_stage === 'pre_member'
+      user_id: userId,
+      notifications: safeNotifications.map(notif => ({
+        id: notif.id,
+        type: notif.notification_type,
+        title: notif.title,
+        message: notif.message,
+        data: notif.data ? JSON.parse(notif.data) : null,
+        is_read: !!notif.is_read,
+        priority: notif.priority,
+        created_at: notif.created_at,
+        read_at: notif.read_at,
+        expires_at: notif.expires_at
+      })),
+      pagination: {
+        total_count: totalCount,
+        limit: limit,
+        offset: offset,
+        has_more: (offset + limit) < totalCount
+      },
+      summary: {
+        unread_count: safeNotifications.filter(n => !n.is_read).length,
+        total_notifications: totalCount
       }
     };
     
   } catch (error) {
-    console.error('❌ Error in getUserStatusService:', error);
+    console.error('❌ Error in getUserNotificationsService:', error);
+    return {
+      user_id: userId,
+      notifications: [],
+      pagination: { total_count: 0, limit: 0, offset: 0, has_more: false },
+      summary: { unread_count: 0, total_notifications: 0 }
+    };
+  }
+};
+
+/**
+ * Mark notifications as read
+ * @param {number} userId - User ID
+ * @param {Array} notificationIds - Notification IDs to mark as read
+ * @returns {Object} Update result
+ */
+export const markNotificationsReadService = async (userId, notificationIds = []) => {
+  try {
+    console.log('✅ Marking notifications as read for user:', userId);
+    
+    if (notificationIds.length === 0) {
+      // Mark all notifications as read
+      await db.query(`
+        UPDATE user_notifications 
+        SET is_read = TRUE, read_at = NOW() 
+        WHERE user_id = ? AND is_read = FALSE
+      `, [userId]);
+    } else {
+      // Mark specific notifications as read
+      const placeholders = notificationIds.map(() => '?').join(',');
+      await db.query(`
+        UPDATE user_notifications 
+        SET is_read = TRUE, read_at = NOW() 
+        WHERE user_id = ? AND id IN (${placeholders})
+      `, [userId, ...notificationIds]);
+    }
+    
+    return {
+      success: true,
+      marked_count: notificationIds.length || 'all',
+      updated_at: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in markNotificationsReadService:', error);
+    throw error;
+  }
+};
+
+
+/**
+ * Get user statistics for admin dashboard
+ * @returns {Object} User statistics
+ */
+export const getUserStatsService = async () => {
+  try {
+    console.log('📊 Getting user statistics');
+    
+    const [stats] = await db.query(`
+      SELECT 
+        COUNT(*) as total_users,
+        COUNT(CASE WHEN role = 'admin' THEN 1 END) as total_admins,
+        COUNT(CASE WHEN role = 'super_admin' THEN 1 END) as total_super_admins,
+        COUNT(CASE WHEN role = 'mentor' THEN 1 END) as total_mentors,
+        COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END) as pre_members,
+        COUNT(CASE WHEN membership_stage = 'member' THEN 1 END) as full_members,
+        COUNT(CASE WHEN membership_stage = 'applicant' THEN 1 END) as applicants,
+        COUNT(CASE WHEN isblocked = 1 THEN 1 END) as blocked_users,
+        COUNT(CASE WHEN isbanned = 1 THEN 1 END) as banned_users,
+        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as new_users_30_days,
+        COUNT(CASE WHEN lastLogin >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_users_7_days
+      FROM users
+    `);
+    
+    // ✅ Safe result access
+    const statsData = (Array.isArray(stats) && stats[0]) ? stats[0] : {
+      total_users: 0,
+      total_admins: 0,
+      total_super_admins: 0,
+      total_mentors: 0,
+      pre_members: 0,
+      full_members: 0,
+      applicants: 0,
+      blocked_users: 0,
+      banned_users: 0,
+      new_users_30_days: 0,
+      active_users_7_days: 0
+    };
+    
+    return {
+      user_counts: {
+        total: statsData.total_users,
+        admins: statsData.total_admins,
+        super_admins: statsData.total_super_admins,
+        mentors: statsData.total_mentors,
+        pre_members: statsData.pre_members,
+        full_members: statsData.full_members,
+        applicants: statsData.applicants
+      },
+      user_status: {
+        blocked: statsData.blocked_users,
+        banned: statsData.banned_users
+      },
+      activity_metrics: {
+        new_users_30_days: statsData.new_users_30_days,
+        active_users_7_days: statsData.active_users_7_days
+      },
+      generated_at: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in getUserStats:', error);
     throw error;
   }
 };
@@ -1328,32 +1441,62 @@ export const getUserStatusService = async (userId) => {
 // EXPORT ALL SERVICES
 // ===============================================
 
-export default {
-  // Dashboard services
-  getUserDashboardService,
-  getUserContentStatsService,
+// export {
+//   // Dashboard services
+//   getUserDashboardService,
+//   getUserContentStatsService,
   
-  // Status services
-  getCurrentMembershipStatusService,
-  checkSurveyStatusService,
-  getApplicationStatusService,
-  getApplicationHistoryService,
+//   // Status services
+//   getCurrentMembershipStatusService,
+//   checkSurveyStatusService,
+//   getApplicationStatusService,
+//   getApplicationHistoryService,
   
-  // System health services
-  getSystemHealthService,
-  getSystemStatusService,
+//   // System health services
+//   getSystemHealthService,
+//   getSystemStatusService,
   
-  // Preferences services
-  getUserPreferencesService,
-  updateUserPreferencesService,
+//   // Preferences services
+//   getUserPreferencesService,
+//   updateUserPreferencesService,
   
-  // Permissions services
-  getUserPermissionsService,
+//   // Permissions services
+//   getUserPermissionsService,
   
-  // Debug services
-  debugApplicationStatusService,
+//   // Activity services
+//   getUserActivityStatsService,
   
-  // Legacy services
-  getLegacyMembershipStatusService,
-  getUserStatusService
-};
+//   // Notification services
+//   getUserNotificationsService,
+//   markNotificationsReadService
+// };
+
+// export default {
+//   // Dashboard services
+//   getUserDashboardService,
+//   getUserContentStatsService,
+  
+//   // Status services
+//   getCurrentMembershipStatusService,
+//   checkSurveyStatusService,
+//   getApplicationStatusService,
+//   getApplicationHistoryService,
+  
+//   // System health services
+//   getSystemHealthService,
+//   getSystemStatusService,
+  
+//   // Preferences services
+//   getUserPreferencesService,
+//   updateUserPreferencesService,
+  
+//   // Permissions services
+//   getUserPermissionsService,
+  
+//   // Activity services
+//   getUserActivityStatsService,
+  
+//   // Notification services
+//   getUserNotificationsService,
+//   markNotificationsReadService
+// };

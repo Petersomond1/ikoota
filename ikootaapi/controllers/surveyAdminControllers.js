@@ -1472,69 +1472,69 @@ const exportAllSurveyData = async (startDate, endDate, includeAnswers) => {
 // EXPORT ALL CONTROLLER FUNCTIONS
 // =============================================================================
 
-export default {
-  // Question Management
-  getSurveyQuestions,
-  createSurveyQuestion,
-  updateSurveyQuestions,
-  deleteSurveyQuestion,
+// export default {
+//   // Question Management
+//   getSurveyQuestions,
+//   createSurveyQuestion,
+//   updateSurveyQuestions,
+//   deleteSurveyQuestion,
   
-  // Question Labels Management
-  getSurveyQuestionLabels,
-  updateSurveyQuestionLabels,
-  createSurveyQuestionLabel,
+//   // Question Labels Management
+//   getSurveyQuestionLabels,
+//   updateSurveyQuestionLabels,
+//   createSurveyQuestionLabel,
   
-  // Survey Review & Approval
-  getPendingSurveys,
-  getSurveyLogs,
-  approveSurvey,
-  rejectSurvey,
+//   // Survey Review & Approval
+//   getPendingSurveys,
+//   getSurveyLogs,
+//   approveSurvey,
+//   rejectSurvey,
   
-  // Analytics & Reporting
-  getSurveyAnalytics,
-  getSurveyStats,
-  getSurveyCompletionRates,
+//   // Analytics & Reporting
+//   getSurveyAnalytics,
+//   getSurveyStats,
+//   getSurveyCompletionRates,
   
-  // Data Export
-  exportSurveyData,
+//   // Data Export
+//   exportSurveyData,
   
-  // Configuration
-  getSurveyConfig,
-  updateSurveyConfig,
+//   // Configuration
+//   getSurveyConfig,
+//   updateSurveyConfig,
   
-  // Helper Functions
-  assessSubmissionQuality,
-  calculateSurveyReviewPriority
-};
+//   // Helper Functions
+//   assessSubmissionQuality,
+//   calculateSurveyReviewPriority
+// };
 
-// Named exports for specific controller functions
-export {
-  // Question Management
-  getSurveyQuestions,
-  createSurveyQuestion,
-  updateSurveyQuestions,
-  deleteSurveyQuestion,
+// // Named exports for specific controller functions
+// export {
+//   // Question Management
+//   getSurveyQuestions,
+//   createSurveyQuestion,
+//   updateSurveyQuestions,
+//   deleteSurveyQuestion,
   
-  // Question Labels Management
-  getSurveyQuestionLabels,
-  updateSurveyQuestionLabels,
-  createSurveyQuestionLabel,
+//   // Question Labels Management
+//   getSurveyQuestionLabels,
+//   updateSurveyQuestionLabels,
+//   createSurveyQuestionLabel,
   
-  // Survey Review & Approval
-  getPendingSurveys,
-  getSurveyLogs,
-  approveSurvey,
-  rejectSurvey,
+//   // Survey Review & Approval
+//   getPendingSurveys,
+//   getSurveyLogs,
+//   approveSurvey,
+//   rejectSurvey,
   
-  // Analytics & Reporting
-  getSurveyAnalytics,
-  getSurveyStats,
-  getSurveyCompletionRates,
+//   // Analytics & Reporting
+//   getSurveyAnalytics,
+//   getSurveyStats,
+//   getSurveyCompletionRates,
   
-  // Data Export
-  exportSurveyData,
+//   // Data Export
+//   exportSurveyData,
   
-  // Configuration
-  getSurveyConfig,
-  updateSurveyConfig
-};
+//   // Configuration
+//   getSurveyConfig,
+//   updateSurveyConfig
+// };

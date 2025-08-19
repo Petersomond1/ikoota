@@ -1,13 +1,13 @@
-// ikootaapi/routes/userAdminRoutes.js  
+// ikootaapi/routes/userAdminRoutes.js
 // ADMIN USER MANAGEMENT ROUTES
 // Administrative control over user accounts and permissions
 
 import express from 'express';
 import { authenticate, authorize } from '../middleware/auth.js';
 
-// Import admin user controllers
+// ✅ Admin User Controller Imports
 import {
-  // User management
+  // User Management
   getAllUsers,
   getUserById,
   createUser,
@@ -16,27 +16,29 @@ import {
   searchUsers,
   exportUserData,
   
-  // User permissions
+  // User Permissions & Actions
   updateUserRole,
   grantPostingRights,
   banUser,
   unbanUser,
   
-  // ID generation (missing endpoints from analysis)
+  // ID Generation
   generateBulkIds,
   generateConverseId,
- // generateClassId,
+  generateClassIdForAdmin,
   
-  // System operations
+  // Identity Management
   maskUserIdentity,
-  getUserStats,
+  
+  // Mentors Management
   getMentors,
   assignMentorRole,
-  generateClassIdForAdmin,
   removeMentorRole,
-  testAdminUserRoutes
+  
+  // Testing
+  testAdminRoutes
 } from '../controllers/userAdminControllers.js';
-
+import { getUserStats } from '../controllers/userStatusControllers.js';
 const router = express.Router();
 
 // ===============================================
@@ -49,7 +51,7 @@ router.use(authorize(['admin', 'super_admin']));
 // USER MANAGEMENT
 // ===============================================
 
-// GET /admin/users - Get all users
+// GET /admin/users - Get all users with pagination and filters
 router.get('/', getAllUsers);
 
 // GET /admin/users/search - Search users
@@ -87,7 +89,7 @@ router.post('/ban', banUser);
 router.post('/unban', unbanUser);
 
 // ===============================================
-// ID GENERATION (MISSING ENDPOINTS FROM ANALYSIS)
+// ID GENERATION
 // ===============================================
 
 // POST /admin/users/generate-bulk-ids - Generate bulk IDs
@@ -97,8 +99,7 @@ router.post('/generate-bulk-ids', generateBulkIds);
 router.post('/generate-converse-id', generateConverseId);
 
 // POST /admin/users/generate-class-id - Generate class ID
-//router.post('/generate-class-id', generateClassId);
-//we already have this in classServices.js
+router.post('/generate-class-id', generateClassIdForAdmin);
 
 // ===============================================
 // IDENTITY MANAGEMENT
@@ -111,7 +112,7 @@ router.post('/mask-identity', maskUserIdentity);
 // DATA EXPORT
 // ===============================================
 
-// GET /admin/users/export - Export user data
+// GET /admin/users/export - Export user data (super admin only)
 router.get('/export', authorize(['super_admin']), exportUserData);
 
 // GET /admin/users/export/csv - Export users as CSV
@@ -131,53 +132,26 @@ router.get('/export/json', authorize(['super_admin']), (req, res, next) => {
 // ===============================================
 
 // GET /admin/users/mentors - Get all mentors
-router.get('/mentors', async (req, res) => {
-  req.query.role = 'mentor';
-  getAllUsers(req, res);
-});
+router.get('/mentors', getMentors);
 
 // POST /admin/users/mentors/assign - Assign mentor role
-router.post('/mentors/assign', (req, res, next) => {
-  req.body.role = 'mentor';
-  updateUserRole(req, res, next);
-});
+router.post('/mentors/assign', assignMentorRole);
 
 // DELETE /admin/users/mentors/:id/remove - Remove mentor role
-router.delete('/mentors/:id/remove', (req, res, next) => {
-  req.params.id = req.params.id;
-  req.body.role = 'user';
-  updateUserRole(req, res, next);
-});
+router.delete('/mentors/:id/remove', removeMentorRole);
 
 // ===============================================
 // TESTING ENDPOINTS
 // ===============================================
 
-// Admin user management test
-router.get('/test', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Admin user routes are working!',
-    timestamp: new Date().toISOString(),
-    user: {
-      id: req.user?.id,
-      username: req.user?.username,
-      role: req.user?.role
-    },
-    availableEndpoints: {
-      management: 'GET /, POST /create, PUT /:id, DELETE /:id',
-      permissions: 'PUT /role, POST /ban, POST /unban',
-      idGeneration: 'POST /generate-*-id',
-      export: 'GET /export'
-    }
-  });
-});
+// GET /admin/users/test - Admin user management test
+router.get('/test', testAdminRoutes);
 
 // ===============================================
 // ERROR HANDLING
 // ===============================================
 
-// 404 handler
+// 404 handler for admin user routes
 router.use('*', (req, res) => {
   res.status(404).json({
     success: false,
@@ -249,7 +223,7 @@ router.use((error, req, res, next) => {
 });
 
 if (process.env.NODE_ENV === 'development') {
-  console.log('🔐 Admin user routes loaded: user management, permissions, ID generation, export');
+  console.log('🔐 Admin user routes loaded: management, permissions, ID generation, export, mentors');
 }
 
 export default router;

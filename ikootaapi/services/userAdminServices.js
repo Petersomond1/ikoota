@@ -1,5 +1,5 @@
 // ikootaapi/services/userAdminServices.js
-// ADMIN USER MANAGEMENT SERVICES
+// ADMIN USER MANAGEMENT SERVICES - COMPLETE FILE
 // Business logic for administrative user operations
 
 import db from '../config/db.js';
@@ -16,7 +16,7 @@ import { generateUniqueConverseId, generateUniqueClassId } from '../utils/idGene
  * @param {Object} filters - Filter options
  * @returns {Object} Users list with pagination
  */
-export const getAllUsersService = async (filters = {}) => {
+export const getAllUsersAdminService = async (filters = {}) => {
   try {
     console.log('🔍 Admin getting all users with filters:', filters);
     
@@ -25,103 +25,180 @@ export const getAllUsersService = async (filters = {}) => {
     
     // Build dynamic WHERE clause
     if (filters.role) {
-      whereClause += ' AND role = ?';
+      whereClause += ' AND u.role = ?';
       queryParams.push(filters.role);
     }
     
     if (filters.membership_stage) {
-      whereClause += ' AND membership_stage = ?';
+      whereClause += ' AND u.membership_stage = ?';
       queryParams.push(filters.membership_stage);
     }
     
     if (filters.is_member) {
-      whereClause += ' AND is_member = ?';
+      whereClause += ' AND u.is_member = ?';
       queryParams.push(filters.is_member);
     }
     
     if (filters.isblocked !== undefined) {
-      whereClause += ' AND isblocked = ?';
+      whereClause += ' AND u.isblocked = ?';
       queryParams.push(filters.isblocked);
     }
     
     if (filters.isbanned !== undefined) {
-      whereClause += ' AND isbanned = ?';
+      whereClause += ' AND u.isbanned = ?';
       queryParams.push(filters.isbanned);
     }
     
     if (filters.search) {
-      whereClause += ' AND (username LIKE ? OR email LIKE ? OR converse_id LIKE ?)';
+      whereClause += ' AND (u.username LIKE ? OR u.email LIKE ? OR u.converse_id LIKE ?)';
       queryParams.push(`%${filters.search}%`, `%${filters.search}%`, `%${filters.search}%`);
     }
     
     // Get total count
     const [countResult] = await db.query(`
-      SELECT COUNT(*) as total FROM users ${whereClause}
+      SELECT COUNT(*) as total FROM users u ${whereClause}
     `, queryParams);
     
-    const total = countResult[0].total;
+    // ✅ Safe count access
+    const total = (countResult && Array.isArray(countResult) && countResult[0]) ? countResult[0].total : 0;
     
-    // Get users with pagination and extended info
+    // Get users with pagination
+    const page = filters.page || 1;
     const limit = filters.limit || 50;
-    const offset = filters.offset || 0;
+    const offset = (page - 1) * limit;
     
     const [users] = await db.query(`
       SELECT 
-        u.id, 
-        u.username, 
-        u.email, 
-        u.phone, 
-        u.role, 
-        u.membership_stage, 
-        u.is_member,
-        u.full_membership_status,
-        u.converse_id, 
-        u.mentor_id,
-        u.primary_class_id,
-        u.createdAt, 
-        u.updatedAt, 
-        u.lastLogin,
-        u.isblocked, 
-        u.isbanned,
-        u.ban_reason,
-        u.is_identity_masked,
-        mentor.username as mentor_name,
-        class.class_name as primary_class_name,
-        (SELECT COUNT(*) FROM surveylog WHERE user_id = u.id) as total_applications,
-        (SELECT COUNT(*) FROM full_membership_applications WHERE user_id = u.id) as full_membership_applications
+        u.id, u.username, u.email, u.phone, u.role, 
+        u.membership_stage, u.is_member, u.full_membership_status,
+        u.converse_id, u.mentor_id, u.primary_class_id,
+        u.createdAt, u.updatedAt, u.lastLogin,
+        u.isblocked, u.isbanned, u.ban_reason, u.is_identity_masked,
+        m.username as mentor_name,
+        c.class_name as primary_class_name,
+        (SELECT COUNT(*) FROM surveylog WHERE user_id = u.id) as total_applications
       FROM users u
-      LEFT JOIN users mentor ON u.mentor_id = mentor.id
-      LEFT JOIN classes class ON u.primary_class_id = class.id
+      LEFT JOIN users m ON u.mentor_id = m.id
+      LEFT JOIN classes c ON u.primary_class_id = c.id
       ${whereClause}
       ORDER BY u.createdAt DESC
-      LIMIT ? OFFSET ?
-    `, [...queryParams, limit, offset]);
+      LIMIT ${parseInt(limit)} OFFSET ${offset}
+    `, queryParams);
+    
+    // ✅ Safe array access
+    const safeUsers = Array.isArray(users) ? users : [];
     
     return {
-      users: users.map(user => ({
+      users: safeUsers.map(user => ({
         ...user,
         is_identity_masked: !!user.is_identity_masked,
         isblocked: !!user.isblocked,
         isbanned: !!user.isbanned
       })),
-      total,
-      limit,
-      offset
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      },
+      filters: {
+        role: filters.role,
+        membership_stage: filters.membership_stage,
+        search: filters.search
+      }
     };
     
   } catch (error) {
-    console.error('❌ Error in getAllUsersService:', error);
+    console.error('❌ Error in getAllUsersAdminService:', error);
     throw error;
   }
 };
 
 /**
- * Create new user (Admin)
+ * Get user by ID for admin
+ * @param {number} userId - User ID
+ * @returns {Object} User details
+ */
+export const getUserByIdAdminService = async (userId) => {
+  try {
+    console.log('🔍 Admin fetching user by ID:', userId);
+    
+    const [users] = await db.query(`
+      SELECT 
+        u.id, u.username, u.email, u.phone, u.role,
+        u.membership_stage, u.is_member, u.full_membership_status,
+        u.converse_id, u.mentor_id, u.primary_class_id,
+        u.total_classes, u.is_identity_masked,
+        u.createdAt, u.updatedAt, u.lastLogin,
+        u.isblocked, u.isbanned, u.ban_reason, u.decline_reason,
+        m.username as mentor_name, m.email as mentor_email,
+        c.class_name as primary_class_name,
+        (SELECT COUNT(*) FROM surveylog WHERE user_id = u.id) as total_applications,
+        (SELECT COUNT(*) FROM full_membership_applications WHERE user_id = u.id) as full_membership_applications
+      FROM users u
+      LEFT JOIN users m ON u.mentor_id = m.id
+      LEFT JOIN classes c ON u.primary_class_id = c.id
+      WHERE u.id = ?
+    `, [userId]);
+    
+    // ✅ Safe result access
+    if (!users || (Array.isArray(users) && users.length === 0)) {
+      throw new CustomError('User not found', 404);
+    }
+    
+    const user = Array.isArray(users) ? users[0] : users;
+    
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      membership_stage: user.membership_stage,
+      is_member: user.is_member,
+      full_membership_status: user.full_membership_status,
+      converse_id: user.converse_id,
+      mentor: {
+        id: user.mentor_id,
+        name: user.mentor_name,
+        email: user.mentor_email
+      },
+      class: {
+        id: user.primary_class_id,
+        name: user.primary_class_name
+      },
+      statistics: {
+        total_classes: user.total_classes || 0,
+        total_applications: user.total_applications || 0,
+        full_membership_applications: user.full_membership_applications || 0
+      },
+      status: {
+        is_blocked: !!user.isblocked,
+        is_banned: !!user.isbanned,
+        ban_reason: user.ban_reason,
+        decline_reason: user.decline_reason,
+        is_identity_masked: !!user.is_identity_masked
+      },
+      timestamps: {
+        created_at: user.createdAt,
+        updated_at: user.updatedAt,
+        last_login: user.lastLogin
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in getUserByIdAdminService:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create user (Admin)
  * @param {Object} userData - User data
  * @param {Object} adminUser - Admin user creating the account
  * @returns {Object} Created user data
  */
-export const createUserService = async (userData, adminUser) => {
+export const createUserAdminService = async (userData, adminUser) => {
   try {
     console.log('👤 Admin creating new user:', userData.username);
     
@@ -164,8 +241,10 @@ export const createUserService = async (userData, adminUser) => {
       WHERE username = ? OR email = ?
     `, [username, email]);
     
-    if (existingUsers.length > 0) {
-      const existing = existingUsers[0];
+    // ✅ Safe array access
+    const safeExistingUsers = Array.isArray(existingUsers) ? existingUsers : [];
+    if (safeExistingUsers.length > 0) {
+      const existing = safeExistingUsers[0];
       if (existing.username === username) {
         throw new CustomError('Username already exists', 409);
       }
@@ -201,30 +280,25 @@ export const createUserService = async (userData, adminUser) => {
 
       const newUserId = result.insertId;
       
-      // Log the creation in audit trail
-      await db.query(`
-        INSERT INTO audit_logs (user_id, action, details, createdAt)
-        VALUES (?, 'user_created', ?, NOW())
-      `, [adminUser.id, JSON.stringify({
-        targetUserId: newUserId,
-        targetUsername: username,
-        targetRole: role,
-        createdBy: adminUser.username
-      })]);
+      // Log the creation in audit trail (if audit table exists)
+      try {
+        await db.query(`
+          INSERT INTO audit_logs (user_id, action, details, createdAt)
+          VALUES (?, 'user_created', ?, NOW())
+        `, [adminUser.id, JSON.stringify({
+          targetUserId: newUserId,
+          targetUsername: username,
+          targetRole: role,
+          createdBy: adminUser.username
+        })]);
+      } catch (auditError) {
+        console.warn('Could not log to audit table:', auditError.message);
+      }
       
       await db.query('COMMIT');
       
-      // Get the created user with full details
-      const [newUser] = await db.query(`
-        SELECT 
-          id, username, email, phone, role, membership_stage, 
-          is_member, converse_id, mentor_id, primary_class_id,
-          createdAt, updatedAt
-        FROM users 
-        WHERE id = ?
-      `, [newUserId]);
-      
-      return newUser[0];
+      // Return created user details
+      return await getUserByIdAdminService(newUserId);
       
     } catch (error) {
       await db.query('ROLLBACK');
@@ -232,7 +306,7 @@ export const createUserService = async (userData, adminUser) => {
     }
     
   } catch (error) {
-    console.error('❌ Error in createUserService:', error);
+    console.error('❌ Error in createUserAdminService:', error);
     throw error;
   }
 };
@@ -244,20 +318,12 @@ export const createUserService = async (userData, adminUser) => {
  * @param {Object} adminUser - Admin user making the update
  * @returns {Object} Updated user data
  */
-export const updateUserByAdminService = async (userId, updateData, adminUser) => {
+export const updateUserAdminService = async (userId, updateData, adminUser) => {
   try {
     console.log('🔧 Admin updating user:', userId, 'with:', updateData);
     
     // Get current user to validate exists
-    const [currentUsers] = await db.query(`
-      SELECT id, username, role, membership_stage FROM users WHERE id = ?
-    `, [userId]);
-    
-    if (currentUsers.length === 0) {
-      throw new CustomError('User not found', 404);
-    }
-    
-    const currentUser = currentUsers[0];
+    const currentUser = await getUserByIdAdminService(userId);
     
     // Admin can update these fields
     const allowedFields = [
@@ -306,37 +372,26 @@ export const updateUserByAdminService = async (userId, updateData, adminUser) =>
       
       await db.query(query, [...updateValues, userId]);
       
-      // Log the update in audit trail
-      await db.query(`
-        INSERT INTO audit_logs (user_id, action, details, createdAt)
-        VALUES (?, 'user_updated', ?, NOW())
-      `, [adminUser.id, JSON.stringify({
-        targetUserId: userId,
-        targetUsername: currentUser.username,
-        updatedFields: Object.keys(sanitizedData),
-        updatedBy: adminUser.username,
-        changes: sanitizedData
-      })]);
+      // Log the update in audit trail (if audit table exists)
+      try {
+        await db.query(`
+          INSERT INTO audit_logs (user_id, action, details, createdAt)
+          VALUES (?, 'user_updated', ?, NOW())
+        `, [adminUser.id, JSON.stringify({
+          targetUserId: userId,
+          targetUsername: currentUser.username,
+          updatedFields: Object.keys(sanitizedData),
+          updatedBy: adminUser.username,
+          changes: sanitizedData
+        })]);
+      } catch (auditError) {
+        console.warn('Could not log to audit table:', auditError.message);
+      }
       
       await db.query('COMMIT');
       
       // Return updated user with full details
-      const [updatedUser] = await db.query(`
-        SELECT 
-          u.id, u.username, u.email, u.phone, u.role, 
-          u.membership_stage, u.is_member, u.full_membership_status,
-          u.converse_id, u.mentor_id, u.primary_class_id,
-          u.isblocked, u.isbanned, u.ban_reason, u.is_identity_masked,
-          u.createdAt, u.updatedAt, u.lastLogin,
-          mentor.username as mentor_name,
-          class.class_name as primary_class_name
-        FROM users u
-        LEFT JOIN users mentor ON u.mentor_id = mentor.id
-        LEFT JOIN classes class ON u.primary_class_id = class.id
-        WHERE u.id = ?
-      `, [userId]);
-      
-      return updatedUser[0];
+      return await getUserByIdAdminService(userId);
       
     } catch (error) {
       await db.query('ROLLBACK');
@@ -344,7 +399,7 @@ export const updateUserByAdminService = async (userId, updateData, adminUser) =>
     }
     
   } catch (error) {
-    console.error('❌ Error in updateUserByAdminService:', error);
+    console.error('❌ Error in updateUserAdminService:', error);
     throw error;
   }
 };
@@ -356,7 +411,7 @@ export const updateUserByAdminService = async (userId, updateData, adminUser) =>
  * @param {string} reason - Reason for deletion
  * @returns {Object} Deletion result
  */
-export const deleteUserService = async (userId, adminUser, reason = 'Admin deletion') => {
+export const deleteUserAdminService = async (userId, adminUser, reason = 'Admin deletion') => {
   try {
     console.log('🗑️ Admin deleting user:', userId, 'reason:', reason);
     
@@ -371,44 +426,45 @@ export const deleteUserService = async (userId, adminUser, reason = 'Admin delet
     }
 
     // Get user details before deletion
-    const [users] = await db.query(`
-      SELECT id, username, role, email FROM users WHERE id = ?
-    `, [userId]);
-    
-    if (users.length === 0) {
-      throw new CustomError('User not found', 404);
-    }
-    
-    const user = users[0];
+    const user = await getUserByIdAdminService(userId);
 
     // Begin transaction
     await db.query('START TRANSACTION');
     
     try {
-      // Log the deletion before actually deleting
-      await db.query(`
-        INSERT INTO audit_logs (user_id, action, details, createdAt)
-        VALUES (?, 'user_deleted', ?, NOW())
-      `, [adminUser.id, JSON.stringify({
-        targetUserId: userId,
-        targetUsername: user.username,
-        targetRole: user.role,
-        targetEmail: user.email,
-        deletedBy: adminUser.username,
-        reason: reason
-      })]);
+      // Log the deletion before actually deleting (if audit table exists)
+      try {
+        await db.query(`
+          INSERT INTO audit_logs (user_id, action, details, createdAt)
+          VALUES (?, 'user_deleted', ?, NOW())
+        `, [adminUser.id, JSON.stringify({
+          targetUserId: userId,
+          targetUsername: user.username,
+          targetRole: user.role,
+          targetEmail: user.email,
+          deletedBy: adminUser.username,
+          reason: reason
+        })]);
+      } catch (auditError) {
+        console.warn('Could not log to audit table:', auditError.message);
+      }
       
       // Delete related records first (adjust based on your schema)
-      await db.query('DELETE FROM surveylog WHERE user_id = ?', [userId]);
-      await db.query('DELETE FROM full_membership_applications WHERE user_id = ?', [userId]);
-      await db.query('DELETE FROM full_membership_access WHERE user_id = ?', [userId]);
-      await db.query('DELETE FROM user_preferences WHERE user_id = ?', [userId]);
-      await db.query('DELETE FROM identity_masking_audit WHERE user_id = ?', [userId]);
+      try {
+        await db.query('DELETE FROM surveylog WHERE user_id = ?', [userId]);
+        await db.query('DELETE FROM full_membership_applications WHERE user_id = ?', [userId]);
+        await db.query('DELETE FROM user_preferences WHERE user_id = ?', [userId]);
+        await db.query('DELETE FROM user_settings WHERE user_id = ?', [userId]);
+        await db.query('DELETE FROM notifications WHERE user_id = ?', [userId]);
+        await db.query('DELETE FROM user_activities WHERE user_id = ?', [userId]);
+      } catch (relatedError) {
+        console.warn('Some related records could not be deleted:', relatedError.message);
+      }
       
       // Delete main user record
       const [result] = await db.query('DELETE FROM users WHERE id = ?', [userId]);
       
-      if (result.affectedRows === 0) {
+      if (!result || result.affectedRows === 0) {
         throw new CustomError('Failed to delete user', 500);
       }
       
@@ -430,13 +486,31 @@ export const deleteUserService = async (userId, adminUser, reason = 'Admin delet
     }
     
   } catch (error) {
-    console.error('❌ Error in deleteUserService:', error);
+    console.error('❌ Error in deleteUserAdminService:', error);
+    throw error;
+  }
+};
+
+/**
+ * Search users for admin
+ * @param {Object} searchFilters - Search criteria
+ * @returns {Object} Search results
+ */
+export const searchUsersAdminService = async (searchFilters = {}) => {
+  try {
+    console.log('🔍 Admin searching users:', searchFilters);
+    
+    // Use the same logic as getAllUsersAdminService but with search focus
+    return await getAllUsersAdminService(searchFilters);
+    
+  } catch (error) {
+    console.error('❌ Error in searchUsersAdminService:', error);
     throw error;
   }
 };
 
 // ===============================================
-// USER PERMISSIONS & ROLES SERVICES
+// USER ACTION SERVICES
 // ===============================================
 
 /**
@@ -446,22 +520,14 @@ export const deleteUserService = async (userId, adminUser, reason = 'Admin delet
  * @param {Object} adminUser - Admin user performing ban
  * @returns {Object} Ban result
  */
-export const banUserService = async (userId, banData, adminUser) => {
+export const banUserAdminService = async (userId, banData, adminUser) => {
   try {
     const { reason, duration, notifyUser = true } = banData;
     
     console.log('🚫 Admin banning user:', userId, 'reason:', reason);
 
     // Get user details
-    const [users] = await db.query(`
-      SELECT id, username, role, email FROM users WHERE id = ?
-    `, [userId]);
-    
-    if (users.length === 0) {
-      throw new CustomError('User not found', 404);
-    }
-    
-    const user = users[0];
+    const user = await getUserByIdAdminService(userId);
     
     // Prevent banning other admins (unless super admin)
     if (['admin', 'super_admin'].includes(user.role) && adminUser.role !== 'super_admin') {
@@ -478,32 +544,28 @@ export const banUserService = async (userId, banData, adminUser) => {
     
     try {
       // Update user ban status
-      const updateData = {
-        isbanned: true,
-        ban_reason: reason,
-        banned_at: new Date(),
-        banned_by: adminUser.id,
-        ban_duration: duration
-      };
-
       await db.query(`
         UPDATE users 
         SET isbanned = ?, ban_reason = ?, banned_at = NOW(), banned_by = ?, ban_duration = ?, updatedAt = NOW()
         WHERE id = ?
       `, [true, reason, adminUser.id, duration, userId]);
       
-      // Log the ban action
-      await db.query(`
-        INSERT INTO audit_logs (user_id, action, details, createdAt)
-        VALUES (?, 'user_banned', ?, NOW())
-      `, [adminUser.id, JSON.stringify({
-        targetUserId: userId,
-        targetUsername: user.username,
-        reason,
-        duration,
-        bannedBy: adminUser.username,
-        notifyUser
-      })]);
+      // Log the ban action (if audit table exists)
+      try {
+        await db.query(`
+          INSERT INTO audit_logs (user_id, action, details, createdAt)
+          VALUES (?, 'user_banned', ?, NOW())
+        `, [adminUser.id, JSON.stringify({
+          targetUserId: userId,
+          targetUsername: user.username,
+          reason,
+          duration,
+          bannedBy: adminUser.username,
+          notifyUser
+        })]);
+      } catch (auditError) {
+        console.warn('Could not log to audit table:', auditError.message);
+      }
       
       await db.query('COMMIT');
       
@@ -524,7 +586,7 @@ export const banUserService = async (userId, banData, adminUser) => {
     }
     
   } catch (error) {
-    console.error('❌ Error in banUserService:', error);
+    console.error('❌ Error in banUserAdminService:', error);
     throw error;
   }
 };
@@ -536,22 +598,14 @@ export const banUserService = async (userId, banData, adminUser) => {
  * @param {Object} adminUser - Admin user performing unban
  * @returns {Object} Unban result
  */
-export const unbanUserService = async (userId, reason, adminUser) => {
+export const unbanUserAdminService = async (userId, reason, adminUser) => {
   try {
     console.log('✅ Admin unbanning user:', userId, 'reason:', reason);
 
     // Get user details
-    const [users] = await db.query(`
-      SELECT id, username, email, isbanned FROM users WHERE id = ?
-    `, [userId]);
+    const user = await getUserByIdAdminService(userId);
     
-    if (users.length === 0) {
-      throw new CustomError('User not found', 404);
-    }
-    
-    const user = users[0];
-    
-    if (!user.isbanned) {
+    if (!user.status.is_banned) {
       throw new CustomError('User is not banned', 400);
     }
 
@@ -566,16 +620,20 @@ export const unbanUserService = async (userId, reason, adminUser) => {
         WHERE id = ?
       `, [false, reason, adminUser.id, userId]);
       
-      // Log the unban action
-      await db.query(`
-        INSERT INTO audit_logs (user_id, action, details, createdAt)
-        VALUES (?, 'user_unbanned', ?, NOW())
-      `, [adminUser.id, JSON.stringify({
-        targetUserId: userId,
-        targetUsername: user.username,
-        reason,
-        unbannedBy: adminUser.username
-      })]);
+      // Log the unban action (if audit table exists)
+      try {
+        await db.query(`
+          INSERT INTO audit_logs (user_id, action, details, createdAt)
+          VALUES (?, 'user_unbanned', ?, NOW())
+        `, [adminUser.id, JSON.stringify({
+          targetUserId: userId,
+          targetUsername: user.username,
+          reason,
+          unbannedBy: adminUser.username
+        })]);
+      } catch (auditError) {
+        console.warn('Could not log to audit table:', auditError.message);
+      }
       
       await db.query('COMMIT');
       
@@ -594,7 +652,7 @@ export const unbanUserService = async (userId, reason, adminUser) => {
     }
     
   } catch (error) {
-    console.error('❌ Error in unbanUserService:', error);
+    console.error('❌ Error in unbanUserAdminService:', error);
     throw error;
   }
 };
@@ -633,11 +691,15 @@ export const generateBulkIdsService = async (count, type, adminUser) => {
       
       generatedIds.push(newId);
       
-      // Log the generation
-      await db.query(`
-        INSERT INTO id_generation_log (generated_id, id_type, generated_by, purpose, createdAt)
-        VALUES (?, ?, ?, 'bulk_generation', NOW())
-      `, [newId, type, adminUser.converse_id || adminUser.id]);
+      // Log the generation (if audit table exists)
+      try {
+        await db.query(`
+          INSERT INTO id_generation_log (generated_id, id_type, generated_by, purpose, createdAt)
+          VALUES (?, ?, ?, 'bulk_generation', NOW())
+        `, [newId, type, adminUser.converse_id || adminUser.id]);
+      } catch (logError) {
+        console.warn('Could not log ID generation:', logError.message);
+      }
     }
     
     return {
@@ -654,8 +716,6 @@ export const generateBulkIdsService = async (count, type, adminUser) => {
   }
 };
 
-export const generateClassIdService = async ()=>{};
-
 /**
  * Generate converse ID for user
  * @param {number} userId - User ID
@@ -667,15 +727,7 @@ export const generateConverseIdService = async (userId, adminUser) => {
     console.log('🆔 Admin generating converse ID for user:', userId);
 
     // Check if user exists and current converse ID status
-    const [users] = await db.query(`
-      SELECT id, username, converse_id FROM users WHERE id = ?
-    `, [userId]);
-    
-    if (users.length === 0) {
-      throw new CustomError('User not found', 404);
-    }
-    
-    const user = users[0];
+    const user = await getUserByIdAdminService(userId);
     
     if (user.converse_id && user.converse_id !== '000000') {
       throw new CustomError('User already has a converse ID', 400);
@@ -693,11 +745,15 @@ export const generateConverseIdService = async (userId, adminUser) => {
         UPDATE users SET converse_id = ?, updatedAt = NOW() WHERE id = ?
       `, [converseId, userId]);
       
-      // Log the generation
-      await db.query(`
-        INSERT INTO id_generation_log (generated_id, id_type, generated_by, purpose, createdAt)
-        VALUES (?, 'user', ?, 'converse_id_generation', NOW())
-      `, [converseId, adminUser.converse_id || adminUser.id]);
+      // Log the generation (if audit table exists)
+      try {
+        await db.query(`
+          INSERT INTO id_generation_log (generated_id, id_type, generated_by, purpose, createdAt)
+          VALUES (?, 'user', ?, 'converse_id_generation', NOW())
+        `, [converseId, adminUser.converse_id || adminUser.id]);
+      } catch (logError) {
+        console.warn('Could not log ID generation:', logError.message);
+      }
       
       await db.query('COMMIT');
       
@@ -720,6 +776,62 @@ export const generateConverseIdService = async (userId, adminUser) => {
   }
 };
 
+/**
+ * Generate class ID service
+ * @param {Object} classData - Class creation data
+ * @param {Object} adminUser - Admin user requesting generation
+ * @returns {Object} Generated class ID result
+ */
+export const generateClassIdService = async (classData, adminUser) => {
+  try {
+    const { className, classType = 'demographic' } = classData;
+    
+    console.log('🆔 Admin generating class ID:', { className, classType });
+
+    // Generate class ID using the utility function
+    const newClassId = await generateUniqueClassId();
+    
+    // Begin transaction
+    await db.query('START TRANSACTION');
+    
+    try {
+      // Create the class
+      await db.query(`
+        INSERT INTO classes (class_id, class_name, class_type, created_by, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, NOW(), NOW())
+      `, [newClassId, className, classType, adminUser.id]);
+      
+      // Log the generation (if audit table exists)
+      try {
+        await db.query(`
+          INSERT INTO id_generation_log (generated_id, id_type, generated_by, purpose, createdAt)
+          VALUES (?, 'class', ?, 'class_creation', NOW())
+        `, [newClassId, adminUser.converse_id || adminUser.id]);
+      } catch (logError) {
+        console.warn('Could not log ID generation:', logError.message);
+      }
+      
+      await db.query('COMMIT');
+      
+      return {
+        class_id: newClassId,
+        class_name: className,
+        class_type: classType,
+        created_by: adminUser.username,
+        created_at: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in generateClassIdService:', error);
+    throw error;
+  }
+};
+
 // ===============================================
 // IDENTITY MANAGEMENT SERVICES
 // ===============================================
@@ -737,17 +849,9 @@ export const maskUserIdentityService = async (maskingData, adminUser) => {
     console.log('🎭 Admin masking user identity:', { userId, reason });
 
     // Get user details before masking
-    const [users] = await db.query(`
-      SELECT id, username, converse_id, is_identity_masked FROM users WHERE id = ?
-    `, [userId]);
+    const user = await getUserByIdAdminService(userId);
     
-    if (users.length === 0) {
-      throw new CustomError('User not found', 404);
-    }
-    
-    const user = users[0];
-    
-    if (user.is_identity_masked) {
+    if (user.status.is_identity_masked) {
       throw new CustomError('User identity is already masked', 400);
     }
 
@@ -762,13 +866,17 @@ export const maskUserIdentityService = async (maskingData, adminUser) => {
         WHERE id = ?
       `, [adminConverseId, mentorConverseId, classId, true, userId]);
       
-      // Log identity masking
-      await db.query(`
-        INSERT INTO identity_masking_audit (
-          user_id, original_converse_id, new_converse_id, masked_by_admin_id, 
-          original_username, reason, createdAt
-        ) VALUES (?, ?, ?, ?, ?, ?, NOW())
-      `, [userId, user.converse_id, adminConverseId, adminUser.converse_id || adminUser.id, user.username, reason]);
+      // Log identity masking (if audit table exists)
+      try {
+        await db.query(`
+          INSERT INTO identity_masking_audit (
+            user_id, original_converse_id, new_converse_id, masked_by_admin_id, 
+            original_username, reason, createdAt
+          ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+        `, [userId, user.converse_id, adminConverseId, adminUser.converse_id || adminUser.id, user.username, reason]);
+      } catch (auditError) {
+        console.warn('Could not log identity masking:', auditError.message);
+      }
       
       await db.query('COMMIT');
       
@@ -805,7 +913,7 @@ export const maskUserIdentityService = async (maskingData, adminUser) => {
  * @param {Object} adminUser - Admin user requesting export
  * @returns {Object} Export data
  */
-export const exportUsersDataService = async (exportOptions = {}, adminUser) => {
+export const exportUserDataAdminService = async (exportOptions = {}, adminUser) => {
   try {
     console.log('📊 Admin exporting user data:', exportOptions);
     
@@ -817,43 +925,39 @@ export const exportUsersDataService = async (exportOptions = {}, adminUser) => {
     }
 
     // Get all users for export
+    const selectFields = includePersonalData 
+      ? 'u.id, u.username, u.email, u.phone, u.role, u.membership_stage, u.is_member, u.full_membership_status, u.converse_id, u.createdAt, u.updatedAt, u.lastLogin, u.isblocked, u.isbanned, u.ban_reason, u.is_identity_masked'
+      : 'u.id, u.username, u.role, u.membership_stage, u.is_member, u.full_membership_status, u.converse_id, u.createdAt, u.updatedAt, u.lastLogin, u.isblocked, u.isbanned, u.is_identity_masked';
+
     const [users] = await db.query(`
-      SELECT 
-        u.id,
-        u.username,
-        ${includePersonalData ? 'u.email, u.phone,' : ''}
-        u.role,
-        u.membership_stage,
-        u.is_member,
-        u.full_membership_status,
-        u.converse_id,
-        u.createdAt,
-        u.updatedAt,
-        u.lastLogin,
-        u.isblocked,
-        u.isbanned,
-        ${includePersonalData ? 'u.ban_reason,' : ''}
-        u.is_identity_masked
+      SELECT ${selectFields}
       FROM users u
       ORDER BY u.createdAt DESC
     `);
     
-    // Log the export action
-    await db.query(`
-      INSERT INTO audit_logs (user_id, action, details, createdAt)
-      VALUES (?, 'data_export', ?, NOW())
-    `, [adminUser.id, JSON.stringify({
-      exportType: 'users',
-      format,
-      includePersonalData,
-      recordCount: users.length,
-      exportedBy: adminUser.username
-    })]);
+    // ✅ Safe array access
+    const safeUsers = Array.isArray(users) ? users : [];
+    
+    // Log the export action (if audit table exists)
+    try {
+      await db.query(`
+        INSERT INTO audit_logs (user_id, action, details, createdAt)
+        VALUES (?, 'data_export', ?, NOW())
+      `, [adminUser.id, JSON.stringify({
+        exportType: 'users',
+        format,
+        includePersonalData,
+        recordCount: safeUsers.length,
+        exportedBy: adminUser.username
+      })]);
+    } catch (auditError) {
+      console.warn('Could not log to audit table:', auditError.message);
+    }
     
     return {
-      users,
+      users: safeUsers,
       metadata: {
-        total_records: users.length,
+        total_records: safeUsers.length,
         format,
         include_personal_data: includePersonalData,
         exported_at: new Date().toISOString(),
@@ -862,7 +966,96 @@ export const exportUsersDataService = async (exportOptions = {}, adminUser) => {
     };
     
   } catch (error) {
-    console.error('❌ Error in exportUsersDataService:', error);
+    console.error('❌ Error in exportUserDataAdminService:', error);
+    throw error;
+  }
+};
+
+// ===============================================
+// STATISTICS SERVICES
+// ===============================================
+
+/**
+ * Get user statistics for admin
+ * @returns {Object} User statistics
+ */
+export const getUserStatsAdminService = async () => {
+  try {
+    console.log('📊 Admin fetching user statistics');
+    
+    const [stats] = await db.query(`
+      SELECT 
+        COUNT(*) as total_users,
+        COUNT(CASE WHEN role = 'admin' THEN 1 END) as total_admins,
+        COUNT(CASE WHEN role = 'super_admin' THEN 1 END) as total_super_admins,
+        COUNT(CASE WHEN role = 'mentor' THEN 1 END) as total_mentors,
+        COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END) as pre_members,
+        COUNT(CASE WHEN membership_stage = 'member' THEN 1 END) as full_members,
+        COUNT(CASE WHEN membership_stage = 'applicant' THEN 1 END) as applicants,
+        COUNT(CASE WHEN membership_stage = 'none' OR membership_stage IS NULL THEN 1 END) as unregistered,
+        COUNT(CASE WHEN isblocked = 1 THEN 1 END) as blocked_users,
+        COUNT(CASE WHEN isbanned = 1 THEN 1 END) as banned_users,
+        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as new_users_30_days,
+        COUNT(CASE WHEN lastLogin >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as active_users_7_days
+      FROM users
+    `);
+    
+    // ✅ Safe result access
+    const statsData = (Array.isArray(stats) && stats[0]) ? stats[0] : {
+      total_users: 0,
+      total_admins: 0,
+      total_super_admins: 0,
+      total_mentors: 0,
+      pre_members: 0,
+      full_members: 0,
+      applicants: 0,
+      unregistered: 0,
+      blocked_users: 0,
+      banned_users: 0,
+      new_users_30_days: 0,
+      active_users_7_days: 0
+    };
+    
+    // Get pending applications (with error handling)
+    let pendingApplications = 0;
+    try {
+      const [pendingResult] = await db.query(`
+        SELECT COUNT(*) as pending_count 
+        FROM surveylog 
+        WHERE approval_status = 'pending'
+      `);
+      pendingApplications = (Array.isArray(pendingResult) && pendingResult[0]) ? pendingResult[0].pending_count : 0;
+    } catch (pendingError) {
+      console.warn('Could not fetch pending applications:', pendingError.message);
+    }
+    
+    return {
+      user_counts: {
+        total: statsData.total_users,
+        admins: statsData.total_admins,
+        super_admins: statsData.total_super_admins,
+        mentors: statsData.total_mentors,
+        pre_members: statsData.pre_members,
+        full_members: statsData.full_members,
+        applicants: statsData.applicants,
+        unregistered: statsData.unregistered
+      },
+      user_status: {
+        blocked: statsData.blocked_users,
+        banned: statsData.banned_users
+      },
+      activity_metrics: {
+        new_users_30_days: statsData.new_users_30_days,
+        active_users_7_days: statsData.active_users_7_days
+      },
+      application_metrics: {
+        pending_applications: pendingApplications
+      },
+      generated_at: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in getUserStatsAdminService:', error);
     throw error;
   }
 };
@@ -871,24 +1064,58 @@ export const exportUsersDataService = async (exportOptions = {}, adminUser) => {
 // EXPORT ALL SERVICES
 // ===============================================
 
-export default {
-  // User management
-  getAllUsersService,
-  createUserService,
-  updateUserByAdminService,
-  deleteUserService,
+// export {
+//   // User Management
+//   getAllUsersAdminService,
+//   getUserByIdAdminService,
+//   createUserAdminService,
+//   updateUserAdminService,
+//   deleteUserAdminService,
+//   searchUsersAdminService,
   
-  // Permissions & roles
-  banUserService,
-  unbanUserService,
+//   // User Actions
+//   banUserAdminService,
+//   unbanUserAdminService,
   
-  // ID generation
-  generateBulkIdsService,
-  generateConverseIdService,
+//   // ID Generation
+//   generateBulkIdsService,
+//   generateConverseIdService,
+//   generateClassIdService,
   
-  // Identity management
-  maskUserIdentityService,
+//   // Identity Management
+//   maskUserIdentityService,
   
-  // Data export
-  exportUsersDataService
-};
+//   // Data Export
+//   exportUserDataAdminService,
+  
+//   // Statistics
+//   getUserStatsAdminService
+// };
+
+// export default {
+//   // User Management
+//   getAllUsersAdminService,
+//   getUserByIdAdminService,
+//   createUserAdminService,
+//   updateUserAdminService,
+//   deleteUserAdminService,
+//   searchUsersAdminService,
+  
+//   // User Actions
+//   banUserAdminService,
+//   unbanUserAdminService,
+  
+//   // ID Generation
+//   generateBulkIdsService,
+//   generateConverseIdService,
+//   generateClassIdService,
+  
+//   // Identity Management
+//   maskUserIdentityService,
+  
+//   // Data Export
+//   exportUserDataAdminService,
+  
+//   // Statistics
+//   getUserStatsAdminService
+// };

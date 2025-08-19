@@ -1,5 +1,6 @@
-// routes/index.js - COMPLETE ROUTE HUB WITH ALL ADMIN ROUTES
-// This is the main router that mounts ALL route systems
+// routes/index.js - COMPLETE ROUTE HUB WITH ALL SYSTEMS INCLUDING SURVEY
+// Enhanced version of existing router with survey system integration
+// Maintains all existing functionality while adding survey capabilities
 
 import express from 'express';
 
@@ -12,14 +13,18 @@ import authRoutes from './authRoutes.js';
 
 // User routes
 import userRoutes from './userRoutes.js';
-import userAdminRoutes from './userAdminRoutes.js';  // ✅ ADD THIS
+import userAdminRoutes from './userAdminRoutes.js';
 
 // Content routes  
 import contentRoutes from './contentRoutes.js';
 
 // Membership routes
 import membershipRoutes from './membershipRoutes.js';
-import membershipAdminRoutes from './membershipAdminRoutes.js';  // ✅ ADD THIS
+import membershipAdminRoutes from './membershipAdminRoutes.js';
+
+// ✅ NEW: Survey routes
+import surveyRoutes from './surveyRoutes.js';
+import surveyAdminRoutes from './surveyAdminRoutes.js';
 
 const router = express.Router();
 
@@ -30,7 +35,7 @@ const router = express.Router();
 // Add request metadata to all routes
 router.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
-  req.apiVersion = '3.1';
+  req.apiVersion = '4.0'; // Updated version for survey integration
   next();
 });
 
@@ -58,7 +63,7 @@ try {
   console.error('❌ Failed to mount user routes:', error.message);
 }
 
-// 3. User Admin Routes - ✅ CRITICAL FIX
+// 3. User Admin Routes
 console.log('🔗 Mounting user admin routes at /admin/users...');
 try {
   router.use('/admin/users', userAdminRoutes);
@@ -86,12 +91,12 @@ try {
   console.error('❌ Failed to mount membership routes:', error.message);
 }
 
-// 6. Membership Admin Routes - ✅ CRITICAL FIX  
+// 6. Membership Admin Routes
 console.log('🔗 Mounting membership admin routes at /membership/admin...');
 try {
   router.use('/membership/admin', membershipAdminRoutes);
   console.log('✅ Membership admin routes mounted');
-  console.log('   📊 Admin endpoints now available:');
+  console.log('   📊 Membership admin endpoints now available:');
   console.log('   • GET /api/membership/admin/test');
   console.log('   • GET /api/membership/admin/full-membership-stats');
   console.log('   • GET /api/membership/admin/applications');
@@ -101,6 +106,40 @@ try {
 } catch (error) {
   console.error('❌ Failed to mount membership admin routes:', error.message);
   console.warn('⚠️ Continuing without membership admin routes...');
+}
+
+// ✅ 7. NEW: Survey Routes (user-facing survey operations)
+console.log('🔗 Mounting survey routes at /survey...');
+try {
+  router.use('/survey', surveyRoutes);
+  console.log('✅ Survey routes mounted');
+  console.log('   📊 Survey endpoints now available:');
+  console.log('   • POST /api/survey/submit - Submit survey');
+  console.log('   • GET /api/survey/questions - Get questions');
+  console.log('   • GET /api/survey/status - Check status');
+  console.log('   • POST /api/survey/draft/save - Save draft');
+  console.log('   • GET /api/survey/drafts - Get drafts');
+  console.log('   • GET /api/survey/history - Survey history');
+} catch (error) {
+  console.error('❌ Failed to mount survey routes:', error.message);
+  console.warn('⚠️ Continuing without survey routes...');
+}
+
+// ✅ 8. NEW: Survey Admin Routes (survey administration)
+console.log('🔗 Mounting survey admin routes at /admin/survey...');
+try {
+  router.use('/admin/survey', surveyAdminRoutes);
+  console.log('✅ Survey admin routes mounted');
+  console.log('   🔐 Survey admin endpoints now available:');
+  console.log('   • GET /api/admin/survey/test - Test survey admin');
+  console.log('   • GET /api/admin/survey/pending - Pending surveys');
+  console.log('   • PUT /api/admin/survey/approve - Approve surveys');
+  console.log('   • GET /api/admin/survey/analytics - Survey analytics');
+  console.log('   • GET /api/admin/survey/questions - Manage questions');
+  console.log('   • GET /api/admin/survey/export - Export data (super admin)');
+} catch (error) {
+  console.error('❌ Failed to mount survey admin routes:', error.message);
+  console.warn('⚠️ Continuing without survey admin routes...');
 }
 
 // ===============================================
@@ -135,6 +174,20 @@ router.use('/apply', (req, res, next) => {
   membershipRoutes(req, res, next);
 });
 
+// ✅ NEW: Legacy survey routes for surveypageservice.js compatibility
+router.use('/membership/survey', (req, res, next) => {
+  console.log('🔄 Legacy /membership/survey → /survey');
+  // Handle the specific legacy endpoint
+  if (req.url === '/submit_applicationsurvey' && req.method === 'POST') {
+    req.url = '/submit_applicationsurvey';
+    surveyRoutes(req, res, next);
+  } else {
+    // Other legacy survey routes
+    req.url = req.url.replace('/submit_applicationsurvey', '/submit');
+    surveyRoutes(req, res, next);
+  }
+});
+
 // ===============================================
 // API INFORMATION ROUTES
 // ===============================================
@@ -143,8 +196,8 @@ router.use('/apply', (req, res, next) => {
 router.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'Ikoota API v3.1 - COMPLETE SYSTEM WITH ALL ADMIN ROUTES',
-    version: '3.1.0',
+    message: 'Ikoota API v4.0 - COMPLETE SYSTEM WITH SURVEY INTEGRATION',
+    version: '4.0.0-survey-integrated',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     
@@ -159,7 +212,7 @@ router.get('/', (req, res) => {
         status: '✅ MOUNTED',
         description: 'User profiles, settings, status'
       },
-      user_administration: {  // ✅ NEW
+      user_administration: {
         path: '/api/admin/users',
         status: '✅ MOUNTED',
         description: 'Admin user management, roles, permissions'
@@ -174,14 +227,25 @@ router.get('/', (req, res) => {
         status: '✅ MOUNTED',
         description: 'Membership applications and status'
       },
-      membership_administration: {  // ✅ NEW
+      membership_administration: {
         path: '/api/membership/admin',
         status: '✅ MOUNTED',
         description: 'Admin membership management and analytics'
+      },
+      // ✅ NEW: Survey system routes
+      survey_system: {
+        path: '/api/survey',
+        status: '✅ MOUNTED',
+        description: '🆕 Survey submission, drafts, status, history'
+      },
+      survey_administration: {
+        path: '/api/admin/survey',
+        status: '✅ MOUNTED',
+        description: '🆕 Admin survey management, approval, analytics'
       }
     },
     
-    admin_endpoints: {  // ✅ NEW SECTION
+    admin_endpoints: {
       user_admin: [
         'GET /api/admin/users/test - Test user admin system',
         'GET /api/admin/users - Get all users',
@@ -201,20 +265,62 @@ router.get('/', (req, res) => {
         'GET /api/membership/admin/stats - Get application stats',
         'GET /api/membership/admin/overview - Get overview',
         'GET /api/membership/admin/health - Health check'
+      ],
+      // ✅ NEW: Survey admin endpoints
+      survey_admin: [
+        'GET /api/admin/survey/test - Test survey admin system',
+        'GET /api/admin/survey/pending - Get pending surveys',
+        'PUT /api/admin/survey/approve - Approve surveys',
+        'PUT /api/admin/survey/reject - Reject surveys',
+        'POST /api/admin/survey/bulk-approve - Bulk approve',
+        'GET /api/admin/survey/analytics - Survey analytics',
+        'GET /api/admin/survey/questions - Manage questions',
+        'GET /api/admin/survey/export - Export data (super admin)'
       ]
     },
     
+    // ✅ NEW: Enhanced quick tests including survey system
     quick_tests: {
       user_admin: 'GET /api/admin/users/test',
       membership_admin: 'GET /api/membership/admin/test',
+      survey_admin: 'GET /api/admin/survey/test',
+      survey_system: 'GET /api/survey/test',
       user_profile: 'GET /api/users/profile',
       membership_status: 'GET /api/membership/status',
+      survey_status: 'GET /api/survey/status',
       content_chats: 'GET /api/content/chats'
+    },
+    
+    // ✅ NEW: Survey system features
+    survey_features: {
+      user_features: [
+        'Survey submission and management',
+        'Draft auto-save (30-second intervals)',
+        'Survey history and status tracking',
+        'Dynamic question labels',
+        'Response updates for pending surveys'
+      ],
+      admin_features: [
+        'Question management (CRUD operations)',
+        'Survey approval workflow',
+        'Bulk operations (approve/reject)',
+        'Comprehensive analytics dashboard',
+        'Data export (CSV/JSON)',
+        'System metrics and audit logs'
+      ]
     },
     
     legacy_compatibility: {
       content: 'Old /chats, /teachings routes redirect to /content/*',
-      membership: 'Old /apply routes redirect to /membership/*'
+      membership: 'Old /apply routes redirect to /membership/*',
+      survey: 'Old /membership/survey/* routes redirect to /survey/*' // ✅ NEW
+    },
+    
+    system_architecture: {
+      survey_independence: 'Survey system operates independently from membership applications',
+      admin_separation: 'Survey admin (/admin/survey) separate from membership admin (/membership/admin)',
+      shared_infrastructure: 'Shared authentication, database, and utilities',
+      frontend_ready: 'Backend prepared for SurveyControls.jsx and enhanced MembershipReviewControls.jsx'
     }
   });
 });
@@ -225,18 +331,25 @@ router.get('/health', async (req, res) => {
     const routeCount = {
       auth: 'mounted',
       users: 'mounted', 
-      user_admin: 'mounted',  // ✅ NEW
+      user_admin: 'mounted',
       content: 'mounted',
       membership: 'mounted',
-      membership_admin: 'mounted'  // ✅ NEW
+      membership_admin: 'mounted',
+      survey: 'mounted',        // ✅ NEW
+      survey_admin: 'mounted'   // ✅ NEW
     };
     
     res.json({
       success: true,
-      message: 'All route systems healthy',
+      message: 'All route systems healthy - Survey System Integrated!',
       systems: routeCount,
       total_systems: Object.keys(routeCount).length,
-      admin_systems: ['user_admin', 'membership_admin'],  // ✅ NEW
+      admin_systems: ['user_admin', 'membership_admin', 'survey_admin'], // ✅ NEW
+      new_features: {
+        survey_system: 'General surveys, feedback forms, assessments',
+        survey_admin: 'Independent survey administration panel',
+        system_separation: 'Survey and membership systems operate independently'
+      },
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -253,8 +366,8 @@ router.get('/health', async (req, res) => {
 router.get('/routes', (req, res) => {
   res.json({
     success: true,
-    message: 'Route Discovery - COMPLETE SYSTEM',
-    version: '3.1.0',
+    message: 'Route Discovery - COMPLETE SYSTEM WITH SURVEY INTEGRATION',
+    version: '4.0.0-survey-integrated',
     
     all_routes: {
       authentication: {
@@ -267,7 +380,7 @@ router.get('/routes', (req, res) => {
         status: 'operational',
         endpoints: ['GET /profile', 'PUT /profile', 'GET /dashboard']
       },
-      user_administration: {  // ✅ NEW
+      user_administration: {
         base: '/api/admin/users',
         status: 'operational',
         note: 'Requires admin role',
@@ -283,17 +396,39 @@ router.get('/routes', (req, res) => {
         status: 'operational',
         endpoints: ['GET /status', 'GET /dashboard', 'POST /apply/initial']
       },
-      membership_administration: {  // ✅ NEW
+      membership_administration: {
         base: '/api/membership/admin',
         status: 'operational',
         note: 'Requires admin role',
         endpoints: ['GET /test', 'GET /stats', 'GET /applications']
+      },
+      // ✅ NEW: Survey system routes
+      survey_management: {
+        base: '/api/survey',
+        status: 'operational',
+        note: '🆕 Independent survey system',
+        endpoints: ['POST /submit', 'GET /questions', 'GET /status', 'POST /draft/save']
+      },
+      survey_administration: {
+        base: '/api/admin/survey',
+        status: 'operational', 
+        note: '🆕 Survey admin panel (requires admin role)',
+        endpoints: ['GET /test', 'GET /pending', 'PUT /approve', 'GET /analytics']
       }
     },
     
-    admin_test_urls: {  // ✅ NEW
+    admin_test_urls: {
       user_admin: 'http://localhost:3000/api/admin/users/test',
-      membership_admin: 'http://localhost:3000/api/membership/admin/test'
+      membership_admin: 'http://localhost:3000/api/membership/admin/test',
+      survey_admin: 'http://localhost:3000/api/admin/survey/test' // ✅ NEW
+    },
+    
+    survey_system_info: { // ✅ NEW
+      purpose: 'Independent survey management separate from membership applications',
+      user_endpoints: '/api/survey/* - Submit surveys, manage drafts, view history',
+      admin_endpoints: '/api/admin/survey/* - Question management, approval, analytics',
+      compatibility: 'Legacy /membership/survey/* routes redirect to /survey/*',
+      frontend_ready: 'Backend prepared for SurveyControls.jsx component'
     },
     
     timestamp: new Date().toISOString()
@@ -308,15 +443,49 @@ router.get('/routes', (req, res) => {
 router.get('/test-main-router', (req, res) => {
   res.json({
     success: true,
-    message: 'Main router (routes/index.js) is working!',
+    message: 'Main router (routes/index.js) is working with Survey Integration!',
     timestamp: new Date().toISOString(),
     mounted_systems: [
       'auth ✅',
       'users ✅', 
-      'admin/users ✅',  // ✅ NEW
+      'admin/users ✅',
       'content ✅',
       'membership ✅',
-      'membership/admin ✅'  // ✅ NEW
+      'membership/admin ✅',
+      'survey ✅',        // ✅ NEW
+      'admin/survey ✅'   // ✅ NEW
+    ],
+    new_integration: {
+      survey_routes: '/api/survey/* - 15+ user endpoints',
+      survey_admin_routes: '/api/admin/survey/* - 25+ admin endpoints',
+      legacy_compatibility: 'surveypageservice.js endpoints still work',
+      system_separation: 'Survey and membership systems independent'
+    }
+  });
+});
+
+// ✅ NEW: Survey system integration test
+router.get('/test-survey-integration', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Survey System Integration Test',
+    timestamp: new Date().toISOString(),
+    survey_routes: {
+      user_facing: '/api/survey/* (submit, drafts, status, history)',
+      admin_facing: '/api/admin/survey/* (questions, approval, analytics)',
+      legacy_support: '/api/membership/survey/submit_applicationsurvey still works'
+    },
+    integration_status: {
+      routes_mounted: 'Survey routes integrated into main router',
+      middleware_ready: 'Enhanced auth.js with survey permissions',
+      database_ready: 'Enhancement script prepared for survey support',
+      frontend_ready: 'Backend prepared for SurveyControls.jsx'
+    },
+    next_steps: [
+      'Run database enhancement script',
+      'Update middleware/auth.js with survey permissions', 
+      'Test all survey endpoints',
+      'Begin frontend SurveyControls.jsx development'
     ]
   });
 });
@@ -333,7 +502,11 @@ router.use('*', (req, res) => {
   const suggestions = [];
   
   // Smart suggestions based on the requested path
-  if (path.includes('admin') && path.includes('user')) {
+  if (path.includes('admin') && path.includes('survey')) {
+    suggestions.push('/api/admin/survey/test', '/api/admin/survey/pending', '/api/admin/survey/analytics');
+  } else if (path.includes('survey')) {
+    suggestions.push('/api/survey/test', '/api/survey/questions', '/api/survey/status');
+  } else if (path.includes('admin') && path.includes('user')) {
     suggestions.push('/api/admin/users/test', '/api/admin/users/stats');
   } else if (path.includes('admin') && path.includes('membership')) {
     suggestions.push('/api/membership/admin/test', '/api/membership/admin/stats');
@@ -356,8 +529,10 @@ router.use('*', (req, res) => {
       '/api/ - API info',
       '/api/health - Health check',
       '/api/routes - Route discovery',
-      '/api/admin/users/test - User admin test',  // ✅ NEW
-      '/api/membership/admin/test - Membership admin test',  // ✅ NEW
+      '/api/admin/users/test - User admin test',
+      '/api/membership/admin/test - Membership admin test',
+      '/api/admin/survey/test - Survey admin test', // ✅ NEW
+      '/api/survey/test - Survey system test', // ✅ NEW
       '/api/users/profile - User profile',
       '/api/membership/status - Membership status'
     ],
@@ -365,15 +540,25 @@ router.use('*', (req, res) => {
     available_systems: {
       auth: '/api/auth/*',
       users: '/api/users/*',
-      user_admin: '/api/admin/users/*',  // ✅ NEW
+      user_admin: '/api/admin/users/*',
       content: '/api/content/*',
       membership: '/api/membership/*',
-      membership_admin: '/api/membership/admin/*'  // ✅ NEW
+      membership_admin: '/api/membership/admin/*',
+      survey: '/api/survey/*',              // ✅ NEW
+      survey_admin: '/api/admin/survey/*'   // ✅ NEW
     },
     
-    admin_systems: {  // ✅ NEW
+    admin_systems: {
       user_administration: '/api/admin/users/* (requires admin role)',
-      membership_administration: '/api/membership/admin/* (requires admin role)'
+      membership_administration: '/api/membership/admin/* (requires admin role)',
+      survey_administration: '/api/admin/survey/* (requires admin role)' // ✅ NEW
+    },
+    
+    survey_system: { // ✅ NEW
+      user_endpoints: '/api/survey/* - Submit surveys, manage drafts, view history',
+      admin_endpoints: '/api/admin/survey/* - Question management, approval, analytics',
+      purpose: 'Independent survey system separate from membership applications',
+      legacy_compatibility: 'Old /membership/survey/* routes redirect to /survey/*'
     },
     
     timestamp: new Date().toISOString()
@@ -385,28 +570,463 @@ router.use('*', (req, res) => {
 // ===============================================
 
 if (process.env.NODE_ENV === 'development') {
-  console.log('\n🚀 MAIN ROUTER (routes/index.js) - ALL SYSTEMS MOUNTED');
+  console.log('\n🚀 MAIN ROUTER (routes/index.js) - ALL SYSTEMS + SURVEY INTEGRATION');
   console.log('================================================================================');
   console.log('✅ ROUTE SYSTEMS MOUNTED:');
   console.log('   📁 Authentication: /auth');
   console.log('   👤 Users: /users');
-  console.log('   🔧 User Admin: /admin/users');  // ✅ NEW
+  console.log('   🔧 User Admin: /admin/users');
   console.log('   📚 Content: /content');
   console.log('   👥 Membership: /membership');
-  console.log('   🔐 Membership Admin: /membership/admin');  // ✅ NEW
+  console.log('   🔐 Membership Admin: /membership/admin');
+  console.log('   📊 Survey System: /survey');               // ✅ NEW
+  console.log('   🔍 Survey Admin: /admin/survey');          // ✅ NEW
   console.log('');
-  console.log('🎯 ADMIN SYSTEMS READY:');
-  console.log('   • User Administration: /api/admin/users/*');
-  console.log('   • Membership Administration: /api/membership/admin/*');
+  console.log('🔄 LEGACY COMPATIBILITY:');
+  console.log('   🔗 /chats → /content/chats');
+  console.log('   🔗 /teachings → /content/teachings');
+  console.log('   🔗 /comments → /content/comments');
+  console.log('   🔗 /apply → /membership/apply');
+  console.log('   🔗 /membership/survey → /survey');          // ✅ NEW
   console.log('');
-  console.log('🧪 QUICK TESTS:');
-  console.log('   • Main Router: /api/test-main-router');
-  console.log('   • User Admin: /api/admin/users/test');
-  console.log('   • Membership Admin: /api/membership/admin/test');
+  console.log('📊 SURVEY SYSTEM FEATURES:');                 // ✅ NEW
+  console.log('   ✨ Independent from membership applications');
+  console.log('   ✨ Draft auto-save every 30 seconds');
+  console.log('   ✨ Dynamic question and label management');
+  console.log('   ✨ Survey approval workflow');
+  console.log('   ✨ Comprehensive analytics and reporting');
+  console.log('   ✨ Data export capabilities (CSV/JSON)');
+  console.log('   ✨ Admin panel for survey management');
+  console.log('');
+  console.log('🎯 QUICK TEST URLS:');
+  console.log('   • Main router: GET /api/test-main-router');
+  console.log('   • Survey integration: GET /api/test-survey-integration');
+  console.log('   • Survey admin: GET /api/admin/survey/test');
+  console.log('   • Survey system: GET /api/survey/test');
+  console.log('   • User admin: GET /api/admin/users/test');
+  console.log('   • Membership admin: GET /api/membership/admin/test');
+  console.log('   • API info: GET /api/');
+  console.log('   • Route discovery: GET /api/routes');
+  console.log('   • Health check: GET /api/health');
   console.log('================================================================================\n');
 }
 
 export default router;
+
+
+
+
+
+
+// // routes/index.js - COMPLETE ROUTE HUB WITH ALL ADMIN ROUTES
+// // This is the main router that mounts ALL route systems
+
+// import express from 'express';
+
+// // ===============================================
+// // IMPORT ALL ROUTE MODULES
+// // ===============================================
+
+// // Authentication routes
+// import authRoutes from './authRoutes.js';
+
+// // User routes
+// import userRoutes from './userRoutes.js';
+// import userAdminRoutes from './userAdminRoutes.js';  // ✅ ADD THIS
+
+// // Content routes  
+// import contentRoutes from './contentRoutes.js';
+
+// // Membership routes
+// import membershipRoutes from './membershipRoutes.js';
+// import membershipAdminRoutes from './membershipAdminRoutes.js';  // ✅ ADD THIS
+
+// const router = express.Router();
+
+// // ===============================================
+// // GLOBAL MIDDLEWARE
+// // ===============================================
+
+// // Add request metadata to all routes
+// router.use((req, res, next) => {
+//   req.requestTime = new Date().toISOString();
+//   req.apiVersion = '3.1';
+//   next();
+// });
+
+// // Add debugging middleware to see what routes are being hit
+// router.use('*', (req, res, next) => {
+//   console.log(`🔍 Route Debug: ${req.method} ${req.originalUrl}`);
+//   next();
+// });
+
+// // ===============================================
+// // MOUNT ALL ROUTES WITH PROPER PATHS
+// // ===============================================
+
+// // 1. Authentication Routes
+// console.log('🔗 Mounting authentication routes at /auth...');
+// router.use('/auth', authRoutes);
+// console.log('✅ Authentication routes mounted');
+
+// // 2. User Routes (regular user management)
+// console.log('🔗 Mounting user routes at /users...');
+// try {
+//   router.use('/users', userRoutes);
+//   console.log('✅ User routes mounted');
+// } catch (error) {
+//   console.error('❌ Failed to mount user routes:', error.message);
+// }
+
+// // 3. User Admin Routes - ✅ CRITICAL FIX
+// console.log('🔗 Mounting user admin routes at /admin/users...');
+// try {
+//   router.use('/admin/users', userAdminRoutes);
+//   console.log('✅ User admin routes mounted');
+// } catch (error) {
+//   console.error('❌ Failed to mount user admin routes:', error.message);
+//   console.warn('⚠️ Continuing without user admin routes...');
+// }
+
+// // 4. Content Routes
+// console.log('🔗 Mounting content routes at /content...');
+// try {
+//   router.use('/content', contentRoutes);
+//   console.log('✅ Content routes mounted');
+// } catch (error) {
+//   console.error('❌ Failed to mount content routes:', error.message);
+// }
+
+// // 5. Membership Routes (main membership functionality)
+// console.log('🔗 Mounting membership routes at /membership...');
+// try {
+//   router.use('/membership', membershipRoutes);
+//   console.log('✅ Membership routes mounted');
+// } catch (error) {
+//   console.error('❌ Failed to mount membership routes:', error.message);
+// }
+
+// // 6. Membership Admin Routes - ✅ CRITICAL FIX  
+// console.log('🔗 Mounting membership admin routes at /membership/admin...');
+// try {
+//   router.use('/membership/admin', membershipAdminRoutes);
+//   console.log('✅ Membership admin routes mounted');
+//   console.log('   📊 Admin endpoints now available:');
+//   console.log('   • GET /api/membership/admin/test');
+//   console.log('   • GET /api/membership/admin/full-membership-stats');
+//   console.log('   • GET /api/membership/admin/applications');
+//   console.log('   • GET /api/membership/admin/analytics');
+//   console.log('   • GET /api/membership/admin/stats');
+//   console.log('   • GET /api/membership/admin/overview');
+// } catch (error) {
+//   console.error('❌ Failed to mount membership admin routes:', error.message);
+//   console.warn('⚠️ Continuing without membership admin routes...');
+// }
+
+// // ===============================================
+// // BACKWARD COMPATIBILITY ROUTES
+// // ===============================================
+
+// console.log('🔄 Setting up backward compatibility...');
+
+// // Legacy content routes
+// router.use('/chats', (req, res, next) => {
+//   console.log('🔄 Legacy /chats → /content/chats');
+//   req.url = '/chats' + req.url;
+//   contentRoutes(req, res, next);
+// });
+
+// router.use('/teachings', (req, res, next) => {
+//   console.log('🔄 Legacy /teachings → /content/teachings');
+//   req.url = '/teachings' + req.url;
+//   contentRoutes(req, res, next);
+// });
+
+// router.use('/comments', (req, res, next) => {
+//   console.log('🔄 Legacy /comments → /content/comments');
+//   req.url = '/comments' + req.url;
+//   contentRoutes(req, res, next);
+// });
+
+// // Legacy membership routes
+// router.use('/apply', (req, res, next) => {
+//   console.log('🔄 Legacy /apply → /membership/apply');
+//   req.url = '/apply' + req.url;
+//   membershipRoutes(req, res, next);
+// });
+
+// // ===============================================
+// // API INFORMATION ROUTES
+// // ===============================================
+
+// // Main API info endpoint
+// router.get('/', (req, res) => {
+//   res.json({
+//     success: true,
+//     message: 'Ikoota API v3.1 - COMPLETE SYSTEM WITH ALL ADMIN ROUTES',
+//     version: '3.1.0',
+//     timestamp: new Date().toISOString(),
+//     environment: process.env.NODE_ENV || 'development',
+    
+//     mounted_routes: {
+//       authentication: {
+//         path: '/api/auth',
+//         status: '✅ MOUNTED',
+//         description: 'JWT authentication system'
+//       },
+//       user_management: {
+//         path: '/api/users',
+//         status: '✅ MOUNTED',
+//         description: 'User profiles, settings, status'
+//       },
+//       user_administration: {  // ✅ NEW
+//         path: '/api/admin/users',
+//         status: '✅ MOUNTED',
+//         description: 'Admin user management, roles, permissions'
+//       },
+//       content_system: {
+//         path: '/api/content',
+//         status: '✅ MOUNTED',
+//         description: 'Chats, teachings, comments with admin panel'
+//       },
+//       membership_system: {
+//         path: '/api/membership',
+//         status: '✅ MOUNTED',
+//         description: 'Membership applications and status'
+//       },
+//       membership_administration: {  // ✅ NEW
+//         path: '/api/membership/admin',
+//         status: '✅ MOUNTED',
+//         description: 'Admin membership management and analytics'
+//       }
+//     },
+    
+//     admin_endpoints: {  // ✅ NEW SECTION
+//       user_admin: [
+//         'GET /api/admin/users/test - Test user admin system',
+//         'GET /api/admin/users - Get all users',
+//         'GET /api/admin/users/search - Search users',
+//         'GET /api/admin/users/stats - User statistics',
+//         'POST /api/admin/users/create - Create user',
+//         'PUT /api/admin/users/:id - Update user',
+//         'PUT /api/admin/users/role - Update user role',
+//         'POST /api/admin/users/ban - Ban user',
+//         'POST /api/admin/users/unban - Unban user'
+//       ],
+//       membership_admin: [
+//         'GET /api/membership/admin/test - Test membership admin system',
+//         'GET /api/membership/admin/full-membership-stats - Get statistics',
+//         'GET /api/membership/admin/applications - Get applications',
+//         'GET /api/membership/admin/analytics - Get analytics',
+//         'GET /api/membership/admin/stats - Get application stats',
+//         'GET /api/membership/admin/overview - Get overview',
+//         'GET /api/membership/admin/health - Health check'
+//       ]
+//     },
+    
+//     quick_tests: {
+//       user_admin: 'GET /api/admin/users/test',
+//       membership_admin: 'GET /api/membership/admin/test',
+//       user_profile: 'GET /api/users/profile',
+//       membership_status: 'GET /api/membership/status',
+//       content_chats: 'GET /api/content/chats'
+//     },
+    
+//     legacy_compatibility: {
+//       content: 'Old /chats, /teachings routes redirect to /content/*',
+//       membership: 'Old /apply routes redirect to /membership/*'
+//     }
+//   });
+// });
+
+// // Health check for the router
+// router.get('/health', async (req, res) => {
+//   try {
+//     const routeCount = {
+//       auth: 'mounted',
+//       users: 'mounted', 
+//       user_admin: 'mounted',  // ✅ NEW
+//       content: 'mounted',
+//       membership: 'mounted',
+//       membership_admin: 'mounted'  // ✅ NEW
+//     };
+    
+//     res.json({
+//       success: true,
+//       message: 'All route systems healthy',
+//       systems: routeCount,
+//       total_systems: Object.keys(routeCount).length,
+//       admin_systems: ['user_admin', 'membership_admin'],  // ✅ NEW
+//       timestamp: new Date().toISOString()
+//     });
+//   } catch (error) {
+//     res.status(503).json({
+//       success: false,
+//       error: 'Route system unhealthy',
+//       message: error.message,
+//       timestamp: new Date().toISOString()
+//     });
+//   }
+// });
+
+// // Route discovery endpoint
+// router.get('/routes', (req, res) => {
+//   res.json({
+//     success: true,
+//     message: 'Route Discovery - COMPLETE SYSTEM',
+//     version: '3.1.0',
+    
+//     all_routes: {
+//       authentication: {
+//         base: '/api/auth',
+//         status: 'operational',
+//         endpoints: ['POST /login', 'POST /register', 'POST /logout']
+//       },
+//       user_management: {
+//         base: '/api/users',
+//         status: 'operational',
+//         endpoints: ['GET /profile', 'PUT /profile', 'GET /dashboard']
+//       },
+//       user_administration: {  // ✅ NEW
+//         base: '/api/admin/users',
+//         status: 'operational',
+//         note: 'Requires admin role',
+//         endpoints: ['GET /test', 'GET /', 'GET /search', 'POST /create']
+//       },
+//       content_management: {
+//         base: '/api/content',
+//         status: 'operational',
+//         endpoints: ['GET /chats', 'POST /chats', 'GET /teachings']
+//       },
+//       membership_management: {
+//         base: '/api/membership',
+//         status: 'operational',
+//         endpoints: ['GET /status', 'GET /dashboard', 'POST /apply/initial']
+//       },
+//       membership_administration: {  // ✅ NEW
+//         base: '/api/membership/admin',
+//         status: 'operational',
+//         note: 'Requires admin role',
+//         endpoints: ['GET /test', 'GET /stats', 'GET /applications']
+//       }
+//     },
+    
+//     admin_test_urls: {  // ✅ NEW
+//       user_admin: 'http://localhost:3000/api/admin/users/test',
+//       membership_admin: 'http://localhost:3000/api/membership/admin/test'
+//     },
+    
+//     timestamp: new Date().toISOString()
+//   });
+// });
+
+// // ===============================================
+// // TEST ROUTES FOR DEBUGGING
+// // ===============================================
+
+// // Test route to verify the main router is working
+// router.get('/test-main-router', (req, res) => {
+//   res.json({
+//     success: true,
+//     message: 'Main router (routes/index.js) is working!',
+//     timestamp: new Date().toISOString(),
+//     mounted_systems: [
+//       'auth ✅',
+//       'users ✅', 
+//       'admin/users ✅',  // ✅ NEW
+//       'content ✅',
+//       'membership ✅',
+//       'membership/admin ✅'  // ✅ NEW
+//     ]
+//   });
+// });
+
+// // ===============================================
+// // ERROR HANDLING
+// // ===============================================
+
+// // 404 handler for routes
+// router.use('*', (req, res) => {
+//   console.log(`❌ Route not found in main router: ${req.method} ${req.originalUrl}`);
+  
+//   const path = req.originalUrl.toLowerCase();
+//   const suggestions = [];
+  
+//   // Smart suggestions based on the requested path
+//   if (path.includes('admin') && path.includes('user')) {
+//     suggestions.push('/api/admin/users/test', '/api/admin/users/stats');
+//   } else if (path.includes('admin') && path.includes('membership')) {
+//     suggestions.push('/api/membership/admin/test', '/api/membership/admin/stats');
+//   } else if (path.includes('user')) {
+//     suggestions.push('/api/users/profile', '/api/users/dashboard');
+//   } else if (path.includes('membership')) {
+//     suggestions.push('/api/membership/status', '/api/membership/dashboard');
+//   } else if (path.includes('content')) {
+//     suggestions.push('/api/content/chats', '/api/content/teachings');
+//   } else if (path.includes('auth')) {
+//     suggestions.push('/api/auth/login', '/api/auth/register');
+//   }
+  
+//   res.status(404).json({
+//     success: false,
+//     message: 'API endpoint not found in main router',
+//     path: req.originalUrl,
+//     method: req.method,
+//     suggestions: suggestions.length > 0 ? suggestions : [
+//       '/api/ - API info',
+//       '/api/health - Health check',
+//       '/api/routes - Route discovery',
+//       '/api/admin/users/test - User admin test',  // ✅ NEW
+//       '/api/membership/admin/test - Membership admin test',  // ✅ NEW
+//       '/api/users/profile - User profile',
+//       '/api/membership/status - Membership status'
+//     ],
+    
+//     available_systems: {
+//       auth: '/api/auth/*',
+//       users: '/api/users/*',
+//       user_admin: '/api/admin/users/*',  // ✅ NEW
+//       content: '/api/content/*',
+//       membership: '/api/membership/*',
+//       membership_admin: '/api/membership/admin/*'  // ✅ NEW
+//     },
+    
+//     admin_systems: {  // ✅ NEW
+//       user_administration: '/api/admin/users/* (requires admin role)',
+//       membership_administration: '/api/membership/admin/* (requires admin role)'
+//     },
+    
+//     timestamp: new Date().toISOString()
+//   });
+// });
+
+// // ===============================================
+// // STARTUP LOGGING
+// // ===============================================
+
+// if (process.env.NODE_ENV === 'development') {
+//   console.log('\n🚀 MAIN ROUTER (routes/index.js) - ALL SYSTEMS MOUNTED');
+//   console.log('================================================================================');
+//   console.log('✅ ROUTE SYSTEMS MOUNTED:');
+//   console.log('   📁 Authentication: /auth');
+//   console.log('   👤 Users: /users');
+//   console.log('   🔧 User Admin: /admin/users');  // ✅ NEW
+//   console.log('   📚 Content: /content');
+//   console.log('   👥 Membership: /membership');
+//   console.log('   🔐 Membership Admin: /membership/admin');  // ✅ NEW
+//   console.log('');
+//   console.log('🎯 ADMIN SYSTEMS READY:');
+//   console.log('   • User Administration: /api/admin/users/*');
+//   console.log('   • Membership Administration: /api/membership/admin/*');
+//   console.log('');
+//   console.log('🧪 QUICK TESTS:');
+//   console.log('   • Main Router: /api/test-main-router');
+//   console.log('   • User Admin: /api/admin/users/test');
+//   console.log('   • Membership Admin: /api/membership/admin/test');
+//   console.log('================================================================================\n');
+// }
+
+// export default router;
 
 
 
