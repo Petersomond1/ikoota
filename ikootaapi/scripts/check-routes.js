@@ -1,5 +1,5 @@
 // scripts/check-routes.js - Run this to see which routes are loaded
-
+//ikootaapi\scripts\check-routes.js
 import express from 'express';
 
 function getRoutes(app) {

@@ -3,7 +3,7 @@
 // Complete route structure for email, SMS, notifications with proper controller integration
 
 import express from 'express';
-import { authenticate, authorize } from '../middlewares/auth.middleware.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 import db from '../config/db.js'; // Added missing db import
 

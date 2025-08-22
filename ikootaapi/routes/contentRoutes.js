@@ -3,7 +3,7 @@
 // Supports chats, teachings, comments with approval workflow
 
 import express from 'express';
-import { authenticate, authorize } from '../middleware/auth.js';
+import { authenticate, requireMembership, authorize } from '../middleware/auth.js';
 import { uploadMiddleware, uploadToS3 } from '../middleware/uploadMiddleware.js';
 
 // ===============================================
@@ -71,6 +71,22 @@ import {
 } from '../controllers/contentAdminControllers.js';
 
 const router = express.Router();
+
+// From enhanced/content.routes.js - ADD to contentRoutes.js
+// GET /content/towncrier - Pre-member level content
+// router.get('/towncrier', 
+//   authenticate, 
+//   requireMembership(['pre_member', 'member', 'admin', 'super_admin']), 
+//   getTowncrier
+// );
+
+// GET /content/iko - Full member level content
+// router.get('/iko', 
+//   authenticate, 
+//   requireMembership(['member', 'admin', 'super_admin']), 
+//   getIko
+// );
+
 
 // ===============================================
 // CHATS ENDPOINTS - /api/content/chats/*

@@ -1,75 +1,121 @@
 // ikootaapi/middleware/classValidation.js
-// COMPLETE CLASS VALIDATION MIDDLEWARE
-// Comprehensive validation for class operations with OTU# format support
+// COMPREHENSIVE CLASS VALIDATION MIDDLEWARE
+// All input validation for class-related operations
 
-import { validateIdFormat } from '../utils/idGenerator.js';
 import CustomError from '../utils/CustomError.js';
 
 // ===============================================
-// ID FORMAT VALIDATION
+// VALIDATION HELPERS
 // ===============================================
 
 /**
  * Validate class ID format (OTU#XXXXXX)
  */
+const isValidClassId = (classId) => {
+  const pattern = /^OTU#[0-9]{6}$/;
+  return pattern.test(classId);
+};
+
+/**
+ * Validate email format
+ */
+const isValidEmail = (email) => {
+  const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return pattern.test(email);
+};
+
+/**
+ * Validate phone format
+ */
+const isValidPhone = (phone) => {
+  const pattern = /^[\d\s\-\+\(\)]+$/;
+  return pattern.test(phone) && phone.length >= 10 && phone.length <= 20;
+};
+
+/**
+ * Sanitize string input
+ */
+const sanitizeString = (str) => {
+  if (typeof str !== 'string') return str;
+  return str.trim().replace(/[<>]/g, '');
+};
+
+/**
+ * Validate date format
+ */
+const isValidDate = (dateString) => {
+  const date = new Date(dateString);
+  return date instanceof Date && !isNaN(date);
+};
+
+// ===============================================
+// ID VALIDATION MIDDLEWARE
+// ===============================================
+
+/**
+ * Validate class ID parameter
+ */
 export const validateClassId = (req, res, next) => {
-  const { id, classId } = req.params;
-  const targetId = id || classId;
+  const classId = req.params.id || req.params.classId || req.body.class_id || req.body.classId;
   
-  if (targetId && !validateIdFormat(targetId, 'class')) {
+  if (!classId) {
     return res.status(400).json({
       success: false,
-      error: 'Invalid class ID format. Expected OTU#XXXXXX format',
-      provided: targetId,
-      expected_format: 'OTU#XXXXXX',
-      examples: ['OTU#001234', 'OTU#Public'],
+      error: 'Class ID is required',
+      code: 'MISSING_CLASS_ID',
       timestamp: new Date().toISOString()
     });
   }
+  
+  if (!isValidClassId(classId)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid class ID format. Expected format: OTU#XXXXXX',
+      code: 'INVALID_CLASS_ID',
+      provided: classId,
+      expected_format: 'OTU#XXXXXX',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Normalize the class ID in params
+  if (req.params.id) req.params.id = classId;
+  if (req.params.classId) req.params.classId = classId;
+  
   next();
 };
 
 /**
- * Validate user ID format (OTO#XXXXXX)
+ * Validate user ID parameter
  */
 export const validateUserId = (req, res, next) => {
-  const { userId, user_id } = req.params;
-  const targetId = userId || user_id || req.body.user_id;
+  const userId = req.params.userId || req.params.instructorId || req.body.user_id || req.body.userId;
   
-  if (targetId && !validateIdFormat(targetId, 'user')) {
+  if (!userId) {
     return res.status(400).json({
       success: false,
-      error: 'Invalid user ID format. Expected OTO#XXXXXX format',
-      provided: targetId,
-      expected_format: 'OTO#XXXXXX',
-      examples: ['OTO#001234', 'OTO#987654'],
+      error: 'User ID is required',
+      code: 'MISSING_USER_ID',
       timestamp: new Date().toISOString()
     });
   }
-  next();
-};
-
-/**
- * Validate content ID format
- */
-export const validateContentId = (req, res, next) => {
-  const { contentId, content_id } = req.params;
-  const targetId = contentId || content_id || req.body.content_id;
   
-  if (targetId && typeof targetId !== 'number' && isNaN(parseInt(targetId))) {
+  // Check if it's a valid number or string ID
+  if (!userId || userId.length === 0) {
     return res.status(400).json({
       success: false,
-      error: 'Invalid content ID format. Expected numeric ID',
-      provided: targetId,
-      expected_format: 'number',
+      error: 'Invalid user ID format',
+      code: 'INVALID_USER_ID',
+      provided: userId,
       timestamp: new Date().toISOString()
     });
   }
+  
   next();
 };
 
 // ===============================================
-// PAGINATION VALIDATION
+// PAGINATION & SORTING MIDDLEWARE
 // ===============================================
 
 /**
@@ -84,9 +130,10 @@ export const validatePagination = (req, res, next) => {
   if (isNaN(pageNum) || pageNum < 1) {
     return res.status(400).json({
       success: false,
-      error: 'Page must be a positive integer',
+      error: 'Invalid page number',
+      code: 'INVALID_PAGE',
       provided: page,
-      minimum: 1,
+      expected: 'Positive integer',
       timestamp: new Date().toISOString()
     });
   }
@@ -94,14 +141,21 @@ export const validatePagination = (req, res, next) => {
   if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
     return res.status(400).json({
       success: false,
-      error: 'Limit must be between 1 and 100',
+      error: 'Invalid limit value. Must be between 1 and 100',
+      code: 'INVALID_LIMIT',
       provided: limit,
-      range: '1-100',
+      expected: '1-100',
       timestamp: new Date().toISOString()
     });
   }
   
-  req.pagination = { page: pageNum, limit: limitNum };
+  // Set sanitized values
+  req.pagination = {
+    page: pageNum,
+    limit: limitNum,
+    offset: (pageNum - 1) * limitNum
+  };
+  
   next();
 };
 
@@ -111,37 +165,42 @@ export const validatePagination = (req, res, next) => {
 export const validateSorting = (req, res, next) => {
   const { sort_by, sort_order = 'DESC' } = req.query;
   
-  if (sort_by) {
-    const allowedSortFields = [
-      'createdAt', 'updatedAt', 'class_name', 'joinedAt', 
-      'total_members', 'class_type', 'is_active', 'is_public'
-    ];
-    
-    if (!allowedSortFields.includes(sort_by)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid sort field',
-        provided: sort_by,
-        allowed_fields: allowedSortFields,
-        timestamp: new Date().toISOString()
-      });
-    }
-  }
+  const allowedSortFields = [
+    'createdAt', 'updatedAt', 'class_name', 'class_type',
+    'max_members', 'total_members', 'joinedAt', 'username',
+    'role_in_class', 'membership_status'
+  ];
   
-  if (sort_order && !['ASC', 'DESC', 'asc', 'desc'].includes(sort_order)) {
+  const allowedSortOrders = ['ASC', 'DESC'];
+  
+  if (sort_by && !allowedSortFields.includes(sort_by)) {
     return res.status(400).json({
       success: false,
-      error: 'Invalid sort order. Must be ASC or DESC',
-      provided: sort_order,
-      allowed_values: ['ASC', 'DESC'],
+      error: 'Invalid sort field',
+      code: 'INVALID_SORT_FIELD',
+      provided: sort_by,
+      allowed: allowedSortFields,
       timestamp: new Date().toISOString()
     });
   }
   
-  req.sorting = { 
-    sort_by: sort_by || 'createdAt', 
-    sort_order: (sort_order || 'DESC').toUpperCase() 
+  const normalizedOrder = sort_order.toUpperCase();
+  if (!allowedSortOrders.includes(normalizedOrder)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid sort order',
+      code: 'INVALID_SORT_ORDER',
+      provided: sort_order,
+      allowed: allowedSortOrders,
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  req.sorting = {
+    sort_by: sort_by || 'createdAt',
+    sort_order: normalizedOrder
   };
+  
   next();
 };
 
@@ -150,416 +209,265 @@ export const validateSorting = (req, res, next) => {
 // ===============================================
 
 /**
- * Validate class creation/update data
+ * Validate class creation data
  */
-export const validateClassData = (req, res, next) => {
-  const {
-    class_name,
-    class_type,
-    is_public,
-    max_members,
-    privacy_level,
-    difficulty_level,
-    estimated_duration,
-    tags,
-    prerequisites,
-    learning_objectives
-  } = req.body;
+export const validateClassCreation = (req, res, next) => {
+  const { class_name, max_members, class_type } = req.body;
   
-  // Required fields for POST (creation)
-  if (req.method === 'POST' && (!class_name || class_name.trim().length === 0)) {
+  // Required fields
+  if (!class_name || class_name.trim().length === 0) {
     return res.status(400).json({
       success: false,
       error: 'Class name is required',
-      field: 'class_name',
+      code: 'MISSING_CLASS_NAME',
       timestamp: new Date().toISOString()
     });
   }
   
-  // Class name validation
-  if (class_name !== undefined) {
-    if (typeof class_name !== 'string' || class_name.length > 255) {
+  // Validate class name length
+  if (class_name.length < 3 || class_name.length > 255) {
+    return res.status(400).json({
+      success: false,
+      error: 'Class name must be between 3 and 255 characters',
+      code: 'INVALID_CLASS_NAME_LENGTH',
+      provided_length: class_name.length,
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Validate max_members if provided
+  if (max_members !== undefined) {
+    const maxMembersNum = parseInt(max_members);
+    if (isNaN(maxMembersNum) || maxMembersNum < 1 || maxMembersNum > 10000) {
       return res.status(400).json({
         success: false,
-        error: 'Class name must be a string with maximum 255 characters',
-        field: 'class_name',
-        provided_length: class_name?.length,
-        max_length: 255,
+        error: 'Max members must be between 1 and 10000',
+        code: 'INVALID_MAX_MEMBERS',
+        provided: max_members,
+        timestamp: new Date().toISOString()
+      });
+    }
+    req.body.max_members = maxMembersNum;
+  }
+  
+  // Validate class type if provided
+  if (class_type) {
+    const allowedTypes = ['demographic', 'subject', 'public', 'special'];
+    if (!allowedTypes.includes(class_type)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid class type',
+        code: 'INVALID_CLASS_TYPE',
+        provided: class_type,
+        allowed: allowedTypes,
         timestamp: new Date().toISOString()
       });
     }
   }
   
-  // Class type validation
-  if (class_type && !['demographic', 'subject', 'public', 'special', 'general', 'lecture', 'workshop', 'seminar', 'discussion'].includes(class_type)) {
+  // Sanitize string fields
+  req.body.class_name = sanitizeString(req.body.class_name);
+  if (req.body.public_name) req.body.public_name = sanitizeString(req.body.public_name);
+  if (req.body.description) req.body.description = sanitizeString(req.body.description);
+  
+  next();
+};
+
+/**
+ * Validate class update data
+ */
+export const validateClassUpdate = (req, res, next) => {
+  const updates = req.body;
+  
+  // Check if any updates provided
+  if (!updates || Object.keys(updates).length === 0) {
     return res.status(400).json({
       success: false,
-      error: 'Invalid class type',
-      field: 'class_type',
-      provided: class_type,
-      allowed_values: ['demographic', 'subject', 'public', 'special', 'general', 'lecture', 'workshop', 'seminar', 'discussion'],
+      error: 'No update data provided',
+      code: 'NO_UPDATE_DATA',
       timestamp: new Date().toISOString()
     });
   }
   
-  // Public flag validation
-  if (is_public !== undefined && typeof is_public !== 'boolean') {
-    return res.status(400).json({
-      success: false,
-      error: 'is_public must be a boolean value',
-      field: 'is_public',
-      provided: is_public,
-      expected_type: 'boolean',
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Max members validation
-  if (max_members !== undefined && (isNaN(max_members) || max_members < 1 || max_members > 10000)) {
-    return res.status(400).json({
-      success: false,
-      error: 'max_members must be a positive integer between 1 and 10000',
-      field: 'max_members',
-      provided: max_members,
-      range: '1-10000',
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Privacy level validation
-  if (privacy_level && !['public', 'members_only', 'admin_only'].includes(privacy_level)) {
-    return res.status(400).json({
-      success: false,
-      error: 'Invalid privacy level',
-      field: 'privacy_level',
-      provided: privacy_level,
-      allowed_values: ['public', 'members_only', 'admin_only'],
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Difficulty level validation
-  if (difficulty_level && !['beginner', 'intermediate', 'advanced', 'expert'].includes(difficulty_level)) {
-    return res.status(400).json({
-      success: false,
-      error: 'Invalid difficulty level',
-      field: 'difficulty_level',
-      provided: difficulty_level,
-      allowed_values: ['beginner', 'intermediate', 'advanced', 'expert'],
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Estimated duration validation
-  if (estimated_duration !== undefined && (isNaN(estimated_duration) || estimated_duration < 1)) {
-    return res.status(400).json({
-      success: false,
-      error: 'estimated_duration must be a positive integer (minutes)',
-      field: 'estimated_duration',
-      provided: estimated_duration,
-      minimum: 1,
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Tags validation
-  if (tags !== undefined) {
-    if (!Array.isArray(tags) && typeof tags !== 'string') {
+  // Validate specific fields if they're being updated
+  if (updates.class_name !== undefined) {
+    if (!updates.class_name || updates.class_name.trim().length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Tags must be an array or comma-separated string',
-        field: 'tags',
-        provided_type: typeof tags,
-        expected_types: ['array', 'string'],
+        error: 'Class name cannot be empty',
+        code: 'EMPTY_CLASS_NAME',
         timestamp: new Date().toISOString()
       });
     }
     
-    if (Array.isArray(tags) && tags.length > 20) {
+    if (updates.class_name.length < 3 || updates.class_name.length > 255) {
       return res.status(400).json({
         success: false,
-        error: 'Maximum 20 tags allowed',
-        field: 'tags',
-        provided_count: tags.length,
-        max_count: 20,
+        error: 'Class name must be between 3 and 255 characters',
+        code: 'INVALID_CLASS_NAME_LENGTH',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    req.body.class_name = sanitizeString(updates.class_name);
+  }
+  
+  if (updates.max_members !== undefined) {
+    const maxMembersNum = parseInt(updates.max_members);
+    if (isNaN(maxMembersNum) || maxMembersNum < 1 || maxMembersNum > 10000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Max members must be between 1 and 10000',
+        code: 'INVALID_MAX_MEMBERS',
+        provided: updates.max_members,
+        timestamp: new Date().toISOString()
+      });
+    }
+    req.body.max_members = maxMembersNum;
+  }
+  
+  if (updates.class_type !== undefined) {
+    const allowedTypes = ['demographic', 'subject', 'public', 'special'];
+    if (!allowedTypes.includes(updates.class_type)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid class type',
+        code: 'INVALID_CLASS_TYPE',
+        provided: updates.class_type,
+        allowed: allowedTypes,
         timestamp: new Date().toISOString()
       });
     }
   }
   
-  // Prerequisites validation
-  if (prerequisites !== undefined && !Array.isArray(prerequisites) && typeof prerequisites !== 'string') {
-    return res.status(400).json({
-      success: false,
-      error: 'Prerequisites must be an array or comma-separated string',
-      field: 'prerequisites',
-      provided_type: typeof prerequisites,
-      expected_types: ['array', 'string'],
-      timestamp: new Date().toISOString()
-    });
+  if (updates.privacy_level !== undefined) {
+    const allowedLevels = ['public', 'members_only', 'admin_only'];
+    if (!allowedLevels.includes(updates.privacy_level)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid privacy level',
+        code: 'INVALID_PRIVACY_LEVEL',
+        provided: updates.privacy_level,
+        allowed: allowedLevels,
+        timestamp: new Date().toISOString()
+      });
+    }
   }
   
-  // Learning objectives validation
-  if (learning_objectives !== undefined && !Array.isArray(learning_objectives) && typeof learning_objectives !== 'string') {
-    return res.status(400).json({
-      success: false,
-      error: 'Learning objectives must be an array or comma-separated string',
-      field: 'learning_objectives',
-      provided_type: typeof learning_objectives,
-      expected_types: ['array', 'string'],
-      timestamp: new Date().toISOString()
-    });
-  }
+  // Sanitize string fields
+  if (updates.public_name) req.body.public_name = sanitizeString(updates.public_name);
+  if (updates.description) req.body.description = sanitizeString(updates.description);
+  
+  next();
+};
+
+/**
+ * Generic class data validation
+ */
+export const validateClassData = (req, res, next) => {
+  // This is a more flexible validator for various class operations
+  const data = req.body;
+  
+  // Sanitize all string fields
+  Object.keys(data).forEach(key => {
+    if (typeof data[key] === 'string') {
+      data[key] = sanitizeString(data[key]);
+    }
+  });
+  
+  // Validate boolean fields
+  const booleanFields = [
+    'is_public', 'is_active', 'auto_approve_members',
+    'allow_self_join', 'require_approval', 'enable_notifications',
+    'enable_discussions', 'enable_assignments', 'enable_grading'
+  ];
+  
+  booleanFields.forEach(field => {
+    if (data[field] !== undefined) {
+      data[field] = Boolean(data[field]);
+    }
+  });
+  
+  // Validate numeric fields
+  const numericFields = ['max_members', 'estimated_duration'];
+  
+  numericFields.forEach(field => {
+    if (data[field] !== undefined) {
+      const num = parseInt(data[field]);
+      if (isNaN(num)) {
+        return res.status(400).json({
+          success: false,
+          error: `${field} must be a number`,
+          code: 'INVALID_NUMERIC_FIELD',
+          field: field,
+          provided: data[field],
+          timestamp: new Date().toISOString()
+        });
+      }
+      data[field] = num;
+    }
+  });
   
   next();
 };
 
 // ===============================================
-// MEMBERSHIP ACTION VALIDATION
+// MEMBERSHIP VALIDATION
 // ===============================================
 
 /**
- * Validate membership management actions
+ * Validate membership action
  */
 export const validateMembershipAction = (req, res, next) => {
-  const { action, new_role } = req.body;
+  const { action } = req.body;
+  
+  const allowedActions = [
+    'approve', 'reject', 'remove', 'change_role',
+    'promote', 'demote', 'suspend', 'reactivate'
+  ];
   
   if (!action) {
     return res.status(400).json({
       success: false,
       error: 'Action is required',
-      field: 'action',
-      allowed_actions: ['approve', 'reject', 'remove', 'change_role', 'promote', 'demote'],
+      code: 'MISSING_ACTION',
       timestamp: new Date().toISOString()
     });
   }
   
-  const allowedActions = ['approve', 'reject', 'remove', 'change_role', 'promote', 'demote'];
   if (!allowedActions.includes(action)) {
     return res.status(400).json({
       success: false,
       error: 'Invalid action',
-      field: 'action',
+      code: 'INVALID_ACTION',
       provided: action,
-      allowed_actions: allowedActions,
+      allowed: allowedActions,
       timestamp: new Date().toISOString()
     });
   }
   
-  // Validate new_role if action is change_role or promote
-  if (['change_role', 'promote'].includes(action)) {
-    if (!new_role) {
-      return res.status(400).json({
-        success: false,
-        error: 'new_role is required for this action',
-        field: 'new_role',
-        action: action,
-        allowed_roles: ['member', 'moderator', 'assistant', 'instructor'],
-        timestamp: new Date().toISOString()
-      });
-    }
-    
-    const allowedRoles = ['member', 'moderator', 'assistant', 'instructor'];
-    if (!allowedRoles.includes(new_role)) {
+  // Validate additional parameters based on action
+  if (action === 'change_role' && !req.body.new_role) {
+    return res.status(400).json({
+      success: false,
+      error: 'new_role is required for change_role action',
+      code: 'MISSING_NEW_ROLE',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  if (req.body.new_role) {
+    const allowedRoles = ['member', 'assistant', 'moderator'];
+    if (!allowedRoles.includes(req.body.new_role)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid role',
-        field: 'new_role',
-        provided: new_role,
-        allowed_roles: allowedRoles,
+        code: 'INVALID_ROLE',
+        provided: req.body.new_role,
+        allowed: allowedRoles,
         timestamp: new Date().toISOString()
       });
     }
-  }
-  
-  next();
-};
-
-// ===============================================
-// CONTENT VALIDATION
-// ===============================================
-
-/**
- * Validate content assignment to class
- */
-export const validateContentData = (req, res, next) => {
-  const { content_id, content_type, access_level } = req.body;
-  
-  // Required fields
-  if (!content_id || !content_type) {
-    return res.status(400).json({
-      success: false,
-      error: 'content_id and content_type are required',
-      required_fields: ['content_id', 'content_type'],
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Content ID validation
-  if (isNaN(parseInt(content_id))) {
-    return res.status(400).json({
-      success: false,
-      error: 'content_id must be a valid number',
-      field: 'content_id',
-      provided: content_id,
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Content type validation
-  const allowedContentTypes = ['chat', 'teaching', 'announcement', 'assignment', 'resource', 'discussion'];
-  if (!allowedContentTypes.includes(content_type)) {
-    return res.status(400).json({
-      success: false,
-      error: 'Invalid content type',
-      field: 'content_type',
-      provided: content_type,
-      allowed_types: allowedContentTypes,
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Access level validation
-  if (access_level) {
-    const allowedAccessLevels = ['read', 'write', 'admin', 'view_only', 'full_access'];
-    if (!allowedAccessLevels.includes(access_level)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid access level',
-        field: 'access_level',
-        provided: access_level,
-        allowed_levels: allowedAccessLevels,
-        timestamp: new Date().toISOString()
-      });
-    }
-  }
-  
-  next();
-};
-
-// ===============================================
-// FEEDBACK VALIDATION
-// ===============================================
-
-/**
- * Validate feedback submission
- */
-export const validateFeedback = (req, res, next) => {
-  const { rating, comments, feedback_type, anonymous } = req.body;
-  
-  // At least rating or comments must be provided
-  if (!rating && !comments) {
-    return res.status(400).json({
-      success: false,
-      error: 'Either rating or comments is required',
-      required_fields: ['rating (1-5)', 'comments'],
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Rating validation
-  if (rating !== undefined) {
-    const ratingNum = parseFloat(rating);
-    if (isNaN(ratingNum) || ratingNum < 1 || ratingNum > 5) {
-      return res.status(400).json({
-        success: false,
-        error: 'Rating must be between 1 and 5',
-        field: 'rating',
-        provided: rating,
-        range: '1-5',
-        timestamp: new Date().toISOString()
-      });
-    }
-  }
-  
-  // Comments validation
-  if (comments !== undefined && (typeof comments !== 'string' || comments.length > 2000)) {
-    return res.status(400).json({
-      success: false,
-      error: 'Comments must be a string with maximum 2000 characters',
-      field: 'comments',
-      provided_length: comments?.length,
-      max_length: 2000,
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Feedback type validation
-  if (feedback_type) {
-    const allowedFeedbackTypes = ['general', 'content', 'instructor', 'technical', 'suggestion', 'complaint'];
-    if (!allowedFeedbackTypes.includes(feedback_type)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid feedback type',
-        field: 'feedback_type',
-        provided: feedback_type,
-        allowed_types: allowedFeedbackTypes,
-        timestamp: new Date().toISOString()
-      });
-    }
-  }
-  
-  // Anonymous flag validation
-  if (anonymous !== undefined && typeof anonymous !== 'boolean') {
-    return res.status(400).json({
-      success: false,
-      error: 'anonymous must be a boolean value',
-      field: 'anonymous',
-      provided: anonymous,
-      expected_type: 'boolean',
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  next();
-};
-
-// ===============================================
-// ATTENDANCE VALIDATION
-// ===============================================
-
-/**
- * Validate attendance data
- */
-export const validateAttendance = (req, res, next) => {
-  const { session_id, status, notes } = req.body;
-  
-  // Session ID validation (optional but if provided must be valid)
-  if (session_id !== undefined && (typeof session_id !== 'string' || session_id.trim().length === 0)) {
-    return res.status(400).json({
-      success: false,
-      error: 'session_id must be a non-empty string',
-      field: 'session_id',
-      provided: session_id,
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Status validation
-  if (status) {
-    const allowedStatuses = ['present', 'absent', 'late', 'excused', 'partial'];
-    if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid attendance status',
-        field: 'status',
-        provided: status,
-        allowed_statuses: allowedStatuses,
-        timestamp: new Date().toISOString()
-      });
-    }
-  }
-  
-  // Notes validation
-  if (notes !== undefined && (typeof notes !== 'string' || notes.length > 500)) {
-    return res.status(400).json({
-      success: false,
-      error: 'Notes must be a string with maximum 500 characters',
-      field: 'notes',
-      provided_length: notes?.length,
-      max_length: 500,
-      timestamp: new Date().toISOString()
-    });
   }
   
   next();
@@ -570,102 +478,105 @@ export const validateAttendance = (req, res, next) => {
 // ===============================================
 
 /**
- * Validate bulk operations data
+ * Validate bulk operation data
  */
 export const validateBulkOperation = (req, res, next) => {
-  const { class_ids, classes, updates } = req.body;
-  const operation = req.path.includes('bulk-create') ? 'create' : 
-                   req.path.includes('bulk-update') ? 'update' : 
-                   req.path.includes('bulk-delete') ? 'delete' : 'unknown';
+  const { classes, class_ids } = req.body;
   
-  switch (operation) {
-    case 'create':
-      if (!classes || !Array.isArray(classes) || classes.length === 0) {
+  // For bulk create
+  if (classes) {
+    if (!Array.isArray(classes)) {
+      return res.status(400).json({
+        success: false,
+        error: 'classes must be an array',
+        code: 'INVALID_CLASSES_FORMAT',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    if (classes.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'classes array cannot be empty',
+        code: 'EMPTY_CLASSES_ARRAY',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    if (classes.length > 50) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot process more than 50 classes at once',
+        code: 'TOO_MANY_CLASSES',
+        provided: classes.length,
+        max_allowed: 50,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Validate each class has required fields
+    for (let i = 0; i < classes.length; i++) {
+      const cls = classes[i];
+      if (!cls.class_name || cls.class_name.trim().length === 0) {
         return res.status(400).json({
           success: false,
-          error: 'classes array is required and must not be empty',
-          field: 'classes',
+          error: `Class at index ${i} is missing class_name`,
+          code: 'MISSING_CLASS_NAME',
+          index: i,
           timestamp: new Date().toISOString()
         });
       }
       
-      if (classes.length > 20) {
+      // Sanitize class data
+      classes[i].class_name = sanitizeString(cls.class_name);
+      if (cls.description) classes[i].description = sanitizeString(cls.description);
+    }
+  }
+  
+  // For bulk update/delete
+  if (class_ids) {
+    if (!Array.isArray(class_ids)) {
+      return res.status(400).json({
+        success: false,
+        error: 'class_ids must be an array',
+        code: 'INVALID_CLASS_IDS_FORMAT',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    if (class_ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'class_ids array cannot be empty',
+        code: 'EMPTY_CLASS_IDS_ARRAY',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    if (class_ids.length > 50) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot process more than 50 classes at once',
+        code: 'TOO_MANY_CLASS_IDS',
+        provided: class_ids.length,
+        max_allowed: 50,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Validate each class ID format
+    for (const classId of class_ids) {
+      if (!isValidClassId(classId)) {
         return res.status(400).json({
           success: false,
-          error: 'Cannot create more than 20 classes at once',
-          field: 'classes',
-          provided_count: classes.length,
-          max_count: 20,
+          error: 'Invalid class ID format in array',
+          code: 'INVALID_CLASS_ID_IN_ARRAY',
+          invalid_id: classId,
+          expected_format: 'OTU#XXXXXX',
           timestamp: new Date().toISOString()
         });
       }
-      
-      // Validate each class has required fields
-      for (let i = 0; i < classes.length; i++) {
-        const cls = classes[i];
-        if (!cls.class_name) {
-          return res.status(400).json({
-            success: false,
-            error: `Class at index ${i} is missing class_name`,
-            field: `classes[${i}].class_name`,
-            timestamp: new Date().toISOString()
-          });
-        }
-      }
-      break;
-      
-    case 'update':
-      if (!class_ids || !Array.isArray(class_ids) || class_ids.length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'class_ids array is required and must not be empty',
-          field: 'class_ids',
-          timestamp: new Date().toISOString()
-        });
-      }
-      
-      if (!updates || Object.keys(updates).length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'updates object is required and must not be empty',
-          field: 'updates',
-          timestamp: new Date().toISOString()
-        });
-      }
-      
-      if (class_ids.length > 50) {
-        return res.status(400).json({
-          success: false,
-          error: 'Cannot update more than 50 classes at once',
-          field: 'class_ids',
-          provided_count: class_ids.length,
-          max_count: 50,
-          timestamp: new Date().toISOString()
-        });
-      }
-      break;
-      
-    case 'delete':
-      if (!class_ids || !Array.isArray(class_ids) || class_ids.length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'class_ids array is required and must not be empty',
-          field: 'class_ids',
-          timestamp: new Date().toISOString()
-        });
-      }
-      
-      if (class_ids.length > 20) {
-        return res.status(400).json({
-          success: false,
-          error: 'Cannot delete more than 20 classes at once',
-          field: 'class_ids',
-          provided_count: class_ids.length,
-          max_count: 20,
-          timestamp: new Date().toISOString()
-        });
-      }
-      break;
+    }
   }
   
   next();
@@ -679,60 +590,44 @@ export const validateBulkOperation = (req, res, next) => {
  * Validate date range parameters
  */
 export const validateDateRange = (req, res, next) => {
-  const { date_from, date_to, period } = req.query;
+  const { date_from, date_to, start_date, end_date } = req.query;
   
-  if (date_from) {
-    const fromDate = new Date(date_from);
-    if (isNaN(fromDate.getTime())) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid date_from format. Use YYYY-MM-DD',
-        field: 'date_from',
-        provided: date_from,
-        expected_format: 'YYYY-MM-DD',
-        timestamp: new Date().toISOString()
-      });
-    }
+  const fromDate = date_from || start_date;
+  const toDate = date_to || end_date;
+  
+  if (fromDate && !isValidDate(fromDate)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid start date format',
+      code: 'INVALID_START_DATE',
+      provided: fromDate,
+      expected_format: 'YYYY-MM-DD or ISO 8601',
+      timestamp: new Date().toISOString()
+    });
   }
   
-  if (date_to) {
-    const toDate = new Date(date_to);
-    if (isNaN(toDate.getTime())) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid date_to format. Use YYYY-MM-DD',
-        field: 'date_to',
-        provided: date_to,
-        expected_format: 'YYYY-MM-DD',
-        timestamp: new Date().toISOString()
-      });
-    }
+  if (toDate && !isValidDate(toDate)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid end date format',
+      code: 'INVALID_END_DATE',
+      provided: toDate,
+      expected_format: 'YYYY-MM-DD or ISO 8601',
+      timestamp: new Date().toISOString()
+    });
   }
   
-  if (date_from && date_to) {
-    const fromDate = new Date(date_from);
-    const toDate = new Date(date_to);
+  if (fromDate && toDate) {
+    const start = new Date(fromDate);
+    const end = new Date(toDate);
     
-    if (fromDate > toDate) {
+    if (start > end) {
       return res.status(400).json({
         success: false,
-        error: 'date_from cannot be later than date_to',
-        fields: ['date_from', 'date_to'],
-        provided: { date_from, date_to },
-        timestamp: new Date().toISOString()
-      });
-    }
-  }
-  
-  if (period) {
-    const validPeriods = ['7d', '30d', '90d', '180d', '365d', '1m', '3m', '6m', '12m'];
-    if (!validPeriods.includes(period)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid period format',
-        field: 'period',
-        provided: period,
-        allowed_periods: validPeriods,
+        error: 'Start date cannot be after end date',
+        code: 'INVALID_DATE_RANGE',
+        start_date: fromDate,
+        end_date: toDate,
         timestamp: new Date().toISOString()
       });
     }
@@ -746,18 +641,19 @@ export const validateDateRange = (req, res, next) => {
 // ===============================================
 
 /**
- * Validate request body size and structure
+ * Validate request size to prevent large payloads
  */
 export const validateRequestSize = (req, res, next) => {
-  const contentLength = req.get('content-length');
+  const contentLength = req.headers['content-length'];
   const maxSize = 10 * 1024 * 1024; // 10MB
   
   if (contentLength && parseInt(contentLength) > maxSize) {
     return res.status(413).json({
       success: false,
-      error: 'Request body too large',
+      error: 'Request payload too large',
+      code: 'PAYLOAD_TOO_LARGE',
       max_size: '10MB',
-      provided_size: `${Math.round(parseInt(contentLength) / 1024 / 1024)}MB`,
+      provided_size: contentLength,
       timestamp: new Date().toISOString()
     });
   }
@@ -766,53 +662,39 @@ export const validateRequestSize = (req, res, next) => {
 };
 
 // ===============================================
-// COMBINED VALIDATION CHAINS
+// EXPORT ALL VALIDATORS
 // ===============================================
 
-/**
- * Common validation chain for class routes
- */
-export const validateClassRoute = [validateClassId, validatePagination];
-
-/**
- * Common validation chain for admin class routes
- */
-export const validateAdminClassRoute = [validateClassId, validatePagination, validateSorting];
-
-/**
- * Validation chain for class creation
- */
-export const validateClassCreation = [validateClassData, validateRequestSize];
-
-/**
- * Validation chain for class updates
- */
-export const validateClassUpdate = [validateClassId, validateClassData, validateRequestSize];
-
-/**
- * Validation chain for participant management
- */
-export const validateParticipantManagement = [validateClassId, validateUserId, validateMembershipAction];
-
-/**
- * Validation chain for content management
- */
-export const validateContentManagement = [validateClassId, validateContentId, validateContentData];
-
-// ===============================================
-// DEVELOPMENT HELPERS
-// ===============================================
-
-
-  /**
-   * Development validation test endpoint
-   */
-export const validateTestEndpoint = (req, res, next) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🧪 Validation test endpoint accessed');
-    console.log('Request params:', req.params);
-    console.log('Request query:', req.query);
-    console.log('Request body:', req.body);
-  }
-  next();
+export default {
+  // ID Validators
+  validateClassId,
+  validateUserId,
+  
+  // Pagination & Sorting
+  validatePagination,
+  validateSorting,
+  
+  // Class Data
+  validateClassCreation,
+  validateClassUpdate,
+  validateClassData,
+  
+  // Membership
+  validateMembershipAction,
+  
+  // Bulk Operations
+  validateBulkOperation,
+  
+  // Date Range
+  validateDateRange,
+  
+  // Request Size
+  validateRequestSize,
+  
+  // Helpers
+  isValidClassId,
+  isValidEmail,
+  isValidPhone,
+  sanitizeString,
+  isValidDate
 };

@@ -54,6 +54,9 @@ import IkoControl from './components/iko/IkoControls';
 // Search components
 import SearchControls from './components/search/SearchControls';
 
+// ✅ NEW: Import ClassContentViewer component
+import ClassContentViewer from './components/classes/ClassContentViewer';
+
 // Test component
 // import Test from './Test';
 
@@ -186,6 +189,23 @@ function App() {
                   </ProtectedRoute>
                 } />
 
+                {/* 
+                  ✅ NEW: CLASS CONTENT VIEWER ROUTES
+                  Protected routes for class content viewing with URL-safe class ID
+                  Handles both formats: OTU001234 and OTU#001234 (URL encoded)
+                */}
+                <Route path="/classes/:classId" element={
+                  <ProtectedRoute requirePreMember={true}>
+                    <ClassContentViewer />
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/class/:classId" element={
+                  <ProtectedRoute requirePreMember={true}>
+                    <ClassContentViewer />
+                  </ProtectedRoute>
+                } />
+
                 {/* User Dashboard route - for personal dashboard view */}
                 <Route path="/dashboard" element={
                   <ProtectedRoute allowPending={true}>
@@ -243,6 +263,10 @@ function App() {
                   {/* ✅ ADMIN MEMBERSHIP MANAGEMENT ROUTES */}
                   <Route path="membership/info" element={<FullMembershipInfo />} />
                   <Route path="membership/applications" element={<FullMembershipSurvey />} />
+
+                  {/* ✅ NEW: Admin access to ClassContentViewer */}
+                  <Route path="classes/:classId" element={<ClassContentViewer />} />
+                  <Route path="class/:classId" element={<ClassContentViewer />} />
                 </Route>
                 
                 {/* Development/Test route */}
@@ -298,13 +322,7 @@ export default App;
 
 
 
-
-
-
-
-
-
-// // ikootaclient/src/App.jsx - FIXED VERSION WITH MEMBERSHIP ROUTES
+// // ikootaclient/src/App.jsx - UPDATED VERSION WITH NEW COMPONENT ROUTES
 // import './App.css';
 // import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
@@ -345,6 +363,10 @@ export default App;
 // import Reports from './components/admin/Reports';
 // import AudienceClassMgr from './components/admin/AudienceClassMgr';
 // import FullMembershipReviewControls from './components/admin/FullMembershipReviewControls';
+
+// // ✅ NEW: Import the new admin components
+// import MembershipReviewControls from './components/admin/MembershipReviewControls';
+// import SurveyControls from './components/admin/SurveyControls';
 
 // // Towncrier components
 // import Towncrier from './components/towncrier/Towncrier';
@@ -535,8 +557,12 @@ export default App;
 //                   <Route path="usermanagement" element={<UserManagement />} />
 //                   <Route path="audienceclassmgr" element={<AudienceClassMgr />} />
                   
-//                   {/* ✅ NEW: Full Membership Review Route */}
+//                   {/* ✅ UPDATED: Membership Review Routes */}
 //                   <Route path="full-membership-review" element={<FullMembershipReviewControls />} />
+//                   <Route path="membership-review" element={<MembershipReviewControls />} />
+                  
+//                   {/* ✅ NEW: Survey Controls Route */}
+//                   <Route path="survey-controls" element={<SurveyControls />} />
                   
 //                   {/* ✅ ADMIN MEMBERSHIP MANAGEMENT ROUTES */}
 //                   <Route path="membership/info" element={<FullMembershipInfo />} />
@@ -591,5 +617,6 @@ export default App;
 // }
 
 // export default App;
+
 
 

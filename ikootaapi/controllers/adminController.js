@@ -1,7 +1,7 @@
 
 // controllers/adminController.js - COMPLETE FILE
 import { AdminService } from '../services/adminService.js';
-import { UserService } from '../services/userService.js';
+import { UserService } from '../services/userServices.js';
 import db from '../config/db.js';
 
 export class AdminController {

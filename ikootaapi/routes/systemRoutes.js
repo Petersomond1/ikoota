@@ -3,7 +3,7 @@
 // Health checks, API information, testing, and performance monitoring
 
 import express from 'express';
-import { authenticate } from '../middlewares/auth.middleware.js';
+import { authenticate } from '../middleware/auth.js';
 
 // Import system controllers
 import {
