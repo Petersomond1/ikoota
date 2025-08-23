@@ -1,155 +1,79 @@
 // ikootaapi/services/classServices.js
-// CLASS MANAGEMENT SERVICES - BUSINESS LOGIC LAYER
-// All database operations and business logic for class management
+// REBUILT USING EXACT MEMBERSHIP SYSTEM PATTERNS
+// Direct db.query() calls, simple result handling, no complex string building
 
 import db from '../config/db.js';
 import CustomError from '../utils/CustomError.js';
-import { validateIdFormat, generateUniqueClassId } from '../utils/idGenerator.js';
 
 // ===============================================
-// HELPER FUNCTIONS
-// ===============================================
-
-const validateClassIdFormat = (classId) => {
-  if (!classId || typeof classId !== 'string') return false;
-  if (classId === 'OTU#Public') return true;
-  return validateIdFormat(classId, 'class');
-};
-
-const formatClassIdForDisplay = (classId) => {
-  if (classId === 'OTU#Public') return 'Public Community';
-  return `Class ${classId}`;
-};
-
-// ===============================================
-// CLASS DISCOVERY & ACCESS SERVICES
+// BASIC CLASS OPERATIONS
 // ===============================================
 
 /**
- * Get all classes with comprehensive filtering
+ * Get all classes with simple filtering
+ * @param {Object} filters - Filter options
+ * @param {Object} options - Query options
+ * @returns {Object} Classes with pagination
  */
-export const getAllClassesService = async (filters = {}, options = {}) => {
+export const getAllClasses = async (filters = {}, options = {}) => {
   try {
     const { 
       page = 1, 
       limit = 20, 
       class_type, 
       is_public, 
-      search, 
-      difficulty_level,
-      has_space = null,
-      created_after = null,
-      created_before = null,
-      created_by,
-      min_members,
-      max_members,
-      is_active
+      search,
+      sort_by = 'createdAt',
+      sort_order = 'DESC'
     } = { ...filters, ...options };
     
     const offset = (page - 1) * limit;
-
-    let whereClause = 'WHERE c.is_active = 1 AND c.class_id LIKE "OTU#%"';
-    const params = [];
-
-    // Apply filters
-    if (is_active !== undefined) {
-      whereClause = whereClause.replace('c.is_active = 1', `c.is_active = ${is_active ? 1 : 0}`);
-    }
-
+    
+    // Build simple WHERE conditions
+    let whereClause = 'WHERE c.is_active = 1';
+    const queryParams = [];
+    
     if (class_type) {
       whereClause += ' AND c.class_type = ?';
-      params.push(class_type);
+      queryParams.push(class_type);
     }
-
+    
     if (is_public !== undefined) {
       whereClause += ' AND c.is_public = ?';
-      params.push(is_public ? 1 : 0);
+      queryParams.push(is_public ? 1 : 0);
     }
-
-    if (difficulty_level) {
-      whereClause += ' AND c.difficulty_level = ?';
-      params.push(difficulty_level);
-    }
-
-    if (has_space !== null) {
-      if (has_space) {
-        whereClause += ' AND (c.max_members > COALESCE(cmc.total_members, 0))';
-      } else {
-        whereClause += ' AND (c.max_members <= COALESCE(cmc.total_members, 0))';
-      }
-    }
-
-    if (created_after) {
-      whereClause += ' AND c.createdAt >= ?';
-      params.push(created_after);
-    }
-
-    if (created_before) {
-      whereClause += ' AND c.createdAt <= ?';
-      params.push(created_before);
-    }
-
-    if (created_by) {
-      whereClause += ' AND c.created_by = ?';
-      params.push(created_by);
-    }
-
-    if (min_members !== undefined) {
-      whereClause += ' AND COALESCE(cmc.total_members, 0) >= ?';
-      params.push(min_members);
-    }
-
-    if (max_members !== undefined) {
-      whereClause += ' AND COALESCE(cmc.total_members, 0) <= ?';
-      params.push(max_members);
-    }
-
+    
     if (search) {
-      whereClause += ' AND (c.class_name LIKE ? OR c.description LIKE ? OR c.tags LIKE ?)';
-      const searchTerm = `%${search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
+      whereClause += ' AND (c.class_name LIKE ? OR c.description LIKE ?)';
+      queryParams.push(`%${search}%`, `%${search}%`);
     }
-
+    
     // Get total count
-    const countSql = `SELECT COUNT(*) as total FROM classes c LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id ${whereClause}`;
-    const [countResult] = await db.query(countSql, params);
-    const total = countResult.total;
-
-    // Get classes with comprehensive data
-    const sql = `
+    const countResult = await db.query(`
+      SELECT COUNT(*) as total 
+      FROM classes c 
+      ${whereClause}
+    `, queryParams);
+    
+    const total = countResult[0].total;
+    
+    // Get classes
+    const classes = await db.query(`
       SELECT 
         c.*,
-        cmc.total_members,
-        cmc.moderators,
-        cmc.pending_members,
-        u.username as created_by_username,
-        CASE 
-          WHEN c.max_members > 0 THEN ROUND((COALESCE(cmc.total_members, 0) / c.max_members) * 100, 2)
-          ELSE 0 
-        END as capacity_percentage,
-        CASE 
-          WHEN c.max_members <= COALESCE(cmc.total_members, 0) THEN 1
-          ELSE 0 
-        END as is_full
+        COALESCE(cmc.total_members, 0) as total_members,
+        COALESCE(cmc.moderators, 0) as moderators,
+        u.username as created_by_username
       FROM classes c
       LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
       LEFT JOIN users u ON c.created_by = u.id
       ${whereClause}
-      ORDER BY 
-        CASE WHEN c.class_id = 'OTU#Public' THEN 0 ELSE 1 END,
-        c.createdAt DESC
+      ORDER BY c.${sort_by} ${sort_order}
       LIMIT ? OFFSET ?
-    `;
-    
-    params.push(limit, offset);
-    const classes = await db.query(sql, params);
+    `, [...queryParams, limit, offset]);
 
     return {
-      data: classes.map(cls => ({
-        ...cls,
-        display_id: formatClassIdForDisplay(cls.class_id),
-        available_spots: cls.max_members - (cls.total_members || 0)
-      })),
+      data: classes,
       pagination: {
         current_page: page,
         total_pages: Math.ceil(total / limit),
@@ -157,1545 +81,410 @@ export const getAllClassesService = async (filters = {}, options = {}) => {
         per_page: limit,
         has_next: page < Math.ceil(total / limit),
         has_previous: page > 1
-      },
-      summary: {
-        total_classes: total,
-        public_classes: classes.filter(c => c.is_public).length,
-        classes_with_space: classes.filter(c => c.max_members > (c.total_members || 0)).length
       }
     };
 
   } catch (error) {
-    console.error('❌ getAllClassesService error:', error);
-    throw new CustomError('Failed to fetch classes', 500);
+    console.error('❌ getAllClasses error:', error);
+    throw new Error(`Failed to get classes: ${error.message}`);
   }
 };
 
 /**
- * Get all classes (public view with comprehensive filtering)
+ * Get class by ID
+ * @param {string} classId - Class ID
+ * @param {number} userId - User ID (optional)
+ * @returns {Object} Class details
  */
-// export const getAllClassesService = async (filters = {}, options = {}) => {
-//   try {
-//     const { 
-//       page = 1, 
-//       limit = 20, 
-//       class_type, 
-//       is_public, 
-//       search, 
-//       difficulty_level,
-//       has_space = null,
-//       created_after = null,
-//       created_before = null 
-//     } = { ...filters, ...options };
-    
-//     const offset = (page - 1) * limit;
-
-//     let whereClause = 'WHERE c.is_active = 1 AND c.class_id LIKE "OTU#%"';
-//     const params = [];
-
-//     if (class_type) {
-//       whereClause += ' AND c.class_type = ?';
-//       params.push(class_type);
-//     }
-
-//     if (is_public !== undefined) {
-//       whereClause += ' AND c.is_public = ?';
-//       params.push(is_public ? 1 : 0);
-//     }
-
-//     if (difficulty_level) {
-//       whereClause += ' AND c.difficulty_level = ?';
-//       params.push(difficulty_level);
-//     }
-
-//     if (has_space !== null) {
-//       if (has_space) {
-//         whereClause += ' AND (c.max_members > COALESCE(cmc.total_members, 0))';
-//       } else {
-//         whereClause += ' AND (c.max_members <= COALESCE(cmc.total_members, 0))';
-//       }
-//     }
-
-//     if (created_after) {
-//       whereClause += ' AND c.createdAt >= ?';
-//       params.push(created_after);
-//     }
-
-//     if (created_before) {
-//       whereClause += ' AND c.createdAt <= ?';
-//       params.push(created_before);
-//     }
-
-//     if (search) {
-//       whereClause += ' AND (c.class_name LIKE ? OR c.description LIKE ? OR c.tags LIKE ?)';
-//       const searchTerm = `%${search}%`;
-//       params.push(searchTerm, searchTerm, searchTerm);
-//     }
-
-//     // Get total count
-//     const countSql = `SELECT COUNT(*) as total FROM classes c LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id ${whereClause}`;
-//     const [countResult] = await db.query(countSql, params);
-//     const total = countResult.total;
-
-//     // Get classes with comprehensive data
-//     const sql = `
-//       SELECT 
-//         c.*,
-//         cmc.total_members,
-//         cmc.moderators,
-//         cmc.pending_members,
-//         u.username as created_by_username,
-//         CASE 
-//           WHEN c.max_members > 0 THEN ROUND((COALESCE(cmc.total_members, 0) / c.max_members) * 100, 2)
-//           ELSE 0 
-//         END as capacity_percentage,
-//         CASE 
-//           WHEN c.max_members <= COALESCE(cmc.total_members, 0) THEN 1
-//           ELSE 0 
-//         END as is_full
-//       FROM classes c
-//       LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
-//       LEFT JOIN users u ON c.created_by = u.id
-//       ${whereClause}
-//       ORDER BY 
-//         CASE WHEN c.class_id = 'OTU#Public' THEN 0 ELSE 1 END,
-//         c.createdAt DESC
-//       LIMIT ? OFFSET ?
-//     `;
-    
-//     params.push(limit, offset);
-//     const classes = await db.query(sql, params);
-
-//     return {
-//       data: classes.map(cls => ({
-//         ...cls,
-//         display_id: formatClassIdForDisplay(cls.class_id),
-//         available_spots: cls.max_members - (cls.total_members || 0)
-//       })),
-//       pagination: {
-//         current_page: page,
-//         total_pages: Math.ceil(total / limit),
-//         total_records: total,
-//         per_page: limit,
-//         has_next: page < Math.ceil(total / limit),
-//         has_previous: page > 1
-//       },
-//       summary: {
-//         total_classes: total,
-//         public_classes: classes.filter(c => c.is_public).length,
-//         classes_with_space: classes.filter(c => c.max_members > (c.total_members || 0)).length
-//       }
-//     };
-
-//   } catch (error) {
-//     console.error('❌ getAllClassesService error:', error);
-//     throw new CustomError('Failed to fetch classes', 500);
-//   }
-// };
-
-/**
- * Get available classes for user to join
- */
-export const getAvailableClassesService = async (userId, options = {}) => {
+export const getClassById = async (classId, userId = null) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      class_type, 
-      search, 
-      difficulty_level,
-      membershipStage,
-      fullMembershipStatus,
-      exclude_full = true 
-    } = options;
-    
-    const offset = (page - 1) * limit;
-
-    let whereClause = `
-      WHERE c.is_active = 1 
-      AND c.allow_self_join = 1
-      AND c.class_id LIKE "OTU#%"
-      AND c.class_id NOT IN (
-        SELECT class_id 
-        FROM user_class_memberships 
-        WHERE user_id = ? AND membership_status IN ('active', 'pending')
-      )
-    `;
-    const params = [userId];
-
-    if (membershipStage && membershipStage !== 'full') {
-      whereClause += ' AND (c.require_full_membership = 0 OR c.require_full_membership IS NULL)';
-    }
-
-    if (class_type) {
-      whereClause += ' AND c.class_type = ?';
-      params.push(class_type);
-    }
-
-    if (difficulty_level) {
-      whereClause += ' AND c.difficulty_level = ?';
-      params.push(difficulty_level);
-    }
-
-    if (exclude_full) {
-      whereClause += ' AND (c.max_members > COALESCE(cmc.total_members, 0))';
-    }
-
-    if (search) {
-      whereClause += ' AND (c.class_name LIKE ? OR c.description LIKE ?)';
-      const searchTerm = `%${search}%`;
-      params.push(searchTerm, searchTerm);
-    }
-
-    const countSql = `SELECT COUNT(*) as total FROM classes c LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id ${whereClause}`;
-    const [countResult] = await db.query(countSql, params);
-    const total = countResult.total;
-
-    const sql = `
+    const classResult = await db.query(`
       SELECT 
         c.*,
-        cmc.total_members,
-        cmc.moderators,
-        u.username as created_by_username,
-        (c.max_members - COALESCE(cmc.total_members, 0)) as available_spots,
-        ROUND((COALESCE(cmc.total_members, 0) / c.max_members) * 100, 2) as capacity_percentage
+        COALESCE(cmc.total_members, 0) as total_members,
+        u.username as created_by_username
       FROM classes c
       LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
       LEFT JOIN users u ON c.created_by = u.id
-      ${whereClause}
-      ORDER BY 
-        CASE WHEN c.is_public = 1 THEN 0 ELSE 1 END,
-        cmc.total_members DESC, 
-        c.createdAt DESC
-      LIMIT ? OFFSET ?
-    `;
+      WHERE c.class_id = ? AND c.is_active = 1
+    `, [classId]);
+
+    if (!classResult.length) {
+      throw new Error('Class not found');
+    }
+
+    const classData = classResult[0];
     
-    params.push(limit, offset);
-    const classes = await db.query(sql, params);
+    // Get user membership if userId provided
+    let userMembership = null;
+    if (userId) {
+      const membershipResult = await db.query(`
+        SELECT role_in_class, membership_status, joinedAt
+        FROM user_class_memberships
+        WHERE user_id = ? AND class_id = ?
+      `, [userId, classId]);
+      
+      userMembership = membershipResult[0] || null;
+    }
 
     return {
-      data: classes.map(cls => ({
-        ...cls,
-        display_id: formatClassIdForDisplay(cls.class_id),
-        can_join_immediately: cls.auto_approve_members || cls.is_public,
-        requires_approval: cls.require_approval && !cls.auto_approve_members
-      })),
-      pagination: {
-        current_page: page,
-        total_pages: Math.ceil(total / limit),
-        total_records: total,
-        per_page: limit
-      },
-      user_context: {
-        membership_stage: membershipStage,
-        full_membership_status: fullMembershipStatus
-      }
+      ...classData,
+      available_spots: classData.max_members - classData.total_members,
+      is_full: classData.total_members >= classData.max_members,
+      user_membership: userMembership
     };
 
   } catch (error) {
-    console.error('❌ getAvailableClassesService error:', error);
-    throw new CustomError('Failed to fetch available classes', 500);
+    console.error('❌ getClassById error:', error);
+    throw new Error(`Failed to get class: ${error.message}`);
   }
 };
 
-
 /**
- * Get available classes for user to join (enhanced filtering)
+ * Get user's classes
+ * @param {number} userId - User ID
+ * @param {Object} options - Query options
+ * @returns {Object} User's classes
  */
-// export const getAvailableClassesService = async (userId, options = {}) => {
-//   try {
-//     const { 
-//       page = 1, 
-//       limit = 20, 
-//       class_type, 
-//       search, 
-//       difficulty_level,
-//       membershipStage,
-//       fullMembershipStatus,
-//       exclude_full = true 
-//     } = options;
-    
-//     const offset = (page - 1) * limit;
-
-//     let whereClause = `
-//       WHERE c.is_active = 1 
-//       AND c.allow_self_join = 1
-//       AND c.class_id LIKE "OTU#%"
-//       AND c.class_id NOT IN (
-//         SELECT class_id 
-//         FROM user_class_memberships 
-//         WHERE user_id = ? AND membership_status IN ('active', 'pending')
-//       )
-//     `;
-//     const params = [userId];
-
-//     // Membership stage restrictions
-//     if (membershipStage && membershipStage !== 'full') {
-//       whereClause += ' AND (c.require_full_membership = 0 OR c.require_full_membership IS NULL)';
-//     }
-
-//     if (class_type) {
-//       whereClause += ' AND c.class_type = ?';
-//       params.push(class_type);
-//     }
-
-//     if (difficulty_level) {
-//       whereClause += ' AND c.difficulty_level = ?';
-//       params.push(difficulty_level);
-//     }
-
-//     if (exclude_full) {
-//       whereClause += ' AND (c.max_members > COALESCE(cmc.total_members, 0))';
-//     }
-
-//     if (search) {
-//       whereClause += ' AND (c.class_name LIKE ? OR c.description LIKE ?)';
-//       const searchTerm = `%${search}%`;
-//       params.push(searchTerm, searchTerm);
-//     }
-
-//     // Get total count
-//     const countSql = `SELECT COUNT(*) as total FROM classes c LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id ${whereClause}`;
-//     const [countResult] = await db.query(countSql, params);
-//     const total = countResult.total;
-
-//     // Get available classes
-//     const sql = `
-//       SELECT 
-//         c.*,
-//         cmc.total_members,
-//         cmc.moderators,
-//         u.username as created_by_username,
-//         (c.max_members - COALESCE(cmc.total_members, 0)) as available_spots,
-//         ROUND((COALESCE(cmc.total_members, 0) / c.max_members) * 100, 2) as capacity_percentage
-//       FROM classes c
-//       LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
-//       LEFT JOIN users u ON c.created_by = u.id
-//       ${whereClause}
-//       ORDER BY 
-//         CASE WHEN c.is_public = 1 THEN 0 ELSE 1 END,
-//         cmc.total_members DESC, 
-//         c.createdAt DESC
-//       LIMIT ? OFFSET ?
-//     `;
-    
-//     params.push(limit, offset);
-//     const classes = await db.query(sql, params);
-
-//     return {
-//       data: classes.map(cls => ({
-//         ...cls,
-//         display_id: formatClassIdForDisplay(cls.class_id),
-//         can_join_immediately: cls.auto_approve_members || cls.is_public,
-//         requires_approval: cls.require_approval && !cls.auto_approve_members
-//       })),
-//       pagination: {
-//         current_page: page,
-//         total_pages: Math.ceil(total / limit),
-//         total_records: total,
-//         per_page: limit
-//       },
-//       user_context: {
-//         membership_stage: membershipStage,
-//         full_membership_status: fullMembershipStatus
-//       }
-//     };
-
-//   } catch (error) {
-//     console.error('❌ getAvailableClassesService error:', error);
-//     throw new CustomError('Failed to fetch available classes', 500);
-//   }
-// };
-
-/**
- * Get user's classes with enhanced details
- */
-export const getUserClassesService = async (userId, options = {}) => {
+export const getUserClasses = async (userId, options = {}) => {
   try {
     const { 
       page = 1, 
       limit = 20, 
-      role_in_class, 
       membership_status = 'active',
-      include_expired = false,
       sort_by = 'joinedAt',
       sort_order = 'DESC'
     } = options;
     
     const offset = (page - 1) * limit;
-
-    let whereClause = 'WHERE ucm.user_id = ?';
-    const params = [userId];
-
-    if (include_expired) {
-      whereClause += ' AND ucm.membership_status IN (?, ?)';
-      params.push(membership_status, 'expired');
-    } else {
-      whereClause += ' AND ucm.membership_status = ?';
-      params.push(membership_status);
-    }
-
-    if (role_in_class) {
-      whereClause += ' AND ucm.role_in_class = ?';
-      params.push(role_in_class);
-    }
-
-    const countSql = `
-      SELECT COUNT(*) as total 
-      FROM user_class_memberships ucm 
+    
+    // Get total count
+    const countResult = await db.query(`
+      SELECT COUNT(*) as total
+      FROM user_class_memberships ucm
       INNER JOIN classes c ON ucm.class_id = c.class_id
-      ${whereClause} AND c.class_id LIKE "OTU#%"
-    `;
-    const [countResult] = await db.query(countSql, params);
-    const total = countResult.total;
-
-    const sql = `
+      WHERE ucm.user_id = ? AND ucm.membership_status = ?
+    `, [userId, membership_status]);
+    
+    const total = countResult[0].total;
+    
+    // Get classes
+    const classes = await db.query(`
       SELECT 
         c.*,
         ucm.role_in_class,
         ucm.joinedAt,
         ucm.membership_status,
-        ucm.expiresAt,
-        ucm.can_see_class_name,
-        ucm.receive_notifications,
-        cmc.total_members,
-        cmc.moderators,
-        cmc.pending_members,
-        assigned_by_user.username as assigned_by_username,
-        CASE 
-          WHEN ucm.expiresAt IS NOT NULL AND ucm.expiresAt < NOW() THEN 1
-          ELSE 0 
-        END as is_expired,
-        DATEDIFF(ucm.expiresAt, NOW()) as days_until_expiry
+        COALESCE(cmc.total_members, 0) as total_members
       FROM user_class_memberships ucm
       INNER JOIN classes c ON ucm.class_id = c.class_id
       LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
-      LEFT JOIN users assigned_by_user ON ucm.assigned_by = assigned_by_user.id
-      ${whereClause} AND c.class_id LIKE "OTU#%"
+      WHERE ucm.user_id = ? AND ucm.membership_status = ?
       ORDER BY ucm.${sort_by} ${sort_order}
       LIMIT ? OFFSET ?
-    `;
-    
-    params.push(limit, offset);
-    const classes = await db.query(sql, params);
-
-    const classesWithProgress = classes.map(cls => ({
-      ...cls,
-      display_id: formatClassIdForDisplay(cls.class_id),
-      membership_duration_days: Math.floor((new Date() - new Date(cls.joinedAt)) / (1000 * 60 * 60 * 24)),
-      progress: {
-        percentage: 0,
-        completed_items: 0,
-        total_items: 0
-      }
-    }));
+    `, [userId, membership_status, limit, offset]);
 
     return {
-      data: classesWithProgress,
+      data: classes,
       pagination: {
         current_page: page,
         total_pages: Math.ceil(total / limit),
         total_records: total,
         per_page: limit
-      },
-      summary: {
-        total_enrollments: total,
-        active_classes: classes.filter(c => c.membership_status === 'active').length,
-        moderated_classes: classes.filter(c => c.role_in_class === 'moderator').length,
-        expiring_soon: classes.filter(c => c.days_until_expiry > 0 && c.days_until_expiry <= 7).length
       }
     };
 
   } catch (error) {
-    console.error('❌ getUserClassesService error:', error);
-    throw new CustomError('Failed to fetch user classes', 500);
+    console.error('❌ getUserClasses error:', error);
+    throw new Error(`Failed to get user classes: ${error.message}`);
   }
 };
 
-
 /**
- * Get user's classes (enrolled/owned) with enhanced details
+ * Join a class
+ * @param {number} userId - User ID
+ * @param {string} classId - Class ID
+ * @param {Object} options - Join options
+ * @returns {Object} Join result
  */
-// export const getUserClassesService = async (userId, options = {}) => {
-//   try {
-//     const { 
-//       page = 1, 
-//       limit = 20, 
-//       role_in_class, 
-//       membership_status = 'active',
-//       include_expired = false,
-//       sort_by = 'joinedAt',
-//       sort_order = 'DESC'
-//     } = options;
-    
-//     const offset = (page - 1) * limit;
-
-//     let whereClause = 'WHERE ucm.user_id = ?';
-//     const params = [userId];
-
-//     if (include_expired) {
-//       whereClause += ' AND ucm.membership_status IN (?, ?)';
-//       params.push(membership_status, 'expired');
-//     } else {
-//       whereClause += ' AND ucm.membership_status = ?';
-//       params.push(membership_status);
-//     }
-
-//     if (role_in_class) {
-//       whereClause += ' AND ucm.role_in_class = ?';
-//       params.push(role_in_class);
-//     }
-
-//     // Get total count
-//     const countSql = `
-//       SELECT COUNT(*) as total 
-//       FROM user_class_memberships ucm 
-//       INNER JOIN classes c ON ucm.class_id = c.class_id
-//       ${whereClause} AND c.class_id LIKE "OTU#%"
-//     `;
-//     const [countResult] = await db.query(countSql, params);
-//     const total = countResult.total;
-
-//     // Get user's classes with detailed info
-//     const sql = `
-//       SELECT 
-//         c.*,
-//         ucm.role_in_class,
-//         ucm.joinedAt,
-//         ucm.membership_status,
-//         ucm.expiresAt,
-//         ucm.can_see_class_name,
-//         ucm.receive_notifications,
-//         cmc.total_members,
-//         cmc.moderators,
-//         cmc.pending_members,
-//         assigned_by_user.username as assigned_by_username,
-//         CASE 
-//           WHEN ucm.expiresAt IS NOT NULL AND ucm.expiresAt < NOW() THEN 1
-//           ELSE 0 
-//         END as is_expired,
-//         DATEDIFF(ucm.expiresAt, NOW()) as days_until_expiry
-//       FROM user_class_memberships ucm
-//       INNER JOIN classes c ON ucm.class_id = c.class_id
-//       LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
-//       LEFT JOIN users assigned_by_user ON ucm.assigned_by = assigned_by_user.id
-//       ${whereClause} AND c.class_id LIKE "OTU#%"
-//       ORDER BY ucm.${sort_by} ${sort_order}
-//       LIMIT ? OFFSET ?
-//     `;
-    
-//     params.push(limit, offset);
-//     const classes = await db.query(sql, params);
-
-//     // Calculate progress for each class
-//     const classesWithProgress = classes.map(cls => ({
-//       ...cls,
-//       display_id: formatClassIdForDisplay(cls.class_id),
-//       membership_duration_days: Math.floor((new Date() - new Date(cls.joinedAt)) / (1000 * 60 * 60 * 24)),
-//       progress: {
-//         percentage: 0,
-//         completed_items: 0,
-//         total_items: 0
-//       }
-//     }));
-
-//     return {
-//       data: classesWithProgress,
-//       pagination: {
-//         current_page: page,
-//         total_pages: Math.ceil(total / limit),
-//         total_records: total,
-//         per_page: limit
-//       },
-//       summary: {
-//         total_enrollments: total,
-//         active_classes: classes.filter(c => c.membership_status === 'active').length,
-//         moderated_classes: classes.filter(c => c.role_in_class === 'moderator').length,
-//         expiring_soon: classes.filter(c => c.days_until_expiry > 0 && c.days_until_expiry <= 7).length
-//       }
-//     };
-
-//   } catch (error) {
-//     console.error('❌ getUserClassesService error:', error);
-//     throw new CustomError('Failed to fetch user classes', 500);
-//   }
-// };
-
-/**
- * Get single class by ID with comprehensive details
- */
-export const getClassByIdService = async (classId, userId = null) => {
+export const joinClass = async (userId, classId, options = {}) => {
+  const connection = await db.getConnection();
+  
   try {
-    if (!validateClassIdFormat(classId)) {
-      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-    }
+    await connection.beginTransaction();
+    
+    const { role_in_class = 'member', receive_notifications = true } = options;
 
-    const sql = `
-      SELECT 
-        c.*,
-        cmc.total_members,
-        cmc.moderators,
-        cmc.pending_members,
-        u.username as created_by_username,
-        u.converse_id as created_by_converse_id,
-        ${userId ? `
-        CASE 
-          WHEN ucm.user_id IS NOT NULL THEN ucm.role_in_class
-          ELSE NULL 
-        END as user_role,
-        CASE 
-          WHEN ucm.user_id IS NOT NULL THEN ucm.membership_status
-          ELSE NULL 
-        END as user_membership_status,
-        ucm.joinedAt as user_joined_at,
-        ucm.expiresAt as user_membership_expires,
-        ucm.can_see_class_name as user_can_see_name,
-        ucm.receive_notifications as user_receives_notifications
-        ` : 'NULL as user_role, NULL as user_membership_status, NULL as user_joined_at, NULL as user_membership_expires, NULL as user_can_see_name, NULL as user_receives_notifications'},
-        (c.max_members - COALESCE(cmc.total_members, 0)) as available_spots,
-        CASE 
-          WHEN c.max_members <= COALESCE(cmc.total_members, 0) THEN 1
-          ELSE 0 
-        END as is_full,
-        (SELECT COUNT(*) FROM class_content_access WHERE class_id = c.class_id) as content_count
+    // Check if class exists and has space
+    const classResult = await connection.query(`
+      SELECT c.*, COALESCE(cmc.total_members, 0) as total_members
       FROM classes c
       LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
-      LEFT JOIN users u ON c.created_by = u.id
-      ${userId ? 'LEFT JOIN user_class_memberships ucm ON c.class_id = ucm.class_id AND ucm.user_id = ?' : ''}
-      WHERE c.class_id = ? AND c.is_active = 1 AND c.class_id LIKE "OTU#%"
-    `;
+      WHERE c.class_id = ? AND c.is_active = 1
+    `, [classId]);
 
-    const params = userId ? [userId, classId] : [classId];
-    const [classData] = await db.query(sql, params);
-
-    if (!classData) {
-      throw new CustomError('Class not found', 404);
+    if (!classResult.length) {
+      throw new Error('Class not found');
     }
 
-    // Check if user has access to private class
-    if (!classData.is_public && (!userId || !classData.user_membership_status)) {
-      if (!classData.allow_preview) {
-        throw new CustomError('Access denied to private class', 403);
-      }
-      const limitedData = {
-        class_id: classData.class_id,
-        class_name: classData.class_name,
-        public_name: classData.public_name,
-        description: classData.description,
-        class_type: classData.class_type,
-        difficulty_level: classData.difficulty_level,
-        estimated_duration: classData.estimated_duration,
-        total_members: classData.total_members,
-        max_members: classData.max_members,
-        is_full: classData.is_full,
-        tags: classData.tags,
-        preview_only: true,
-        display_id: formatClassIdForDisplay(classData.class_id)
-      };
-      return limitedData;
+    const classData = classResult[0];
+    
+    if (classData.total_members >= classData.max_members) {
+      throw new Error('Class is full');
     }
 
-    const enhancedClassData = {
-      ...classData,
-      display_id: formatClassIdForDisplay(classData.class_id),
-      tags: classData.tags ? (typeof classData.tags === 'string' ? classData.tags.split(',') : classData.tags) : [],
-      prerequisites: classData.prerequisites ? (typeof classData.prerequisites === 'string' ? classData.prerequisites.split(',') : classData.prerequisites) : [],
-      learning_objectives: classData.learning_objectives ? (typeof classData.learning_objectives === 'string' ? classData.learning_objectives.split(',') : classData.learning_objectives) : [],
-      capacity_info: {
-        total_members: classData.total_members || 0,
-        max_members: classData.max_members,
-        available_spots: classData.available_spots,
-        is_full: Boolean(classData.is_full),
-        capacity_percentage: classData.max_members > 0 ? Math.round(((classData.total_members || 0) / classData.max_members) * 100) : 0
-      },
-      user_context: userId ? {
-        is_member: Boolean(classData.user_membership_status),
-        role: classData.user_role,
-        status: classData.user_membership_status,
-        joined_at: classData.user_joined_at,
-        expires_at: classData.user_membership_expires,
-        can_see_name: classData.user_can_see_name,
-        receives_notifications: classData.user_receives_notifications,
-        can_join: !classData.user_membership_status && classData.allow_self_join && !classData.is_full,
-        can_leave: classData.user_membership_status === 'active' && (classData.user_role !== 'moderator' || classData.moderators > 1)
-      } : null
-    };
-
-    return enhancedClassData;
-
-  } catch (error) {
-    console.error('❌ getClassByIdService error:', error);
-    if (error instanceof CustomError) throw error;
-    throw new CustomError('Failed to fetch class', 500);
-  }
-};
-
-
-/**
- * Get single class by ID with comprehensive details
- */
-// export const getClassByIdService = async (classId, userId = null) => {
-//   try {
-//     if (!validateClassIdFormat(classId)) {
-//       throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-//     }
-
-//     const sql = `
-//       SELECT 
-//         c.*,
-//         cmc.total_members,
-//         cmc.moderators,
-//         cmc.pending_members,
-//         u.username as created_by_username,
-//         u.converse_id as created_by_converse_id,
-//         ${userId ? `
-//         CASE 
-//           WHEN ucm.user_id IS NOT NULL THEN ucm.role_in_class
-//           ELSE NULL 
-//         END as user_role,
-//         CASE 
-//           WHEN ucm.user_id IS NOT NULL THEN ucm.membership_status
-//           ELSE NULL 
-//         END as user_membership_status,
-//         ucm.joinedAt as user_joined_at,
-//         ucm.expiresAt as user_membership_expires,
-//         ucm.can_see_class_name as user_can_see_name,
-//         ucm.receive_notifications as user_receives_notifications
-//         ` : 'NULL as user_role, NULL as user_membership_status, NULL as user_joined_at, NULL as user_membership_expires, NULL as user_can_see_name, NULL as user_receives_notifications'},
-//         (c.max_members - COALESCE(cmc.total_members, 0)) as available_spots,
-//         CASE 
-//           WHEN c.max_members <= COALESCE(cmc.total_members, 0) THEN 1
-//           ELSE 0 
-//         END as is_full,
-//         (SELECT COUNT(*) FROM class_content_access WHERE class_id = c.class_id) as content_count
-//       FROM classes c
-//       LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
-//       LEFT JOIN users u ON c.created_by = u.id
-//       ${userId ? 'LEFT JOIN user_class_memberships ucm ON c.class_id = ucm.class_id AND ucm.user_id = ?' : ''}
-//       WHERE c.class_id = ? AND c.is_active = 1 AND c.class_id LIKE "OTU#%"
-//     `;
-
-//     const params = userId ? [userId, classId] : [classId];
-//     const [classData] = await db.query(sql, params);
-
-//     if (!classData) {
-//       throw new CustomError('Class not found', 404);
-//     }
-
-//     // Check if user has access to private class
-//     if (!classData.is_public && (!userId || !classData.user_membership_status)) {
-//       if (!classData.allow_preview) {
-//         throw new CustomError('Access denied to private class', 403);
-//       }
-//       // Return limited info for preview
-//       const limitedData = {
-//         class_id: classData.class_id,
-//         class_name: classData.class_name,
-//         public_name: classData.public_name,
-//         description: classData.description,
-//         class_type: classData.class_type,
-//         difficulty_level: classData.difficulty_level,
-//         estimated_duration: classData.estimated_duration,
-//         total_members: classData.total_members,
-//         max_members: classData.max_members,
-//         is_full: classData.is_full,
-//         tags: classData.tags,
-//         preview_only: true,
-//         display_id: formatClassIdForDisplay(classData.class_id)
-//       };
-//       return limitedData;
-//     }
-
-//     // Parse JSON fields and format response
-//     const enhancedClassData = {
-//       ...classData,
-//       display_id: formatClassIdForDisplay(classData.class_id),
-//       tags: classData.tags ? (typeof classData.tags === 'string' ? classData.tags.split(',') : classData.tags) : [],
-//       prerequisites: classData.prerequisites ? (typeof classData.prerequisites === 'string' ? classData.prerequisites.split(',') : classData.prerequisites) : [],
-//       learning_objectives: classData.learning_objectives ? (typeof classData.learning_objectives === 'string' ? classData.learning_objectives.split(',') : classData.learning_objectives) : [],
-//       capacity_info: {
-//         total_members: classData.total_members || 0,
-//         max_members: classData.max_members,
-//         available_spots: classData.available_spots,
-//         is_full: Boolean(classData.is_full),
-//         capacity_percentage: classData.max_members > 0 ? Math.round(((classData.total_members || 0) / classData.max_members) * 100) : 0
-//       },
-//       user_context: userId ? {
-//         is_member: Boolean(classData.user_membership_status),
-//         role: classData.user_role,
-//         status: classData.user_membership_status,
-//         joined_at: classData.user_joined_at,
-//         expires_at: classData.user_membership_expires,
-//         can_see_name: classData.user_can_see_name,
-//         receives_notifications: classData.user_receives_notifications,
-//         can_join: !classData.user_membership_status && classData.allow_self_join && !classData.is_full,
-//         can_leave: classData.user_membership_status === 'active' && (classData.user_role !== 'moderator' || classData.moderators > 1)
-//       } : null
-//     };
-
-//     return enhancedClassData;
-
-//   } catch (error) {
-//     console.error('❌ getClassByIdService error:', error);
-//     if (error instanceof CustomError) throw error;
-//     throw new CustomError('Failed to fetch class', 500);
-//   }
-// };
-
-// ===============================================
-// CLASS ENROLLMENT SERVICES
-// ===============================================
-
-/**
- * Join a class with comprehensive validation
- */
-export const joinClassService = async (userId, classId, options = {}) => {
-  try {
-    if (!validateClassIdFormat(classId)) {
-      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-    }
-
-    const { 
-      role_in_class = 'member',
-      receive_notifications = true,
-      join_reason,
-      assigned_by = null 
-    } = options;
-
-    const classSql = `
-      SELECT c.*, cmc.total_members
-      FROM classes c
-      LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
-      WHERE c.class_id = ? AND c.is_active = 1 AND c.class_id LIKE "OTU#%"
-    `;
-    const [classData] = await db.query(classSql, [classId]);
-
-    if (!classData) {
-      throw new CustomError('Class not found or inactive', 404);
-    }
-
-    if (!assigned_by && !classData.allow_self_join) {
-      throw new CustomError('This class does not allow self-enrollment', 403);
-    }
-
-    const currentMembers = classData.total_members || 0;
-    if (currentMembers >= classData.max_members) {
-      throw new CustomError('Class is at full capacity', 409);
-    }
-
-    const membershipSql = `
-      SELECT * FROM user_class_memberships 
+    // Check existing membership
+    const existingResult = await connection.query(`
+      SELECT membership_status 
+      FROM user_class_memberships 
       WHERE user_id = ? AND class_id = ?
-    `;
-    const [existingMembership] = await db.query(membershipSql, [userId, classId]);
+    `, [userId, classId]);
 
-    if (existingMembership) {
-      if (existingMembership.membership_status === 'active') {
-        throw new CustomError('You are already a member of this class', 409);
-      } else if (existingMembership.membership_status === 'pending') {
-        throw new CustomError('Your membership request is already pending', 409);
-      } else if (existingMembership.membership_status === 'expired') {
-        const reactivateSql = `
-          UPDATE user_class_memberships 
-          SET membership_status = 'active', joinedAt = NOW(), expiresAt = NULL, updatedAt = NOW()
-          WHERE user_id = ? AND class_id = ?
-        `;
-        await db.query(reactivateSql, [userId, classId]);
-        
-        return {
-          success: true,
-          message: 'Membership reactivated successfully',
-          membership_status: 'active',
-          role_in_class: existingMembership.role_in_class,
-          class_id: classId,
-          action: 'reactivated'
-        };
-      }
+    if (existingResult.length && existingResult[0].membership_status === 'active') {
+      throw new Error('Already a member of this class');
     }
 
-    let initialStatus = 'active';
-    if (classData.require_approval && !classData.auto_approve_members && !assigned_by) {
-      initialStatus = 'pending';
-    }
-
-    const insertSql = `
+    // Insert membership
+    await connection.query(`
       INSERT INTO user_class_memberships 
-      (user_id, class_id, role_in_class, membership_status, joinedAt, assigned_by, receive_notifications, can_see_class_name, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, NOW(), ?, ?, 1, NOW(), NOW())
-    `;
-    
-    await db.query(insertSql, [userId, classId, role_in_class, initialStatus, assigned_by, receive_notifications]);
+      (user_id, class_id, role_in_class, membership_status, joinedAt, receive_notifications, createdAt, updatedAt)
+      VALUES (?, ?, ?, 'active', NOW(), ?, NOW(), NOW())
+    `, [userId, classId, role_in_class, receive_notifications ? 1 : 0]);
 
-    console.log(`✅ User ${userId} ${assigned_by ? 'assigned to' : 'joined'} class ${classId} with status: ${initialStatus}`);
+    await connection.commit();
 
     return {
       success: true,
-      message: initialStatus === 'active' 
-        ? (assigned_by ? 'Successfully assigned to class' : 'Successfully joined class')
-        : 'Join request submitted for approval',
-      membership_status: initialStatus,
-      role_in_class,
+      message: 'Successfully joined class',
       class_id: classId,
       class_name: classData.class_name,
-      display_id: formatClassIdForDisplay(classId),
-      requires_approval: initialStatus === 'pending',
-      action: assigned_by ? 'assigned' : 'joined'
+      role_in_class
     };
 
   } catch (error) {
-    console.error('❌ joinClassService error:', error);
-    if (error instanceof CustomError) throw error;
-    throw new CustomError('Failed to join class', 500);
+    await connection.rollback();
+    console.error('❌ joinClass error:', error);
+    throw error;
+  } finally {
+    connection.release();
   }
 };
 
 /**
- * Join a class with comprehensive validation and processing
+ * Leave a class
+ * @param {number} userId - User ID
+ * @param {string} classId - Class ID
+ * @returns {Object} Leave result
  */
-// export const joinClassService = async (userId, classId, options = {}) => {
-//   try {
-//     if (!validateClassIdFormat(classId)) {
-//       throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-//     }
-
-//     const { 
-//       role_in_class = 'member',
-//       receive_notifications = true,
-//       join_reason,
-//       assigned_by = null 
-//     } = options;
-
-//     // Get comprehensive class data
-//     const classSql = `
-//       SELECT c.*, cmc.total_members
-//       FROM classes c
-//       LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
-//       WHERE c.class_id = ? AND c.is_active = 1 AND c.class_id LIKE "OTU#%"
-//     `;
-//     const [classData] = await db.query(classSql, [classId]);
-
-//     if (!classData) {
-//       throw new CustomError('Class not found or inactive', 404);
-//     }
-
-//     // Check if class allows self-joining (unless assigned by admin)
-//     if (!assigned_by && !classData.allow_self_join) {
-//       throw new CustomError('This class does not allow self-enrollment', 403);
-//     }
-
-//     // Check capacity
-//     const currentMembers = classData.total_members || 0;
-//     if (currentMembers >= classData.max_members) {
-//       throw new CustomError('Class is at full capacity', 409);
-//     }
-
-//     // Check if user is already a member
-//     const membershipSql = `
-//       SELECT * FROM user_class_memberships 
-//       WHERE user_id = ? AND class_id = ?
-//     `;
-//     const [existingMembership] = await db.query(membershipSql, [userId, classId]);
-
-//     if (existingMembership) {
-//       if (existingMembership.membership_status === 'active') {
-//         throw new CustomError('You are already a member of this class', 409);
-//       } else if (existingMembership.membership_status === 'pending') {
-//         throw new CustomError('Your membership request is already pending', 409);
-//       } else if (existingMembership.membership_status === 'expired') {
-//         // Reactivate expired membership
-//         const reactivateSql = `
-//           UPDATE user_class_memberships 
-//           SET membership_status = 'active', joinedAt = NOW(), expiresAt = NULL, updatedAt = NOW()
-//           WHERE user_id = ? AND class_id = ?
-//         `;
-//         await db.query(reactivateSql, [userId, classId]);
-        
-//         return {
-//           success: true,
-//           message: 'Membership reactivated successfully',
-//           membership_status: 'active',
-//           role_in_class: existingMembership.role_in_class,
-//           class_id: classId,
-//           action: 'reactivated'
-//         };
-//       }
-//     }
-
-//     // Determine initial status
-//     let initialStatus = 'active';
-//     if (classData.require_approval && !classData.auto_approve_members && !assigned_by) {
-//       initialStatus = 'pending';
-//     }
-
-//     // Create membership record
-//     const insertSql = `
-//       INSERT INTO user_class_memberships 
-//       (user_id, class_id, role_in_class, membership_status, joinedAt, assigned_by, receive_notifications, can_see_class_name, createdAt, updatedAt)
-//       VALUES (?, ?, ?, ?, NOW(), ?, ?, 1, NOW(), NOW())
-//     `;
-    
-//     await db.query(insertSql, [userId, classId, role_in_class, initialStatus, assigned_by, receive_notifications]);
-
-//     console.log(`✅ User ${userId} ${assigned_by ? 'assigned to' : 'joined'} class ${classId} with status: ${initialStatus}`);
-
-//     return {
-//       success: true,
-//       message: initialStatus === 'active' 
-//         ? (assigned_by ? 'Successfully assigned to class' : 'Successfully joined class')
-//         : 'Join request submitted for approval',
-//       membership_status: initialStatus,
-//       role_in_class,
-//       class_id: classId,
-//       class_name: classData.class_name,
-//       display_id: formatClassIdForDisplay(classId),
-//       requires_approval: initialStatus === 'pending',
-//       action: assigned_by ? 'assigned' : 'joined'
-//     };
-
-//   } catch (error) {
-//     console.error('❌ joinClassService error:', error);
-//     if (error instanceof CustomError) throw error;
-//     throw new CustomError('Failed to join class', 500);
-//   }
-// };
-
-/**
- * Leave a class with proper validation
- */
-export const leaveClassService = async (userId, classId, options = {}) => {
+export const leaveClass = async (userId, classId) => {
   try {
-    if (!validateClassIdFormat(classId)) {
-      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-    }
-
-    const { reason, notify_moderators = true } = options;
-
-    const membershipSql = `
-      SELECT ucm.*, c.class_name
+    // Check membership
+    const membershipResult = await db.query(`
+      SELECT ucm.role_in_class, c.class_name
       FROM user_class_memberships ucm
       INNER JOIN classes c ON ucm.class_id = c.class_id
-      WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-    `;
-    const [membership] = await db.query(membershipSql, [userId, classId]);
+      WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active'
+    `, [userId, classId]);
 
-    if (!membership) {
-      throw new CustomError('You are not a member of this class', 404);
+    if (!membershipResult.length) {
+      throw new Error('Not a member of this class');
     }
 
-    if (membership.role_in_class === 'moderator') {
-      const moderatorCountSql = `
-        SELECT COUNT(*) as count FROM user_class_memberships 
-        WHERE class_id = ? AND role_in_class = 'moderator' AND membership_status = 'active'
-      `;
-      const [countResult] = await db.query(moderatorCountSql, [classId]);
-      
-      if (countResult.count <= 1) {
-        throw new CustomError('Cannot leave class: you are the only moderator. Please assign another moderator first.', 400);
-      }
-    }
+    const membership = membershipResult[0];
 
-    const removeSql = `
+    // Update membership status
+    await db.query(`
       UPDATE user_class_memberships 
       SET membership_status = 'expired', updatedAt = NOW()
       WHERE user_id = ? AND class_id = ?
-    `;
-    await db.query(removeSql, [userId, classId]);
-
-    console.log(`✅ User ${userId} left class ${classId}. Reason: ${reason || 'No reason provided'}`);
+    `, [userId, classId]);
 
     return {
       success: true,
       message: 'Successfully left class',
       class_id: classId,
       class_name: membership.class_name,
-      display_id: formatClassIdForDisplay(classId),
-      previous_role: membership.role_in_class,
-      leave_reason: reason,
-      leftAt: new Date().toISOString()
+      previous_role: membership.role_in_class
     };
 
   } catch (error) {
-    console.error('❌ leaveClassService error:', error);
-    if (error instanceof CustomError) throw error;
-    throw new CustomError('Failed to leave class', 500);
+    console.error('❌ leaveClass error:', error);
+    throw new Error(`Failed to leave class: ${error.message}`);
   }
 };
 
 /**
- * Leave a class with proper validation and cleanup
+ * Get class members
+ * @param {string} classId - Class ID
+ * @param {number} userId - Requesting user ID
+ * @param {Object} options - Query options
+ * @returns {Object} Class members
  */
-// export const leaveClassService = async (userId, classId, options = {}) => {
-//   try {
-//     if (!validateClassIdFormat(classId)) {
-//       throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-//     }
-
-//     const { reason, notify_moderators = true } = options;
-
-//     // Check if user is a member
-//     const membershipSql = `
-//       SELECT ucm.*, c.class_name
-//       FROM user_class_memberships ucm
-//       INNER JOIN classes c ON ucm.class_id = c.class_id
-//       WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-//     `;
-//     const [membership] = await db.query(membershipSql, [userId, classId]);
-
-//     if (!membership) {
-//       throw new CustomError('You are not a member of this class', 404);
-//     }
-
-//     // Prevent class owner from leaving if they're the only moderator
-//     if (membership.role_in_class === 'moderator') {
-//       const moderatorCountSql = `
-//         SELECT COUNT(*) as count FROM user_class_memberships 
-//         WHERE class_id = ? AND role_in_class = 'moderator' AND membership_status = 'active'
-//       `;
-//       const [countResult] = await db.query(moderatorCountSql, [classId]);
-      
-//       if (countResult.count <= 1) {
-//         throw new CustomError('Cannot leave class: you are the only moderator. Please assign another moderator first.', 400);
-//       }
-//     }
-
-//     // Remove membership (mark as expired)
-//     const removeSql = `
-//       UPDATE user_class_memberships 
-//       SET membership_status = 'expired', updatedAt = NOW()
-//       WHERE user_id = ? AND class_id = ?
-//     `;
-//     await db.query(removeSql, [userId, classId]);
-
-//     console.log(`✅ User ${userId} left class ${classId}. Reason: ${reason || 'No reason provided'}`);
-
-//     return {
-//       success: true,
-//       message: 'Successfully left class',
-//       class_id: classId,
-//       class_name: membership.class_name,
-//       display_id: formatClassIdForDisplay(classId),
-//       previous_role: membership.role_in_class,
-//       leave_reason: reason,
-//       leftAt: new Date().toISOString()
-//     };
-
-//   } catch (error) {
-//     console.error('❌ leaveClassService error:', error);
-//     if (error instanceof CustomError) throw error;
-//     throw new CustomError('Failed to leave class', 500);
-//   }
-// };
-
-/**
- * Admin assign user to class
- */
-export const assignUserToClassService = async (userId, classId, options = {}) => {
+export const getClassMembers = async (classId, userId, options = {}) => {
   try {
-    const {
-      role_in_class = 'member',
-      assigned_by,
-      receive_notifications = true,
-      expires_at = null,
-      can_see_class_name = true,
-      assignment_reason
-    } = options;
-
-    return await joinClassService(userId, classId, {
-      role_in_class,
-      receive_notifications,
-      join_reason: assignment_reason || `Assigned by admin ${assigned_by}`,
-      assigned_by
-    });
-
-  } catch (error) {
-    console.error('❌ assignUserToClassService error:', error);
-    if (error instanceof CustomError) throw error;
-    throw new CustomError('Failed to assign user to class', 500);
-  }
-};
-
-/**
- * Admin assign user to class with enhanced options
- */
-// export const assignUserToClassService = async (userId, classId, options = {}) => {
-//   try {
-//     const {
-//       role_in_class = 'member',
-//       assigned_by,
-//       receive_notifications = true,
-//       expires_at = null,
-//       can_see_class_name = true,
-//       assignment_reason
-//     } = options;
-
-//     // Use join service with admin assignment flag
-//     return await joinClassService(userId, classId, {
-//       role_in_class,
-//       receive_notifications,
-//       join_reason: assignment_reason || `Assigned by admin ${assigned_by}`,
-//       assigned_by
-//     });
-
-//   } catch (error) {
-//     console.error('❌ assignUserToClassService error:', error);
-//     if (error instanceof CustomError) throw error;
-//     throw new CustomError('Failed to assign user to class', 500);
-//   }
-// };
-
-// ===============================================
-// CLASS PARTICIPANTS SERVICES
-// ===============================================
-
-/**
- * Get class participants with privacy considerations
- */
-export const getClassParticipantsService = async (classId, userId, options = {}) => {
-  try {
-    if (!validateClassIdFormat(classId)) {
-      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-    }
-
     const { 
-      role_in_class, 
-      membership_status = 'active', 
       page = 1, 
-      limit = 50,
-      search,
+      limit = 50, 
+      membership_status = 'active',
       sort_by = 'joinedAt',
-      sort_order = 'DESC',
-      admin_view = false
+      sort_order = 'DESC'
     } = options;
     
     const offset = (page - 1) * limit;
-
-    // For admin view, skip membership check
-    let membership = null;
-    if (!admin_view) {
-      const membershipSql = `
-        SELECT ucm.membership_status, ucm.role_in_class, c.privacy_level
-        FROM user_class_memberships ucm
-        INNER JOIN classes c ON ucm.class_id = c.class_id
-        WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-      `;
-      [membership] = await db.query(membershipSql, [userId, classId]);
-
-      if (!membership) {
-        throw new CustomError('You are not a member of this class', 403);
-      }
-    }
-
-    let whereClause = 'WHERE ucm.class_id = ? AND ucm.membership_status = ?';
-    const params = [classId, membership_status];
-
-    if (role_in_class) {
-      whereClause += ' AND ucm.role_in_class = ?';
-      params.push(role_in_class);
-    }
-
-    if (search) {
-      whereClause += ' AND (u.username LIKE ? OR u.converse_id LIKE ?)';
-      const searchTerm = `%${search}%`;
-      params.push(searchTerm, searchTerm);
-    }
-
-    const countSql = `
-      SELECT COUNT(*) as total 
-      FROM user_class_memberships ucm 
-      INNER JOIN users u ON ucm.user_id = u.id
-      ${whereClause}
-    `;
-    const [countResult] = await db.query(countSql, params);
-    const total = countResult.total;
-
-    const userRole = admin_view || (membership && ['moderator', 'instructor'].includes(membership.role_in_class));
-    const canSeeDetails = userRole;
-
-    const sql = `
+    
+    // Get total count
+    const countResult = await db.query(`
+      SELECT COUNT(*) as total
+      FROM user_class_memberships ucm
+      WHERE ucm.class_id = ? AND ucm.membership_status = ?
+    `, [classId, membership_status]);
+    
+    const total = countResult[0].total;
+    
+    // Get members
+    const members = await db.query(`
       SELECT 
-        ucm.role_in_class,
-        ucm.joinedAt,
-        ucm.membership_status,
-        CASE 
-          WHEN u.is_identity_masked = 1 AND ? = 0 THEN 'Anonymous Member'
-          ELSE u.username 
-        END as display_name,
-        CASE 
-          WHEN u.is_identity_masked = 1 AND ? = 0 THEN NULL
-          ELSE u.converse_id 
-        END as converse_id,
-        ${canSeeDetails ? `
-        u.id as user_id,
-        u.email,
-        u.membership_stage,
-        u.full_membership_status,
-        ucm.assigned_by,
-        assigned_by_user.username as assigned_by_username,
-        ucm.expiresAt,
-        ucm.receive_notifications
-        ` : 'NULL as user_id, NULL as email, NULL as membership_stage, NULL as full_membership_status, NULL as assigned_by, NULL as assigned_by_username, NULL as expiresAt, NULL as receive_notifications'},
-        DATEDIFF(NOW(), ucm.joinedAt) as days_as_member
+        u.id, u.username, u.converse_id,
+        ucm.role_in_class, ucm.joinedAt, ucm.membership_status
       FROM user_class_memberships ucm
       INNER JOIN users u ON ucm.user_id = u.id
-      LEFT JOIN users assigned_by_user ON ucm.assigned_by = assigned_by_user.id
-      ${whereClause}
+      WHERE ucm.class_id = ? AND ucm.membership_status = ?
       ORDER BY ucm.${sort_by} ${sort_order}
       LIMIT ? OFFSET ?
-    `;
-    
-    const queryParams = [canSeeDetails ? 1 : 0, canSeeDetails ? 1 : 0, ...params, limit, offset];
-    const participants = await db.query(sql, queryParams);
+    `, [classId, membership_status, limit, offset]);
 
     return {
-      data: participants,
+      data: members,
       pagination: {
         current_page: page,
         total_pages: Math.ceil(total / limit),
         total_records: total,
         per_page: limit
-      },
-      summary: {
-        total_participants: total,
-        by_role: {
-          moderators: participants.filter(p => p.role_in_class === 'moderator').length,
-          instructors: participants.filter(p => p.role_in_class === 'instructor').length,
-          assistants: participants.filter(p => p.role_in_class === 'assistant').length,
-          members: participants.filter(p => p.role_in_class === 'member').length
-        }
-      },
-      user_permissions: {
-        role: membership?.role_in_class || 'admin',
-        can_see_details: canSeeDetails,
-        can_manage_members: admin_view || (membership && ['moderator', 'instructor'].includes(membership.role_in_class))
       }
     };
 
   } catch (error) {
-    console.error('❌ getClassParticipantsService error:', error);
-    if (error instanceof CustomError) throw error;
-    throw new CustomError('Failed to fetch class participants', 500);
+    console.error('❌ getClassMembers error:', error);
+    throw new Error(`Failed to get class members: ${error.message}`);
   }
 };
 
-
 /**
- * Get class participants with privacy considerations
+ * Get available classes for user
+ * @param {number} userId - User ID
+ * @param {Object} options - Query options
+ * @returns {Object} Available classes
  */
-// export const getClassParticipantsService = async (classId, userId, options = {}) => {
-//   try {
-//     if (!validateClassIdFormat(classId)) {
-//       throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-//     }
-
-//     const { 
-//       role_in_class, 
-//       membership_status = 'active', 
-//       page = 1, 
-//       limit = 50,
-//       search,
-//       sort_by = 'joinedAt',
-//       sort_order = 'DESC'
-//     } = options;
-    
-//     const offset = (page - 1) * limit;
-
-//     // Verify user has access to this class and get their role
-//     const membershipSql = `
-//       SELECT ucm.membership_status, ucm.role_in_class, c.privacy_level
-//       FROM user_class_memberships ucm
-//       INNER JOIN classes c ON ucm.class_id = c.class_id
-//       WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-//     `;
-//     const [membership] = await db.query(membershipSql, [userId, classId]);
-
-//     if (!membership) {
-//       throw new CustomError('You are not a member of this class', 403);
-//     }
-
-//     let whereClause = 'WHERE ucm.class_id = ? AND ucm.membership_status = ?';
-//     const params = [classId, membership_status];
-
-//     if (role_in_class) {
-//       whereClause += ' AND ucm.role_in_class = ?';
-//       params.push(role_in_class);
-//     }
-
-//     if (search) {
-//       whereClause += ' AND (u.username LIKE ? OR u.converse_id LIKE ?)';
-//       const searchTerm = `%${search}%`;
-//       params.push(searchTerm, searchTerm);
-//     }
-
-//     // Get total count
-//     const countSql = `
-//       SELECT COUNT(*) as total 
-//       FROM user_class_memberships ucm 
-//       INNER JOIN users u ON ucm.user_id = u.id
-//       ${whereClause}
-//     `;
-//     const [countResult] = await db.query(countSql, params);
-//     const total = countResult.total;
-
-//     // Determine what participant info to show based on user's role and privacy settings
-//     const userRole = membership.role_in_class;
-//     const canSeeDetails = ['moderator', 'instructor'].includes(userRole);
-
-//     // Get participants with appropriate privacy filtering
-//     const sql = `
-//       SELECT 
-//         ucm.role_in_class,
-//         ucm.joinedAt,
-//         ucm.membership_status,
-//         CASE 
-//           WHEN u.is_identity_masked = 1 AND ? = 0 THEN 'Anonymous Member'
-//           ELSE u.username 
-//         END as display_name,
-//         CASE 
-//           WHEN u.is_identity_masked = 1 AND ? = 0 THEN NULL
-//           ELSE u.converse_id 
-//         END as converse_id,
-//         ${canSeeDetails ? `
-//         u.id as user_id,
-//         u.email,
-//         u.membership_stage,
-//         u.full_membership_status,
-//         ucm.assigned_by,
-//         assigned_by_user.username as assigned_by_username,
-//         ucm.expiresAt,
-//         ucm.receive_notifications
-//         ` : 'NULL as user_id, NULL as email, NULL as membership_stage, NULL as full_membership_status, NULL as assigned_by, NULL as assigned_by_username, NULL as expiresAt, NULL as receive_notifications'},
-//         DATEDIFF(NOW(), ucm.joinedAt) as days_as_member
-//       FROM user_class_memberships ucm
-//       INNER JOIN users u ON ucm.user_id = u.id
-//       LEFT JOIN users assigned_by_user ON ucm.assigned_by = assigned_by_user.id
-//       ${whereClause}
-//       ORDER BY ucm.${sort_by} ${sort_order}
-//       LIMIT ? OFFSET ?
-//     `;
-    
-//     // Add canSeeDetails flag twice for the CASE statements
-//     const queryParams = [canSeeDetails ? 1 : 0, canSeeDetails ? 1 : 0, ...params, limit, offset];
-//     const participants = await db.query(sql, queryParams);
-
-//     return {
-//       data: participants,
-//       pagination: {
-//         current_page: page,
-//         total_pages: Math.ceil(total / limit),
-//         total_records: total,
-//         per_page: limit
-//       },
-//       summary: {
-//         total_participants: total,
-//         by_role: {
-//           moderators: participants.filter(p => p.role_in_class === 'moderator').length,
-//           instructors: participants.filter(p => p.role_in_class === 'instructor').length,
-//           assistants: participants.filter(p => p.role_in_class === 'assistant').length,
-//           members: participants.filter(p => p.role_in_class === 'member').length
-//         }
-//       },
-//       user_permissions: {
-//         role: userRole,
-//         can_see_details: canSeeDetails,
-//         can_manage_members: ['moderator', 'instructor'].includes(userRole)
-//       }
-//     };
-
-//   } catch (error) {
-//     console.error('❌ getClassParticipantsService error:', error);
-//     if (error instanceof CustomError) throw error;
-//     throw new CustomError('Failed to fetch class participants', 500);
-//   }
-// };
-
-// ===============================================
-// CLASS CONTENT SERVICES
-// ===============================================
-
-/**
- * Get class content for user access
- */
-export const getClassContentService = async (classId, userId, options = {}) => {
+export const getAvailableClasses = async (userId, options = {}) => {
   try {
-    if (!validateClassIdFormat(classId)) {
-      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-    }
+    const { limit = 6 } = options;
+    
+    const classes = await db.query(`
+      SELECT 
+        c.*,
+        COALESCE(cmc.total_members, 0) as total_members
+      FROM classes c
+      LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
+      WHERE c.is_active = 1 
+        AND c.allow_self_join = 1
+        AND c.class_id NOT IN (
+          SELECT class_id 
+          FROM user_class_memberships 
+          WHERE user_id = ? AND membership_status = 'active'
+        )
+        AND (c.max_members > COALESCE(cmc.total_members, 0))
+      ORDER BY c.createdAt DESC
+      LIMIT ?
+    `, [userId, limit]);
 
+    return {
+      data: classes.map(cls => ({
+        ...cls,
+        available_spots: cls.max_members - cls.total_members,
+        can_join_immediately: cls.auto_approve_members || cls.is_public
+      }))
+    };
+
+  } catch (error) {
+    console.error('❌ getAvailableClasses error:', error);
+    throw new Error(`Failed to get available classes: ${error.message}`);
+  }
+};
+
+// ===============================================
+// REAL BUSINESS LOGIC SERVICES - DATABASE QUERIES
+// ===============================================
+
+/**
+ * Get class content - REAL DATABASE QUERY
+ * @param {string} classId - Class ID
+ * @param {number} userId - User ID
+ * @param {Object} options - Query options
+ * @returns {Object} Class content with real data
+ */
+export const getClassContent = async (classId, userId, options = {}) => {
+  try {
     const { 
-      content_type, 
-      access_level = 'read', 
       page = 1, 
-      limit = 20,
+      limit = 20, 
+      content_type,
       sort_by = 'createdAt',
       sort_order = 'DESC'
     } = options;
     
     const offset = (page - 1) * limit;
-
-    const membershipSql = `
-      SELECT ucm.membership_status, ucm.role_in_class, c.privacy_level
-      FROM user_class_memberships ucm
-      INNER JOIN classes c ON ucm.class_id = c.class_id
-      WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-    `;
-    const [membership] = await db.query(membershipSql, [userId, classId]);
-
-    if (!membership) {
-      throw new CustomError('You are not a member of this class', 403);
-    }
-
-    let whereClause = 'WHERE cca.class_id = ?';
-    const params = [classId];
-
-    if (content_type) {
-      whereClause += ' AND cca.content_type = ?';
-      params.push(content_type);
-    }
-
-    const userRole = membership.role_in_class;
-    if (userRole === 'member') {
-      whereClause += ' AND cca.access_level IN ("read", "view_only")';
-    } else if (userRole === 'assistant') {
-      whereClause += ' AND cca.access_level IN ("read", "write", "view_only")';
-    }
-
-    const countSql = `SELECT COUNT(*) as total FROM class_content_access cca ${whereClause}`;
-    const [countResult] = await db.query(countSql, params);
-    const total = countResult.total;
-
-    const sql = `
-      SELECT 
-        cca.*,
-        CASE 
-          WHEN cca.content_type = 'chat' THEN 
-            (SELECT JSON_OBJECT(
-              'id', c.id, 'title', c.title, 'summary', c.summary, 
-              'approval_status', c.approval_status, 'createdAt', c.createdAt,
-              'user_id', c.user_id
-            ) FROM chats c WHERE c.id = cca.content_id)
-          WHEN cca.content_type = 'teaching' THEN 
-            (SELECT JSON_OBJECT(
-              'id', t.id, 'topic', t.topic, 'description', t.description,
-              'approval_status', t.approval_status, 'createdAt', t.createdAt,
-              'user_id', t.user_id
-            ) FROM teachings t WHERE t.id = cca.content_id)
-          ELSE JSON_OBJECT('id', cca.content_id, 'type', cca.content_type)
-        END as content_details
-      FROM class_content_access cca
-      ${whereClause}
-      ORDER BY cca.${sort_by} ${sort_order}
-      LIMIT ? OFFSET ?
-    `;
     
-    params.push(limit, offset);
-    const content = await db.query(sql, params);
-
+    // First verify user has access to this class
+    const membershipCheck = await db.query(`
+      SELECT role_in_class, membership_status
+      FROM user_class_memberships
+      WHERE user_id = ? AND class_id = ? AND membership_status = 'active'
+    `, [userId, classId]);
+    
+    if (!membershipCheck.length) {
+      throw new Error('Access denied - not a member of this class');
+    }
+    
+    // Build WHERE clause for content filtering
+    let whereClause = 'WHERE cc.class_id = ? AND cc.is_active = 1';
+    const queryParams = [classId];
+    
+    if (content_type) {
+      whereClause += ' AND cc.content_type = ?';
+      queryParams.push(content_type);
+    }
+    
+    // Get total count of content
+    const countResult = await db.query(`
+      SELECT COUNT(*) as total
+      FROM class_content cc
+      ${whereClause}
+    `, queryParams);
+    
+    const total = countResult[0].total;
+    
+    // Get actual content with creator info
+    const content = await db.query(`
+      SELECT 
+        cc.*,
+        u.username as created_by_username,
+        u.converse_id as created_by_converse_id,
+        COUNT(ccv.id) as view_count,
+        COUNT(CASE WHEN ccv.user_id = ? THEN 1 END) as user_viewed
+      FROM class_content cc
+      LEFT JOIN users u ON cc.created_by = u.id
+      LEFT JOIN class_content_views ccv ON cc.id = ccv.content_id
+      ${whereClause}
+      GROUP BY cc.id
+      ORDER BY cc.${sort_by} ${sort_order}
+      LIMIT ? OFFSET ?
+    `, [userId, ...queryParams, limit, offset]);
+    
     return {
       data: content.map(item => ({
         ...item,
-        content_details: item.content_details ? JSON.parse(item.content_details) : null,
-        user_can_edit: ['moderator', 'instructor'].includes(userRole) || 
-                      (userRole === 'assistant' && ['read', 'write'].includes(item.access_level))
+        has_viewed: item.user_viewed > 0,
+        view_count: item.view_count || 0
       })),
       pagination: {
         current_page: page,
@@ -1703,1100 +492,490 @@ export const getClassContentService = async (classId, userId, options = {}) => {
         total_records: total,
         per_page: limit
       },
-      user_permissions: {
-        role: userRole,
-        can_add_content: ['moderator', 'instructor'].includes(userRole),
-        can_manage_content: ['moderator', 'instructor'].includes(userRole)
-      }
+      user_role: membershipCheck[0].role_in_class,
+      class_id: classId
     };
-
+    
   } catch (error) {
-    console.error('❌ getClassContentService error:', error);
-    if (error instanceof CustomError) throw error;
-    throw new CustomError('Failed to fetch class content', 500);
+    console.error('❌ getClassContent error:', error);
+    throw new Error(`Failed to get class content: ${error.message}`);
   }
 };
 
 /**
- * Get class content for user access with proper permissions
+ * Get class announcements - REAL DATABASE QUERY
+ * @param {string} classId - Class ID  
+ * @param {number} userId - User ID
+ * @param {Object} options - Query options
+ * @returns {Object} Class announcements with real data
  */
-// export const getClassContentService = async (classId, userId, options = {}) => {
-//   try {
-//     if (!validateClassIdFormat(classId)) {
-//       throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-//     }
-
-//     const { 
-//       content_type, 
-//       access_level = 'read', 
-//       page = 1, 
-//       limit = 20,
-//       sort_by = 'createdAt',
-//       sort_order = 'DESC'
-//     } = options;
-    
-//     const offset = (page - 1) * limit;
-
-//     // Verify user has access to this class
-//     const membershipSql = `
-//       SELECT ucm.membership_status, ucm.role_in_class, c.privacy_level
-//       FROM user_class_memberships ucm
-//       INNER JOIN classes c ON ucm.class_id = c.class_id
-//       WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-//     `;
-//     const [membership] = await db.query(membershipSql, [userId, classId]);
-
-//     if (!membership) {
-//       throw new CustomError('You are not a member of this class', 403);
-//     }
-
-//     let whereClause = 'WHERE cca.class_id = ?';
-//     const params = [classId];
-
-//     if (content_type) {
-//       whereClause += ' AND cca.content_type = ?';
-//       params.push(content_type);
-//     }
-
-//     // Filter by access level based on user role
-//     const userRole = membership.role_in_class;
-//     if (userRole === 'member') {
-//       whereClause += ' AND cca.access_level IN ("read", "view_only")';
-//     } else if (userRole === 'assistant') {
-//       whereClause += ' AND cca.access_level IN ("read", "write", "view_only")';
-//     }
-//     // Moderators and instructors see all content
-
-//     // Get total count
-//     const countSql = `SELECT COUNT(*) as total FROM class_content_access cca ${whereClause}`;
-//     const [countResult] = await db.query(countSql, params);
-//     const total = countResult.total;
-
-//     // Get content with details
-//     const sql = `
-//       SELECT 
-//         cca.*,
-//         CASE 
-//           WHEN cca.content_type = 'chat' THEN 
-//             (SELECT JSON_OBJECT(
-//               'id', c.id, 'title', c.title, 'summary', c.summary, 
-//               'approval_status', c.approval_status, 'createdAt', c.createdAt,
-//               'user_id', c.user_id
-//             ) FROM chats c WHERE c.id = cca.content_id)
-//           WHEN cca.content_type = 'teaching' THEN 
-//             (SELECT JSON_OBJECT(
-//               'id', t.id, 'topic', t.topic, 'description', t.description,
-//               'approval_status', t.approval_status, 'createdAt', t.createdAt,
-//               'user_id', t.user_id
-//             ) FROM teachings t WHERE t.id = cca.content_id)
-//           WHEN cca.content_type = 'announcement' THEN
-//             (SELECT JSON_OBJECT(
-//               'id', a.id, 'title', a.title, 'content', a.content,
-//               'priority', a.priority, 'createdAt', a.createdAt
-//             ) FROM announcements a WHERE a.id = cca.content_id)
-//           ELSE JSON_OBJECT('id', cca.content_id, 'type', cca.content_type)
-//         END as content_details
-//       FROM class_content_access cca
-//       ${whereClause}
-//       ORDER BY cca.${sort_by} ${sort_order}
-//       LIMIT ? OFFSET ?
-//     `;
-    
-//     params.push(limit, offset);
-//     const content = await db.query(sql, params);
-
-//     return {
-//       data: content.map(item => ({
-//         ...item,
-//         content_details: item.content_details ? JSON.parse(item.content_details) : null,
-//         user_can_edit: ['moderator', 'instructor'].includes(userRole) || 
-//                       (userRole === 'assistant' && ['read', 'write'].includes(item.access_level))
-//       })),
-//       pagination: {
-//         current_page: page,
-//         total_pages: Math.ceil(total / limit),
-//         total_records: total,
-//         per_page: limit
-//       },
-//       user_permissions: {
-//         role: userRole,
-//         can_add_content: ['moderator', 'instructor'].includes(userRole),
-//         can_manage_content: ['moderator', 'instructor'].includes(userRole)
-//       }
-//     };
-
-//   } catch (error) {
-//     console.error('❌ getClassContentService error:', error);
-//     if (error instanceof CustomError) throw error;
-//     throw new CustomError('Failed to fetch class content', 500);
-//   }
-// };
-
-/**
- * Get class schedule
- */
-export const getClassScheduleService = async (classId, userId, options = {}) => {
+export const getClassAnnouncements = async (classId, userId, options = {}) => {
   try {
-    if (!validateClassIdFormat(classId)) {
-      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-    }
-
     const { 
-      start_date, 
-      end_date, 
-      timezone = 'UTC',
-      include_past = false 
+      page = 1, 
+      limit = 20,
+      announcement_type = 'all',
+      is_active = true,
+      sort_by = 'createdAt',
+      sort_order = 'DESC'
     } = options;
-
-    const membershipSql = `
-      SELECT ucm.membership_status, ucm.role_in_class, c.class_schedule, c.timezone as class_timezone
-      FROM user_class_memberships ucm
-      INNER JOIN classes c ON ucm.class_id = c.class_id
-      WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-    `;
-    const [membership] = await db.query(membershipSql, [userId, classId]);
-
-    if (!membership) {
-      throw new CustomError('You are not a member of this class', 403);
+    
+    const offset = (page - 1) * limit;
+    
+    // Verify user access to class
+    const membershipCheck = await db.query(`
+      SELECT role_in_class, membership_status
+      FROM user_class_memberships
+      WHERE user_id = ? AND class_id = ? AND membership_status = 'active'
+    `, [userId, classId]);
+    
+    if (!membershipCheck.length) {
+      throw new Error('Access denied - not a member of this class');
     }
-
-    let classSchedule = null;
-    try {
-      classSchedule = membership.class_schedule ? JSON.parse(membership.class_schedule) : null;
-    } catch (error) {
-      console.warn('Invalid class schedule JSON:', error);
+    
+    // Build WHERE clause
+    let whereClause = 'WHERE ca.class_id = ?';
+    const queryParams = [classId];
+    
+    if (is_active) {
+      whereClause += ' AND ca.is_active = 1';
     }
-
+    
+    if (announcement_type !== 'all') {
+      whereClause += ' AND ca.announcement_type = ?';
+      queryParams.push(announcement_type);
+    }
+    
+    // Get total count
+    const countResult = await db.query(`
+      SELECT COUNT(*) as total
+      FROM class_announcements ca
+      ${whereClause}
+    `, queryParams);
+    
+    const total = countResult[0].total;
+    
+    // Get announcements with read status
+    const announcements = await db.query(`
+      SELECT 
+        ca.*,
+        u.username as created_by_username,
+        u.converse_id as created_by_converse_id,
+        CASE WHEN car.user_id IS NOT NULL THEN 1 ELSE 0 END as is_read,
+        car.readAt as read_at
+      FROM class_announcements ca
+      LEFT JOIN users u ON ca.created_by = u.id
+      LEFT JOIN class_announcement_reads car ON ca.id = car.announcement_id AND car.user_id = ?
+      ${whereClause}
+      ORDER BY ca.${sort_by} ${sort_order}
+      LIMIT ? OFFSET ?
+    `, [userId, ...queryParams, limit, offset]);
+    
     return {
-      class_id: classId,
-      display_id: formatClassIdForDisplay(classId),
-      timezone: membership.class_timezone || timezone,
-      recurring_schedule: classSchedule,
-      upcoming_sessions: [],
-      user_role: membership.role_in_class,
-      total_sessions: 0,
-      mandatory_sessions: 0,
-      message: 'Schedule retrieved successfully'
+      data: announcements,
+      pagination: {
+        current_page: page,
+        total_pages: Math.ceil(total / limit),
+        total_records: total,
+        per_page: limit
+      },
+      summary: {
+        total_announcements: total,
+        unread_count: announcements.filter(a => !a.is_read).length,
+        urgent_count: announcements.filter(a => a.priority === 'urgent' && !a.is_read).length
+      },
+      user_role: membershipCheck[0].role_in_class,
+      class_id: classId
     };
-
+    
   } catch (error) {
-    console.error('❌ getClassScheduleService error:', error);
-    if (error instanceof CustomError) throw error;
-    throw new CustomError('Failed to fetch class schedule', 500);
+    console.error('❌ getClassAnnouncements error:', error);
+    throw new Error(`Failed to get announcements: ${error.message}`);
   }
 };
 
 /**
- * Get class schedule with user-specific view
+ * Submit class feedback - REAL DATABASE INSERT
+ * @param {number} userId - User ID
+ * @param {string} classId - Class ID
+ * @param {Object} feedbackData - Feedback data
+ * @returns {Object} Feedback submission result
  */
-// export const getClassScheduleService = async (classId, userId, options = {}) => {
-//   try {
-//     if (!validateClassIdFormat(classId)) {
-//       throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-//     }
-
-//     const { 
-//       start_date, 
-//       end_date, 
-//       timezone = 'UTC',
-//       include_past = false 
-//     } = options;
-
-//     // Verify user has access to this class
-//     const membershipSql = `
-//       SELECT ucm.membership_status, ucm.role_in_class, c.class_schedule, c.timezone as class_timezone
-//       FROM user_class_memberships ucm
-//       INNER JOIN classes c ON ucm.class_id = c.class_id
-//       WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-//     `;
-//     const [membership] = await db.query(membershipSql, [userId, classId]);
-
-//     if (!membership) {
-//       throw new CustomError('You are not a member of this class', 403);
-//     }
-
-//     // Parse class schedule (JSON format expected)
-//     let classSchedule = null;
-//     try {
-//       classSchedule = membership.class_schedule ? JSON.parse(membership.class_schedule) : null;
-//     } catch (error) {
-//       console.warn('Invalid class schedule JSON:', error);
-//     }
-
-//     // Get scheduled sessions from database (if implemented)
-//     const sessionsSql = `
-//       SELECT 
-//         id,
-//         session_title,
-//         session_description,
-//         scheduledStart,
-//         scheduledEnd,
-//         session_type,
-//         is_mandatory,
-//         location,
-//         meeting_link,
-//         status,
-//         created_by,
-//         max_attendees
-//       FROM class_sessions 
-//       WHERE class_id = ? 
-//         ${!include_past ? 'AND scheduledStart >= NOW()' : ''}
-//         ${start_date ? 'AND scheduledStart >= ?' : ''}
-//         ${end_date ? 'AND scheduledStart <= ?' : ''}
-//       ORDER BY scheduledStart ASC
-//     `;
-
-//     const sessionParams = [classId];
-//     if (start_date) sessionParams.push(start_date);
-//     if (end_date) sessionParams.push(end_date);
-
-//     let sessions = [];
-//     try {
-//       sessions = await db.query(sessionsSql, sessionParams);
-//     } catch (error) {
-//       console.warn('class_sessions table not available:', error.message);
-//     }
-
-//     return {
-//       class_id: classId,
-//       display_id: formatClassIdForDisplay(classId),
-//       timezone: membership.class_timezone || timezone,
-//       recurring_schedule: classSchedule,
-//       upcoming_sessions: sessions,
-//       user_role: membership.role_in_class,
-//       total_sessions: sessions.length,
-//       mandatory_sessions: sessions.filter(s => s.is_mandatory).length,
-//       message: sessions.length === 0 ? 'No scheduled sessions found' : undefined
-//     };
-
-//   } catch (error) {
-//     console.error('❌ getClassScheduleService error:', error);
-//     if (error instanceof CustomError) throw error;
-//     throw new CustomError('Failed to fetch class schedule', 500);
-//   }
-// };
-
-// ===============================================
-// CLASS INTERACTION SERVICES
-// ===============================================
+export const submitClassFeedback = async (userId, classId, feedbackData) => {
+  const connection = await db.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    const {
+      rating,
+      feedback_text,
+      feedback_type = 'general',
+      session_id,
+      is_anonymous = false
+    } = feedbackData;
+    
+    // Verify user is member of class
+    const membershipCheck = await connection.query(`
+      SELECT role_in_class, membership_status, joinedAt
+      FROM user_class_memberships
+      WHERE user_id = ? AND class_id = ? AND membership_status = 'active'
+    `, [userId, classId]);
+    
+    if (!membershipCheck.length) {
+      throw new Error('Access denied - not a member of this class');
+    }
+    
+    // Insert feedback
+    const feedbackResult = await connection.query(`
+      INSERT INTO class_feedback 
+      (user_id, class_id, rating, feedback_text, feedback_type, session_id, is_anonymous, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `, [userId, classId, rating, feedback_text, feedback_type, session_id, is_anonymous ? 1 : 0]);
+    
+    // Update class statistics
+    await connection.query(`
+      UPDATE classes SET 
+        total_feedback = total_feedback + 1,
+        average_rating = (
+          SELECT AVG(rating) FROM class_feedback 
+          WHERE class_id = ? AND rating IS NOT NULL
+        ),
+        updatedAt = NOW()
+      WHERE class_id = ?
+    `, [classId, classId]);
+    
+    await connection.commit();
+    
+    return {
+      success: true,
+      feedback_id: feedbackResult.insertId,
+      user_id: userId,
+      class_id: classId,
+      rating,
+      feedback_type,
+      submitted_at: new Date().toISOString(),
+      message: 'Feedback submitted successfully'
+    };
+    
+  } catch (error) {
+    await connection.rollback();
+    console.error('❌ submitClassFeedback error:', error);
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
 
 /**
- * Mark class attendance
+ * Mark class attendance - REAL DATABASE TRANSACTION
+ * @param {number} userId - User ID
+ * @param {string} classId - Class ID  
+ * @param {Object} options - Attendance options
+ * @returns {Object} Attendance result
  */
-export const markClassAttendanceService = async (userId, classId, options = {}) => {
+export const markClassAttendance = async (userId, classId, options = {}) => {
+  const connection = await db.getConnection();
+  
   try {
-    if (!validateClassIdFormat(classId)) {
-      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-    }
-
-    const { 
-      session_id, 
-      status = 'present', 
+    await connection.beginTransaction();
+    
+    const {
+      session_id,
+      status = 'present',
       notes,
       check_in_time = new Date(),
       location
     } = options;
-
-    const membershipSql = `
-      SELECT ucm.membership_status, ucm.role_in_class
-      FROM user_class_memberships ucm
-      WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active'
-    `;
-    const [membership] = await db.query(membershipSql, [userId, classId]);
-
-    if (!membership) {
-      throw new CustomError('You are not a member of this class', 403);
+    
+    // Verify user is member of class
+    const membershipCheck = await connection.query(`
+      SELECT role_in_class, membership_status
+      FROM user_class_memberships
+      WHERE user_id = ? AND class_id = ? AND membership_status = 'active'
+    `, [userId, classId]);
+    
+    if (!membershipCheck.length) {
+      throw new Error('Access denied - not a member of this class');
     }
-
+    
+    // Check if attendance already recorded for this session
+    const existingAttendance = await connection.query(`
+      SELECT id, status FROM class_attendance
+      WHERE user_id = ? AND class_id = ? AND session_id = ?
+    `, [userId, classId, session_id]);
+    
+    if (existingAttendance.length) {
+      // Update existing attendance
+      await connection.query(`
+        UPDATE class_attendance SET
+          status = ?, notes = ?, check_in_time = ?, location = ?, updatedAt = NOW()
+        WHERE user_id = ? AND class_id = ? AND session_id = ?
+      `, [status, notes, check_in_time, location, userId, classId, session_id]);
+    } else {
+      // Insert new attendance record
+      await connection.query(`
+        INSERT INTO class_attendance
+        (user_id, class_id, session_id, status, notes, check_in_time, location, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      `, [userId, classId, session_id, status, notes, check_in_time, location]);
+    }
+    
+    // Update user's attendance statistics
+    await connection.query(`
+      UPDATE user_class_memberships SET
+        total_sessions_attended = (
+          SELECT COUNT(*) FROM class_attendance 
+          WHERE user_id = ? AND class_id = ? AND status IN ('present', 'late')
+        ),
+        last_attendance = NOW(),
+        updatedAt = NOW()
+      WHERE user_id = ? AND class_id = ?
+    `, [userId, classId, userId, classId]);
+    
+    await connection.commit();
+    
+    // Get updated attendance stats
+    const attendanceStats = await db.query(`
+      SELECT 
+        COUNT(*) as total_sessions,
+        COUNT(CASE WHEN status = 'present' THEN 1 END) as present_count,
+        COUNT(CASE WHEN status = 'late' THEN 1 END) as late_count,
+        COUNT(CASE WHEN status = 'absent' THEN 1 END) as absent_count
+      FROM class_attendance
+      WHERE user_id = ? AND class_id = ?
+    `, [userId, classId]);
+    
+    const stats = attendanceStats[0] || {};
+    
     return {
+      success: true,
       user_id: userId,
       class_id: classId,
-      display_id: formatClassIdForDisplay(classId),
       session_id,
       status,
       notes,
-      checkInTime: check_in_time,
+      check_in_time,
       location,
-      markedAt: new Date().toISOString(),
-      success: true
+      attendance_stats: {
+        total_sessions: stats.total_sessions || 0,
+        present_count: stats.present_count || 0,
+        late_count: stats.late_count || 0,
+        absent_count: stats.absent_count || 0,
+        attendance_rate: stats.total_sessions > 0 ? 
+          Math.round(((stats.present_count + stats.late_count) / stats.total_sessions) * 100) : 0
+      },
+      message: 'Attendance marked successfully'
     };
-
+    
   } catch (error) {
-    console.error('❌ markClassAttendanceService error:', error);
-    if (error instanceof CustomError) throw error;
-    throw new CustomError('Failed to mark attendance', 500);
+    await connection.rollback();
+    console.error('❌ markClassAttendance error:', error);
+    throw error;
+  } finally {
+    connection.release();
   }
 };
 
 /**
- * Mark class attendance with validation
+ * Get class schedule - REAL DATABASE QUERY
+ * @param {string} classId - Class ID
+ * @param {number} userId - User ID
+ * @param {Object} options - Query options
+ * @returns {Object} Class schedule with real data
  */
-// export const markClassAttendanceService = async (userId, classId, options = {}) => {
-//   try {
-//     if (!validateClassIdFormat(classId)) {
-//       throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-//     }
-
-//     const { 
-//       session_id, 
-//       status = 'present', 
-//       notes,
-//       check_in_time = new Date(),
-//       location
-//     } = options;
-
-//     // Verify user is a member of the class
-//     const membershipSql = `
-//       SELECT ucm.membership_status, ucm.role_in_class
-//       FROM user_class_memberships ucm
-//       WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active'
-//     `;
-//     const [membership] = await db.query(membershipSql, [userId, classId]);
-
-//     if (!membership) {
-//       throw new CustomError('You are not a member of this class', 403);
-//     }
-
-//     // Validate session if provided
-//     let sessionData = null;
-//     if (session_id) {
-//       const sessionSql = `
-//         SELECT * FROM class_sessions 
-//         WHERE id = ? AND class_id = ?
-//       `;
-//       try {
-//         [sessionData] = await db.query(sessionSql, [session_id, classId]);
-//         if (!sessionData) {
-//           throw new CustomError('Session not found', 404);
-//         }
-//       } catch (error) {
-//         console.warn('Could not validate session:', error.message);
-//       }
-//     }
-
-//     // Record attendance
-//     const attendanceSql = `
-//       INSERT INTO class_attendance 
-//       (user_id, class_id, session_id, status, notes, checkInTime, location, createdAt)
-//       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-//       ON DUPLICATE KEY UPDATE
-//         status = VALUES(status),
-//         notes = VALUES(notes),
-//         checkInTime = VALUES(checkInTime),
-//         location = VALUES(location),
-//         updatedAt = NOW()
-//     `;
-
-//     try {
-//       await db.query(attendanceSql, [userId, classId, session_id, status, notes, check_in_time, location]);
-//     } catch (error) {
-//       console.warn('Could not record attendance - table may not exist:', error.message);
-//       return {
-//         user_id: userId,
-//         class_id: classId,
-//         display_id: formatClassIdForDisplay(classId),
-//         session_id,
-//         status,
-//         notes,
-//         checkInTime: check_in_time,
-//         location,
-//         markedAt: new Date().toISOString(),
-//         message: 'Attendance recorded (placeholder implementation)'
-//       };
-//     }
-
-//     return {
-//       user_id: userId,
-//       class_id: classId,
-//       display_id: formatClassIdForDisplay(classId),
-//       session_id,
-//       session_title: sessionData?.session_title,
-//       status,
-//       notes,
-//       checkInTime: check_in_time,
-//       location,
-//       markedAt: new Date().toISOString(),
-//       success: true
-//     };
-
-//   } catch (error) {
-//     console.error('❌ markClassAttendanceService error:', error);
-//     if (error instanceof CustomError) throw error;
-//     throw new CustomError('Failed to mark attendance', 500);
-//   }
-// };
+export const getClassSchedule = async (classId, userId, options = {}) => {
+  try {
+    const { 
+      start_date = new Date().toISOString().split('T')[0],
+      end_date,
+      session_type
+    } = options;
+    
+    // Verify user access
+    const membershipCheck = await db.query(`
+      SELECT role_in_class, membership_status
+      FROM user_class_memberships
+      WHERE user_id = ? AND class_id = ? AND membership_status = 'active'
+    `, [userId, classId]);
+    
+    if (!membershipCheck.length) {
+      throw new Error('Access denied - not a member of this class');
+    }
+    
+    // Build WHERE clause for schedule
+    let whereClause = 'WHERE cs.class_id = ? AND cs.session_date >= ?';
+    const queryParams = [classId, start_date];
+    
+    if (end_date) {
+      whereClause += ' AND cs.session_date <= ?';
+      queryParams.push(end_date);
+    }
+    
+    if (session_type) {
+      whereClause += ' AND cs.session_type = ?';
+      queryParams.push(session_type);
+    }
+    
+    // Get scheduled sessions
+    const sessions = await db.query(`
+      SELECT 
+        cs.*,
+        u.username as instructor_name,
+        COUNT(ca.id) as attendees_count,
+        COUNT(CASE WHEN ca.user_id = ? AND ca.status IN ('present', 'late') THEN 1 END) as user_attended
+      FROM class_sessions cs
+      LEFT JOIN users u ON cs.instructor_id = u.id
+      LEFT JOIN class_attendance ca ON cs.id = ca.session_id
+      ${whereClause}
+      GROUP BY cs.id
+      ORDER BY cs.session_date ASC, cs.start_time ASC
+    `, [userId, ...queryParams]);
+    
+    return {
+      class_id: classId,
+      user_role: membershipCheck[0].role_in_class,
+      schedule: {
+        upcoming_sessions: sessions.filter(s => new Date(s.session_date) >= new Date()),
+        past_sessions: sessions.filter(s => new Date(s.session_date) < new Date()),
+        total_sessions: sessions.length
+      },
+      summary: {
+        sessions_attended: sessions.filter(s => s.user_attended > 0).length,
+        attendance_rate: sessions.length > 0 ? 
+          Math.round((sessions.filter(s => s.user_attended > 0).length / sessions.length) * 100) : 0
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ getClassSchedule error:', error);
+    throw new Error(`Failed to get class schedule: ${error.message}`);
+  }
+};
 
 /**
- * Get class progress for user
+ * Get class progress for user - REAL DATABASE ANALYSIS
+ * @param {number} userId - User ID
+ * @param {string} classId - Class ID
+ * @returns {Object} User's progress in class
  */
-export const getClassProgressService = async (userId, classId) => {
+export const getClassProgress = async (userId, classId) => {
   try {
-    if (!validateClassIdFormat(classId)) {
-      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
+    // Verify membership
+    const membershipCheck = await db.query(`
+      SELECT role_in_class, joinedAt, membership_status
+      FROM user_class_memberships
+      WHERE user_id = ? AND class_id = ? AND membership_status = 'active'
+    `, [userId, classId]);
+    
+    if (!membershipCheck.length) {
+      throw new Error('Access denied - not a member of this class');
     }
-
-    const membershipSql = `
-      SELECT ucm.*, c.class_name
-      FROM user_class_memberships ucm
-      INNER JOIN classes c ON ucm.class_id = c.class_id
-      WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-    `;
-    const [membership] = await db.query(membershipSql, [userId, classId]);
-
-    if (!membership) {
-      throw new CustomError('You are not a member of this class', 403);
-    }
-
-    const membershipDays = Math.floor((new Date() - new Date(membership.joinedAt)) / (1000 * 60 * 60 * 24));
-
+    
+    // Get comprehensive progress data
+    const progressData = await db.query(`
+      SELECT 
+        -- Content progress
+        COUNT(DISTINCT cc.id) as total_content,
+        COUNT(DISTINCT ccv.content_id) as viewed_content,
+        
+        -- Attendance progress
+        COUNT(DISTINCT cs.id) as total_sessions,
+        COUNT(CASE WHEN ca.status IN ('present', 'late') THEN 1 END) as attended_sessions,
+        
+        -- Assignment progress (if exists)
+        COUNT(DISTINCT cas.id) as total_assignments,
+        COUNT(CASE WHEN cas.status = 'completed' THEN 1 END) as completed_assignments,
+        
+        -- Feedback given
+        COUNT(DISTINCT cf.id) as feedback_given
+        
+      FROM classes c
+      LEFT JOIN class_content cc ON c.class_id = cc.class_id AND cc.is_active = 1
+      LEFT JOIN class_content_views ccv ON cc.id = ccv.content_id AND ccv.user_id = ?
+      LEFT JOIN class_sessions cs ON c.class_id = cs.class_id
+      LEFT JOIN class_attendance ca ON cs.id = ca.session_id AND ca.user_id = ?
+      LEFT JOIN class_assignments cas ON c.class_id = cas.class_id AND cas.user_id = ?
+      LEFT JOIN class_feedback cf ON c.class_id = cf.class_id AND cf.user_id = ?
+      WHERE c.class_id = ?
+      GROUP BY c.class_id
+    `, [userId, userId, userId, userId, classId]);
+    
+    const stats = progressData[0] || {};
+    const membership = membershipCheck[0];
+    
+    // Calculate progress percentages
+    const contentProgress = stats.total_content > 0 ? 
+      Math.round((stats.viewed_content / stats.total_content) * 100) : 0;
+    
+    const attendanceProgress = stats.total_sessions > 0 ? 
+      Math.round((stats.attended_sessions / stats.total_sessions) * 100) : 0;
+    
+    const assignmentProgress = stats.total_assignments > 0 ? 
+      Math.round((stats.completed_assignments / stats.total_assignments) * 100) : 0;
+    
+    // Overall progress calculation
+    const overallProgress = Math.round((contentProgress + attendanceProgress + assignmentProgress) / 3);
+    
     return {
       user_id: userId,
       class_id: classId,
-      class_name: membership.class_name,
-      display_id: formatClassIdForDisplay(classId),
+      role_in_class: membership.role_in_class,
       membership_info: {
-        joinedAt: membership.joinedAt,
-        role: membership.role_in_class,
-        days_as_member: membershipDays
+        joined_at: membership.joinedAt,
+        days_as_member: Math.floor((new Date() - new Date(membership.joinedAt)) / (1000 * 60 * 60 * 24))
       },
       overall_progress: {
-        percentage: 0,
-        completed_items: 0,
-        total_items: 0
+        percentage: overallProgress,
+        status: overallProgress >= 80 ? 'excellent' : 
+               overallProgress >= 60 ? 'good' : 
+               overallProgress >= 40 ? 'fair' : 'needs_improvement'
       },
       content_progress: {
-        completed: 0,
-        total: 0,
-        percentage: 0
+        viewed: stats.viewed_content || 0,
+        total: stats.total_content || 0,
+        percentage: contentProgress
       },
       attendance_progress: {
-        sessions_attended: 0,
-        total_sessions: 0,
-        present_count: 0,
-        late_count: 0,
-        absent_count: 0,
-        attendance_rate: 0
+        attended: stats.attended_sessions || 0,
+        total: stats.total_sessions || 0,
+        percentage: attendanceProgress
       },
-      lastActivity: new Date().toISOString()
-    };
-
-  } catch (error) {
-    console.error('❌ getClassProgressService error:', error);
-    if (error instanceof CustomError) throw error;
-    throw new CustomError('Failed to fetch class progress', 500);
-  }
-};
-
-/**
- * Get class progress for user with detailed tracking
- */
-// export const getClassProgressService = async (userId, classId) => {
-//   try {
-//     if (!validateClassIdFormat(classId)) {
-//       throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-//     }
-
-//     // Verify user is a member
-//     const membershipSql = `
-//       SELECT ucm.*, c.class_name
-//       FROM user_class_memberships ucm
-//       INNER JOIN classes c ON ucm.class_id = c.class_id
-//       WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-//     `;
-//     const [membership] = await db.query(membershipSql, [userId, classId]);
-
-//     if (!membership) {
-//       throw new CustomError('You are not a member of this class', 403);
-//     }
-
-//     // Get content progress
-//     const contentProgressSql = `
-//       SELECT 
-//         COUNT(*) as total_content,
-//         SUM(CASE WHEN ucp.completedAt IS NOT NULL THEN 1 ELSE 0 END) as completed_content
-//       FROM class_content_access cca
-//       LEFT JOIN user_content_progress ucp ON cca.content_id = ucp.content_id 
-//         AND cca.content_type = ucp.content_type 
-//         AND ucp.user_id = ?
-//       WHERE cca.class_id = ?
-//     `;
-
-//     let contentProgress = { total_content: 0, completed_content: 0 };
-//     try {
-//       [contentProgress] = await db.query(contentProgressSql, [userId, classId]);
-//     } catch (error) {
-//       console.warn('Could not fetch content progress:', error.message);
-//     }
-
-//     // Get attendance progress
-//     const attendanceProgressSql = `
-//       SELECT 
-//         COUNT(DISTINCT cs.id) as total_sessions,
-//         COUNT(DISTINCT ca.session_id) as attended_sessions,
-//         COUNT(CASE WHEN ca.status = 'present' THEN 1 END) as present_count,
-//         COUNT(CASE WHEN ca.status = 'late' THEN 1 END) as late_count,
-//         COUNT(CASE WHEN ca.status = 'absent' THEN 1 END) as absent_count
-//       FROM class_sessions cs
-//       LEFT JOIN class_attendance ca ON cs.id = ca.session_id AND ca.user_id = ?
-//       WHERE cs.class_id = ? AND cs.scheduledStart <= NOW()
-//     `;
-
-//     let attendanceProgress = { 
-//       total_sessions: 0, 
-//       attended_sessions: 0, 
-//       present_count: 0, 
-//       late_count: 0, 
-//       absent_count: 0 
-//     };
-//     try {
-//       [attendanceProgress] = await db.query(attendanceProgressSql, [userId, classId]);
-//     } catch (error) {
-//       console.warn('Could not fetch attendance progress:', error.message);
-//     }
-
-//     // Calculate overall progress
-//     const totalItems = contentProgress.total_content + attendanceProgress.total_sessions;
-//     const completedItems = contentProgress.completed_content + attendanceProgress.attended_sessions;
-//     const progressPercentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-
-//     // Calculate membership duration
-//     const membershipDays = Math.floor((new Date() - new Date(membership.joinedAt)) / (1000 * 60 * 60 * 24));
-
-//     return {
-//       user_id: userId,
-//       class_id: classId,
-//       class_name: membership.class_name,
-//       display_id: formatClassIdForDisplay(classId),
-//       membership_info: {
-//         joinedAt: membership.joinedAt,
-//         role: membership.role_in_class,
-//         days_as_member: membershipDays
-//       },
-//       overall_progress: {
-//         percentage: progressPercentage,
-//         completed_items: completedItems,
-//         total_items: totalItems
-//       },
-//       content_progress: {
-//         completed: contentProgress.completed_content,
-//         total: contentProgress.total_content,
-//         percentage: contentProgress.total_content > 0 ? 
-//           Math.round((contentProgress.completed_content / contentProgress.total_content) * 100) : 0
-//       },
-//       attendance_progress: {
-//         sessions_attended: attendanceProgress.attended_sessions,
-//         total_sessions: attendanceProgress.total_sessions,
-//         present_count: attendanceProgress.present_count,
-//         late_count: attendanceProgress.late_count,
-//         absent_count: attendanceProgress.absent_count,
-//         attendance_rate: attendanceProgress.total_sessions > 0 ? 
-//           Math.round((attendanceProgress.present_count / attendanceProgress.total_sessions) * 100) : 0
-//       },
-//       lastActivity: new Date().toISOString()
-//     };
-
-//   } catch (error) {
-//     console.error('❌ getClassProgressService error:', error);
-//     if (error instanceof CustomError) throw error;
-//     throw new CustomError('Failed to fetch class progress', 500);
-//   }
-// };
-
-// ===============================================
-// CLASS FEEDBACK SERVICES
-// ===============================================
-
-/**
- * Submit class feedback
- */
-export const submitClassFeedbackService = async (userId, classId, feedbackData) => {
-  try {
-    if (!validateClassIdFormat(classId)) {
-      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-    }
-
-    const { 
-      rating, 
-      comments, 
-      feedback_type = 'general', 
-      anonymous = false,
-      aspects = {},
-      suggestions
-    } = feedbackData;
-
-    const membershipSql = `
-      SELECT ucm.membership_status, ucm.role_in_class, c.class_name
-      FROM user_class_memberships ucm
-      INNER JOIN classes c ON ucm.class_id = c.class_id
-      WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-    `;
-    const [membership] = await db.query(membershipSql, [userId, classId]);
-
-    if (!membership) {
-      throw new CustomError('You are not a member of this class', 403);
-    }
-
-    if (!rating && !comments) {
-      throw new CustomError('Either rating or comments is required', 400);
-    }
-
-    if (rating && (rating < 1 || rating > 5)) {
-      throw new CustomError('Rating must be between 1 and 5', 400);
-    }
-
-    return {
-      feedback_id: Date.now(),
-      user_id: anonymous ? null : userId,
-      class_id: classId,
-      class_name: membership.class_name,
-      display_id: formatClassIdForDisplay(classId),
-      rating,
-      comments,
-      feedback_type,
-      anonymous,
-      aspects,
-      suggestions,
-      submittedAt: new Date().toISOString(),
-      success: true
-    };
-
-  } catch (error) {
-    console.error('❌ submitClassFeedbackService error:', error);
-    if (error instanceof CustomError) throw error;
-    throw new CustomError('Failed to submit feedback', 500);
-  }
-};
-
-/**
- * Submit class feedback with validation and processing
- */
-// export const submitClassFeedbackService = async (userId, classId, feedbackData) => {
-//   try {
-//     if (!validateClassIdFormat(classId)) {
-//       throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-//     }
-
-//     const { 
-//       rating, 
-//       comments, 
-//       feedback_type = 'general', 
-//       anonymous = false,
-//       aspects = {},
-//       suggestions
-//     } = feedbackData;
-
-//     // Verify user is a member
-//     const membershipSql = `
-//       SELECT ucm.membership_status, ucm.role_in_class, c.class_name
-//       FROM user_class_memberships ucm
-//       INNER JOIN classes c ON ucm.class_id = c.class_id
-//       WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-//     `;
-//     const [membership] = await db.query(membershipSql, [userId, classId]);
-
-//     if (!membership) {
-//       throw new CustomError('You are not a member of this class', 403);
-//     }
-
-//     // Validate input
-//     if (!rating && !comments) {
-//       throw new CustomError('Either rating or comments is required', 400);
-//     }
-
-//     if (rating && (rating < 1 || rating > 5)) {
-//       throw new CustomError('Rating must be between 1 and 5', 400);
-//     }
-
-//     // Store feedback
-//     const feedbackSql = `
-//       INSERT INTO class_feedback 
-//       (user_id, class_id, rating, comments, feedback_type, anonymous, aspects, suggestions, submittedAt, createdAt)
-//       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-//     `;
-
-//     try {
-//       const result = await db.query(feedbackSql, [
-//         anonymous ? null : userId, 
-//         classId, 
-//         rating, 
-//         comments, 
-//         feedback_type, 
-//         anonymous, 
-//         JSON.stringify(aspects), 
-//         suggestions
-//       ]);
-
-//       return {
-//         feedback_id: result.insertId,
-//         user_id: anonymous ? null : userId,
-//         class_id: classId,
-//         class_name: membership.class_name,
-//         display_id: formatClassIdForDisplay(classId),
-//         rating,
-//         comments,
-//         feedback_type,
-//         anonymous,
-//         aspects,
-//         suggestions,
-//         submittedAt: new Date().toISOString(),
-//         success: true
-//       };
-//     } catch (error) {
-//       console.warn('Could not store feedback - table may not exist:', error.message);
-//       return {
-//         user_id: anonymous ? null : userId,
-//         class_id: classId,
-//         class_name: membership.class_name,
-//         display_id: formatClassIdForDisplay(classId),
-//         rating,
-//         comments,
-//         feedback_type,
-//         anonymous,
-//         submittedAt: new Date().toISOString(),
-//         message: 'Feedback received (placeholder implementation)'
-//       };
-//     }
-
-//   } catch (error) {
-//     console.error('❌ submitClassFeedbackService error:', error);
-//     if (error instanceof CustomError) throw error;
-//     throw new CustomError('Failed to submit feedback', 500);
-//   }
-// };
-
-/**
- * Get class feedback for instructors/moderators
- */
-export const getClassFeedbackService = async (classId, userId, options = {}) => {
-  try {
-    if (!validateClassIdFormat(classId)) {
-      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-    }
-
-    const { 
-      feedback_type, 
-      include_anonymous = true,
-      page = 1, 
-      limit = 20,
-      rating_filter,
-      date_from,
-      date_to
-    } = options;
-
-    const membershipSql = `
-      SELECT ucm.role_in_class, c.class_name
-      FROM user_class_memberships ucm
-      INNER JOIN classes c ON ucm.class_id = c.class_id
-      WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-    `;
-    const [membership] = await db.query(membershipSql, [userId, classId]);
-
-    if (!membership || !['moderator', 'instructor'].includes(membership.role_in_class)) {
-      throw new CustomError('You do not have permission to view class feedback', 403);
-    }
-
-    return {
-      data: [],
-      pagination: {
-        current_page: page,
-        total_pages: 0,
-        total_records: 0,
-        per_page: limit
+      assignment_progress: {
+        completed: stats.completed_assignments || 0,
+        total: stats.total_assignments || 0,
+        percentage: assignmentProgress
       },
-      statistics: {
-        average_rating: 0,
-        total_feedback: 0,
-        positive_percentage: 0
-      },
-      class_info: {
-        class_id: classId,
-        class_name: membership.class_name,
-        display_id: formatClassIdForDisplay(classId)
+      engagement: {
+        feedback_given: stats.feedback_given || 0,
+        participation_score: overallProgress
       }
     };
-
+    
   } catch (error) {
-    console.error('❌ getClassFeedbackService error:', error);
-    if (error instanceof CustomError) throw error;
-    throw new CustomError('Failed to fetch class feedback', 500);
+    console.error('❌ getClassProgress error:', error);
+    throw new Error(`Failed to get class progress: ${error.message}`);
   }
 };
-
-/**
- * Get class feedback for instructors/moderators
- */
-// export const getClassFeedbackService = async (classId, userId, options = {}) => {
-//   try {
-//     if (!validateClassIdFormat(classId)) {
-//       throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-//     }
-
-//     const { 
-//       feedback_type, 
-//       include_anonymous = true,
-//       page = 1, 
-//       limit = 20,
-//       rating_filter,
-//       date_from,
-//       date_to
-//     } = options;
-
-//     // Verify user has permission to view feedback
-//     const membershipSql = `
-//       SELECT ucm.role_in_class, c.class_name
-//       FROM user_class_memberships ucm
-//       INNER JOIN classes c ON ucm.class_id = c.class_id
-//       WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active' AND c.class_id LIKE "OTU#%"
-//     `;
-//     const [membership] = await db.query(membershipSql, [userId, classId]);
-
-//     if (!membership || !['moderator', 'instructor'].includes(membership.role_in_class)) {
-//       throw new CustomError('You do not have permission to view class feedback', 403);
-//     }
-
-//     const offset = (page - 1) * limit;
-//     let whereClause = 'WHERE cf.class_id = ?';
-//     const params = [classId];
-
-//     if (feedback_type) {
-//       whereClause += ' AND cf.feedback_type = ?';
-//       params.push(feedback_type);
-//     }
-
-//     if (!include_anonymous) {
-//       whereClause += ' AND cf.anonymous = 0';
-//     }
-
-//     if (rating_filter) {
-//       whereClause += ' AND cf.rating = ?';
-//       params.push(rating_filter);
-//     }
-
-//     if (date_from) {
-//       whereClause += ' AND cf.submittedAt >= ?';
-//       params.push(date_from);
-//     }
-
-//     if (date_to) {
-//       whereClause += ' AND cf.submittedAt <= ?';
-//       params.push(date_to);
-//     }
-
-//     try {
-//       // Get total count
-//       const countSql = `SELECT COUNT(*) as total FROM class_feedback cf ${whereClause}`;
-//       const [countResult] = await db.query(countSql, params);
-//       const total = countResult.total;
-
-//       // Get feedback with user info (if not anonymous)
-//       const sql = `
-//         SELECT 
-//           cf.*,
-//           CASE 
-//             WHEN cf.anonymous = 1 THEN NULL
-//             ELSE u.username 
-//           END as username,
-//           CASE 
-//             WHEN cf.anonymous = 1 THEN NULL
-//             ELSE u.converse_id 
-//           END as converse_id
-//         FROM class_feedback cf
-//         LEFT JOIN users u ON cf.user_id = u.id
-//         ${whereClause}
-//         ORDER BY cf.submittedAt DESC
-//         LIMIT ? OFFSET ?
-//       `;
-      
-//       params.push(limit, offset);
-//       const feedback = await db.query(sql, params);
-
-//       // Calculate statistics
-//       const statsSql = `
-//         SELECT 
-//           AVG(rating) as average_rating,
-//           COUNT(*) as total_feedback,
-//           COUNT(CASE WHEN rating >= 4 THEN 1 END) as positive_feedback,
-//           COUNT(CASE WHEN rating <= 2 THEN 1 END) as negative_feedback
-//         FROM class_feedback 
-//         WHERE class_id = ?
-//       `;
-      
-//       const [stats] = await db.query(statsSql, [classId]);
-
-//       return {
-//         data: feedback.map(item => ({
-//           ...item,
-//           aspects: item.aspects ? JSON.parse(item.aspects) : null
-//         })),
-//         pagination: {
-//           current_page: page,
-//           total_pages: Math.ceil(total / limit),
-//           total_records: total,
-//           per_page: limit
-//         },
-//         statistics: {
-//           average_rating: parseFloat(stats.average_rating?.toFixed(2) || 0),
-//           total_feedback: stats.total_feedback,
-//           positive_percentage: stats.total_feedback > 0 ? 
-//             Math.round((stats.positive_feedback / stats.total_feedback) * 100) : 0
-//         },
-//         class_info: {
-//           class_id: classId,
-//           class_name: membership.class_name,
-//           display_id: formatClassIdForDisplay(classId)
-//         }
-//       };
-
-//     } catch (error) {
-//       console.warn('Could not fetch feedback - table may not exist:', error.message);
-//       return {
-//         data: [],
-//         pagination: {
-//           current_page: page,
-//           total_pages: 0,
-//           total_records: 0,
-//           per_page: limit
-//         },
-//         message: 'Feedback system not yet implemented',
-//         class_info: {
-//           class_id: classId,
-//           class_name: membership.class_name,
-//           display_id: formatClassIdForDisplay(classId)
-//         }
-//       };
-//     }
-
-//   } catch (error) {
-//     console.error('❌ getClassFeedbackService error:', error);
-//     if (error instanceof CustomError) throw error;
-//     throw new CustomError('Failed to fetch class feedback', 500);
-//   }
-// };
-
-/**
- * Get class announcements
- */
-export const getClassAnnouncementsService = async (classId, userId, options = {}) => {
-  try {
-    if (!validateClassIdFormat(classId)) {
-      throw new CustomError('Invalid class ID format. Expected OTU#XXXXXX format', 400);
-    }
-
-    const { page = 1, limit = 20 } = options;
-
-    const membershipSql = `
-      SELECT ucm.membership_status, ucm.role_in_class
-      FROM user_class_memberships ucm
-      WHERE ucm.user_id = ? AND ucm.class_id = ? AND ucm.membership_status = 'active'
-    `;
-    const [membership] = await db.query(membershipSql, [userId, classId]);
-
-    if (!membership) {
-      throw new CustomError('You are not a member of this class', 403);
-    }
-
-    return {
-      data: [],
-      pagination: {
-        current_page: page,
-        total_pages: 0,
-        total_records: 0,
-        per_page: limit
-      },
-      class_id: classId,
-      display_id: formatClassIdForDisplay(classId),
-      user_role: membership.role_in_class
-    };
-
-  } catch (error) {
-    console.error('❌ getClassAnnouncementsService error:', error);
-    if (error instanceof CustomError) throw error;
-    throw new CustomError('Failed to fetch announcements', 500);
-  }
-};
-
-// ===============================================
-// LEGACY SUPPORT FUNCTION
-// ===============================================
-
-/**
- * Legacy function - fetch all classes
- */
-export const fetchClasses = async () => {
-  try {
-    const sql = `
-      SELECT c.*, cmc.total_members, cmc.moderators, cmc.pending_members
-      FROM classes c
-      LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
-      WHERE c.is_active = 1 AND c.class_id LIKE "OTU#%" 
-      ORDER BY 
-        CASE WHEN c.class_id = 'OTU#Public' THEN 0 ELSE 1 END,
-        c.createdAt DESC
-    `;
-    return await db.query(sql);
-  } catch (error) {
-    console.error('❌ fetchClasses (legacy) error:', error);
-    throw new CustomError('Failed to fetch classes', 500);
-  }
-};
-
-/**
- * Legacy function - fetch all classes (for backward compatibility)
- */
-// export const fetchClasses = async () => {
-//   try {
-//     const sql = `
-//       SELECT c.*, cmc.total_members, cmc.moderators, cmc.pending_members
-//       FROM classes c
-//       LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
-//       WHERE c.is_active = 1 AND c.class_id LIKE "OTU#%" 
-//       ORDER BY 
-//         CASE WHEN c.class_id = 'OTU#Public' THEN 0 ELSE 1 END,
-//         c.createdAt DESC
-//     `;
-//     return await db.query(sql);
-//   } catch (error) {
-//     console.error('❌ fetchClasses (legacy) error:', error);
-//     throw new CustomError('Failed to fetch classes', 500);
-//   }
-// };
-
-// ===============================================
-// MODULE EXPORTS
-// ===============================================
 
 export default {
-  // Discovery & Access
-  getAllClassesService,
-  getAvailableClassesService,
-  getUserClassesService,
-  getClassByIdService,
-  
-  // Enrollment
-  joinClassService,
-  leaveClassService,
-  assignUserToClassService,
-  
-  // Participants
-  getClassParticipantsService,
-  
-  // Content & Schedule
-  getClassContentService,
-  getClassScheduleService,
-  
-  // Interaction
-  markClassAttendanceService,
-  getClassProgressService,
-  
-  // Feedback
-  submitClassFeedbackService,
-  getClassFeedbackService,
-  
-  // Announcements
-  getClassAnnouncementsService,
-  
-  // Legacy
-  fetchClasses
+  getAllClasses,
+  getClassById,
+  getUserClasses,
+  joinClass,
+  leaveClass,
+  getClassMembers,
+  getAvailableClasses,
+  getClassContent,
+  getClassAnnouncements,
+  submitClassFeedback,
+  markClassAttendance,
+  getClassSchedule,
+  getClassProgress
 };
+
+
+
+
 
 

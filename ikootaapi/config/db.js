@@ -108,8 +108,8 @@ const query = async (sql, params = []) => {
         connection = await pool.getConnection();
         
         // Execute query
-        const [rows, fields] = await connection.execute(sql, params);
-        
+        const [rows, fields] = await connection.query(sql, params);
+
         // Log success
         const duration = Date.now() - startTime;
         console.log(`✅ MySQL Query success, rows: ${Array.isArray(rows) ? rows.length : 'N/A'}, duration: ${duration}ms`);
