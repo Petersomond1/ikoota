@@ -1,7 +1,5 @@
-
 // ikootaclient\src\components\iko\Iko.jsx
-// COMPLETE IKO JSX FIX
-// Updated Iko.jsx with proper admin layout support
+// FIXED VERSION - Array Safety Issue Resolved
 // ==================================================
 
 import React, { useState, useEffect } from 'react';
@@ -19,7 +17,10 @@ const Iko = ({ isNested = false }) => {
   const { data: chats = [], isLoading: isLoadingChats, error: errorChats } = useFetchChats();
   const { data: teachings = [], isLoading: isLoadingTeachings, error: errorTeachings } = useFetchTeachings();
   const { data: comments = [], isLoading: isLoadingComments, error: errorComments } = useFetchComments();
+  
+  // ✅ FIXED: Separate state for active content and active comment
   const [activeItem, setActiveItem] = useState(null);
+  const [activeComment, setActiveComment] = useState(null);
   
   const { user, logout, isAdmin } = useUser();
   const navigate = useNavigate();
@@ -41,18 +42,75 @@ const Iko = ({ isNested = false }) => {
     return () => window.removeEventListener('resize', checkAdminContext);
   }, []);
 
+  // ✅ FIXED: Set default active item with proper array safety
   useEffect(() => {
-    if (!activeItem && chats.length > 0) {
-      setActiveItem({ type: "chat", id: chats[0]?.id });
+    // ✅ CRITICAL FIX: Ensure arrays are properly initialized before processing
+    const safeChats = Array.isArray(chats) ? chats : [];
+    const safeTeachings = Array.isArray(teachings) ? teachings : [];
+    
+    console.log('🔍 Checking for active item setup:', {
+      activeItem,
+      chatsLength: safeChats.length,
+      teachingsLength: safeTeachings.length,
+      chatsType: typeof chats,
+      teachingsType: typeof teachings,
+      chatsIsArray: Array.isArray(chats),
+      teachingsIsArray: Array.isArray(teachings)
+    });
+
+    if (!activeItem && (safeChats.length > 0 || safeTeachings.length > 0)) {
+      try {
+        // Combine chats and teachings with safe array handling
+        const allContent = [...safeChats, ...safeTeachings].filter(item => item && item.id);
+        
+        if (allContent.length > 0) {
+          // Sort by timestamp (most recent first)
+          const sortedContent = allContent.sort((a, b) => {
+            const aDate = new Date(a.updatedAt || a.createdAt || 0);
+            const bDate = new Date(b.updatedAt || b.createdAt || 0);
+            return bDate - aDate;
+          });
+          
+          const topContent = sortedContent[0];
+          const newActiveItem = {
+            type: topContent.topic ? "teaching" : "chat",
+            id: topContent.id,
+            prefixed_id: topContent.prefixed_id,
+            title: topContent.title || topContent.topic,
+            content_type: topContent.topic ? "teaching" : "chat",
+            ...topContent
+          };
+          
+          setActiveItem(newActiveItem);
+          console.log('✅ Set default active item:', newActiveItem);
+        }
+      } catch (error) {
+        console.error('❌ Error setting default active item:', error);
+        console.log('Debug info:', { chats, teachings, safeChats, safeTeachings });
+      }
     }
-  }, [chats, activeItem]);
+  }, [chats, teachings, activeItem]); // Keep the original dependencies
 
   const deactivateListComments = () => {
-    setActiveItem(null);
+    setActiveComment(null);
   };
 
   const deactivateListChats = () => {
     setActiveItem(null);
+    setActiveComment(null);
+  };
+
+  // ✅ NEW: Handle comment selection
+  const handleCommentSelect = (comment) => {
+    console.log('✅ Comment selected in Iko:', comment);
+    setActiveComment(comment);
+  };
+
+  // ✅ NEW: Handle content selection and reset comment selection
+  const handleContentSelect = (item) => {
+    console.log('✅ Content selected in Iko:', item);
+    setActiveItem(item);
+    setActiveComment(null); // Reset comment selection when content changes
   };
 
   // Navigation handlers
@@ -94,6 +152,11 @@ const Iko = ({ isNested = false }) => {
       '--iko-height': '90vh',
     };
   };
+
+  // ✅ ENHANCED: Better array safety in render calculations
+  const safeChats = Array.isArray(chats) ? chats : [];
+  const safeTeachings = Array.isArray(teachings) ? teachings : [];
+  const safeComments = Array.isArray(comments) ? comments : [];
 
   // Loading state
   if (isLoadingChats || isLoadingComments || isLoadingTeachings) {
@@ -181,6 +244,9 @@ const Iko = ({ isNested = false }) => {
     );
   }
 
+  console.log('🔍 Iko State - Active Item:', activeItem);
+  console.log('🔍 Iko State - Active Comment:', activeComment);
+
   // Main render
   return (
     <div
@@ -201,8 +267,8 @@ const Iko = ({ isNested = false }) => {
         </div>
         
         <div className="nav-right">
-          <span className="chat-count">💬 {chats.length}</span>
-          <span className="teaching-count">📚 {teachings.length}</span>
+          <span className="chat-count">💬 {safeChats.length}</span>
+          <span className="teaching-count">📚 {safeTeachings.length}</span>
           {isInAdmin && (
             <span className="status-badge" style={{ background: '#9c27b0', color: 'white' }}>
               📱 Admin View
@@ -211,21 +277,24 @@ const Iko = ({ isNested = false }) => {
         </div>
       </div>
       
-      {/* Main Chat Viewport */}
+      {/* ✅ FIXED: Main Chat Viewport with safe array props */}
       <div className="iko_viewport">
         <ListChats 
-          setActiveItem={setActiveItem} 
+          setActiveItem={handleContentSelect}
           deactivateListComments={deactivateListComments}
           isInAdmin={isInAdmin}
         />
         <Chat 
           activeItem={activeItem} 
-          chats={chats} 
-          teachings={teachings}
+          activeComment={activeComment}
+          chats={safeChats} 
+          teachings={safeTeachings}
           isInAdmin={isInAdmin}
         />
         <ListComments 
-          setActiveItem={setActiveItem} 
+          activeItem={activeItem}
+          setActiveComment={handleCommentSelect}
+          activeComment={activeComment}
           deactivateListChats={deactivateListChats}
           isInAdmin={isInAdmin}
         />
@@ -237,6 +306,9 @@ const Iko = ({ isNested = false }) => {
           <span>Iko - Member Chat</span>
           {activeItem && (
             <span> | {activeItem.type} #{activeItem.id}</span>
+          )}
+          {activeComment && (
+            <span> | Comment #{activeComment.id}</span>
           )}
         </div>
         
@@ -253,6 +325,13 @@ const Iko = ({ isNested = false }) => {
         
         <div className="footer-right">
           <div className="footer-controls">
+             <button 
+              onClick={() => navigate('/dashboard')}
+              className="footer-btn dashboard-btn"
+              title="Go to User Dashboard"
+            >
+              📊 Dashboard
+            </button>
             {!isInAdmin && (
               <button 
                 onClick={handleNavigateToTowncrier} 
@@ -296,3 +375,8 @@ const Iko = ({ isNested = false }) => {
 };
 
 export default Iko;
+
+
+
+
+

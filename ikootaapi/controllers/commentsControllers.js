@@ -22,7 +22,7 @@ import { normalizeContentItem } from '../utils/contentHelpers.js';
 // ✅ Enhanced createComment with proper user_id handling and validation
 export const createComment = async (req, res) => {
   try {
-    const { chat_id, teaching_id, comment, parent_comment_id } = req.body;
+    const { chat_id, teaching_id, comment, parentcomment_id } = req.body;
     const requestingUser = req.user;
 
     console.log('createComment req body:', req.body);
@@ -68,9 +68,9 @@ export const createComment = async (req, res) => {
     }
 
     // Validate parent exists if this is a reply
-    if (parent_comment_id) {
+    if (parentcomment_id) {
       try {
-        const parentComment = await getCommentById(parent_comment_id);
+        const parentComment = await getCommentById(parentcomment_id);
         if (!parentComment) {
           return res.status(404).json({
             success: false,
@@ -131,7 +131,7 @@ export const createComment = async (req, res) => {
       chat_id: chat_id || null,
       teaching_id: teaching_id || null,
       comment: comment.trim(),
-      parent_comment_id: parent_comment_id || null,
+      parentcomment_id: parentcomment_id || null,
       media,
     });
 
@@ -139,7 +139,7 @@ export const createComment = async (req, res) => {
       success: true,
       data: newComment,
       message: "Comment created successfully.",
-      comment_type: parent_comment_id ? 'reply' : 'top_level',
+      comment_type: parentcomment_id ? 'reply' : 'top_level',
       parent_content: chat_id ? 'chat' : 'teaching'
     });
   } catch (error) {
