@@ -74,136 +74,136 @@ router.use(authorize(['admin', 'super_admin']));
 // USER MANAGEMENT
 // ===============================================
 
-// GET /admin/users - Get all users with pagination and filters
+// GET /users/admin - Get all users with pagination and filters
 router.get('/', getAllUsers);
 
-// GET /admin/users/search - Search users
+// GET /users/admin/search - Search users
 router.get('/search', searchUsers);
 
-// GET /admin/users/stats - Get user statistics
+// GET /users/admin/stats - Get user statistics
 router.get('/stats', getUserStats);
 
-// GET /admin/users/:id - Get specific user
+// GET /users/admin/:id - Get specific user
 router.get('/:id', getUserById);
 
-// POST /admin/users/create - Create new user
+// POST /users/admin/create - Create new user
 router.post('/create', createUser);
 
-// PUT /admin/users/:id - Update user
+// PUT /users/admin/:id - Update user
 router.put('/:id', updateUser);
 
-// DELETE /admin/users/:id - Delete user (super admin only)
+// DELETE /users/admin/:id - Delete user (super admin only)
 router.delete('/:id', authorize(['super_admin']), deleteUser);
 
 // ===============================================
 // USER PERMISSIONS & ROLES
 // ===============================================
 
-// PUT /admin/users/role - Update user role
+// PUT /users/admin/role - Update user role
 router.put('/role', updateUserRole);
 
-// POST /admin/users/grant-posting-rights - Grant posting rights
+// POST /users/admin/grant-posting-rights - Grant posting rights
 router.post('/grant-posting-rights', grantPostingRights);
 
-// POST /admin/users/ban - Ban user
+// POST /users/admin/ban - Ban user
 router.post('/ban', banUser);
 
-// POST /admin/users/unban - Unban user  
+// POST /users/admin/unban - Unban user  
 router.post('/unban', unbanUser);
 
 // ===============================================
 // ID GENERATION
 // ===============================================
 
-// POST /admin/users/generate-bulk-ids - Generate bulk IDs
+// POST /users/admin/generate-bulk-ids - Generate bulk IDs
 router.post('/generate-bulk-ids', generateBulkIds);
 
-// POST /admin/users/generate-converse-id - Generate converse ID
+// POST /users/admin/generate-converse-id - Generate converse ID
 router.post('/generate-converse-id', generateConverseId);
 
-// POST /admin/users/generate-class-id - Generate class ID
+// POST /users/admin/generate-class-id - Generate class ID
 router.post('/generate-class-id', generateClassIdForAdmin);
 
 // ✅ MERGED: Advanced ID Generation from Identity Admin
-// POST /admin/users/generate-unique-converse-id - Generate unique converse ID
+// POST /users/admin/generate-unique-converse-id - Generate unique converse ID
 router.post('/generate-unique-converse-id', generateUniqueConverseId);
 
-// POST /admin/users/generate-bulk-converse-ids - Generate bulk converse IDs
+// POST /users/admin/generate-bulk-converse-ids - Generate bulk converse IDs
 router.post('/generate-bulk-converse-ids', generateBulkConverseIds);
 
 // ===============================================
 // IDENTITY MANAGEMENT (MERGED FROM IDENTITY ADMIN)
 // ===============================================
 
-// POST /admin/users/mask-identity - Mask user identity (basic)
+// POST /users/admin/mask-identity - Mask user identity (basic)
 router.post('/mask-identity', maskUserIdentity);
 
-// POST /admin/users/mask-identity-advanced - Mask user identity (advanced)
+// POST /users/admin/mask-identity-advanced - Mask user identity (advanced)
 router.post('/mask-identity-advanced', maskUserIdentityAdvanced);
 
-// POST /admin/users/unmask-identity - Unmask user identity (Super Admin only)
+// POST /users/admin/unmask-identity - Unmask user identity (Super Admin only)
 router.post('/unmask-identity', authorize(['super_admin']), unmaskUserIdentity);
 
-// GET /admin/users/identity-audit-trail - Get identity masking audit trail (Super Admin)
+// GET /users/admin/identity-audit-trail - Get identity masking audit trail (Super Admin)
 router.get('/identity-audit-trail', authorize(['super_admin']), getIdentityAuditTrail);
 
-// GET /admin/users/identity-overview - Get identity system overview (Super Admin)
+// GET /users/admin/identity-overview - Get identity system overview (Super Admin)
 router.get('/identity-overview', authorize(['super_admin']), getIdentityOverview);
 
-// GET /admin/users/verify-identity-integrity - Verify identity system integrity (Super Admin)
+// GET /users/admin/verify-identity-integrity - Verify identity system integrity (Super Admin)
 router.get('/verify-identity-integrity', authorize(['super_admin']), verifyIdentityIntegrity);
 
-// GET /admin/users/identity-dashboard - Get identity management dashboard
+// GET /users/admin/identity-dashboard - Get identity management dashboard
 router.get('/identity-dashboard', getIdentityDashboard);
 
-// GET /admin/users/search-masked-identities - Search masked identities (Super Admin)
+// GET /users/admin/search-masked-identities - Search masked identities (Super Admin)
 router.get('/search-masked-identities', authorize(['super_admin']), searchMaskedIdentities);
 
-// GET /admin/users/:userId/complete-identity - Get complete user identity (Super Admin)
+// GET /users/admin/:userId/complete-identity - Get complete user identity (Super Admin)
 router.get('/:userId/complete-identity', authorize(['super_admin']), getCompleteUserIdentity);
 
-// PUT /admin/users/masking-settings - Update identity masking settings (Super Admin)
+// PUT /users/admin/masking-settings - Update identity masking settings (Super Admin)
 router.put('/masking-settings', authorize(['super_admin']), updateMaskingSettings);
 
-// GET /admin/users/export-identity-data - Export identity data (Super Admin)
+// GET /users/admin/export-identity-data - Export identity data (Super Admin)
 router.get('/export-identity-data', authorize(['super_admin']), exportIdentityData);
 
 // ===============================================
 // MENTOR ASSIGNMENT MANAGEMENT (MERGED & ENHANCED)
 // ===============================================
 
-// GET /admin/users/mentors - Get all mentors
+// GET /users/admin/mentors - Get all mentors
 router.get('/mentors', getMentors);
 
-// GET /admin/users/mentor-analytics - Get mentor assignment analytics
+// GET /users/admin/mentor-analytics - Get mentor assignment analytics
 router.get('/mentor-analytics', getMentorAnalytics);
 
-// POST /admin/users/mentors/assign - Assign mentor role
+// POST /users/admin/mentors/assign - Assign mentor role
 router.post('/mentors/assign', assignMentorRole);
 
-// POST /admin/users/bulk-assign-mentors - Bulk assign mentors to mentees
+// POST /users/admin/bulk-assign-mentors - Bulk assign mentors to mentees
 router.post('/bulk-assign-mentors', bulkAssignMentors);
 
-// PUT /admin/users/mentor-assignments/:menteeConverseId - Manage mentor assignments
+// PUT /users/admin/mentor-assignments/:menteeConverseId - Manage mentor assignments
 router.put('/mentor-assignments/:menteeConverseId', manageMentorAssignment);
 
-// DELETE /admin/users/mentors/:id/remove - Remove mentor role
+// DELETE /users/admin/mentors/:id/remove - Remove mentor role
 router.delete('/mentors/:id/remove', removeMentorRole);
 
 // ===============================================
 // DATA EXPORT (ENHANCED)
 // ===============================================
 
-// GET /admin/users/export - Export user data (super admin only)
+// GET /users/admin/export - Export user data (super admin only)
 router.get('/export', authorize(['super_admin']), exportUserData);
 
-// GET /admin/users/export/csv - Export users as CSV
+// GET /users/admin/export/csv - Export users as CSV
 router.get('/export/csv', authorize(['super_admin']), (req, res, next) => {
   req.exportFormat = 'csv';
   exportUserData(req, res, next);
 });
 
-// GET /admin/users/export/json - Export users as JSON
+// GET /users/admin/export/json - Export users as JSON
 router.get('/export/json', authorize(['super_admin']), (req, res, next) => {
   req.exportFormat = 'json';
   exportUserData(req, res, next);
@@ -213,7 +213,7 @@ router.get('/export/json', authorize(['super_admin']), (req, res, next) => {
 // SYSTEM HEALTH & MONITORING (MERGED FROM IDENTITY ADMIN)
 // ===============================================
 
-// GET /admin/users/identity-health - Identity system health check
+// GET /users/admin/identity-health - Identity system health check
 router.get('/identity-health', async (req, res) => {
   try {
     const healthMetrics = {
@@ -246,7 +246,7 @@ router.get('/identity-health', async (req, res) => {
   }
 });
 
-// GET /admin/users/identity-stats - Quick identity statistics
+// GET /users/admin/identity-stats - Quick identity statistics
 router.get('/identity-stats', async (req, res) => {
   try {
     const maskedCount = await db.query('SELECT COUNT(*) as count FROM users WHERE is_identity_masked = 1');
@@ -276,7 +276,7 @@ router.get('/identity-stats', async (req, res) => {
 // LEGACY COMPATIBILITY ROUTES (MERGED)
 // ===============================================
 
-// POST /admin/users/mask-identity-legacy - Legacy route (maps to new structure)
+// POST /users/admin/mask-identity-legacy - Legacy route (maps to new structure)
 router.post('/mask-identity-legacy', (req, res, next) => {
   console.log('🔄 Legacy identity masking route accessed - redirecting to new structure');
   maskUserIdentityAdvanced(req, res, next);
@@ -286,7 +286,7 @@ router.post('/mask-identity-legacy', (req, res, next) => {
 // TESTING ENDPOINTS
 // ===============================================
 
-// GET /admin/users/test - Admin user management test
+// GET /users/admin/test - Admin user management test
 router.get('/test', testAdminRoutes);
 
 // ===============================================
@@ -320,7 +320,7 @@ if (process.env.NODE_ENV === 'development') {
         'GET /identity-health - Identity system health check',
         'GET /identity-stats - Identity system statistics'
       ],
-      endpoint: '/api/admin/users/test-identity'
+      endpoint: '/api/users/admin/test-identity'
     });
   });
 }
@@ -427,8 +427,8 @@ router.use((error, req, res, next) => {
     timestamp: new Date().toISOString(),
     help: {
       documentation: '/api/info',
-      adminRoutes: '/api/admin/users/',
-      identityRoutes: 'Now merged into /api/admin/users/',
+      adminRoutes: '/api/users/admin/',
+      identityRoutes: 'Now merged into /api/users/admin/',
       support: 'Contact system administrator'
     }
   });
@@ -507,81 +507,81 @@ export default router;
 // // USER MANAGEMENT
 // // ===============================================
 
-// // GET /admin/users - Get all users with pagination and filters
+// // GET /users/admin - Get all users with pagination and filters
 // router.get('/', getAllUsers);
 
-// // GET /admin/users/search - Search users
+// // GET /users/admin/search - Search users
 // router.get('/search', searchUsers);
 
-// // GET /admin/users/stats - Get user statistics
+// // GET /users/admin/stats - Get user statistics
 // router.get('/stats', getUserStats);
 
-// // GET /admin/users/:id - Get specific user
+// // GET /users/admin/:id - Get specific user
 // router.get('/:id', getUserById);
 
 // // From defunt enhanced\admin.routes.js 
 // // Get specific user by ID (real database)
 // router.get('/users/:userId', AdminController.getUserById);
 
-// // POST /admin/users/create - Create new user
+// // POST /users/admin/create - Create new user
 // router.post('/create', createUser);
 
-// // PUT /admin/users/:id - Update user
+// // PUT /users/admin/:id - Update user
 // router.put('/:id', updateUser);
 
-// // DELETE /admin/users/:id - Delete user (super admin only)
+// // DELETE /users/admin/:id - Delete user (super admin only)
 // router.delete('/:id', authorize(['super_admin']), deleteUser);
 
 // // ===============================================
 // // USER PERMISSIONS & ROLES
 // // ===============================================
 
-// // PUT /admin/users/role - Update user role
+// // PUT /users/admin/role - Update user role
 // router.put('/role', updateUserRole);
 
-// // POST /admin/users/grant-posting-rights - Grant posting rights
+// // POST /users/admin/grant-posting-rights - Grant posting rights
 // router.post('/grant-posting-rights', grantPostingRights);
 
-// // POST /admin/users/ban - Ban user
+// // POST /users/admin/ban - Ban user
 // router.post('/ban', banUser);
 
-// // POST /admin/users/unban - Unban user  
+// // POST /users/admin/unban - Unban user  
 // router.post('/unban', unbanUser);
 
 // // ===============================================
 // // ID GENERATION
 // // ===============================================
 
-// // POST /admin/users/generate-bulk-ids - Generate bulk IDs
+// // POST /users/admin/generate-bulk-ids - Generate bulk IDs
 // router.post('/generate-bulk-ids', generateBulkIds);
 
-// // POST /admin/users/generate-converse-id - Generate converse ID
+// // POST /users/admin/generate-converse-id - Generate converse ID
 // router.post('/generate-converse-id', generateConverseId);
 
-// // POST /admin/users/generate-class-id - Generate class ID
+// // POST /users/admin/generate-class-id - Generate class ID
 // router.post('/generate-class-id', generateClassIdForAdmin);
 
 // // ===============================================
 // // IDENTITY MANAGEMENT
 // // ===============================================
 
-// // POST /admin/users/mask-identity - Mask user identity
+// // POST /users/admin/mask-identity - Mask user identity
 // router.post('/mask-identity', maskUserIdentity);
 
 // // ===============================================
 // // DATA EXPORT
 // // ===============================================
 
-// // GET /admin/users/export - Export user data (super admin only)
+// // GET /users/admin/export - Export user data (super admin only)
 // router.get('/export', authorize(['super_admin']), exportUserData);
 
-// // GET /admin/users/export/csv - Export users as CSV
+// // GET /users/admin/export/csv - Export users as CSV
 // router.get('/export/csv', authorize(['super_admin']), (req, res, next) => {
 //   req.exportFormat = 'csv';
 //   exportUserData(req, res, next);
 // });
 
-// // GET /admin/users/export/json - Export users as JSON
+// // GET /users/admin/export/json - Export users as JSON
 // router.get('/export/json', authorize(['super_admin']), (req, res, next) => {
 //   req.exportFormat = 'json';
 //   exportUserData(req, res, next);
@@ -591,20 +591,20 @@ export default router;
 // // MENTORS MANAGEMENT
 // // ===============================================
 
-// // GET /admin/users/mentors - Get all mentors
+// // GET /users/admin/mentors - Get all mentors
 // router.get('/mentors', getMentors);
 
-// // POST /admin/users/mentors/assign - Assign mentor role
+// // POST /users/admin/mentors/assign - Assign mentor role
 // router.post('/mentors/assign', assignMentorRole);
 
-// // DELETE /admin/users/mentors/:id/remove - Remove mentor role
+// // DELETE /users/admin/mentors/:id/remove - Remove mentor role
 // router.delete('/mentors/:id/remove', removeMentorRole);
 
 // // ===============================================
 // // TESTING ENDPOINTS
 // // ===============================================
 
-// // GET /admin/users/test - Admin user management test
+// // GET /users/admin/test - Admin user management test
 // router.get('/test', testAdminRoutes);
 
 // // ===============================================

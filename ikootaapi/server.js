@@ -115,10 +115,10 @@ const startServer = async () => {
       // USER ADMIN SYSTEM
       // ===============================================
       logger.info('🔧 User Admin System:');
-      logger.info(`   • Test endpoint: http://localhost:${PORT}/api/admin/users/test`);
-      logger.info(`   • User management: http://localhost:${PORT}/api/admin/users`);
-      logger.info(`   • User statistics: http://localhost:${PORT}/api/admin/users/stats`);
-      logger.info(`   • User search: http://localhost:${PORT}/api/admin/users/search`);
+      logger.info(`   • Test endpoint: http://localhost:${PORT}/api/users/admin/test`);
+      logger.info(`   • User management: http://localhost:${PORT}/api/users/admin`);
+      logger.info(`   • User statistics: http://localhost:${PORT}/api/users/admin/stats`);
+      logger.info(`   • User search: http://localhost:${PORT}/api/users/admin/search`);
       
       // ===============================================
       // CONTENT MANAGEMENT SYSTEM
@@ -165,13 +165,13 @@ const startServer = async () => {
       // SURVEY ADMIN SYSTEM
       // ===============================================
       logger.info('🔍 Survey Admin System:');
-      logger.info(`   • Test endpoint: http://localhost:${PORT}/api/admin/survey/test`);
-      logger.info(`   • Pending surveys: http://localhost:${PORT}/api/admin/survey/pending`);
-      logger.info(`   • Approve surveys: http://localhost:${PORT}/api/admin/survey/approve`);
-      logger.info(`   • Survey analytics: http://localhost:${PORT}/api/admin/survey/analytics`);
-      logger.info(`   • Question management: http://localhost:${PORT}/api/admin/survey/questions`);
-      logger.info(`   • Export data: http://localhost:${PORT}/api/admin/survey/export`);
-      logger.info(`   • Survey dashboard: http://localhost:${PORT}/api/admin/survey/dashboard`);
+      logger.info(`   • Test endpoint: http://localhost:${PORT}/api/survey/admin/test`);
+      logger.info(`   • Pending surveys: http://localhost:${PORT}/api/survey/admin/pending`);
+      logger.info(`   • Approve surveys: http://localhost:${PORT}/api/survey/admin/approve`);
+      logger.info(`   • Survey analytics: http://localhost:${PORT}/api/survey/admin/analytics`);
+      logger.info(`   • Question management: http://localhost:${PORT}/api/survey/admin/questions`);
+      logger.info(`   • Export data: http://localhost:${PORT}/api/survey/admin/export`);
+      logger.info(`   • Survey dashboard: http://localhost:${PORT}/api/survey/admin/dashboard`);
       
       // ===============================================
       // ✅ NEW: CLASS MANAGEMENT SYSTEM
@@ -189,14 +189,14 @@ const startServer = async () => {
       // ✅ NEW: CLASS ADMIN SYSTEM
       // ===============================================
       logger.info('📋 Class Admin System (NEW):');
-      logger.info(`   • Test endpoint: http://localhost:${PORT}/api/admin/classes/test`);
-      logger.info(`   • Create class: http://localhost:${PORT}/api/admin/classes`);
-      logger.info(`   • Manage classes: http://localhost:${PORT}/api/admin/classes`);
-      logger.info(`   • Update class: http://localhost:${PORT}/api/admin/classes/:id`);
-      logger.info(`   • Delete class: http://localhost:${PORT}/api/admin/classes/:id`);
-      logger.info(`   • Manage participants: http://localhost:${PORT}/api/admin/classes/:id/participants`);
-      logger.info(`   • Class analytics: http://localhost:${PORT}/api/admin/classes/analytics`);
-      logger.info(`   • Bulk operations: http://localhost:${PORT}/api/admin/classes/bulk-create`);
+      logger.info(`   • Test endpoint: http://localhost:${PORT}/api/classes/admin/test`);
+      logger.info(`   • Create class: http://localhost:${PORT}/api/classes/admin`);
+      logger.info(`   • Manage classes: http://localhost:${PORT}/api/classes/admin`);
+      logger.info(`   • Update class: http://localhost:${PORT}/api/classes/admin/:id`);
+      logger.info(`   • Delete class: http://localhost:${PORT}/api/classes/admin/:id`);
+      logger.info(`   • Manage participants: http://localhost:${PORT}/api/classes/admin/:id/participants`);
+      logger.info(`   • Class analytics: http://localhost:${PORT}/api/classes/admin/analytics`);
+      logger.info(`   • Bulk operations: http://localhost:${PORT}/api/classes/admin/bulk-create`);
       
       // ===============================================
       // SYSTEM HEALTH & DEBUG ENDPOINTS
@@ -222,10 +222,10 @@ const startServer = async () => {
       // ADMIN TEST ENDPOINTS (QUICK ACCESS)
       // ===============================================
       logger.info('🧪 Quick Admin Tests:');
-      logger.info(`   • User admin test: http://localhost:${PORT}/api/admin/users/test`);
+      logger.info(`   • User admin test: http://localhost:${PORT}/api/users/admin/test`);
       logger.info(`   • Membership admin test: http://localhost:${PORT}/api/membership/admin/test`);
-      logger.info(`   • Survey admin test: http://localhost:${PORT}/api/admin/survey/test`);
-      logger.info(`   • Class admin test: http://localhost:${PORT}/api/admin/classes/test`); // ✅ NEW
+      logger.info(`   • Survey admin test: http://localhost:${PORT}/api/survey/admin/test`);
+      logger.info(`   • Class admin test: http://localhost:${PORT}/api/classes/admin/test`); // ✅ NEW
       
       // ===============================================
       // ✅ CLASS SYSTEM INTEGRATION NOTES
@@ -420,10 +420,10 @@ startServer();
 //       // USER ADMIN SYSTEM
 //       // ===============================================
 //       logger.info('🔧 User Admin System:');
-//       logger.info(`   • Test endpoint: http://localhost:${PORT}/api/admin/users/test`);
-//       logger.info(`   • User management: http://localhost:${PORT}/api/admin/users`);
-//       logger.info(`   • User statistics: http://localhost:${PORT}/api/admin/users/stats`);
-//       logger.info(`   • User search: http://localhost:${PORT}/api/admin/users/search`);
+//       logger.info(`   • Test endpoint: http://localhost:${PORT}/api/users/admin/test`);
+//       logger.info(`   • User management: http://localhost:${PORT}/api/users/admin`);
+//       logger.info(`   • User statistics: http://localhost:${PORT}/api/users/admin/stats`);
+//       logger.info(`   • User search: http://localhost:${PORT}/api/users/admin/search`);
       
 //       // ===============================================
 //       // CONTENT MANAGEMENT SYSTEM
@@ -470,13 +470,13 @@ startServer();
 //       // ✅ NEW: SURVEY ADMIN SYSTEM
 //       // ===============================================
 //       logger.info('🔍 Survey Admin System (NEW):');
-//       logger.info(`   • Test endpoint: http://localhost:${PORT}/api/admin/survey/test`);
-//       logger.info(`   • Pending surveys: http://localhost:${PORT}/api/admin/survey/pending`);
-//       logger.info(`   • Approve surveys: http://localhost:${PORT}/api/admin/survey/approve`);
-//       logger.info(`   • Survey analytics: http://localhost:${PORT}/api/admin/survey/analytics`);
-//       logger.info(`   • Question management: http://localhost:${PORT}/api/admin/survey/questions`);
-//       logger.info(`   • Export data: http://localhost:${PORT}/api/admin/survey/export`);
-//       logger.info(`   • Survey dashboard: http://localhost:${PORT}/api/admin/survey/dashboard`);
+//       logger.info(`   • Test endpoint: http://localhost:${PORT}/api/survey/admin/test`);
+//       logger.info(`   • Pending surveys: http://localhost:${PORT}/api/survey/admin/pending`);
+//       logger.info(`   • Approve surveys: http://localhost:${PORT}/api/survey/admin/approve`);
+//       logger.info(`   • Survey analytics: http://localhost:${PORT}/api/survey/admin/analytics`);
+//       logger.info(`   • Question management: http://localhost:${PORT}/api/survey/admin/questions`);
+//       logger.info(`   • Export data: http://localhost:${PORT}/api/survey/admin/export`);
+//       logger.info(`   • Survey dashboard: http://localhost:${PORT}/api/survey/admin/dashboard`);
       
 //       // ===============================================
 //       // SYSTEM HEALTH & DEBUG ENDPOINTS
@@ -501,9 +501,9 @@ startServer();
 //       // ✅ ADMIN TEST ENDPOINTS (QUICK ACCESS)
 //       // ===============================================
 //       logger.info('🧪 Quick Admin Tests:');
-//       logger.info(`   • User admin test: http://localhost:${PORT}/api/admin/users/test`);
+//       logger.info(`   • User admin test: http://localhost:${PORT}/api/users/admin/test`);
 //       logger.info(`   • Membership admin test: http://localhost:${PORT}/api/membership/admin/test`);
-//       logger.info(`   • Survey admin test: http://localhost:${PORT}/api/admin/survey/test`); // ✅ NEW
+//       logger.info(`   • Survey admin test: http://localhost:${PORT}/api/survey/admin/test`); // ✅ NEW
       
 //       // ===============================================
 //       // ✅ SURVEY SYSTEM INTEGRATION NOTES
@@ -756,8 +756,8 @@ startServer();
       
 //       // ✅ Log admin-specific endpoints
 //       logger.info(`🔗 Admin API available at: http://localhost:${PORT}/api/admin`);
-//       logger.info(`🎓 Full membership review: http://localhost:${PORT}/api/admin/membership/applications`);
-//       logger.info(`📊 Admin dashboard stats: http://localhost:${PORT}/api/admin/membership/full-membership-stats`);
+//       logger.info(`🎓 Full membership review: http://localhost:${PORT}/api/membership/admin/applications`);
+//       logger.info(`📊 Admin dashboard stats: http://localhost:${PORT}/api/membership/admin/full-membership-stats`);
 //       logger.info(`👥 User management: http://localhost:${PORT}/api/admin/applications/stats`);
       
 //       // ✅ Development-only route documentation

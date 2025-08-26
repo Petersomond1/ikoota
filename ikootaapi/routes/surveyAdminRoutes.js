@@ -68,7 +68,7 @@ router.get('/test', (req, res) => {
       database_connected: 'Survey tables accessible',
       frontend_ready: 'Ready for SurveyControls.jsx'
     },
-    endpoint: '/api/admin/survey/test'
+    endpoint: '/api/survey/admin/test'
   });
 });
 
@@ -122,7 +122,7 @@ router.get('/health', async (req, res) => {
 // QUESTION MANAGEMENT
 // ===============================================
 
-// GET /api/admin/survey/questions - Get all survey questions
+// GET /api/survey/admin/questions - Get all survey questions
 router.get('/questions', async (req, res) => {
   try {
     // This would call your existing controller or implement inline
@@ -142,20 +142,20 @@ router.get('/questions', async (req, res) => {
   }
 });
 
-// POST /api/admin/survey/questions - Create new survey question
+// POST /api/survey/admin/questions - Create new survey question
 router.post('/questions', createSurveyQuestion);
 
-// PUT /api/admin/survey/questions - Update survey questions
+// PUT /api/survey/admin/questions - Update survey questions
 router.put('/questions', updateSurveyQuestions);
 
-// DELETE /api/admin/survey/questions/:id - Delete survey question
+// DELETE /api/survey/admin/questions/:id - Delete survey question
 router.delete('/questions/:id', deleteSurveyQuestion);
 
 // ===============================================
 // QUESTION LABELS MANAGEMENT
 // ===============================================
 
-// GET /api/admin/survey/question-labels - Get question labels
+// GET /api/survey/admin/question-labels - Get question labels
 router.get('/question-labels', async (req, res) => {
   try {
     res.json({
@@ -174,10 +174,10 @@ router.get('/question-labels', async (req, res) => {
   }
 });
 
-// PUT /api/admin/survey/question-labels - Update question labels
+// PUT /api/survey/admin/question-labels - Update question labels
 router.put('/question-labels', updateSurveyQuestionLabels);
 
-// POST /api/admin/survey/question-labels - Create new question label
+// POST /api/survey/admin/question-labels - Create new question label
 router.post('/question-labels', async (req, res) => {
   try {
     res.json({
@@ -200,19 +200,19 @@ router.post('/question-labels', async (req, res) => {
 // SURVEY REVIEW & APPROVAL
 // ===============================================
 
-// GET /api/admin/survey/pending - Get pending surveys
+// GET /api/survey/admin/pending - Get pending surveys
 router.get('/pending', getPendingSurveys);
 
-// GET /api/admin/survey/logs - Get survey logs
+// GET /api/survey/admin/logs - Get survey logs
 router.get('/logs', getSurveyLogs);
 
-// PUT /api/admin/survey/approve - Approve survey
+// PUT /api/survey/admin/approve - Approve survey
 router.put('/approve', approveSurvey);
 
-// PUT /api/admin/survey/reject - Reject survey
+// PUT /api/survey/admin/reject - Reject survey
 router.put('/reject', rejectSurvey);
 
-// PUT /api/admin/survey/:id/status - Update survey status
+// PUT /api/survey/admin/:id/status - Update survey status
 router.put('/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
@@ -244,7 +244,7 @@ router.put('/:id/status', async (req, res) => {
 // BULK OPERATIONS
 // ===============================================
 
-// POST /api/admin/survey/bulk-approve - Bulk approve surveys
+// POST /api/survey/admin/bulk-approve - Bulk approve surveys
 router.post('/bulk-approve', async (req, res) => {
   try {
     const { surveyIds, adminNotes } = req.body;
@@ -272,7 +272,7 @@ router.post('/bulk-approve', async (req, res) => {
   }
 });
 
-// POST /api/admin/survey/bulk-reject - Bulk reject surveys
+// POST /api/survey/admin/bulk-reject - Bulk reject surveys
 router.post('/bulk-reject', async (req, res) => {
   try {
     const { surveyIds, rejectionReason } = req.body;
@@ -311,13 +311,13 @@ router.post('/bulk-reject', async (req, res) => {
 // ANALYTICS & REPORTING
 // ===============================================
 
-// GET /api/admin/survey/analytics - Get survey analytics
+// GET /api/survey/admin/analytics - Get survey analytics
 router.get('/analytics', getSurveyAnalytics);
 
-// GET /api/admin/survey/stats - Get survey statistics
+// GET /api/survey/admin/stats - Get survey statistics
 router.get('/stats', getSurveyStats);
 
-// GET /api/admin/survey/completion-rates - Get completion rates
+// GET /api/survey/admin/completion-rates - Get completion rates
 router.get('/completion-rates', async (req, res) => {
   try {
     res.json({
@@ -336,7 +336,7 @@ router.get('/completion-rates', async (req, res) => {
   }
 });
 
-// GET /api/admin/survey/dashboard-stats - Dashboard statistics
+// GET /api/survey/admin/dashboard-stats - Dashboard statistics
 router.get('/dashboard-stats', async (req, res) => {
   try {
     // This would provide statistics for the admin dashboard
@@ -378,16 +378,16 @@ router.get('/dashboard-stats', async (req, res) => {
 // DATA EXPORT
 // ===============================================
 
-// GET /api/admin/survey/export - Export survey data (super admin only)
+// GET /api/survey/admin/export - Export survey data (super admin only)
 router.get('/export', canExportSurveyData, exportSurveyData);
 
-// GET /api/admin/survey/export/responses - Export survey responses
+// GET /api/survey/admin/export/responses - Export survey responses
 router.get('/export/responses', canExportSurveyData, (req, res, next) => {
   req.exportType = 'responses';
   exportSurveyData(req, res, next);
 });
 
-// GET /api/admin/survey/export/analytics - Export survey analytics
+// GET /api/survey/admin/export/analytics - Export survey analytics
 router.get('/export/analytics', canExportSurveyData, (req, res, next) => {
   req.exportType = 'analytics';
   exportSurveyData(req, res, next);
@@ -397,7 +397,7 @@ router.get('/export/analytics', canExportSurveyData, (req, res, next) => {
 // SURVEY CONFIGURATION
 // ===============================================
 
-// GET /api/admin/survey/config - Get survey configuration
+// GET /api/survey/admin/config - Get survey configuration
 router.get('/config', async (req, res) => {
   try {
     res.json({
@@ -444,7 +444,7 @@ router.get('/config', async (req, res) => {
   }
 });
 
-// PUT /api/admin/survey/config - Update survey configuration
+// PUT /api/survey/admin/config - Update survey configuration
 router.put('/config', async (req, res) => {
   try {
     res.json({
@@ -468,7 +468,7 @@ router.put('/config', async (req, res) => {
 // ADVANCED ADMIN FEATURES
 // ===============================================
 
-// GET /api/admin/survey/audit-logs - Get survey audit logs
+// GET /api/survey/admin/audit-logs - Get survey audit logs
 router.get('/audit-logs', async (req, res) => {
   try {
     const { page = 1, limit = 50, action = 'all', startDate, endDate } = req.query;
@@ -519,7 +519,7 @@ router.get('/audit-logs', async (req, res) => {
   }
 });
 
-// GET /api/admin/survey/system-metrics - Advanced system metrics
+// GET /api/survey/admin/system-metrics - Advanced system metrics
 router.get('/system-metrics', async (req, res) => {
   try {
     res.json({
@@ -572,14 +572,14 @@ router.get('/system-metrics', async (req, res) => {
 // FRONTEND INTEGRATION ENDPOINTS
 // ===============================================
 
-// GET /api/admin/survey/frontend-config - Configuration for SurveyControls.jsx
+// GET /api/survey/admin/frontend-config - Configuration for SurveyControls.jsx
 router.get('/frontend-config', (req, res) => {
   res.json({
     success: true,
     message: 'Frontend configuration for SurveyControls.jsx',
     config: {
       component_name: 'SurveyControls',
-      base_api_url: '/api/admin/survey',
+      base_api_url: '/api/survey/admin',
       features: {
         question_management: true,
         survey_approval: true,
@@ -602,13 +602,13 @@ router.get('/frontend-config', (req, res) => {
         can_manage_questions: req.user.role === 'admin' || req.user.role === 'super_admin'
       },
       api_endpoints: {
-        get_pending: 'GET /api/admin/survey/pending',
-        approve_survey: 'PUT /api/admin/survey/approve',
-        reject_survey: 'PUT /api/admin/survey/reject',
-        bulk_approve: 'POST /api/admin/survey/bulk-approve',
-        get_stats: 'GET /api/admin/survey/stats',
-        get_analytics: 'GET /api/admin/survey/analytics',
-        export_data: 'GET /api/admin/survey/export'
+        get_pending: 'GET /api/survey/admin/pending',
+        approve_survey: 'PUT /api/survey/admin/approve',
+        reject_survey: 'PUT /api/survey/admin/reject',
+        bulk_approve: 'POST /api/survey/admin/bulk-approve',
+        get_stats: 'GET /api/survey/admin/stats',
+        get_analytics: 'GET /api/survey/admin/analytics',
+        export_data: 'GET /api/survey/admin/export'
       }
     },
     integration_notes: {
@@ -625,7 +625,7 @@ router.get('/frontend-config', (req, res) => {
 // TESTING AND DEBUGGING
 // ===============================================
 
-// GET /api/admin/survey/debug - Debug information (development only)
+// GET /api/survey/admin/debug - Debug information (development only)
 router.get('/debug', async (req, res) => {
   if (process.env.NODE_ENV !== 'development') {
     return res.status(404).json({
@@ -669,12 +669,12 @@ router.get('/debug', async (req, res) => {
         ]
       },
       route_testing: {
-        test_endpoint: '/api/admin/survey/test',
-        health_check: '/api/admin/survey/health',
-        frontend_config: '/api/admin/survey/frontend-config'
+        test_endpoint: '/api/survey/admin/test',
+        health_check: '/api/survey/admin/health',
+        frontend_config: '/api/survey/admin/frontend-config'
       },
       integration_status: {
-        main_router: 'Integrated at /api/admin/survey',
+        main_router: 'Integrated at /api/survey/admin',
         auth_middleware: 'Working',
         database_connection: 'Active',
         controllers: 'Loaded'
@@ -793,299 +793,12 @@ router.use((error, req, res, next) => {
 if (process.env.NODE_ENV === 'development') {
   console.log('🔐 Admin survey routes loaded: question management, approval, analytics');
   console.log('🔗 Survey admin system integrated with main router');
-  console.log('📋 Available at /api/admin/survey/* endpoints');
+  console.log('📋 Available at /api/survey/admin/* endpoints');
   console.log('👥 Requires admin or super_admin role');
   console.log('🎯 Ready for SurveyControls.jsx integration');
 }
 
 export default router;
 
-
-
-
-
-
-
-// // ikootaapi/routes/surveyAdminRoutes.js
-// // ADMIN SURVEY MANAGEMENT ROUTES
-// // Administrative control over surveys and question labels
-
-// import express from 'express';
-// import { authenticate, authorize } from '../middlewares/auth.middleware.js';
-
-// // Import survey admin controllers
-// import {
-//   // Question management
-//   updateSurveyQuestions,
-//   updateSurveyQuestionLabels,
-//   createSurveyQuestion,
-//   deleteSurveyQuestion,
-  
-//   // Survey review and approval
-//   getSurveyLogs,
-//   approveSurvey,
-//   rejectSurvey,
-//   getPendingSurveys,
-  
-//   // Analytics and reporting
-//   getSurveyAnalytics,
-//   getSurveyStats,
-//   exportSurveyData
-// } from '../controllers/surveyAdminControllers.js';
-
-// const router = express.Router();
-
-// // ===============================================
-// // APPLY ADMIN AUTHENTICATION TO ALL ROUTES
-// // ===============================================
-// router.use(authenticate);
-// router.use(authorize(['admin', 'super_admin']));
-
-// // ===============================================
-// // QUESTION MANAGEMENT
-// // ===============================================
-
-// // GET /admin/survey/questions - Get all survey questions
-// router.get('/questions', async (req, res) => {
-//   res.json({
-//     success: true,
-//     message: 'Get survey questions endpoint - implement with survey admin service',
-//     timestamp: new Date().toISOString()
-//   });
-// });
-
-// // POST /admin/survey/questions - Create new survey question
-// router.post('/questions', createSurveyQuestion);
-
-// // PUT /admin/survey/questions - Update survey questions
-// router.put('/questions', updateSurveyQuestions);
-
-// // DELETE /admin/survey/questions/:id - Delete survey question
-// router.delete('/questions/:id', deleteSurveyQuestion);
-
-// // ===============================================
-// // QUESTION LABELS MANAGEMENT
-// // ===============================================
-
-// // GET /admin/survey/question-labels - Get question labels
-// router.get('/question-labels', async (req, res) => {
-//   res.json({
-//     success: true,
-//     message: 'Get question labels endpoint - implement with question labels service',
-//     timestamp: new Date().toISOString()
-//   });
-// });
-
-// // PUT /admin/survey/question-labels - Update question labels
-// router.put('/question-labels', updateSurveyQuestionLabels);
-
-// // POST /admin/survey/question-labels - Create new question label
-// router.post('/question-labels', async (req, res) => {
-//   res.json({
-//     success: true,
-//     message: 'Create question label endpoint - implement with question labels service',
-//     timestamp: new Date().toISOString()
-//   });
-// });
-
-// // ===============================================
-// // SURVEY REVIEW & APPROVAL
-// // ===============================================
-
-// // GET /admin/survey/pending - Get pending surveys
-// router.get('/pending', getPendingSurveys);
-
-// // GET /admin/survey/logs - Get survey logs
-// router.get('/logs', getSurveyLogs);
-
-// // PUT /admin/survey/approve - Approve survey
-// router.put('/approve', approveSurvey);
-
-// // PUT /admin/survey/reject - Reject survey
-// router.put('/reject', rejectSurvey);
-
-// // PUT /admin/survey/:id/status - Update survey status
-// router.put('/:id/status', async (req, res) => {
-//   const { status } = req.body;
-  
-//   if (status === 'approved') {
-//     req.surveyId = req.params.id;
-//     return approveSurvey(req, res);
-//   } else if (status === 'rejected') {
-//     req.surveyId = req.params.id;
-//     return rejectSurvey(req, res);
-//   }
-  
-//   res.status(400).json({
-//     success: false,
-//     error: 'Invalid status. Must be "approved" or "rejected"',
-//     timestamp: new Date().toISOString()
-//   });
-// });
-
-// // ===============================================
-// // ANALYTICS & REPORTING
-// // ===============================================
-
-// // GET /admin/survey/analytics - Get survey analytics
-// router.get('/analytics', getSurveyAnalytics);
-
-// // GET /admin/survey/stats - Get survey statistics
-// router.get('/stats', getSurveyStats);
-
-// // GET /admin/survey/completion-rates - Get completion rates
-// router.get('/completion-rates', async (req, res) => {
-//   res.json({
-//     success: true,
-//     message: 'Survey completion rates endpoint - implement with analytics service',
-//     timestamp: new Date().toISOString()
-//   });
-// });
-
-// // ===============================================
-// // DATA EXPORT
-// // ===============================================
-
-// // GET /admin/survey/export - Export survey data (super admin only)
-// router.get('/export', authorize(['super_admin']), exportSurveyData);
-
-// // GET /admin/survey/export/responses - Export survey responses
-// router.get('/export/responses', authorize(['super_admin']), (req, res, next) => {
-//   req.exportType = 'responses';
-//   exportSurveyData(req, res, next);
-// });
-
-// // GET /admin/survey/export/analytics - Export survey analytics
-// router.get('/export/analytics', authorize(['super_admin']), (req, res, next) => {
-//   req.exportType = 'analytics';
-//   exportSurveyData(req, res, next);
-// });
-
-// // ===============================================
-// // SURVEY CONFIGURATION
-// // ===============================================
-
-// // GET /admin/survey/config - Get survey configuration
-// router.get('/config', async (req, res) => {
-//   res.json({
-//     success: true,
-//     message: 'Survey configuration endpoint - implement with survey admin service',
-//     timestamp: new Date().toISOString()
-//   });
-// });
-
-// // PUT /admin/survey/config - Update survey configuration
-// router.put('/config', async (req, res) => {
-//   res.json({
-//     success: true,
-//     message: 'Update survey configuration endpoint - implement with survey admin service',
-//     timestamp: new Date().toISOString()
-//   });
-// });
-
-// // ===============================================
-// // TESTING ENDPOINTS
-// // ===============================================
-
-// // Survey admin test
-// router.get('/test', (req, res) => {
-//   res.json({
-//     success: true,
-//     message: 'Admin survey routes are working!',
-//     timestamp: new Date().toISOString(),
-//     user: {
-//       id: req.user?.id,
-//       username: req.user?.username,
-//       role: req.user?.role
-//     },
-//     availableOperations: [
-//       'question management',
-//       'survey approval',
-//       'analytics',
-//       'data export'
-//     ],
-//     endpoint: '/api/admin/survey/test'
-//   });
-// });
-
-// // ===============================================
-// // ERROR HANDLING
-// // ===============================================
-
-// // 404 handler
-// router.use('*', (req, res) => {
-//   res.status(404).json({
-//     success: false,
-//     error: 'Admin survey route not found',
-//     path: req.path,
-//     method: req.method,
-//     availableRoutes: {
-//       questionManagement: [
-//         'GET /questions - Get all survey questions',
-//         'POST /questions - Create new question',
-//         'PUT /questions - Update questions',
-//         'DELETE /questions/:id - Delete question'
-//       ],
-//       questionLabels: [
-//         'GET /question-labels - Get question labels',
-//         'PUT /question-labels - Update question labels',
-//         'POST /question-labels - Create question label'
-//       ],
-//       surveyReview: [
-//         'GET /pending - Get pending surveys',
-//         'GET /logs - Get survey logs',
-//         'PUT /approve - Approve survey',
-//         'PUT /reject - Reject survey',
-//         'PUT /:id/status - Update survey status'
-//       ],
-//       analytics: [
-//         'GET /analytics - Survey analytics',
-//         'GET /stats - Survey statistics',
-//         'GET /completion-rates - Completion rates'
-//       ],
-//       dataExport: [
-//         'GET /export - Export survey data (super admin)',
-//         'GET /export/responses - Export responses (super admin)',
-//         'GET /export/analytics - Export analytics (super admin)'
-//       ],
-//       configuration: [
-//         'GET /config - Get survey configuration',
-//         'PUT /config - Update survey configuration'
-//       ],
-//       testing: [
-//         'GET /test - Admin survey routes test'
-//       ]
-//     },
-//     adminNote: 'All routes require admin or super_admin role',
-//     timestamp: new Date().toISOString()
-//   });
-// });
-
-// // Error handler
-// router.use((error, req, res, next) => {
-//   console.error('❌ Admin survey route error:', {
-//     error: error.message,
-//     path: req.path,
-//     method: req.method,
-//     user: req.user?.username || 'unauthenticated',
-//     userRole: req.user?.role,
-//     timestamp: new Date().toISOString()
-//   });
-  
-//   res.status(error.statusCode || 500).json({
-//     success: false,
-//     error: error.message || 'Admin survey operation error',
-//     path: req.path,
-//     method: req.method,
-//     userRole: req.user?.role,
-//     timestamp: new Date().toISOString()
-//   });
-// });
-
-// if (process.env.NODE_ENV === 'development') {
-//   console.log('🔐 Admin survey routes loaded: question management, approval, analytics');
-// }
-
-// export default router;
 
 

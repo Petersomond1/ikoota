@@ -205,11 +205,11 @@ export const getSystemStatus = async (req, res) => {
                 userManagement: {
                     profile: '/api/users/* - Profile, settings, preferences',
                     status: '/api/user-status/* - Dashboard, status checks',
-                    admin: '/api/admin/users/* - Admin user management'
+                    admin: '/api/users/admin/* - Admin user management'
                 },
                 membershipSystem: {
                     applications: '/api/membership/* - Applications, status, workflow',
-                    admin: '/api/admin/membership/* - Application reviews, analytics'
+                    admin: '/api/membership/admin/* - Application reviews, analytics'
                 },
                 contentSystem: {
                     unified: '/api/content/* - Chats, teachings, comments unified',
@@ -222,11 +222,11 @@ export const getSystemStatus = async (req, res) => {
                 },
                 surveySystem: {
                     submissions: '/api/survey/* - Survey submissions, questions',
-                    admin: '/api/admin/survey/* - Question management, approval'
+                    admin: '/api/survey/admin/* - Question management, approval'
                 },
                 classSystem: {
                     enrollment: '/api/classes/* - Class enrollment, content access',
-                    admin: '/api/admin/classes/* - Class creation, management'
+                    admin: '/api/classes/admin/* - Class creation, management'
                 },
                 identitySystem: {
                     management: '/api/identity/* - Converse/mentor ID operations',
@@ -547,10 +547,10 @@ export const getAPIInformation = async (req, res) => {
                 '/api/classes/*': 'Class enrollment and access',
                 '/api/identity/*': 'Identity management (converse/mentor)',
                 '/api/communication/*': 'Email, SMS, notifications',
-                '/api/admin/users/*': 'Admin user management',
-                '/api/admin/membership/*': 'Admin membership reviews',
-                '/api/admin/survey/*': 'Admin survey management',
-                '/api/admin/classes/*': 'Admin class management',
+                '/api/users/admin/*': 'Admin user management',
+                '/api/membership/admin/*': 'Admin membership reviews',
+                '/api/survey/admin/*': 'Admin survey management',
+                '/api/classes/admin/*': 'Admin class management',
                 '/api/admin/identity/*': 'Admin identity control',
                 '/api/health': 'System health check',
                 '/api/info': 'API information',
@@ -562,10 +562,10 @@ export const getAPIInformation = async (req, res) => {
                 pattern: 'All admin routes use /api/admin/ prefix for clear separation',
                 security: 'Enhanced rate limiting and logging for administrative operations',
                 modules: [
-                    '/api/admin/users/* - User management and administration',
-                    '/api/admin/membership/* - Membership application reviews',
-                    '/api/admin/survey/* - Survey question management',
-                    '/api/admin/classes/* - Class creation and management',
+                    '/api/users/admin/* - User management and administration',
+                    '/api/membership/admin/* - Membership application reviews',
+                    '/api/survey/admin/* - Survey question management',
+                    '/api/classes/admin/* - Class creation and management',
                     '/api/admin/identity/* - Identity administration and verification'
                 ]
             },

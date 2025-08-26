@@ -3651,12 +3651,12 @@ export default {
 
 
 // // ===============================================
-// // CLASS MANAGEMENT SERVICES (Routes: GET, POST, PUT, DELETE /admin/classes)
+// // CLASS MANAGEMENT SERVICES (Routes: GET, POST, PUT, DELETE /classes/admin)
 // // ===============================================
 
 // /**
 //  * Get comprehensive class management data for admin
-//  * Route: GET /admin/classes
+//  * Route: GET /classes/admin
 //  */
 // export const getClassManagementService = async (filters = {}, options = {}) => {
 //   try {
@@ -3822,7 +3822,7 @@ export default {
 
 // /**
 //  * Get class participants (admin view)
-//  * Route: GET /admin/classes/:id/participants
+//  * Route: GET /classes/admin/:id/participants
 //  */
 // export const getClassParticipantsAdminService = async (classId, options = {}) => {
 //   try {
@@ -3942,7 +3942,7 @@ export default {
 
 // /**
 //  * Add participant to class
-//  * Route: POST /admin/classes/:id/participants/add
+//  * Route: POST /classes/admin/:id/participants/add
 //  */
 
 // export const addParticipantToClassService = async (classId, userData, adminUserId) => {

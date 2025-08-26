@@ -488,9 +488,9 @@ const ClassEnrollmentSection = ({ user }) => {
 
       {/* Popular Public Classes */}
       {publicClassesData.length > 0 && (
-        <div className="public-classes-section">
-          <h4>Popular Public Classes</h4>
+        // <div className="public-classes-section">
           <div className="public-classes">
+             <span>Popular Public Classes</span>
             {publicClassesData.slice(0, 3).map(cls => (
               <div key={cls.class_id} className="class-card public">
                 <div className="public-badge">Public</div>
@@ -510,7 +510,7 @@ const ClassEnrollmentSection = ({ user }) => {
               </div>
             ))}
           </div>
-        </div>
+        // </div>
       )}
     </div>
   );
@@ -1154,19 +1154,22 @@ const UserDashboard = () => {
           status={dashboardData?.membershipStatus || user} 
         />
         
-        <ClassEnrollmentSection user={user} />
-        
-        <ProgressTrackingSection user={user} />
-        
         <QuickActions 
           actions={dashboardData?.quickActions}
           user={user}
         />
-        
+  
         <RecentActivities 
           activities={dashboardData?.recentActivities} 
         />
       </div>
+
+        <ProgressTrackingSection user={user} />
+        {/* <MediaGallerySection user={user} /> */}
+
+        <ClassEnrollmentSection user={user} />
+        
+      
 
       {(dashboardData?.notifications?.length > 0) && (
         <NotificationsSection 

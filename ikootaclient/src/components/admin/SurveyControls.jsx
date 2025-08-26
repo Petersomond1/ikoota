@@ -21,7 +21,7 @@ const SurveyControls = () => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Mock responses based on endpoint
-    if (endpoint.includes('/admin/survey/pending')) {
+    if (endpoint.includes('/survey/admin/pending')) {
       return {
         data: {
           success: true,
@@ -67,7 +67,7 @@ const SurveyControls = () => {
           ]
         }
       };
-    } else if (endpoint.includes('/admin/survey/stats')) {
+    } else if (endpoint.includes('/survey/admin/stats')) {
       return {
         data: {
           success: true,
@@ -79,7 +79,7 @@ const SurveyControls = () => {
           }
         }
       };
-    } else if (endpoint.includes('/admin/survey/question-labels')) {
+    } else if (endpoint.includes('/survey/admin/question-labels')) {
       return {
         data: {
           success: true,
@@ -131,7 +131,7 @@ const SurveyControls = () => {
       if (filterCategory !== 'all') params.append('category', filterCategory);
       if (searchTerm) params.append('search', searchTerm);
       
-      const response = await mockApiCall(`/admin/survey/pending?${params}`);
+      const response = await mockApiCall(`/survey/admin/pending?${params}`);
       console.log('✅ Surveys response:', response.data);
       
       if (response.data?.success && response.data?.data) {
@@ -155,7 +155,7 @@ const SurveyControls = () => {
     try {
       console.log('🔍 Fetching survey stats');
       
-      const response = await mockApiCall('/admin/survey/stats');
+      const response = await mockApiCall('/survey/admin/stats');
       console.log('✅ Survey stats response:', response.data);
       
       if (response.data?.success && response.data?.data) {
@@ -176,7 +176,7 @@ const SurveyControls = () => {
 
   const fetchQuestionLabels = async () => {
     try {
-      const response = await mockApiCall('/admin/survey/question-labels');
+      const response = await mockApiCall('/survey/admin/question-labels');
       console.log('✅ Question labels response:', response.data);
       
       if (response.data?.success && response.data?.data) {
@@ -218,7 +218,7 @@ const SurveyControls = () => {
         setIsLoading(true);
         console.log('🔍 Reviewing survey:', { surveyId, status, notes });
         
-        const response = await mockApiCall('/admin/survey/approve', {
+        const response = await mockApiCall('/survey/admin/approve', {
           method: 'PUT',
           body: {
             surveyId, 
@@ -258,7 +258,7 @@ const SurveyControls = () => {
         setIsLoading(true);
         console.log('🔍 Bulk reviewing surveys:', { selectedSurveys, status, notes });
         
-        const response = await mockApiCall('/admin/survey/bulk-approve', {
+        const response = await mockApiCall('/survey/admin/bulk-approve', {
           method: 'POST',
           body: {
             surveyIds: selectedSurveys, 
@@ -295,7 +295,7 @@ const SurveyControls = () => {
         throw new Error('Please provide at least one question label before saving');
       }
       
-      const response = await mockApiCall('/admin/survey/question-labels', {
+      const response = await mockApiCall('/survey/admin/question-labels', {
         method: 'PUT',
         body: { labels }
       });

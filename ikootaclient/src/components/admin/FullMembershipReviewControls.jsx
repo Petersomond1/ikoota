@@ -40,17 +40,17 @@ const FullMembershipReviewControls = () => {
       
       // Test 1: Simple admin test endpoint
       console.log('🧪 Testing admin test endpoint...');
-      const testResponse = await api.get('/admin/membership/test');
+      const testResponse = await api.get('/membership/admin/test');
       console.log('✅ Admin test response:', testResponse.data);
 
       // Test 2: Applications endpoint
       console.log('🧪 Testing applications endpoint...');
-      const appsResponse = await api.get('/admin/membership/applications?status=pending');
+      const appsResponse = await api.get('/membership/admin/applications?status=pending');
       console.log('✅ Applications response:', appsResponse.data);
 
       // Test 3: Stats endpoint
       console.log('🧪 Testing stats endpoint...');
-      const statsResponse = await api.get('/admin/membership/full-membership-stats');
+      const statsResponse = await api.get('/membership/admin/full-membership-stats');
       console.log('✅ Stats response:', statsResponse.data);
 
     } catch (error) {
@@ -83,7 +83,7 @@ const FullMembershipReviewControls = () => {
       try {
         console.log('🔍 QUERY: Fetching applications with status:', filterStatus);
         
-        const response = await api.get(`/admin/membership/applications?status=${filterStatus}`);
+        const response = await api.get(`/membership/admin/applications?status=${filterStatus}`);
         console.log("✅ SUCCESS: Applications response:", response.data);
         
         // Handle your backend response structure
@@ -118,7 +118,7 @@ const FullMembershipReviewControls = () => {
       try {
         console.log('🔍 QUERY: Fetching membership stats');
         
-        const response = await api.get('/admin/membership/full-membership-stats');
+        const response = await api.get('/membership/admin/full-membership-stats');
         console.log("✅ STATS SUCCESS: Response:", response.data);
         
         // Handle your backend response structure
@@ -169,7 +169,7 @@ const FullMembershipReviewControls = () => {
     mutationFn: async ({ applicationId, decision, notes }) => {
       console.log('🔍 REVIEW: Reviewing application:', { applicationId, decision, notes });
       
-      const response = await api.put(`/admin/membership/applications/${applicationId}/review`, {
+      const response = await api.put(`/membership/admin/applications/${applicationId}/review`, {
         status: decision, 
         adminNotes: notes || ''
       });
@@ -193,7 +193,7 @@ const FullMembershipReviewControls = () => {
     mutationFn: async ({ applicationIds, decision, notes }) => {
       console.log('🔍 BULK: Bulk reviewing applications:', { applicationIds, decision, notes });
       
-      const response = await api.post('/admin/membership/applications/bulk-review', {
+      const response = await api.post('/membership/admin/applications/bulk-review', {
         applicationIds, 
         decision, 
         notes: notes || '' 
@@ -846,17 +846,17 @@ export default FullMembershipReviewControls;
 //     try {
 //       // Test 1: Simple admin test endpoint
 //       console.log('🧪 Testing admin test endpoint...');
-//       const testResponse = await makeApiCall('/admin/membership/test');
+//       const testResponse = await makeApiCall('/membership/admin/test');
 //       console.log('✅ Admin test response:', testResponse.data);
 
 //       // Test 2: Applications endpoint
 //       console.log('🧪 Testing applications endpoint...');
-//       const appsResponse = await makeApiCall('/admin/membership/applications?status=pending');
+//       const appsResponse = await makeApiCall('/membership/admin/applications?status=pending');
 //       console.log('✅ Applications response:', appsResponse.data);
 
 //       // Test 3: Stats endpoint
 //       console.log('🧪 Testing stats endpoint...');
-//       const statsResponse = await makeApiCall('/admin/membership/full-membership-stats');
+//       const statsResponse = await makeApiCall('/membership/admin/full-membership-stats');
 //       console.log('✅ Stats response:', statsResponse.data);
 
 //     } catch (error) {
@@ -890,7 +890,7 @@ export default FullMembershipReviewControls;
 //         console.log('🔍 QUERY: Fetching applications with status:', filterStatus);
         
 //         // ✅ DIRECT CALL to your backend endpoint
-//         const response = await makeApiCall(`/admin/membership/applications?status=${filterStatus}`);
+//         const response = await makeApiCall(`/membership/admin/applications?status=${filterStatus}`);
 //         console.log("✅ SUCCESS: Applications response:", response);
         
 //         // Handle your backend response structure
@@ -926,7 +926,7 @@ export default FullMembershipReviewControls;
 //         console.log('🔍 QUERY: Fetching membership stats');
         
 //         // ✅ DIRECT CALL to your backend endpoint
-//         const response = await makeApiCall('/admin/membership/full-membership-stats');
+//         const response = await makeApiCall('/membership/admin/full-membership-stats');
 //         console.log("✅ STATS SUCCESS: Response:", response);
         
 //         // Handle your backend response structure
@@ -978,7 +978,7 @@ export default FullMembershipReviewControls;
 //     mutationFn: async ({ applicationId, decision, notes }) => {
 //       console.log('🔍 REVIEW: Reviewing application:', { applicationId, decision, notes });
       
-//       const response = await makeApiCall(`/admin/membership/applications/${applicationId}/review`, {
+//       const response = await makeApiCall(`/membership/admin/applications/${applicationId}/review`, {
 //         method: 'PUT',
 //         body: { 
 //           status: decision, 
@@ -1005,7 +1005,7 @@ export default FullMembershipReviewControls;
 //     mutationFn: async ({ applicationIds, decision, notes }) => {
 //       console.log('🔍 BULK: Bulk reviewing applications:', { applicationIds, decision, notes });
       
-//       const response = await makeApiCall('/admin/membership/applications/bulk-review', {
+//       const response = await makeApiCall('/membership/admin/applications/bulk-review', {
 //         method: 'POST',
 //         body: { 
 //           applicationIds, 
@@ -1682,17 +1682,17 @@ export default FullMembershipReviewControls;
 //     try {
 //       // Test 1: Simple admin test endpoint
 //       console.log('🧪 Testing admin test endpoint...');
-//       const testResponse = await api.get('/admin/membership/test');
+//       const testResponse = await api.get('/membership/admin/test');
 //       console.log('✅ Admin test response:', testResponse.data);
 
 //       // Test 2: Applications endpoint
 //       console.log('🧪 Testing applications endpoint...');
-//       const appsResponse = await api.get('/admin/membership/applications?status=pending');
+//       const appsResponse = await api.get('/membership/admin/applications?status=pending');
 //       console.log('✅ Applications response:', appsResponse.data);
 
 //       // Test 3: Stats endpoint
 //       console.log('🧪 Testing stats endpoint...');
-//       const statsResponse = await api.get('/admin/membership/full-membership-stats');
+//       const statsResponse = await api.get('/membership/admin/full-membership-stats');
 //       console.log('✅ Stats response:', statsResponse.data);
 
 //     } catch (error) {
@@ -1728,9 +1728,9 @@ export default FullMembershipReviewControls;
         
 //         // ✅ Try multiple endpoint patterns to find the working one
 //         const endpoints = [
-//           `/admin/membership/applications?status=${filterStatus}`,
-//           `/api/admin/membership/applications?status=${filterStatus}`,
-//           `/admin/membership/full-membership-applications?status=${filterStatus}`
+//           `/membership/admin/applications?status=${filterStatus}`,
+//           `/api/membership/admin/applications?status=${filterStatus}`,
+//           `/membership/admin/full-membership-applications?status=${filterStatus}`
 //         ];
 
 //         let lastError;
@@ -1782,9 +1782,9 @@ export default FullMembershipReviewControls;
         
 //         // ✅ Try multiple endpoint patterns for stats
 //         const endpoints = [
-//           '/admin/membership/full-membership-stats',
-//           '/api/admin/membership/full-membership-stats',
-//           '/admin/membership/stats'
+//           '/membership/admin/full-membership-stats',
+//           '/api/membership/admin/full-membership-stats',
+//           '/membership/admin/stats'
 //         ];
 
 //         let lastError;
@@ -1850,8 +1850,8 @@ export default FullMembershipReviewControls;
 //       console.log('🔍 REVIEW: Reviewing application:', { applicationId, decision, notes });
       
 //       const endpoints = [
-//         `/admin/membership/review/${applicationId}`,
-//         `/admin/membership/full-membership/review/${applicationId}`
+//         `/membership/admin/review/${applicationId}`,
+//         `/membership/admin/full-membership/review/${applicationId}`
 //       ];
 
 //       let lastError;
@@ -1892,8 +1892,8 @@ export default FullMembershipReviewControls;
 //       console.log('🔍 BULK: Bulk reviewing applications:', { applicationIds, decision, notes });
       
 //       const endpoints = [
-//         '/admin/membership/bulk-review',
-//         '/admin/membership/full-membership/bulk-review'
+//         '/membership/admin/bulk-review',
+//         '/membership/admin/full-membership/bulk-review'
 //       ];
 
 //       let lastError;

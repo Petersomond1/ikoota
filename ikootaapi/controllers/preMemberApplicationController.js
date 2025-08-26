@@ -151,7 +151,7 @@ export const getUserDashboard = async (req, res) => {
       quickActions.push(
         { type: 'primary', text: 'Admin Panel', link: '/admin' },
         { type: 'info', text: 'Applications', link: '/admin/applications' },
-        { type: 'success', text: 'User Management', link: '/admin/users' }
+        { type: 'success', text: 'User Management', link: '/users/admin' }
       );
     } else {
       quickActions.push({ type: 'primary', text: 'View Profile', link: '/profile' });

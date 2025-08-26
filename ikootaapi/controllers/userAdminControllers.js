@@ -42,7 +42,7 @@ import { generateUniqueClassId } from '../utils/idGenerator.js';
 
 /**
  * Get all users (Admin)
- * GET /api/admin/users
+ * GET /api/users/admin
  */
 export const getAllUsers = async (req, res) => {
   try {
@@ -92,7 +92,7 @@ export const getAllUsers = async (req, res) => {
 
 /**
  * Get specific user by ID (Admin)
- * GET /api/admin/users/:id
+ * GET /api/users/admin/:id
  */
 export const getUserById = async (req, res) => {
   try {
@@ -130,7 +130,7 @@ export const getUserById = async (req, res) => {
 
 /**
  * Create new user (Admin)
- * POST /api/admin/users/create
+ * POST /api/users/admin/create
  */
 export const createUser = async (req, res) => {
   try {
@@ -164,7 +164,7 @@ export const createUser = async (req, res) => {
 
 /**
  * Update user (Admin)
- * PUT /api/admin/users/:id
+ * PUT /api/users/admin/:id
  */
 export const updateUser = async (req, res) => {
   try {
@@ -215,7 +215,7 @@ export const updateUser = async (req, res) => {
 
 /**
  * Delete user (Super Admin only)
- * DELETE /api/admin/users/:id
+ * DELETE /api/users/admin/:id
  */
 export const deleteUser = async (req, res) => {
   try {
@@ -258,7 +258,7 @@ export const deleteUser = async (req, res) => {
 
 /**
  * Search users (Admin)
- * GET /api/admin/users/search
+ * GET /api/users/admin/search
  */
 export const searchUsers = async (req, res) => {
   try {
@@ -306,7 +306,7 @@ export const searchUsers = async (req, res) => {
 
 /**
  * Update user role (Admin)
- * PUT /api/admin/users/role
+ * PUT /api/users/admin/role
  */
 export const updateUserRole = async (req, res) => {
   try {
@@ -356,7 +356,7 @@ export const updateUserRole = async (req, res) => {
 
 /**
  * Grant posting rights to user (Admin)
- * POST /api/admin/users/grant-posting-rights
+ * POST /api/users/admin/grant-posting-rights
  */
 export const grantPostingRights = async (req, res) => {
   try {
@@ -405,7 +405,7 @@ export const grantPostingRights = async (req, res) => {
 
 /**
  * Ban user (Admin)
- * POST /api/admin/users/ban
+ * POST /api/users/admin/ban
  */
 export const banUser = async (req, res) => {
   try {
@@ -447,7 +447,7 @@ export const banUser = async (req, res) => {
 
 /**
  * Unban user (Admin)
- * POST /api/admin/users/unban
+ * POST /api/users/admin/unban
  */
 export const unbanUser = async (req, res) => {
   try {
@@ -492,7 +492,7 @@ export const unbanUser = async (req, res) => {
 
 /**
  * Generate bulk IDs (Admin)
- * POST /api/admin/users/generate-bulk-ids
+ * POST /api/users/admin/generate-bulk-ids
  */
 export const generateBulkIds = async (req, res) => {
   try {
@@ -521,7 +521,7 @@ export const generateBulkIds = async (req, res) => {
 
 /**
  * Generate converse ID (Admin)
- * POST /api/admin/users/generate-converse-id
+ * POST /api/users/admin/generate-converse-id
  */
 export const generateConverseId = async (req, res) => {
   try {
@@ -562,7 +562,7 @@ export const generateConverseId = async (req, res) => {
 
 /**
  * Generate class ID (Admin)
- * POST /api/admin/users/generate-class-id
+ * POST /api/users/admin/generate-class-id
  */
 export const generateClassIdForAdmin = async (req, res) => {
   try {
@@ -622,7 +622,7 @@ export const generateClassIdForAdmin = async (req, res) => {
 
 /**
  * Mask user identity (Admin)
- * POST /api/admin/users/mask-identity
+ * POST /api/users/admin/mask-identity
  */
 export const maskUserIdentity = async (req, res) => {
   try {
@@ -667,7 +667,7 @@ export const maskUserIdentity = async (req, res) => {
 
 /**
  * Export user data (Super Admin only)
- * GET /api/admin/users/export
+ * GET /api/users/admin/export
  */
 export const exportUserData = async (req, res) => {
   try {
@@ -729,7 +729,7 @@ export const exportUserData = async (req, res) => {
 
 /**
  * Get user statistics (Admin)
- * GET /api/admin/users/stats
+ * GET /api/users/admin/stats
  */
 export const getUserStatsAdmin = async (req, res) => {
   try {
@@ -761,7 +761,7 @@ export const getUserStatsAdmin = async (req, res) => {
 
 /**
  * Get all mentors (Admin)
- * GET /api/admin/users/mentors
+ * GET /api/users/admin/mentors
  */
 export const getMentors = async (req, res) => {
   try {
@@ -792,7 +792,7 @@ export const getMentors = async (req, res) => {
 
 /**
  * Assign mentor role (Admin)
- * POST /api/admin/users/mentors/assign
+ * POST /api/users/admin/mentors/assign
  */
 export const assignMentorRole = async (req, res) => {
   try {
@@ -837,7 +837,7 @@ export const assignMentorRole = async (req, res) => {
 
 /**
  * Remove mentor role (Admin)
- * DELETE /api/admin/users/mentors/:id/remove
+ * DELETE /api/users/admin/mentors/:id/remove
  */
 export const removeMentorRole = async (req, res) => {
   try {
@@ -889,7 +889,7 @@ export const removeMentorRole = async (req, res) => {
 
 /**
  * Admin user routes test
- * GET /api/admin/users/test
+ * GET /api/users/admin/test
  */
 export const testAdminRoutes = (req, res) => {
   const testData = {

@@ -47,14 +47,14 @@ app.get('/health', async (req, res) => {
       routes_mounted: {
         auth: 'mounted at /api/auth ✅',
         users: 'consolidated and mounted at /api/users ✅',
-        user_admin: 'mounted at /api/admin/users ✅',
+        user_admin: 'mounted at /api/users/admin ✅',
         content: 'mounted at /api/content ✅',
         membership: 'mounted at /api/membership ✅',
         membership_admin: 'mounted at /api/membership/admin ✅',
         survey: 'mounted at /api/survey ✅',
-        survey_admin: 'mounted at /api/admin/survey ✅',
+        survey_admin: 'mounted at /api/survey/admin ✅',
         class_management: 'mounted at /api/classes ✅', // ✅ NEW
-        class_admin: 'mounted at /api/admin/classes ✅' // ✅ NEW
+        class_admin: 'mounted at /api/classes/admin ✅' // ✅ NEW
       },
       content_system: {
         chats: 'Multi-step creation + management ✅',
@@ -162,7 +162,7 @@ app.get('/api/health', async (req, res) => {
         status: 'GET /api/survey/status - Check survey status',
         drafts: 'GET/POST /api/survey/drafts - Manage survey drafts',
         history: 'GET /api/survey/history - Survey submission history',
-        admin: 'GET/POST /api/admin/survey/* - Survey administration'
+        admin: 'GET/POST /api/survey/admin/* - Survey administration'
       },
       // ✅ NEW: Class management endpoints
       class_endpoints: {
@@ -172,15 +172,15 @@ app.get('/api/health', async (req, res) => {
         leave: 'POST /api/classes/:id/leave - Leave class',
         members: 'GET /api/classes/:id/members - Get class members',
         my_classes: 'GET /api/classes/my-classes - Get user classes',
-        admin: 'GET/POST /api/admin/classes/* - Class administration'
+        admin: 'GET/POST /api/classes/admin/* - Class administration'
       },
       user_admin_endpoints: {
-        users: 'GET /api/admin/users - get all users',
-        create: 'POST /api/admin/users/create - create user',
-        search: 'GET /api/admin/users/search - search users',
-        stats: 'GET /api/admin/users/stats - user statistics',
-        roles: 'PUT /api/admin/users/role - manage roles',
-        permissions: 'POST /api/admin/users/ban - user permissions'
+        users: 'GET /api/users/admin - get all users',
+        create: 'POST /api/users/admin/create - create user',
+        search: 'GET /api/users/admin/search - search users',
+        stats: 'GET /api/users/admin/stats - user statistics',
+        roles: 'PUT /api/users/admin/role - manage roles',
+        permissions: 'POST /api/users/admin/ban - user permissions'
       },
       features: {
         multi_step_forms: '7-step chats, 8-step teachings ✅',
@@ -233,15 +233,15 @@ try {
   console.log('   • GET    /api/users/status - User status');
   console.log('');
   console.log('   🔧 USER ADMIN SYSTEM:');
-  console.log('   • GET    /api/admin/users/test - Admin test');
-  console.log('   • GET    /api/admin/users - Get all users');
-  console.log('   • GET    /api/admin/users/search - Search users');
-  console.log('   • GET    /api/admin/users/stats - User statistics');
-  console.log('   • POST   /api/admin/users/create - Create user');
-  console.log('   • PUT    /api/admin/users/:id - Update user');
-  console.log('   • PUT    /api/admin/users/role - Update user role');
-  console.log('   • POST   /api/admin/users/ban - Ban user');
-  console.log('   • POST   /api/admin/users/unban - Unban user');
+  console.log('   • GET    /api/users/admin/test - Admin test');
+  console.log('   • GET    /api/users/admin - Get all users');
+  console.log('   • GET    /api/users/admin/search - Search users');
+  console.log('   • GET    /api/users/admin/stats - User statistics');
+  console.log('   • POST   /api/users/admin/create - Create user');
+  console.log('   • PUT    /api/users/admin/:id - Update user');
+  console.log('   • PUT    /api/users/admin/role - Update user role');
+  console.log('   • POST   /api/users/admin/ban - Ban user');
+  console.log('   • POST   /api/users/admin/unban - Unban user');
   console.log('');
   console.log('   📚 CONTENT MANAGEMENT SYSTEM:');
   console.log('   • GET    /api/content/chats - Get chats');
@@ -277,12 +277,12 @@ try {
   console.log('   • GET    /api/survey/history - Survey history');
   console.log('');
   console.log('   🔍 SURVEY ADMIN SYSTEM:');
-  console.log('   • GET    /api/admin/survey/test - Admin test');
-  console.log('   • GET    /api/admin/survey/pending - Pending surveys');
-  console.log('   • PUT    /api/admin/survey/approve - Approve surveys');
-  console.log('   • GET    /api/admin/survey/analytics - Survey analytics');
-  console.log('   • GET    /api/admin/survey/questions - Manage questions');
-  console.log('   • GET    /api/admin/survey/export - Export data');
+  console.log('   • GET    /api/survey/admin/test - Admin test');
+  console.log('   • GET    /api/survey/admin/pending - Pending surveys');
+  console.log('   • PUT    /api/survey/admin/approve - Approve surveys');
+  console.log('   • GET    /api/survey/admin/analytics - Survey analytics');
+  console.log('   • GET    /api/survey/admin/questions - Manage questions');
+  console.log('   • GET    /api/survey/admin/export - Export data');
   console.log('');
   console.log('   🎓 CLASS MANAGEMENT SYSTEM (NEW):'); // ✅ NEW
   console.log('   • GET    /api/classes - Get all classes');
@@ -293,13 +293,13 @@ try {
   console.log('   • GET    /api/classes/my-classes - Get user classes');
   console.log('');
   console.log('   📋 CLASS ADMIN SYSTEM (NEW):'); // ✅ NEW
-  console.log('   • GET    /api/admin/classes/test - Admin test');
-  console.log('   • GET    /api/admin/classes - Get all classes (admin)');
-  console.log('   • POST   /api/admin/classes - Create class');
-  console.log('   • PUT    /api/admin/classes/:id - Update class');
-  console.log('   • DELETE /api/admin/classes/:id - Delete class');
-  console.log('   • GET    /api/admin/classes/analytics - Class analytics');
-  console.log('   • POST   /api/admin/classes/bulk-create - Bulk operations');
+  console.log('   • GET    /api/classes/admin/test - Admin test');
+  console.log('   • GET    /api/classes/admin - Get all classes (admin)');
+  console.log('   • POST   /api/classes/admin - Create class');
+  console.log('   • PUT    /api/classes/admin/:id - Update class');
+  console.log('   • DELETE /api/classes/admin/:id - Delete class');
+  console.log('   • GET    /api/classes/admin/analytics - Class analytics');
+  console.log('   • POST   /api/classes/admin/bulk-create - Bulk operations');
   console.log('   ===============================================');
 } catch (error) {
   console.error('❌ Failed to mount main router:', error.message);
@@ -486,14 +486,14 @@ app.get('/api/info', (req, res) => {
     available_routes: {
       authentication: '/api/auth/* (✅ WORKING)',
       user_management: '/api/users/* (✅ 25+ endpoints)',
-      user_administration: '/api/admin/users/* (✅ 15+ endpoints)',
+      user_administration: '/api/users/admin/* (✅ 15+ endpoints)',
       content_system: '/api/content/* (✅ 50+ endpoints)',
       membership_system: '/api/membership/* (✅ 40+ endpoints)',
       membership_administration: '/api/membership/admin/* (✅ 10+ endpoints)',
       survey_system: '/api/survey/* (✅ 15+ endpoints)',
-      survey_administration: '/api/admin/survey/* (✅ 25+ endpoints)',
+      survey_administration: '/api/survey/admin/* (✅ 25+ endpoints)',
       class_system: '/api/classes/* (✅ 15+ endpoints)', // ✅ NEW
-      class_administration: '/api/admin/classes/* (✅ 25+ endpoints)', // ✅ NEW
+      class_administration: '/api/classes/admin/* (✅ 25+ endpoints)', // ✅ NEW
       legacy_compatibility: '/api/user-status/* (✅ PRESERVED)'
     },
     database_compatibility: {
@@ -516,11 +516,11 @@ app.get('/api/info', (req, res) => {
       membership_status: 'GET /api/membership/status (test membership system)',
       membership_dashboard: 'GET /api/membership/dashboard (comprehensive dashboard)',
       membership_admin_panel: 'GET /api/membership/admin/overview (admin membership panel)',
-      user_admin_panel: 'GET /api/admin/users/stats (admin user panel)',
+      user_admin_panel: 'GET /api/users/admin/stats (admin user panel)',
       survey_system: 'GET /api/survey/test (test survey system)',
-      survey_admin_panel: 'GET /api/admin/survey/test (admin survey panel)',
+      survey_admin_panel: 'GET /api/survey/admin/test (admin survey panel)',
       class_system: 'GET /api/classes/test (test class system)', // ✅ NEW
-      class_admin_panel: 'GET /api/admin/classes/test (admin class panel)', // ✅ NEW
+      class_admin_panel: 'GET /api/classes/admin/test (admin class panel)', // ✅ NEW
       survey_integration: 'GET /api/test-survey-integration (integration test)',
       class_integration: 'GET /api/test-class-integration (class integration test)' // ✅ NEW
     }
@@ -659,13 +659,13 @@ app.get('/api/debug', authenticate, async (req, res) => {
         class_listing: 'GET /api/classes (class listing)', // ✅ NEW
         class_enrollment: 'POST /api/classes/:id/join (join class)', // ✅ NEW
         class_status: 'GET /api/classes/my-classes (user classes)', // ✅ NEW
-        user_admin_panel: 'GET /api/admin/users/stats (user administration)',
+        user_admin_panel: 'GET /api/users/admin/stats (user administration)',
         membership_admin_panel: 'GET /api/membership/admin/overview (membership admin)',
-        survey_admin_panel: 'GET /api/admin/survey/test (survey admin)',
-        class_admin_panel: 'GET /api/admin/classes/test (class admin)', // ✅ NEW
+        survey_admin_panel: 'GET /api/survey/admin/test (survey admin)',
+        class_admin_panel: 'GET /api/classes/admin/test (class admin)', // ✅ NEW
         membership_admin_dashboard: 'GET /api/membership/admin/dashboard (admin dashboard)',
-        survey_admin_analytics: 'GET /api/admin/survey/analytics (survey analytics)',
-        class_admin_analytics: 'GET /api/admin/classes/analytics (class analytics)' // ✅ NEW
+        survey_admin_analytics: 'GET /api/survey/admin/analytics (survey analytics)',
+        class_admin_analytics: 'GET /api/classes/admin/analytics (class analytics)' // ✅ NEW
       },
       system_architecture: {
         total_systems: '10 independent systems', // ✅ UPDATED
@@ -722,10 +722,10 @@ if (process.env.NODE_ENV === 'development') {
       },
       test_these_urls: {
         main_router_test: '/api/test-main-router',
-        user_admin_test: '/api/admin/users/test',
+        user_admin_test: '/api/users/admin/test',
         membership_admin_test: '/api/membership/admin/test',
-        survey_admin_test: '/api/admin/survey/test',
-        class_admin_test: '/api/admin/classes/test', // ✅ NEW
+        survey_admin_test: '/api/survey/admin/test',
+        class_admin_test: '/api/classes/admin/test', // ✅ NEW
         survey_system_test: '/api/survey/test',
         class_system_test: '/api/classes/test', // ✅ NEW
         survey_integration_test: '/api/test-survey-integration',
@@ -775,14 +775,14 @@ if (process.env.NODE_ENV === 'development') {
     
     const authRoutes = routes.filter(r => r.path.startsWith('/api/auth'));
     const userRoutes = routes.filter(r => r.path.startsWith('/api/users'));
-    const userAdminRoutes = routes.filter(r => r.path.startsWith('/api/admin/users'));
+    const userAdminRoutes = routes.filter(r => r.path.startsWith('/api/users/admin'));
     const contentRoutes = routes.filter(r => r.path.startsWith('/api/content'));
     const membershipRoutes = routes.filter(r => r.path.startsWith('/api/membership') && !r.path.startsWith('/api/membership/admin'));
     const membershipAdminRoutes = routes.filter(r => r.path.startsWith('/api/membership/admin'));
-    const surveyRoutes = routes.filter(r => r.path.startsWith('/api/survey') && !r.path.startsWith('/api/admin/survey'));
-    const surveyAdminRoutes = routes.filter(r => r.path.startsWith('/api/admin/survey'));
-    const classRoutes = routes.filter(r => r.path.startsWith('/api/classes') && !r.path.startsWith('/api/admin/classes')); // ✅ NEW
-    const classAdminRoutes = routes.filter(r => r.path.startsWith('/api/admin/classes')); // ✅ NEW
+    const surveyRoutes = routes.filter(r => r.path.startsWith('/api/survey') && !r.path.startsWith('/api/survey/admin'));
+    const surveyAdminRoutes = routes.filter(r => r.path.startsWith('/api/survey/admin'));
+    const classRoutes = routes.filter(r => r.path.startsWith('/api/classes') && !r.path.startsWith('/api/classes/admin')); // ✅ NEW
+    const classAdminRoutes = routes.filter(r => r.path.startsWith('/api/classes/admin')); // ✅ NEW
     const legacyRoutes = routes.filter(r => r.path.startsWith('/api/user-status'));
     
     res.json({
@@ -839,15 +839,15 @@ if (process.env.NODE_ENV === 'development') {
         reports: 'POST /api/membership/admin/reports/generate - Generate reports',
         tasks: 'GET /api/membership/admin/tasks/pending - Pending admin tasks',
         alerts: 'GET /api/membership/admin/alerts - System alerts',
-        survey_dashboard: 'GET /api/admin/survey/dashboard - Survey admin dashboard',
-        survey_questions: 'GET/POST/PUT/DELETE /api/admin/survey/questions - Question management',
-        survey_analytics: 'GET /api/admin/survey/analytics - Survey analytics',
-        survey_export: 'GET /api/admin/survey/export - Export survey data',
+        survey_dashboard: 'GET /api/survey/admin/dashboard - Survey admin dashboard',
+        survey_questions: 'GET/POST/PUT/DELETE /api/survey/admin/questions - Question management',
+        survey_analytics: 'GET /api/survey/admin/analytics - Survey analytics',
+        survey_export: 'GET /api/survey/admin/export - Export survey data',
         // ✅ NEW: Class admin features
-        class_dashboard: 'GET /api/admin/classes/dashboard - Class admin dashboard',
-        class_management: 'GET/POST/PUT/DELETE /api/admin/classes - Class management',
-        class_analytics: 'GET /api/admin/classes/analytics - Class analytics',
-        class_export: 'GET /api/admin/classes/export - Export class data'
+        class_dashboard: 'GET /api/classes/admin/dashboard - Class admin dashboard',
+        class_management: 'GET/POST/PUT/DELETE /api/classes/admin - Class management',
+        class_analytics: 'GET /api/classes/admin/analytics - Class analytics',
+        class_export: 'GET /api/classes/admin/export - Export class data'
       },
       timestamp: new Date().toISOString()
     });
@@ -874,20 +874,20 @@ app.use('*', (req, res) => {
     suggestions.push('Make sure you are authenticated (include Authorization header)');
   }
   
-  if (path.includes('/api/admin/users/')) {
-    suggestions.push('User admin routes: /api/admin/users/test, /api/admin/users/stats');
+  if (path.includes('/api/users/admin/')) {
+    suggestions.push('User admin routes: /api/users/admin/test, /api/users/admin/stats');
     suggestions.push('Admin routes require admin role');
   }
   
-  if (path.includes('/api/admin/survey/')) {
-    suggestions.push('Survey admin routes: /api/admin/survey/test, /api/admin/survey/pending');
-    suggestions.push('Survey admin routes: /api/admin/survey/analytics, /api/admin/survey/questions');
+  if (path.includes('/api/survey/admin/')) {
+    suggestions.push('Survey admin routes: /api/survey/admin/test, /api/survey/admin/pending');
+    suggestions.push('Survey admin routes: /api/survey/admin/analytics, /api/survey/admin/questions');
     suggestions.push('Survey admin routes require admin role with survey permissions');
   }
   
-  if (path.includes('/api/admin/classes/')) { // ✅ NEW
-    suggestions.push('Class admin routes: /api/admin/classes/test, /api/admin/classes/analytics');
-    suggestions.push('Class admin routes: /api/admin/classes/bulk-create, /api/admin/classes/dashboard');
+  if (path.includes('/api/classes/admin/')) { // ✅ NEW
+    suggestions.push('Class admin routes: /api/classes/admin/test, /api/classes/admin/analytics');
+    suggestions.push('Class admin routes: /api/classes/admin/bulk-create, /api/classes/admin/dashboard');
     suggestions.push('Class admin routes require admin role with class permissions');
   }
   
@@ -935,10 +935,10 @@ app.use('*', (req, res) => {
     suggestions: suggestions.length > 0 ? suggestions : [
       'Check /api/info for available endpoints',
       'Check /api/debug/routes for all registered routes (development only)',
-      'Try /api/admin/users/test for user admin',
+      'Try /api/users/admin/test for user admin',
       'Try /api/membership/admin/test for membership admin',
-      'Try /api/admin/survey/test for survey admin',
-      'Try /api/admin/classes/test for class admin', // ✅ NEW
+      'Try /api/survey/admin/test for survey admin',
+      'Try /api/classes/admin/test for class admin', // ✅ NEW
       'Try /api/survey/test for survey system',
       'Try /api/classes/test for class system', // ✅ NEW
       'Try /api/membership/admin/dashboard for advanced admin dashboard',
@@ -952,14 +952,14 @@ app.use('*', (req, res) => {
     available_route_groups: {
       auth: '/api/auth/* (authentication ✅)',
       users: '/api/users/* (user management ✅)',
-      user_admin: '/api/admin/users/* (user administration ✅)',
+      user_admin: '/api/users/admin/* (user administration ✅)',
       content: '/api/content/* (content system ✅)',
       membership: '/api/membership/* (membership system ✅)',
       membership_admin: '/api/membership/admin/* (membership administration ✅)',
       survey: '/api/survey/* (survey system ✅)',
-      survey_admin: '/api/admin/survey/* (survey administration ✅)',
+      survey_admin: '/api/survey/admin/* (survey administration ✅)',
       classes: '/api/classes/* (class system ✅)', // ✅ NEW
-      class_admin: '/api/admin/classes/* (class administration ✅)', // ✅ NEW
+      class_admin: '/api/classes/admin/* (class administration ✅)', // ✅ NEW
       legacy: '/api/user-status/* (compatibility ✅)'
     },
     all_system_features: {
@@ -1096,9 +1096,9 @@ if (process.env.NODE_ENV === 'development') {
   console.log(`🚀   • API Info: http://localhost:${PORT}/api/info`);
   console.log(`🚀   • Debug: http://localhost:${PORT}/api/debug (auth required)`);
   console.log(`🚀   • Routes: http://localhost:${PORT}/api/debug/routes`);
-  console.log(`🚀   • Survey Admin Test: http://localhost:${PORT}/api/admin/survey/test`);
+  console.log(`🚀   • Survey Admin Test: http://localhost:${PORT}/api/survey/admin/test`);
   console.log(`🚀   • Survey System Test: http://localhost:${PORT}/api/survey/test`);
-  console.log(`🚀   • Class Admin Test: http://localhost:${PORT}/api/admin/classes/test`); // ✅ NEW
+  console.log(`🚀   • Class Admin Test: http://localhost:${PORT}/api/classes/admin/test`); // ✅ NEW
   console.log(`🚀   • Class System Test: http://localhost:${PORT}/api/classes/test`); // ✅ NEW
   console.log('🚀 ===============================================');
 }
@@ -1163,12 +1163,12 @@ export default app;
 //       routes_mounted: {
 //         auth: 'mounted at /api/auth ✅',
 //         users: 'consolidated and mounted at /api/users ✅',
-//         user_admin: 'mounted at /api/admin/users ✅',
+//         user_admin: 'mounted at /api/users/admin ✅',
 //         content: 'mounted at /api/content ✅',
 //         membership: 'mounted at /api/membership ✅',
 //         membership_admin: 'mounted at /api/membership/admin ✅',
 //         survey: 'mounted at /api/survey ✅', // ✅ NEW
-//         survey_admin: 'mounted at /api/admin/survey ✅' // ✅ NEW
+//         survey_admin: 'mounted at /api/survey/admin ✅' // ✅ NEW
 //       },
 //       content_system: {
 //         chats: 'Multi-step creation + management ✅',
@@ -1263,15 +1263,15 @@ export default app;
 //         status: 'GET /api/survey/status - Check survey status',
 //         drafts: 'GET/POST /api/survey/drafts - Manage survey drafts',
 //         history: 'GET /api/survey/history - Survey submission history',
-//         admin: 'GET/POST /api/admin/survey/* - Survey administration'
+//         admin: 'GET/POST /api/survey/admin/* - Survey administration'
 //       },
 //       user_admin_endpoints: {
-//         users: 'GET /api/admin/users - get all users',
-//         create: 'POST /api/admin/users/create - create user',
-//         search: 'GET /api/admin/users/search - search users',
-//         stats: 'GET /api/admin/users/stats - user statistics',
-//         roles: 'PUT /api/admin/users/role - manage roles',
-//         permissions: 'POST /api/admin/users/ban - user permissions'
+//         users: 'GET /api/users/admin - get all users',
+//         create: 'POST /api/users/admin/create - create user',
+//         search: 'GET /api/users/admin/search - search users',
+//         stats: 'GET /api/users/admin/stats - user statistics',
+//         roles: 'PUT /api/users/admin/role - manage roles',
+//         permissions: 'POST /api/users/admin/ban - user permissions'
 //       },
 //       features: {
 //         multi_step_forms: '7-step chats, 8-step teachings ✅',
@@ -1323,15 +1323,15 @@ export default app;
 //   console.log('   • GET    /api/users/status - User status');
 //   console.log('');
 //   console.log('   🔧 USER ADMIN SYSTEM:');
-//   console.log('   • GET    /api/admin/users/test - Admin test');
-//   console.log('   • GET    /api/admin/users - Get all users');
-//   console.log('   • GET    /api/admin/users/search - Search users');
-//   console.log('   • GET    /api/admin/users/stats - User statistics');
-//   console.log('   • POST   /api/admin/users/create - Create user');
-//   console.log('   • PUT    /api/admin/users/:id - Update user');
-//   console.log('   • PUT    /api/admin/users/role - Update user role');
-//   console.log('   • POST   /api/admin/users/ban - Ban user');
-//   console.log('   • POST   /api/admin/users/unban - Unban user');
+//   console.log('   • GET    /api/users/admin/test - Admin test');
+//   console.log('   • GET    /api/users/admin - Get all users');
+//   console.log('   • GET    /api/users/admin/search - Search users');
+//   console.log('   • GET    /api/users/admin/stats - User statistics');
+//   console.log('   • POST   /api/users/admin/create - Create user');
+//   console.log('   • PUT    /api/users/admin/:id - Update user');
+//   console.log('   • PUT    /api/users/admin/role - Update user role');
+//   console.log('   • POST   /api/users/admin/ban - Ban user');
+//   console.log('   • POST   /api/users/admin/unban - Unban user');
 //   console.log('');
 //   console.log('   📚 CONTENT MANAGEMENT SYSTEM:');
 //   console.log('   • GET    /api/content/chats - Get chats');
@@ -1367,12 +1367,12 @@ export default app;
 //   console.log('   • GET    /api/survey/history - Survey history');
 //   console.log('');
 //   console.log('   🔍 SURVEY ADMIN SYSTEM (NEW):'); // ✅ NEW
-//   console.log('   • GET    /api/admin/survey/test - Admin test');
-//   console.log('   • GET    /api/admin/survey/pending - Pending surveys');
-//   console.log('   • PUT    /api/admin/survey/approve - Approve surveys');
-//   console.log('   • GET    /api/admin/survey/analytics - Survey analytics');
-//   console.log('   • GET    /api/admin/survey/questions - Manage questions');
-//   console.log('   • GET    /api/admin/survey/export - Export data');
+//   console.log('   • GET    /api/survey/admin/test - Admin test');
+//   console.log('   • GET    /api/survey/admin/pending - Pending surveys');
+//   console.log('   • PUT    /api/survey/admin/approve - Approve surveys');
+//   console.log('   • GET    /api/survey/admin/analytics - Survey analytics');
+//   console.log('   • GET    /api/survey/admin/questions - Manage questions');
+//   console.log('   • GET    /api/survey/admin/export - Export data');
 //   console.log('   ===============================================');
 // } catch (error) {
 //   console.error('❌ Failed to mount main router:', error.message);
@@ -1540,12 +1540,12 @@ export default app;
 //     available_routes: {
 //       authentication: '/api/auth/* (✅ WORKING)',
 //       user_management: '/api/users/* (✅ 25+ endpoints)',
-//       user_administration: '/api/admin/users/* (✅ 15+ endpoints)',
+//       user_administration: '/api/users/admin/* (✅ 15+ endpoints)',
 //       content_system: '/api/content/* (✅ 50+ endpoints)',
 //       membership_system: '/api/membership/* (✅ 40+ endpoints)',
 //       membership_administration: '/api/membership/admin/* (✅ 10+ endpoints)',
 //       survey_system: '/api/survey/* (✅ 15+ endpoints)', // ✅ NEW
-//       survey_administration: '/api/admin/survey/* (✅ 25+ endpoints)', // ✅ NEW
+//       survey_administration: '/api/survey/admin/* (✅ 25+ endpoints)', // ✅ NEW
 //       legacy_compatibility: '/api/user-status/* (✅ PRESERVED)'
 //     },
 //     database_compatibility: {
@@ -1567,9 +1567,9 @@ export default app;
 //       membership_status: 'GET /api/membership/status (test membership system)',
 //       membership_dashboard: 'GET /api/membership/dashboard (comprehensive dashboard)',
 //       membership_admin_panel: 'GET /api/membership/admin/overview (admin membership panel)',
-//       user_admin_panel: 'GET /api/admin/users/stats (admin user panel)',
+//       user_admin_panel: 'GET /api/users/admin/stats (admin user panel)',
 //       survey_system: 'GET /api/survey/test (test survey system)', // ✅ NEW
-//       survey_admin_panel: 'GET /api/admin/survey/test (admin survey panel)', // ✅ NEW
+//       survey_admin_panel: 'GET /api/survey/admin/test (admin survey panel)', // ✅ NEW
 //       survey_integration: 'GET /api/test-survey-integration (integration test)' // ✅ NEW
 //     }
 //   });
@@ -1680,11 +1680,11 @@ export default app;
 //         membership_application: 'POST /api/membership/apply/initial (initial application)',
 //         survey_submission: 'POST /api/survey/submit (general survey)', // ✅ NEW
 //         survey_status: 'GET /api/survey/status (survey status)', // ✅ NEW
-//         user_admin_panel: 'GET /api/admin/users/stats (user administration)',
+//         user_admin_panel: 'GET /api/users/admin/stats (user administration)',
 //         membership_admin_panel: 'GET /api/membership/admin/overview (membership admin)',
-//         survey_admin_panel: 'GET /api/admin/survey/test (survey admin)', // ✅ NEW
+//         survey_admin_panel: 'GET /api/survey/admin/test (survey admin)', // ✅ NEW
 //         membership_admin_dashboard: 'GET /api/membership/admin/dashboard (admin dashboard)',
-//         survey_admin_analytics: 'GET /api/admin/survey/analytics (survey analytics)' // ✅ NEW
+//         survey_admin_analytics: 'GET /api/survey/admin/analytics (survey analytics)' // ✅ NEW
 //       },
 //       system_architecture: {
 //         total_systems: '8 independent systems', // ✅ UPDATED
@@ -1737,9 +1737,9 @@ export default app;
 //       },
 //       test_these_urls: {
 //         main_router_test: '/api/test-main-router',
-//         user_admin_test: '/api/admin/users/test',
+//         user_admin_test: '/api/users/admin/test',
 //         membership_admin_test: '/api/membership/admin/test',
-//         survey_admin_test: '/api/admin/survey/test', // ✅ NEW
+//         survey_admin_test: '/api/survey/admin/test', // ✅ NEW
 //         survey_system_test: '/api/survey/test', // ✅ NEW
 //         survey_integration_test: '/api/test-survey-integration', // ✅ NEW
 //         membership_admin_health: '/api/membership/admin/health',
@@ -1786,12 +1786,12 @@ export default app;
     
 //     const authRoutes = routes.filter(r => r.path.startsWith('/api/auth'));
 //     const userRoutes = routes.filter(r => r.path.startsWith('/api/users'));
-//     const userAdminRoutes = routes.filter(r => r.path.startsWith('/api/admin/users'));
+//     const userAdminRoutes = routes.filter(r => r.path.startsWith('/api/users/admin'));
 //     const contentRoutes = routes.filter(r => r.path.startsWith('/api/content'));
 //     const membershipRoutes = routes.filter(r => r.path.startsWith('/api/membership') && !r.path.startsWith('/api/membership/admin'));
 //     const membershipAdminRoutes = routes.filter(r => r.path.startsWith('/api/membership/admin'));
-//     const surveyRoutes = routes.filter(r => r.path.startsWith('/api/survey') && !r.path.startsWith('/api/admin/survey')); // ✅ NEW
-//     const surveyAdminRoutes = routes.filter(r => r.path.startsWith('/api/admin/survey')); // ✅ NEW
+//     const surveyRoutes = routes.filter(r => r.path.startsWith('/api/survey') && !r.path.startsWith('/api/survey/admin')); // ✅ NEW
+//     const surveyAdminRoutes = routes.filter(r => r.path.startsWith('/api/survey/admin')); // ✅ NEW
 //     const legacyRoutes = routes.filter(r => r.path.startsWith('/api/user-status'));
     
 //     res.json({
@@ -1845,10 +1845,10 @@ export default app;
 //         tasks: 'GET /api/membership/admin/tasks/pending - Pending admin tasks',
 //         alerts: 'GET /api/membership/admin/alerts - System alerts',
 //         // ✅ NEW: Survey admin features
-//         survey_dashboard: 'GET /api/admin/survey/dashboard - Survey admin dashboard',
-//         survey_questions: 'GET/POST/PUT/DELETE /api/admin/survey/questions - Question management',
-//         survey_analytics: 'GET /api/admin/survey/analytics - Survey analytics',
-//         survey_export: 'GET /api/admin/survey/export - Export survey data'
+//         survey_dashboard: 'GET /api/survey/admin/dashboard - Survey admin dashboard',
+//         survey_questions: 'GET/POST/PUT/DELETE /api/survey/admin/questions - Question management',
+//         survey_analytics: 'GET /api/survey/admin/analytics - Survey analytics',
+//         survey_export: 'GET /api/survey/admin/export - Export survey data'
 //       },
 //       timestamp: new Date().toISOString()
 //     });
@@ -1875,14 +1875,14 @@ export default app;
 //     suggestions.push('Make sure you are authenticated (include Authorization header)');
 //   }
   
-//   if (path.includes('/api/admin/users/')) {
-//     suggestions.push('User admin routes: /api/admin/users/test, /api/admin/users/stats');
+//   if (path.includes('/api/users/admin/')) {
+//     suggestions.push('User admin routes: /api/users/admin/test, /api/users/admin/stats');
 //     suggestions.push('Admin routes require admin role');
 //   }
   
-//   if (path.includes('/api/admin/survey/')) { // ✅ NEW
-//     suggestions.push('Survey admin routes: /api/admin/survey/test, /api/admin/survey/pending');
-//     suggestions.push('Survey admin routes: /api/admin/survey/analytics, /api/admin/survey/questions');
+//   if (path.includes('/api/survey/admin/')) { // ✅ NEW
+//     suggestions.push('Survey admin routes: /api/survey/admin/test, /api/survey/admin/pending');
+//     suggestions.push('Survey admin routes: /api/survey/admin/analytics, /api/survey/admin/questions');
 //     suggestions.push('Survey admin routes require admin role with survey permissions');
 //   }
   
@@ -1922,9 +1922,9 @@ export default app;
 //     suggestions: suggestions.length > 0 ? suggestions : [
 //       'Check /api/info for available endpoints',
 //       'Check /api/debug/routes for all registered routes (development only)',
-//       'Try /api/admin/users/test for user admin',
+//       'Try /api/users/admin/test for user admin',
 //       'Try /api/membership/admin/test for membership admin',
-//       'Try /api/admin/survey/test for survey admin', // ✅ NEW
+//       'Try /api/survey/admin/test for survey admin', // ✅ NEW
 //       'Try /api/survey/test for survey system', // ✅ NEW
 //       'Try /api/membership/admin/dashboard for advanced admin dashboard',
 //       'Try /api/content/chats for chat system',
@@ -1937,12 +1937,12 @@ export default app;
 //     available_route_groups: {
 //       auth: '/api/auth/* (authentication ✅)',
 //       users: '/api/users/* (user management ✅)',
-//       user_admin: '/api/admin/users/* (user administration ✅)',
+//       user_admin: '/api/users/admin/* (user administration ✅)',
 //       content: '/api/content/* (content system ✅)',
 //       membership: '/api/membership/* (membership system ✅)',
 //       membership_admin: '/api/membership/admin/* (membership administration ✅)',
 //       survey: '/api/survey/* (survey system ✅)', // ✅ NEW
-//       survey_admin: '/api/admin/survey/* (survey administration ✅)', // ✅ NEW
+//       survey_admin: '/api/survey/admin/* (survey administration ✅)', // ✅ NEW
 //       legacy: '/api/user-status/* (compatibility ✅)'
 //     },
 //     all_system_features: {
@@ -2075,7 +2075,7 @@ export default app;
 //   console.log(`🚀   • API Info: http://localhost:${PORT}/api/info`);
 //   console.log(`🚀   • Debug: http://localhost:${PORT}/api/debug (auth required)`);
 //   console.log(`🚀   • Routes: http://localhost:${PORT}/api/debug/routes`);
-//   console.log(`🚀   • Survey Admin Test: http://localhost:${PORT}/api/admin/survey/test`); // ✅ NEW
+//   console.log(`🚀   • Survey Admin Test: http://localhost:${PORT}/api/survey/admin/test`); // ✅ NEW
 //   console.log(`🚀   • Survey System Test: http://localhost:${PORT}/api/survey/test`); // ✅ NEW
 //   console.log('🚀 ===============================================');
 // }
@@ -2142,7 +2142,7 @@ export default app;
 //       routes_mounted: {
 //         auth: 'mounted at /api/auth ✅',
 //         users: 'consolidated and mounted at /api/users ✅',
-//         user_admin: 'mounted at /api/admin/users ✅',
+//         user_admin: 'mounted at /api/users/admin ✅',
 //         content: 'mounted at /api/content ✅',
 //         membership: 'mounted at /api/membership ✅',
 //         membership_admin: 'mounted at /api/membership/admin ✅'
@@ -2216,12 +2216,12 @@ export default app;
 //         requirements: 'GET /api/membership/requirements - info'
 //       },
 //       user_admin_endpoints: {
-//         users: 'GET /api/admin/users - get all users',
-//         create: 'POST /api/admin/users/create - create user',
-//         search: 'GET /api/admin/users/search - search users',
-//         stats: 'GET /api/admin/users/stats - user statistics',
-//         roles: 'PUT /api/admin/users/role - manage roles',
-//         permissions: 'POST /api/admin/users/ban - user permissions'
+//         users: 'GET /api/users/admin - get all users',
+//         create: 'POST /api/users/admin/create - create user',
+//         search: 'GET /api/users/admin/search - search users',
+//         stats: 'GET /api/users/admin/stats - user statistics',
+//         roles: 'PUT /api/users/admin/role - manage roles',
+//         permissions: 'POST /api/users/admin/ban - user permissions'
 //       },
 //       features: {
 //         multi_step_forms: '7-step chats, 8-step teachings ✅',
@@ -2271,15 +2271,15 @@ export default app;
 //   console.log('   • GET    /api/users/status - User status');
 //   console.log('');
 //   console.log('   🔧 USER ADMIN SYSTEM:');
-//   console.log('   • GET    /api/admin/users/test - Admin test');
-//   console.log('   • GET    /api/admin/users - Get all users');
-//   console.log('   • GET    /api/admin/users/search - Search users');
-//   console.log('   • GET    /api/admin/users/stats - User statistics');
-//   console.log('   • POST   /api/admin/users/create - Create user');
-//   console.log('   • PUT    /api/admin/users/:id - Update user');
-//   console.log('   • PUT    /api/admin/users/role - Update user role');
-//   console.log('   • POST   /api/admin/users/ban - Ban user');
-//   console.log('   • POST   /api/admin/users/unban - Unban user');
+//   console.log('   • GET    /api/users/admin/test - Admin test');
+//   console.log('   • GET    /api/users/admin - Get all users');
+//   console.log('   • GET    /api/users/admin/search - Search users');
+//   console.log('   • GET    /api/users/admin/stats - User statistics');
+//   console.log('   • POST   /api/users/admin/create - Create user');
+//   console.log('   • PUT    /api/users/admin/:id - Update user');
+//   console.log('   • PUT    /api/users/admin/role - Update user role');
+//   console.log('   • POST   /api/users/admin/ban - Ban user');
+//   console.log('   • POST   /api/users/admin/unban - Unban user');
 //   console.log('');
 //   console.log('   📚 CONTENT MANAGEMENT SYSTEM:');
 //   console.log('   • GET    /api/content/chats - Get chats');
@@ -2443,7 +2443,7 @@ export default app;
 //     available_routes: {
 //       authentication: '/api/auth/* (✅ WORKING)',
 //       user_management: '/api/users/* (✅ 25+ endpoints)',
-//       user_administration: '/api/admin/users/* (✅ 15+ endpoints)',
+//       user_administration: '/api/users/admin/* (✅ 15+ endpoints)',
 //       content_system: '/api/content/* (✅ 50+ endpoints)',
 //       membership_system: '/api/membership/* (✅ 40+ endpoints)',
 //       membership_administration: '/api/membership/admin/* (✅ 10+ endpoints)',
@@ -2467,7 +2467,7 @@ export default app;
 //       membership_status: 'GET /api/membership/status (test membership system)',
 //       membership_dashboard: 'GET /api/membership/dashboard (comprehensive dashboard)',
 //       membership_admin_panel: 'GET /api/membership/admin/overview (admin membership panel)',
-//       user_admin_panel: 'GET /api/admin/users/stats (admin user panel)'
+//       user_admin_panel: 'GET /api/users/admin/stats (admin user panel)'
 //     }
 //   });
 // });
@@ -2550,7 +2550,7 @@ export default app;
 //         membership_status: 'GET /api/membership/status (user status)',
 //         membership_dashboard: 'GET /api/membership/dashboard (comprehensive dashboard)',
 //         membership_application: 'POST /api/membership/apply/initial (initial application)',
-//         user_admin_panel: 'GET /api/admin/users/stats (user administration)',
+//         user_admin_panel: 'GET /api/users/admin/stats (user administration)',
 //         membership_admin_panel: 'GET /api/membership/admin/overview (membership admin)',
 //         membership_admin_dashboard: 'GET /api/membership/admin/dashboard (admin dashboard)',
 //         membership_admin_tasks: 'GET /api/membership/admin/tasks/pending (pending tasks)',
@@ -2599,7 +2599,7 @@ export default app;
 //       },
 //       test_these_urls: {
 //         main_router_test: '/api/test-main-router',
-//         user_admin_test: '/api/admin/users/test',
+//         user_admin_test: '/api/users/admin/test',
 //         membership_admin_test: '/api/membership/admin/test',
 //         membership_admin_health: '/api/membership/admin/health',
 //         membership_admin_dashboard: '/api/membership/admin/dashboard',
@@ -2638,7 +2638,7 @@ export default app;
     
 //     const authRoutes = routes.filter(r => r.path.startsWith('/api/auth'));
 //     const userRoutes = routes.filter(r => r.path.startsWith('/api/users'));
-//     const userAdminRoutes = routes.filter(r => r.path.startsWith('/api/admin/users'));
+//     const userAdminRoutes = routes.filter(r => r.path.startsWith('/api/users/admin'));
 //     const contentRoutes = routes.filter(r => r.path.startsWith('/api/content'));
 //     const membershipRoutes = routes.filter(r => r.path.startsWith('/api/membership') && !r.path.startsWith('/api/membership/admin'));
 //     const membershipAdminRoutes = routes.filter(r => r.path.startsWith('/api/membership/admin'));
@@ -2672,7 +2672,7 @@ export default app;
 //         audit_logs: 'GET /api/membership/admin/audit-logs - System audit logs',
 //         metrics: 'GET /api/membership/admin/metrics - Advanced metrics',
 //         config: 'GET/PUT /api/membership/admin/config - System configuration',
-//         bulk_operations: 'POST /api/membership/admin/users/bulk-update - Bulk user operations',
+//         bulk_operations: 'POST /api/membership/users/admin/bulk-update - Bulk user operations',
 //         reports: 'POST /api/membership/admin/reports/generate - Generate reports',
 //         tasks: 'GET /api/membership/admin/tasks/pending - Pending admin tasks',
 //         alerts: 'GET /api/membership/admin/alerts - System alerts'
@@ -2702,8 +2702,8 @@ export default app;
 //     suggestions.push('Make sure you are authenticated (include Authorization header)');
 //   }
   
-//   if (path.includes('/api/admin/users/')) {
-//     suggestions.push('User admin routes: /api/admin/users/test, /api/admin/users/stats');
+//   if (path.includes('/api/users/admin/')) {
+//     suggestions.push('User admin routes: /api/users/admin/test, /api/users/admin/stats');
 //     suggestions.push('Admin routes require admin role');
 //   }
   
@@ -2736,7 +2736,7 @@ export default app;
 //     suggestions: suggestions.length > 0 ? suggestions : [
 //       'Check /api/info for available endpoints',
 //       'Check /api/debug/routes for all registered routes (development only)',
-//       'Try /api/admin/users/test for user admin',
+//       'Try /api/users/admin/test for user admin',
 //       'Try /api/membership/admin/test for membership admin',
 //       'Try /api/membership/admin/dashboard for advanced admin dashboard',
 //       'Try /api/content/chats for chat system',
@@ -2749,7 +2749,7 @@ export default app;
 //     available_route_groups: {
 //       auth: '/api/auth/* (authentication ✅)',
 //       users: '/api/users/* (user management ✅)',
-//       user_admin: '/api/admin/users/* (user administration ✅)',
+//       user_admin: '/api/users/admin/* (user administration ✅)',
 //       content: '/api/content/* (content system ✅)',
 //       membership: '/api/membership/* (membership system ✅)',
 //       membership_admin: '/api/membership/admin/* (membership administration ✅)',

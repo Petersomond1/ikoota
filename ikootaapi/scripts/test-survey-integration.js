@@ -86,19 +86,19 @@ async function testSurveyAdminEndpoints() {
   console.log('\n🔐 Testing Survey Admin Endpoints...');
   
   const tests = [
-    { name: 'Survey Admin Test', method: 'GET', endpoint: '/admin/survey/test' },
-    { name: 'Survey Admin Health', method: 'GET', endpoint: '/admin/survey/health' },
-    { name: 'Frontend Config', method: 'GET', endpoint: '/admin/survey/frontend-config' },
-    { name: 'Survey Questions Admin', method: 'GET', endpoint: '/admin/survey/questions' },
-    { name: 'Question Labels Admin', method: 'GET', endpoint: '/admin/survey/question-labels' },
-    { name: 'Pending Surveys', method: 'GET', endpoint: '/admin/survey/pending' },
-    { name: 'Survey Logs', method: 'GET', endpoint: '/admin/survey/logs' },
-    { name: 'Survey Analytics', method: 'GET', endpoint: '/admin/survey/analytics' },
-    { name: 'Survey Stats', method: 'GET', endpoint: '/admin/survey/stats' },
-    { name: 'Dashboard Stats', method: 'GET', endpoint: '/admin/survey/dashboard-stats' },
-    { name: 'System Metrics', method: 'GET', endpoint: '/admin/survey/system-metrics' },
-    { name: 'Audit Logs', method: 'GET', endpoint: '/admin/survey/audit-logs' },
-    { name: 'Survey Config', method: 'GET', endpoint: '/admin/survey/config' }
+    { name: 'Survey Admin Test', method: 'GET', endpoint: '/survey/admin/test' },
+    { name: 'Survey Admin Health', method: 'GET', endpoint: '/survey/admin/health' },
+    { name: 'Frontend Config', method: 'GET', endpoint: '/survey/admin/frontend-config' },
+    { name: 'Survey Questions Admin', method: 'GET', endpoint: '/survey/admin/questions' },
+    { name: 'Question Labels Admin', method: 'GET', endpoint: '/survey/admin/question-labels' },
+    { name: 'Pending Surveys', method: 'GET', endpoint: '/survey/admin/pending' },
+    { name: 'Survey Logs', method: 'GET', endpoint: '/survey/admin/logs' },
+    { name: 'Survey Analytics', method: 'GET', endpoint: '/survey/admin/analytics' },
+    { name: 'Survey Stats', method: 'GET', endpoint: '/survey/admin/stats' },
+    { name: 'Dashboard Stats', method: 'GET', endpoint: '/survey/admin/dashboard-stats' },
+    { name: 'System Metrics', method: 'GET', endpoint: '/survey/admin/system-metrics' },
+    { name: 'Audit Logs', method: 'GET', endpoint: '/survey/admin/audit-logs' },
+    { name: 'Survey Config', method: 'GET', endpoint: '/survey/admin/config' }
   ];
   
   for (const test of tests) {

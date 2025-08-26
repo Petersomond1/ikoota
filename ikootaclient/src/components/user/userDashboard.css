@@ -449,6 +449,33 @@
   justify-content: center;
 }
 
+.user-classes-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  color: gray;
+}
+
+.progress-stats{
+display: flex;
+flex-direction: row;
+justify-content: space-between;
+}
+
+
+ .public-classes{
+  display:flex;
+  flex-direction: row;
+  /* flex-wrap: wrap; */
+  gap: 15px;
+  justify-content: center;
+  align-items: center;
+  width:100%;
+  color: black;
+  font-weight: bold;
+  margin: 0 auto;
+  padding: 10px;
+}
 /* ==================================================
    RECENT ACTIVITIES
    ================================================== */

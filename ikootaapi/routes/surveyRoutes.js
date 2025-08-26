@@ -305,7 +305,7 @@ router.get('/integration-status', authenticate, async (req, res) => {
         },
         admin_system: {
           status: 'Separate admin panel',
-          admin_routes: '/api/admin/survey/*',
+          admin_routes: '/api/survey/admin/*',
           permissions: 'Requires admin role'
         },
         content_system: {
@@ -386,7 +386,7 @@ router.use('*', (req, res) => {
     system_notes: {
       authentication_required: 'All routes require valid authentication',
       survey_independence: 'Survey system is independent of membership applications',
-      admin_access: 'Admin features available at /api/admin/survey/*',
+      admin_access: 'Admin features available at /api/survey/admin/*',
       frontend_compatibility: 'Ready for SurveyControls.jsx integration'
     },
     timestamp: new Date().toISOString()

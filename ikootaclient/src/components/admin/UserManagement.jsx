@@ -19,7 +19,7 @@ import {
 // Optimized API calls with better error handling and caching
 const fetchMembershipOverview = async () => {
   try {
-    const { data } = await api.get('/admin/membership/overview');
+    const { data } = await api.get('/membership/admin/overview');
     return data?.overview || data || {};
   } catch (error) {
     console.error('❌ Error fetching membership overview:', error);
@@ -30,7 +30,7 @@ const fetchMembershipOverview = async () => {
 const fetchPendingApplications = async (filters = {}) => {
   try {
     const params = new URLSearchParams(filters);
-    const { data } = await api.get(`/admin/membership/applications?${params}`);
+    const { data } = await api.get(`/membership/admin/applications?${params}`);
     return data || { applications: [], pagination: { total: 0, page: 1, totalPages: 1 } };
   } catch (error) {
     console.error('❌ Error fetching pending applications:', error);
@@ -40,7 +40,7 @@ const fetchPendingApplications = async (filters = {}) => {
 
 const fetchUsers = async () => {
   try {
-    const { data } = await api.get('/admin/users/');
+    const { data } = await api.get('/users/admin/');
     
     // Handle different response formats safely
     if (data?.success && Array.isArray(data.users)) {
@@ -94,7 +94,7 @@ const fetchClasses = async () => {
 
 const fetchMentors = async () => {
   try {
-    const { data } = await api.get('/admin/users/mentors');
+    const { data } = await api.get('/users/admin/mentors');
     return Array.isArray(data?.mentors) ? data.mentors : [];
   } catch (error) {
     console.error('❌ Error fetching mentors:', error);
@@ -747,13 +747,13 @@ export default UserManagement;
 
 // // NEW: Two-Stage Membership System APIs
 // // const fetchMembershipOverview = async () => {
-// //   const { data } = await api.get('/membership/admin/membership-overview');
+// //   const { data } = await api.get('/membership/membership/admin-overview');
 // //   return data;
 // // };
 
 // const fetchMembershipOverview = async () => {
 //   try {
-//     const { data } = await api.get('/admin/membership/overview');
+//     const { data } = await api.get('/membership/admin/overview');
 //     return data?.overview || {};
 //   } catch (error) {
 //     console.error('❌ Error fetching membership overview:', error);
@@ -773,7 +773,7 @@ export default UserManagement;
 //   try {
 //     const params = new URLSearchParams(filters);
 //     //  const { data } = await api.get(`/membership/admin/pending-applications?${params}`);
-//     const { data } = await api.get(`/admin/membership/applications?${params}`);
+//     const { data } = await api.get(`/membership/admin/applications?${params}`);
 //     return data || { applications: [], pagination: { total: 0, page: 1, totalPages: 1 } };
 //   } catch (error) {
 //     console.error('❌ Error fetching pending applications:', error);
@@ -783,7 +783,7 @@ export default UserManagement;
 
 
 // const bulkApproveApplications = async ({ userIds, action, adminNotes }) => {
-//   const { data } = await api.post('/admin/membership/applications/bulk-review', {
+//   const { data } = await api.post('/membership/admin/applications/bulk-review', {
 //     userIds,
 //     action,
 //     adminNotes
@@ -792,7 +792,7 @@ export default UserManagement;
 // };
 // // THis fxn also exist at membershipcontroller.js
 // const updateApplicationStatus = async ({ userId, status, adminNotes }) => {
-//   const { data } = await api.put(`/admin/membership/applications/${userId}/review`, {
+//   const { data } = await api.put(`/membership/admin/applications/${userId}/review`, {
 //     status,
 //     adminNotes
 //   });
@@ -803,7 +803,7 @@ export default UserManagement;
 
 // // Legacy APIs (preserve existing functionality)
 // // const fetchUsers = async () => {
-// //   const { data } = await api.get('/admin/users');
+// //   const { data } = await api.get('/users/admin');
 // //   return data;
 // // };
 
@@ -811,7 +811,7 @@ export default UserManagement;
 
 // // const fetchUsers = async () => {
 // //   try {
-// //     const { data } = await api.get('/admin/users');
+// //     const { data } = await api.get('/users/admin');
 // //     // Handle different response formats
 // //     if (data?.success && Array.isArray(data.users)) {
 // //       return data.users;
@@ -829,7 +829,7 @@ export default UserManagement;
 
 // const fetchUsers = async () => {
 //   try {
-//     const { data } = await api.get('/admin/users/');
+//     const { data } = await api.get('/users/admin/');
 //     console.log('👤 Users API Response:', data);
     
 //     // Handle different response formats safely
@@ -875,7 +875,7 @@ export default UserManagement;
 
 // const fetchMentors = async () => {
 //   try {
-//     const { data } = await api.get('/admin/users/mentors');
+//     const { data } = await api.get('/users/admin/mentors');
 //     return Array.isArray(data?.mentors) ? data.mentors : [];
 //   } catch (error) {
 //     console.error('❌ Error fetching mentors:', error);
@@ -915,7 +915,7 @@ export default UserManagement;
 // };
 
 // const updateUser = async ({ id, formData }) => {
-//   const { data } = await api.put(`/admin/users/${id}`, formData);
+//   const { data } = await api.put(`/users/admin/${id}`, formData);
 //   return data;
 // };
 
@@ -930,12 +930,12 @@ export default UserManagement;
 // };
 
 // const deleteUser = async (userId) => {
-//   const { data } = await api.delete(`/admin/users/${userId}`);
+//   const { data } = await api.delete(`/users/admin/${userId}`);
 //   return data;
 // };
 
 // const createUser = async (userData) => {
-//   const { data } = await api.post('/admin/users/create', userData);
+//   const { data } = await api.post('/users/admin/create', userData);
 //   return data;
 // };
 
@@ -958,7 +958,7 @@ export default UserManagement;
 
 // const exportUserData = async (filters = {}) => {
 //   const params = new URLSearchParams(filters);
-//   const { data } = await api.get(`/admin/users/export?${params}`);
+//   const { data } = await api.get(`/users/admin/export?${params}`);
 //   return data;
 // };
 

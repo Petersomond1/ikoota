@@ -39,7 +39,7 @@ export const errorResponse = (res, error, statusCode = 500) => {
 // =============================================================================
 
 /**
- * GET /api/admin/classes/test - Test admin system
+ * GET /api/classes/admin/test - Test admin system
  */
 export const testAdminSystem = async (req, res) => {
   try {
@@ -60,7 +60,7 @@ export const testAdminSystem = async (req, res) => {
 };
 
 /**
- * GET /api/admin/classes/health - System health check
+ * GET /api/classes/admin/health - System health check
  */
 export const getSystemHealth = async (req, res) => {
   try {
@@ -81,7 +81,7 @@ export const getSystemHealth = async (req, res) => {
 // =============================================================================
 
 /**
- * POST /api/admin/classes - Create new class
+ * POST /api/classes/admin - Create new class
  */
 export const createClass = async (req, res) => {
   try {
@@ -105,7 +105,7 @@ export const createClass = async (req, res) => {
 };
 
 /**
- * GET /api/admin/classes - Get all classes with admin details
+ * GET /api/classes/admin - Get all classes with admin details
  */
 export const getAllClasses = async (req, res) => {
   try {
@@ -145,7 +145,7 @@ export const getAllClasses = async (req, res) => {
 };
 
 /**
- * GET /api/admin/classes/:id - Get specific class with admin details
+ * GET /api/classes/admin/:id - Get specific class with admin details
  */
 export const getClassById = async (req, res) => {
   try {
@@ -170,7 +170,7 @@ export const getClassById = async (req, res) => {
 };
 
 /**
- * PUT /api/admin/classes/:id - Update class
+ * PUT /api/classes/admin/:id - Update class
  */
 export const updateClass = async (req, res) => {
   try {
@@ -196,7 +196,7 @@ export const updateClass = async (req, res) => {
 };
 
 /**
- * DELETE /api/admin/classes/:id - Delete class
+ * DELETE /api/classes/admin/:id - Delete class
  */
 export const deleteClass = async (req, res) => {
   try {
@@ -231,7 +231,7 @@ export const deleteClass = async (req, res) => {
 // =============================================================================
 
 /**
- * GET /api/admin/classes/:id/participants - Get class participants
+ * GET /api/classes/admin/:id/participants - Get class participants
  */
 export const getClassParticipants = async (req, res) => {
   try {
@@ -267,7 +267,7 @@ export const getClassParticipants = async (req, res) => {
 };
 
 /**
- * POST /api/admin/classes/:id/participants - Add participant to class
+ * POST /api/classes/admin/:id/participants - Add participant to class
  */
 export const addParticipant = async (req, res) => {
   try {
@@ -293,7 +293,7 @@ export const addParticipant = async (req, res) => {
 };
 
 /**
- * PUT /api/admin/classes/:id/participants/:userId - Manage participant
+ * PUT /api/classes/admin/:id/participants/:userId - Manage participant
  */
 export const manageParticipant = async (req, res) => {
   try {
@@ -321,7 +321,7 @@ export const manageParticipant = async (req, res) => {
 };
 
 /**
- * DELETE /api/admin/classes/:id/participants/:userId - Remove participant
+ * DELETE /api/classes/admin/:id/participants/:userId - Remove participant
  */
 export const removeParticipant = async (req, res) => {
   try {
@@ -352,7 +352,7 @@ export const removeParticipant = async (req, res) => {
 };
 
 /**
- * POST /api/admin/classes/:id/participants/bulk - Bulk participant actions
+ * POST /api/classes/admin/:id/participants/bulk - Bulk participant actions
  */
 export const bulkParticipantActions = async (req, res) => {
   try {
@@ -383,7 +383,7 @@ export const bulkParticipantActions = async (req, res) => {
 // =============================================================================
 
 /**
- * GET /api/admin/classes/analytics - Get comprehensive analytics
+ * GET /api/classes/admin/analytics - Get comprehensive analytics
  */
 export const getAnalytics = async (req, res) => {
   try {
@@ -413,7 +413,7 @@ export const getAnalytics = async (req, res) => {
 };
 
 /**
- * GET /api/admin/classes/stats - Get system statistics
+ * GET /api/classes/admin/stats - Get system statistics
  */
 export const getSystemStats = async (req, res) => {
   try {
@@ -440,7 +440,7 @@ export const getSystemStats = async (req, res) => {
 };
 
 /**
- * GET /api/admin/classes/:id/analytics - Get specific class analytics
+ * GET /api/classes/admin/:id/analytics - Get specific class analytics
  */
 export const getClassAnalytics = async (req, res) => {
   try {
@@ -467,7 +467,7 @@ export const getClassAnalytics = async (req, res) => {
 };
 
 /**
- * GET /api/admin/classes/export - Export class data
+ * GET /api/classes/admin/export - Export class data
  */
 export const exportClassData = async (req, res) => {
   try {
@@ -499,7 +499,7 @@ export const exportClassData = async (req, res) => {
 };
 
 /**
- * POST /api/admin/classes/reports - Generate custom reports
+ * POST /api/classes/admin/reports - Generate custom reports
  */
 export const generateReports = async (req, res) => {
   try {
@@ -523,7 +523,7 @@ export const generateReports = async (req, res) => {
 };
 
 /**
- * GET /api/admin/classes/audit-logs - Get audit logs
+ * GET /api/classes/admin/audit-logs - Get audit logs
  */
 export const getAuditLogs = async (req, res) => {
   try {
@@ -557,7 +557,7 @@ export const getAuditLogs = async (req, res) => {
 // =============================================================================
 
 /**
- * POST /api/admin/classes/bulk-create - Bulk create classes
+ * POST /api/classes/admin/bulk-create - Bulk create classes
  */
 export const bulkCreateClasses = async (req, res) => {
   try {
@@ -583,7 +583,7 @@ export const bulkCreateClasses = async (req, res) => {
 };
 
 /**
- * PUT /api/admin/classes/bulk-update - Bulk update classes
+ * PUT /api/classes/admin/bulk-update - Bulk update classes
  */
 export const bulkUpdateClasses = async (req, res) => {
   try {
@@ -610,7 +610,7 @@ export const bulkUpdateClasses = async (req, res) => {
 };
 
 /**
- * DELETE /api/admin/classes/bulk-delete - Bulk delete classes
+ * DELETE /api/classes/admin/bulk-delete - Bulk delete classes
  */
 export const bulkDeleteClasses = async (req, res) => {
   try {
@@ -637,7 +637,7 @@ export const bulkDeleteClasses = async (req, res) => {
 };
 
 /**
- * POST /api/admin/classes/bulk-import - Import classes from file
+ * POST /api/classes/admin/bulk-import - Import classes from file
  */
 export const bulkImportClasses = async (req, res) => {
   try {
@@ -667,7 +667,7 @@ export const bulkImportClasses = async (req, res) => {
 // =============================================================================
 
 /**
- * GET /api/admin/classes/dashboard - Get admin dashboard
+ * GET /api/classes/admin/dashboard - Get admin dashboard
  */
 export const getDashboard = async (req, res) => {
   try {
@@ -688,7 +688,7 @@ export const getDashboard = async (req, res) => {
 };
 
 /**
- * GET /api/admin/classes/pending-approvals - Get pending approvals
+ * GET /api/classes/admin/pending-approvals - Get pending approvals
  */
 export const getPendingApprovals = async (req, res) => {
   try {
@@ -714,7 +714,7 @@ export const getPendingApprovals = async (req, res) => {
 };
 
 /**
- * POST /api/admin/classes/approve-batch - Batch approve items
+ * POST /api/classes/admin/approve-batch - Batch approve items
  */
 export const batchApprove = async (req, res) => {
   try {
@@ -739,7 +739,7 @@ export const batchApprove = async (req, res) => {
 };
 
 /**
- * PUT /api/admin/classes/settings - Update system settings
+ * PUT /api/classes/admin/settings - Update system settings
  */
 export const updateSystemSettings = async (req, res) => {
   try {
@@ -767,7 +767,7 @@ export const updateSystemSettings = async (req, res) => {
 // =============================================================================
 
 /**
- * POST /api/admin/classes/:id/archive - Archive class
+ * POST /api/classes/admin/:id/archive - Archive class
  */
 export const archiveClass = async (req, res) => {
   try {
@@ -796,7 +796,7 @@ export const archiveClass = async (req, res) => {
 };
 
 /**
- * POST /api/admin/classes/:id/restore - Restore archived class
+ * POST /api/classes/admin/:id/restore - Restore archived class
  */
 export const restoreClass = async (req, res) => {
   try {
@@ -825,7 +825,7 @@ export const restoreClass = async (req, res) => {
 };
 
 /**
- * POST /api/admin/classes/:id/duplicate - Duplicate class
+ * POST /api/classes/admin/:id/duplicate - Duplicate class
  */
 export const duplicateClass = async (req, res) => {
   try {
@@ -1103,7 +1103,7 @@ export default {
 // // ===============================================
 
 // /**
-//  * GET /admin/classes - Get all classes for management with comprehensive filtering
+//  * GET /classes/admin - Get all classes for management with comprehensive filtering
 //  */
 // export const getClassManagement = asyncHandler(async (req, res) => {
 //   const {
@@ -1160,7 +1160,7 @@ export default {
 // });
 
 // /**
-//  * POST /admin/classes - Create new class with comprehensive configuration
+//  * POST /classes/admin - Create new class with comprehensive configuration
 //  */
 // export const createClass = asyncHandler(async (req, res) => {
 //   const adminUserId = req.user.id;
@@ -1338,7 +1338,7 @@ export default {
 // });
 
 // /**
-//  * GET /admin/classes/:id - Get specific class with administrative details
+//  * GET /classes/admin/:id - Get specific class with administrative details
 //  */
 // export const getClassById = asyncHandler(async (req, res) => {
 //   const { id } = req.params;
@@ -1361,7 +1361,7 @@ export default {
 // });
 
 // /**
-//  * PUT /admin/classes/:id - Update class with comprehensive field support
+//  * PUT /classes/admin/:id - Update class with comprehensive field support
 //  */
 // export const updateClass = asyncHandler(async (req, res) => {
 //   const { id } = req.params;
@@ -1518,7 +1518,7 @@ export default {
 // });
 
 // /**
-//  * DELETE /admin/classes/:id - Delete or archive class with safety checks
+//  * DELETE /classes/admin/:id - Delete or archive class with safety checks
 //  */
 // export const deleteClass = asyncHandler(async (req, res) => {
 //   const { id } = req.params;
@@ -1657,7 +1657,7 @@ export default {
 // });
 
 // /**
-//  * GET /admin/classes/:id/participants - Get class participants (admin view)
+//  * GET /classes/admin/:id/participants - Get class participants (admin view)
 //  */
 // export const manageClassParticipants = asyncHandler(async (req, res) => {
 //   const { id } = req.params;
@@ -1810,7 +1810,7 @@ export default {
 // });
 
 // /**
-//  * POST /admin/classes/:id/participants - Add participant to class
+//  * POST /classes/admin/:id/participants - Add participant to class
 //  */
 // export const addParticipantToClass = asyncHandler(async (req, res) => {
 //   const { id } = req.params;
@@ -1953,7 +1953,7 @@ export default {
 // });
 
 // /**
-//  * POST /admin/classes/:id/participants - Add participant to class
+//  * POST /classes/admin/:id/participants - Add participant to class
 //  */
 // // export const addParticipantToClass = asyncHandler(async (req, res) => {
 // //   const { id } = req.params;
@@ -2096,7 +2096,7 @@ export default {
 // // });
 
 // /**
-//  * DELETE /admin/classes/:id/participants/:userId - Remove participant
+//  * DELETE /classes/admin/:id/participants/:userId - Remove participant
 //  */
 // export const removeParticipantFromClass = asyncHandler(async (req, res) => {
 //   const { id, userId } = req.params;
@@ -2176,7 +2176,7 @@ export default {
 // });
 
 // /**
-//  * DELETE /admin/classes/:id/participants/:userId - Remove participant
+//  * DELETE /classes/admin/:id/participants/:userId - Remove participant
 //  */
 // // export const removeParticipantFromClass = asyncHandler(async (req, res) => {
 // //   const { id, userId } = req.params;
@@ -2257,7 +2257,7 @@ export default {
 
 
 // /**
-//  * POST /admin/classes/:id/participants/:userId/manage - Manage participant membership
+//  * POST /classes/admin/:id/participants/:userId/manage - Manage participant membership
 //  */
 // export const manageParticipantMembership = asyncHandler(async (req, res) => {
 //   const { id, userId } = req.params;
@@ -2453,7 +2453,7 @@ export default {
 // });
 
 // /**
-//  * POST /admin/classes/:id/participants/:userId/manage - Manage participant membership
+//  * POST /classes/admin/:id/participants/:userId/manage - Manage participant membership
 //  */
 // // export const manageParticipantMembership = asyncHandler(async (req, res) => {
 // //   const { id, userId } = req.params;
@@ -2676,7 +2676,7 @@ export default {
 // // ===============================================
 
 // /**
-//  * GET /admin/classes/analytics - Get comprehensive class analytics
+//  * GET /classes/admin/analytics - Get comprehensive class analytics
 //  */
 // export const getClassAnalytics = asyncHandler(async (req, res) => {
 //   const {
@@ -2760,7 +2760,7 @@ export default {
 // });
 
 // /**
-//  * GET /admin/classes/stats - Get class statistics summary
+//  * GET /classes/admin/stats - Get class statistics summary
 //  */
 // export const getClassStats = asyncHandler(async (req, res) => {
 //   const {
@@ -2858,7 +2858,7 @@ export default {
 // });
 
 // /**
-//  * GET /admin/classes/:id/analytics - Get specific class analytics
+//  * GET /classes/admin/:id/analytics - Get specific class analytics
 //  */
 // export const getSpecificClassAnalytics = asyncHandler(async (req, res) => {
 //   const { id } = req.params;
@@ -2943,7 +2943,7 @@ export default {
 // // ===============================================
 
 // /**
-//  * POST /admin/classes/bulk-create - Bulk create classes
+//  * POST /classes/admin/bulk-create - Bulk create classes
 //  */
 // export const bulkCreateClasses = asyncHandler(async (req, res) => {
 //   const { classes } = req.body;
@@ -3071,7 +3071,7 @@ export default {
 // });
 
 // /**
-//  * PUT /admin/classes/bulk-update - Bulk update classes
+//  * PUT /classes/admin/bulk-update - Bulk update classes
 //  */
 // export const bulkUpdateClasses = asyncHandler(async (req, res) => {
 //   const { class_ids, updates } = req.body;
@@ -3195,7 +3195,7 @@ export default {
 // });
 
 // /**
-//  * DELETE /admin/classes/bulk-delete - Bulk delete classes
+//  * DELETE /classes/admin/bulk-delete - Bulk delete classes
 //  */
 // export const bulkDeleteClasses = asyncHandler(async (req, res) => {
 //   const { class_ids, force = false, transfer_members_to } = req.body;
@@ -3333,7 +3333,7 @@ export default {
 // // ===============================================
 
 // /**
-//  * GET /admin/classes/test - Admin class routes test
+//  * GET /classes/admin/test - Admin class routes test
 //  */
 // export const testAdminClassRoutes = asyncHandler(async (req, res) => {
 //   const testResults = {
@@ -3353,7 +3353,7 @@ export default {
 //       'bulk operations'
 //     ],
 //     endpoint_info: {
-//       path: '/api/admin/classes/test',
+//       path: '/api/classes/admin/test',
 //       method: 'GET',
 //       requires_auth: true,
 //       requires_admin: true
@@ -3379,7 +3379,7 @@ export default {
 // });
 
 // /**
-//  * GET /admin/classes/health - System health check for class management
+//  * GET /classes/admin/health - System health check for class management
 //  */
 // export const getClassSystemHealth = asyncHandler(async (req, res) => {
 //   const healthCheck = {
@@ -3441,7 +3441,7 @@ export default {
 // // Add these missing functions to classAdminControllers.js
 
 // /**
-//  * GET /admin/classes/:id/participants - Get class participants (matches route expectation)
+//  * GET /classes/admin/:id/participants - Get class participants (matches route expectation)
 //  * This should be the primary export name to match the route
 //  */
 // export const getClassParticipants = asyncHandler(async (req, res) => {
@@ -3450,7 +3450,7 @@ export default {
 // });
 
 // /**
-//  * PUT /admin/classes/:id/participants/:userId - Manage class member (matches route)
+//  * PUT /classes/admin/:id/participants/:userId - Manage class member (matches route)
 //  */
 // export const manageClassMember = asyncHandler(async (req, res) => {
 //   // Delegate to existing function
@@ -3458,7 +3458,7 @@ export default {
 // });
 
 // /**
-//  * GET /admin/classes/stats - Get system statistics (matches import in route)
+//  * GET /classes/admin/stats - Get system statistics (matches import in route)
 //  */
 // export const getSystemStats = asyncHandler(async (req, res) => {
 //   // Delegate to existing getClassStats or implement comprehensive stats
@@ -3466,7 +3466,7 @@ export default {
 // });
 
 // /**
-//  * GET /admin/classes/audit-logs - Get audit logs for class operations
+//  * GET /classes/admin/audit-logs - Get audit logs for class operations
 //  */
 // export const getAuditLogs = asyncHandler(async (req, res) => {
 //   const {
@@ -3543,7 +3543,7 @@ export default {
 // });
 
 // /**
-//  * POST /admin/classes/reports - Generate custom reports
+//  * POST /classes/admin/reports - Generate custom reports
 //  */
 // export const generateReports = asyncHandler(async (req, res) => {
 //   const {
@@ -3623,7 +3623,7 @@ export default {
 // // ===============================================
 
 // /**
-//  * GET /admin/classes - Enhanced version using service
+//  * GET /classes/admin - Enhanced version using service
 //  */
 // export const getAllClassesAdmin = asyncHandler(async (req, res) => {
 //   // Import service at top of file
@@ -3669,7 +3669,7 @@ export default {
 // });
 
 // /**
-//  * GET /admin/classes/:id - Get class using service
+//  * GET /classes/admin/:id - Get class using service
 //  */
 // export const getClassByIdAdmin = asyncHandler(async (req, res) => {
 //   // Delegate to existing getClassById with admin flag

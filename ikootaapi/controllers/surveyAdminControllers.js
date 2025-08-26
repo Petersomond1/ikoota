@@ -19,7 +19,7 @@ import CustomError from '../utils/CustomError.js';
 
 /**
  * Get all survey questions
- * Route: GET /admin/survey/questions
+ * Route: GET /survey/admin/questions
  */
 export const getSurveyQuestions = async (req, res) => {
   try {
@@ -93,7 +93,7 @@ export const getSurveyQuestions = async (req, res) => {
 
 /**
  * Create new survey question
- * Route: POST /admin/survey/questions
+ * Route: POST /survey/admin/questions
  */
 export const createSurveyQuestion = async (req, res) => {
   try {
@@ -182,7 +182,7 @@ export const createSurveyQuestion = async (req, res) => {
 
 /**
  * Update survey questions
- * Route: PUT /admin/survey/questions
+ * Route: PUT /survey/admin/questions
  */
 export const updateSurveyQuestions = async (req, res) => {
   try {
@@ -279,7 +279,7 @@ export const updateSurveyQuestions = async (req, res) => {
 
 /**
  * Delete survey question
- * Route: DELETE /admin/survey/questions/:id
+ * Route: DELETE /survey/admin/questions/:id
  */
 export const deleteSurveyQuestion = async (req, res) => {
   try {
@@ -376,7 +376,7 @@ export const deleteSurveyQuestion = async (req, res) => {
 
 /**
  * Get question labels
- * Route: GET /admin/survey/question-labels
+ * Route: GET /survey/admin/question-labels
  */
 export const getSurveyQuestionLabels = async (req, res) => {
   try {
@@ -407,7 +407,7 @@ export const getSurveyQuestionLabels = async (req, res) => {
 
 /**
  * Update question labels
- * Route: PUT /admin/survey/question-labels
+ * Route: PUT /survey/admin/question-labels
  */
 export const updateSurveyQuestionLabels = async (req, res) => {
   try {
@@ -464,7 +464,7 @@ export const updateSurveyQuestionLabels = async (req, res) => {
 
 /**
  * Create new question label
- * Route: POST /admin/survey/question-labels
+ * Route: POST /survey/admin/question-labels
  */
 export const createSurveyQuestionLabel = async (req, res) => {
   try {
@@ -520,7 +520,7 @@ export const createSurveyQuestionLabel = async (req, res) => {
 
 /**
  * Get pending surveys
- * Route: GET /admin/survey/pending
+ * Route: GET /survey/admin/pending
  */
 export const getPendingSurveys = async (req, res) => {
   try {
@@ -574,7 +574,7 @@ export const getPendingSurveys = async (req, res) => {
 
 /**
  * Get survey logs
- * Route: GET /admin/survey/logs
+ * Route: GET /survey/admin/logs
  */
 export const getSurveyLogs = async (req, res) => {
   try {
@@ -641,7 +641,7 @@ export const getSurveyLogs = async (req, res) => {
 
 /**
  * Approve survey
- * Route: PUT /admin/survey/approve
+ * Route: PUT /survey/admin/approve
  */
 export const approveSurvey = async (req, res) => {
   try {
@@ -752,7 +752,7 @@ export const approveSurvey = async (req, res) => {
 
 /**
  * Reject survey
- * Route: PUT /admin/survey/reject
+ * Route: PUT /survey/admin/reject
  */
 export const rejectSurvey = async (req, res) => {
   try {
@@ -870,7 +870,7 @@ export const rejectSurvey = async (req, res) => {
 
 /**
  * Get survey analytics
- * Route: GET /admin/survey/analytics
+ * Route: GET /survey/admin/analytics
  */
 export const getSurveyAnalytics = async (req, res) => {
   try {
@@ -932,7 +932,7 @@ export const getSurveyAnalytics = async (req, res) => {
 
 /**
  * Get survey statistics
- * Route: GET /admin/survey/stats
+ * Route: GET /survey/admin/stats
  */
 export const getSurveyStats = async (req, res) => {
   try {
@@ -1029,7 +1029,7 @@ export const getSurveyStats = async (req, res) => {
 
 /**
  * Get survey completion rates
- * Route: GET /admin/survey/completion-rates
+ * Route: GET /survey/admin/completion-rates
  */
 export const getSurveyCompletionRates = async (req, res) => {
   try {
@@ -1095,9 +1095,9 @@ export const getSurveyCompletionRates = async (req, res) => {
 
 /**
  * Export survey data (super admin only)
- * Route: GET /admin/survey/export
- * Route: GET /admin/survey/export/responses
- * Route: GET /admin/survey/export/analytics
+ * Route: GET /survey/admin/export
+ * Route: GET /survey/admin/export/responses
+ * Route: GET /survey/admin/export/analytics
  */
 export const exportSurveyData = async (req, res) => {
   try {
@@ -1180,7 +1180,7 @@ export const exportSurveyData = async (req, res) => {
 
 /**
  * Get survey configuration
- * Route: GET /admin/survey/config
+ * Route: GET /survey/admin/config
  */
 export const getSurveyConfig = async (req, res) => {
   try {
@@ -1265,7 +1265,7 @@ export const getSurveyConfig = async (req, res) => {
 
 /**
  * Update survey configuration
- * Route: PUT /admin/survey/config
+ * Route: PUT /survey/admin/config
  */
 export const updateSurveyConfig = async (req, res) => {
   try {
@@ -1472,42 +1472,42 @@ const exportAllSurveyData = async (startDate, endDate, includeAnswers) => {
 // EXPORT ALL CONTROLLER FUNCTIONS
 // =============================================================================
 
-// export default {
-//   // Question Management
-//   getSurveyQuestions,
-//   createSurveyQuestion,
-//   updateSurveyQuestions,
-//   deleteSurveyQuestion,
+export default {
+  // Question Management
+  getSurveyQuestions,
+  createSurveyQuestion,
+  updateSurveyQuestions,
+  deleteSurveyQuestion,
   
-//   // Question Labels Management
-//   getSurveyQuestionLabels,
-//   updateSurveyQuestionLabels,
-//   createSurveyQuestionLabel,
+  // Question Labels Management
+  getSurveyQuestionLabels,
+  updateSurveyQuestionLabels,
+  createSurveyQuestionLabel,
   
-//   // Survey Review & Approval
-//   getPendingSurveys,
-//   getSurveyLogs,
-//   approveSurvey,
-//   rejectSurvey,
+  // Survey Review & Approval
+  getPendingSurveys,
+  getSurveyLogs,
+  approveSurvey,
+  rejectSurvey,
   
-//   // Analytics & Reporting
-//   getSurveyAnalytics,
-//   getSurveyStats,
-//   getSurveyCompletionRates,
+  // Analytics & Reporting
+  getSurveyAnalytics,
+  getSurveyStats,
+  getSurveyCompletionRates,
   
-//   // Data Export
-//   exportSurveyData,
+  // Data Export
+  exportSurveyData,
   
-//   // Configuration
-//   getSurveyConfig,
-//   updateSurveyConfig,
+  // Configuration
+  getSurveyConfig,
+  updateSurveyConfig,
   
-//   // Helper Functions
-//   assessSubmissionQuality,
-//   calculateSurveyReviewPriority
-// };
+  // Helper Functions
+  assessSubmissionQuality,
+  calculateSurveyReviewPriority
+};
 
-// // Named exports for specific controller functions
+// Named exports for specific controller functions
 // export {
 //   // Question Management
 //   getSurveyQuestions,

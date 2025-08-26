@@ -37,7 +37,7 @@ const AuthControls = () => {
     queryFn: async () => {
       console.log('🔍 Fetching question labels...');
       try {
-        const res = await api.get("/admin/survey/question-labels");
+        const res = await api.get("/survey/admin/question-labels");
         console.log("✅ Question labels response:", res.data);
         
         // Handle different response formats from API
@@ -80,7 +80,7 @@ const AuthControls = () => {
     queryFn: async () => {
       console.log('🔍 Fetching survey logs...');
       try {
-        const res = await api.get("/admin/survey/logs");
+        const res = await api.get("/survey/admin/logs");
         console.log("✅ Survey logs response:", res.data);
         
         // Handle different response formats
@@ -118,7 +118,7 @@ const AuthControls = () => {
         throw new Error('Please provide at least one question label before saving');
       }
       
-      return api.put("/admin/survey/question-labels", { labels });
+      return api.put("/survey/admin/question-labels", { labels });
     },
     onSuccess: () => {
       console.log('✅ Question labels updated successfully');
@@ -136,7 +136,7 @@ const AuthControls = () => {
   const { mutate: updateApprovalStatus, isLoading: updatingApproval } = useMutation({
     mutationFn: ({ surveyId, userId, status }) => {
       console.log('🔍 Updating approval status:', { surveyId, userId, status });
-      return api.put("/admin/survey/approve", { surveyId, userId, status });
+      return api.put("/survey/admin/approve", { surveyId, userId, status });
     },
     onSuccess: (data, variables) => {
       console.log('✅ Approval status updated:', variables);
@@ -153,7 +153,7 @@ const AuthControls = () => {
   const { mutate: updateUserRole, isLoading: updatingRole } = useMutation({
     mutationFn: ({ userId, role }) => {
       console.log('🔍 Updating user role:', { userId, role });
-      return api.put("/admin/users/role", { userId, role });
+      return api.put("/users/admin/role", { userId, role });
     },
     onSuccess: () => {
       console.log('✅ User role updated successfully');

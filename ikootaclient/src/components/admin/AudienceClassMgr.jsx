@@ -72,7 +72,7 @@ const AudienceClassMgr = () => {
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
     queryKey: ['classDashboard'],
     queryFn: async () => {
-      const { data } = await api.get('/admin/classes/dashboard');
+      const { data } = await api.get('/classes/admin/dashboard');
       return data;
     },
     staleTime: 2 * 60 * 1000,
@@ -83,7 +83,7 @@ const AudienceClassMgr = () => {
   const { data: systemStats, isLoading: statsLoading } = useQuery({
     queryKey: ['classSystemStats'],
     queryFn: async () => {
-      const { data } = await api.get('/admin/classes/stats');
+      const { data } = await api.get('/classes/admin/stats');
       return data;
     },
     staleTime: 5 * 60 * 1000,
@@ -112,7 +112,7 @@ const AudienceClassMgr = () => {
           ...(filterState.status !== 'all' && { is_active: filterState.status === 'active' ? 'true' : 'false' }),
         });
 
-        const { data } = await api.get(`/admin/classes?${params}`);
+        const { data } = await api.get(`/classes/admin?${params}`);
         console.log('✅ Admin Classes API response:', data);
         
         if (data?.success && Array.isArray(data.data)) {
@@ -137,7 +137,7 @@ const AudienceClassMgr = () => {
   const { data: pendingApprovals } = useQuery({
     queryKey: ['pendingApprovals'],
     queryFn: async () => {
-      const { data } = await api.get('/admin/classes/pending-approvals');
+      const { data } = await api.get('/classes/admin/pending-approvals');
       return data;
     },
     staleTime: 1 * 60 * 1000,
@@ -153,7 +153,7 @@ const AudienceClassMgr = () => {
         limit: 50,
         ...(filterState.dateRange !== 'all' && { dateRange: filterState.dateRange })
       });
-      const { data } = await api.get(`/admin/classes/audit-logs?${params}`);
+      const { data } = await api.get(`/classes/admin/audit-logs?${params}`);
       return data;
     },
     enabled: showAuditLogs,
@@ -179,7 +179,7 @@ const AudienceClassMgr = () => {
       
       try {
         console.log('🔍 Fetching participants for class:', classId);
-        const { data } = await api.get(`/admin/classes/${classId}/participants`);
+        const { data } = await api.get(`/classes/admin/${classId}/participants`);
         console.log('✅ Participants API response:', data);
         
         if (data?.success && Array.isArray(data.data)) {
@@ -208,7 +208,7 @@ const AudienceClassMgr = () => {
       const params = new URLSearchParams({
         ...(filterState.dateRange !== 'all' && { dateRange: filterState.dateRange })
       });
-      const { data } = await api.get(`/admin/classes/analytics?${params}`);
+      const { data } = await api.get(`/classes/admin/analytics?${params}`);
       return data.success ? data.data : null;
     },
     enabled: !!(showAnalytics),
@@ -220,7 +220,7 @@ const AudienceClassMgr = () => {
     queryKey: ['classContent', selectedClass?.class_id],
     queryFn: async () => {
       if (!selectedClass?.class_id) return [];
-      const { data } = await api.get(`/admin/classes/${selectedClass.class_id}/content`);
+      const { data } = await api.get(`/classes/admin/${selectedClass.class_id}/content`);
       return data.success ? data.data : [];
     },
     enabled: !!(selectedClass?.class_id && showContentManager),
@@ -238,7 +238,7 @@ const AudienceClassMgr = () => {
         throw new Error('Invalid class ID format. Must be OTU# followed by 6 alphanumeric characters.');
       }
       
-      return await api.post('/admin/classes', classData);
+      return await api.post('/classes/admin', classData);
     },
     onSuccess: (response) => {
       console.log('✅ Class created successfully:', response.data);
@@ -263,7 +263,7 @@ const AudienceClassMgr = () => {
       if (!classId) throw new Error('No class selected for update');
       
       console.log('🔍 Updating class:', classId, updateData);
-      return await api.put(`/admin/classes/${classId}`, updateData);
+      return await api.put(`/classes/admin/${classId}`, updateData);
     },
     onSuccess: (response) => {
       console.log('✅ Class updated successfully:', response.data);
@@ -285,7 +285,7 @@ const AudienceClassMgr = () => {
   const deleteMutation = useMutation({
     mutationFn: async (classId) => {
       console.log('🔍 Deleting class:', classId);
-      return await api.delete(`/admin/classes/${classId}`);
+      return await api.delete(`/classes/admin/${classId}`);
     },
     onSuccess: (response, classId) => {
       console.log('✅ Class deleted successfully:', response.data);
@@ -311,13 +311,13 @@ const AudienceClassMgr = () => {
       
       switch (action) {
         case 'delete':
-          return await api.delete('/admin/classes/bulk-delete', { data: { class_ids: classIds } });
+          return await api.delete('/classes/admin/bulk-delete', { data: { class_ids: classIds } });
         case 'update':
-          return await api.put('/admin/classes/bulk-update', { class_ids: classIds, updates: updateData });
+          return await api.put('/classes/admin/bulk-update', { class_ids: classIds, updates: updateData });
         case 'activate':
-          return await api.put('/admin/classes/bulk-update', { class_ids: classIds, updates: { is_active: true } });
+          return await api.put('/classes/admin/bulk-update', { class_ids: classIds, updates: { is_active: true } });
         case 'deactivate':
-          return await api.put('/admin/classes/bulk-update', { class_ids: classIds, updates: { is_active: false } });
+          return await api.put('/classes/admin/bulk-update', { class_ids: classIds, updates: { is_active: false } });
         default:
           throw new Error('Invalid bulk action');
       }
@@ -350,11 +350,11 @@ const AudienceClassMgr = () => {
         case 'promote':
         case 'demote':
         case 'remove':
-          return await api.put(`/admin/classes/${classId}/participants/${userId}`, { action, ...data });
+          return await api.put(`/classes/admin/${classId}/participants/${userId}`, { action, ...data });
         case 'add':
-          return await api.post(`/admin/classes/${classId}/participants/add`, { user_ids: [userId], ...data });
+          return await api.post(`/classes/admin/${classId}/participants/add`, { user_ids: [userId], ...data });
         case 'bulk':
-          return await api.post(`/admin/classes/${classId}/participants/bulk`, data);
+          return await api.post(`/classes/admin/${classId}/participants/bulk`, data);
         default:
           throw new Error('Invalid participant action');
       }
@@ -381,7 +381,7 @@ const AudienceClassMgr = () => {
         ...(classIds && { class_ids: classIds.join(',') })
       });
       
-      const response = await api.get(`/admin/classes/export?${params}`, {
+      const response = await api.get(`/classes/admin/export?${params}`, {
         responseType: 'blob'
       });
       
@@ -409,7 +409,7 @@ const AudienceClassMgr = () => {
   // ✅ REPORTS GENERATION MUTATION
   const reportsMutation = useMutation({
     mutationFn: async (reportConfig) => {
-      return await api.post('/admin/classes/reports', reportConfig);
+      return await api.post('/classes/admin/reports', reportConfig);
     },
     onSuccess: (response) => {
       console.log('✅ Report generated:', response.data);
@@ -428,7 +428,7 @@ const AudienceClassMgr = () => {
   // ✅ BATCH APPROVAL MUTATION
   const batchApprovalMutation = useMutation({
     mutationFn: async ({ items, type }) => {
-      return await api.post('/admin/classes/approve-batch', { items, type });
+      return await api.post('/classes/admin/approve-batch', { items, type });
     },
     onSuccess: (response) => {
       console.log('✅ Batch approval completed:', response.data);
@@ -1820,7 +1820,7 @@ const SystemSettingsModal = ({ onClose }) => {
 
   const handleSaveSettings = async () => {
     try {
-      await api.put('/admin/classes/settings', settings);
+      await api.put('/classes/admin/settings', settings);
       alert('Settings saved successfully!');
       onClose();
     } catch (error) {
@@ -3099,7 +3099,7 @@ export default AudienceClassMgr;
 //     queryFn: async () => {
 //       if (!selectedClass?.class_id) return null;
 //       try {
-//         const { data } = await api.get(`/admin/classes/${selectedClass.class_id}/analytics`);
+//         const { data } = await api.get(`/classes/admin/${selectedClass.class_id}/analytics`);
 //         return data.success ? data.data : null;
 //       } catch (error) {
 //         console.warn('Analytics not available:', error.message);
@@ -3191,13 +3191,13 @@ export default AudienceClassMgr;
       
 //       switch (action) {
 //         case 'delete':
-//           return await api.delete('/admin/classes/bulk-delete', { data: { class_ids: classIds } });
+//           return await api.delete('/classes/admin/bulk-delete', { data: { class_ids: classIds } });
 //         case 'update':
-//           return await api.put('/admin/classes/bulk-update', { class_ids: classIds, updates: updateData });
+//           return await api.put('/classes/admin/bulk-update', { class_ids: classIds, updates: updateData });
 //         case 'activate':
-//           return await api.put('/admin/classes/bulk-update', { class_ids: classIds, updates: { is_active: true } });
+//           return await api.put('/classes/admin/bulk-update', { class_ids: classIds, updates: { is_active: true } });
 //         case 'deactivate':
-//           return await api.put('/admin/classes/bulk-update', { class_ids: classIds, updates: { is_active: false } });
+//           return await api.put('/classes/admin/bulk-update', { class_ids: classIds, updates: { is_active: false } });
 //         default:
 //           throw new Error('Invalid bulk action');
 //       }

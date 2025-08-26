@@ -300,7 +300,7 @@ export const getUserDashboard = async (req, res) => {
     if (user.role === 'admin' || user.role === 'super_admin') {
       quickActions.unshift(
         { type: 'warning', text: 'Admin Panel', link: '/admin' },
-        { type: 'info', text: 'User Management', link: '/admin/users' }
+        { type: 'info', text: 'User Management', link: '/users/admin' }
       );
     }
     

@@ -31,7 +31,7 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
     queryKey: ['pendingSurveysCount'],
     queryFn: async () => {
       try {
-        const { data } = await api.get('/admin/survey/stats', { 
+        const { data } = await api.get('/survey/admin/stats', { 
           withCredentials: true 
         });
         return data?.data?.pending || 0;

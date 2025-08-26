@@ -90,7 +90,7 @@ const checkServerConfig = () => {
   // Check if admin routes are imported and mounted
   const hasAdminImport = serverContent.includes('adminMembershipRouter') || 
                         serverContent.includes('adminMembershipRoutes');
-  const hasAdminMount = serverContent.includes('/api/admin/membership');
+  const hasAdminMount = serverContent.includes('/api/membership/admin');
   
   if (hasAdminImport && hasAdminMount) {
     log('✅ Admin routes appear to be properly configured', 'green');
@@ -102,7 +102,7 @@ const checkServerConfig = () => {
     
     log('\n📋 Add this to your server file:', 'blue');
     log('  import adminMembershipRouter from \'./routes/adminMembershipRoutes.js\';', 'cyan');
-    log('  app.use(\'/api/admin/membership\', adminMembershipRouter);', 'cyan');
+    log('  app.use(\'/api/membership/admin\', adminMembershipRouter);', 'cyan');
     
     return false;
   }
@@ -224,7 +224,7 @@ Generated on: ${new Date().toISOString()}
 
 ### 1. Test Endpoint
 \`\`\`
-GET /api/admin/membership/test
+GET /api/membership/admin/test
 \`\`\`
 - **Purpose**: Test connectivity and authentication
 - **Auth**: Admin required
@@ -232,7 +232,7 @@ GET /api/admin/membership/test
 
 ### 2. Get Applications
 \`\`\`
-GET /api/admin/membership/applications?status={status}
+GET /api/membership/admin/applications?status={status}
 \`\`\`
 - **Purpose**: Fetch membership applications by status
 - **Auth**: Admin required
@@ -242,7 +242,7 @@ GET /api/admin/membership/applications?status={status}
 
 ### 3. Get Statistics
 \`\`\`
-GET /api/admin/membership/full-membership-stats
+GET /api/membership/admin/full-membership-stats
 \`\`\`
 - **Purpose**: Get membership statistics summary
 - **Auth**: Admin required
@@ -250,7 +250,7 @@ GET /api/admin/membership/full-membership-stats
 
 ### 4. Get Pending Count
 \`\`\`
-GET /api/admin/membership/pending-count
+GET /api/membership/admin/pending-count
 \`\`\`
 - **Purpose**: Quick count of pending applications
 - **Auth**: Admin required
@@ -258,7 +258,7 @@ GET /api/admin/membership/pending-count
 
 ### 5. Review Application
 \`\`\`
-PUT /api/admin/membership/applications/:id/review
+PUT /api/membership/admin/applications/:id/review
 \`\`\`
 - **Purpose**: Review individual application
 - **Auth**: Admin required
@@ -272,7 +272,7 @@ PUT /api/admin/membership/applications/:id/review
 
 ### 6. Bulk Review
 \`\`\`
-POST /api/admin/membership/applications/bulk-review
+POST /api/membership/admin/applications/bulk-review
 \`\`\`
 - **Purpose**: Review multiple applications at once
 - **Auth**: Admin required

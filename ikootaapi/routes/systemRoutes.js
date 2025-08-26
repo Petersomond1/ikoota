@@ -83,11 +83,11 @@ router.get('/info', (req, res) => {
       userManagement: {
         profile: '/api/users/* - Profile, settings, preferences',
         status: '/api/user-status/* - Dashboard, status checks',
-        admin: '/api/admin/users/* - Admin user management'
+        admin: '/api/users/admin/* - Admin user management'
       },
       membershipSystem: {
         applications: '/api/membership/* - Applications, status, workflow',
-        admin: '/api/admin/membership/* - Application reviews, analytics'
+        admin: '/api/membership/admin/* - Application reviews, analytics'
       },
       contentSystem: {
         unified: '/api/content/* - Chats, teachings, comments unified',
@@ -100,11 +100,11 @@ router.get('/info', (req, res) => {
       },
       surveySystem: {
         submissions: '/api/survey/* - Survey submissions, questions',
-        admin: '/api/admin/survey/* - Question management, approval'
+        admin: '/api/survey/admin/* - Question management, approval'
       },
       classSystem: {
         enrollment: '/api/classes/* - Class enrollment, content access',
-        admin: '/api/admin/classes/* - Class creation, management'
+        admin: '/api/classes/admin/* - Class creation, management'
       },
       identitySystem: {
         management: '/api/identity/* - Converse/mentor ID operations',
@@ -241,10 +241,10 @@ router.get('/routes', (req, res) => {
       pattern: 'All admin routes use /api/admin/ prefix',
       security: 'Enhanced rate limiting and logging',
       modules: [
-        '/api/admin/users/*',
-        '/api/admin/membership/*',
-        '/api/admin/survey/*', 
-        '/api/admin/classes/*',
+        '/api/users/admin/*',
+        '/api/membership/admin/*',
+        '/api/survey/admin/*', 
+        '/api/classes/admin/*',
         '/api/admin/identity/*'
       ]
     },

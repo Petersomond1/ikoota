@@ -43,13 +43,13 @@ router.use((req, res, next) => {
 // =============================================================================
 
 /**
- * GET /api/admin/classes/test
+ * GET /api/classes/admin/test
  * Test endpoint for class admin system
  */
 router.get('/test', classAdminController.testAdminSystem);
 
 /**
- * GET /api/admin/classes/health  
+ * GET /api/classes/admin/health  
  * Health check for class admin system
  */
 router.get('/health', classAdminController.getSystemHealth);
@@ -59,31 +59,31 @@ router.get('/health', classAdminController.getSystemHealth);
 // =============================================================================
 
 /**
- * POST /api/admin/classes
+ * POST /api/classes/admin
  * Create a new class
  */
 router.post('/', validateClassCreation, classAdminController.createClass);
 
 /**
- * GET /api/admin/classes
+ * GET /api/classes/admin
  * Get all classes with admin details
  */
 router.get('/', validatePagination, validateSorting, classAdminController.getAllClasses);
 
 /**
- * GET /api/admin/classes/:id
+ * GET /api/classes/admin/:id
  * Get specific class with admin details
  */
 router.get('/:id', validateClassId, classAdminController.getClassById);
 
 /**
- * PUT /api/admin/classes/:id
+ * PUT /api/classes/admin/:id
  * Update a specific class
  */
 router.put('/:id', validateClassId, validateClassUpdate, classAdminController.updateClass);
 
 /**
- * DELETE /api/admin/classes/:id
+ * DELETE /api/classes/admin/:id
  * Delete a specific class
  */
 router.delete('/:id', validateClassId, classAdminController.deleteClass);
@@ -93,31 +93,31 @@ router.delete('/:id', validateClassId, classAdminController.deleteClass);
 // =============================================================================
 
 /**
- * GET /api/admin/classes/:id/participants
+ * GET /api/classes/admin/:id/participants
  * Get all participants of a specific class
  */
 router.get('/:id/participants', validateClassId, validatePagination, validateSorting, classAdminController.getClassParticipants);
 
 /**
- * POST /api/admin/classes/:id/participants
+ * POST /api/classes/admin/:id/participants
  * Add participants to a class
  */
 router.post('/:id/participants', validateClassId, classAdminController.addParticipant);
 
 /**
- * PUT /api/admin/classes/:id/participants/:userId
+ * PUT /api/classes/admin/:id/participants/:userId
  * Manage a specific class member (approve, reject, change role, etc.)
  */
 router.put('/:id/participants/:userId', validateClassId, validateMembershipAction, classAdminController.manageParticipant);
 
 /**
- * DELETE /api/admin/classes/:id/participants/:userId
+ * DELETE /api/classes/admin/:id/participants/:userId
  * Remove a participant from a class
  */
 router.delete('/:id/participants/:userId', validateClassId, classAdminController.removeParticipant);
 
 /**
- * POST /api/admin/classes/:id/participants/bulk
+ * POST /api/classes/admin/:id/participants/bulk
  * Bulk operations on class participants
  */
 router.post('/:id/participants/bulk', validateClassId, validateBulkOperation, classAdminController.bulkParticipantActions);
@@ -127,37 +127,37 @@ router.post('/:id/participants/bulk', validateClassId, validateBulkOperation, cl
 // =============================================================================
 
 /**
- * GET /api/admin/classes/analytics
+ * GET /api/classes/admin/analytics
  * Get comprehensive class analytics
  */
 router.get('/analytics', validateDateRange, classAdminController.getAnalytics);
 
 /**
- * GET /api/admin/classes/stats
+ * GET /api/classes/admin/stats
  * Get system-wide class statistics
  */
 router.get('/stats', classAdminController.getSystemStats);
 
 /**
- * GET /api/admin/classes/:id/analytics
+ * GET /api/classes/admin/:id/analytics
  * Get specific class analytics
  */
 router.get('/:id/analytics', validateClassId, classAdminController.getClassAnalytics);
 
 /**
- * GET /api/admin/classes/export
+ * GET /api/classes/admin/export
  * Export class data
  */
 router.get('/export', validateDateRange, classAdminController.exportClassData);
 
 /**
- * POST /api/admin/classes/reports
+ * POST /api/classes/admin/reports
  * Generate custom reports
  */
 router.post('/reports', validateDateRange, classAdminController.generateReports);
 
 /**
- * GET /api/admin/classes/audit-logs
+ * GET /api/classes/admin/audit-logs
  * Get audit logs for class operations
  */
 router.get('/audit-logs', validatePagination, validateDateRange, classAdminController.getAuditLogs);
@@ -167,25 +167,25 @@ router.get('/audit-logs', validatePagination, validateDateRange, classAdminContr
 // =============================================================================
 
 /**
- * POST /api/admin/classes/bulk-create
+ * POST /api/classes/admin/bulk-create
  * Bulk create multiple classes
  */
 router.post('/bulk-create', validateBulkOperation, classAdminController.bulkCreateClasses);
 
 /**
- * PUT /api/admin/classes/bulk-update
+ * PUT /api/classes/admin/bulk-update
  * Bulk update multiple classes
  */
 router.put('/bulk-update', validateBulkOperation, classAdminController.bulkUpdateClasses);
 
 /**
- * DELETE /api/admin/classes/bulk-delete
+ * DELETE /api/classes/admin/bulk-delete
  * Bulk delete multiple classes
  */
 router.delete('/bulk-delete', validateBulkOperation, classAdminController.bulkDeleteClasses);
 
 /**
- * POST /api/admin/classes/bulk-import
+ * POST /api/classes/admin/bulk-import
  * Import classes from CSV/Excel file
  */
 router.post('/bulk-import', classAdminController.bulkImportClasses);
@@ -195,25 +195,25 @@ router.post('/bulk-import', classAdminController.bulkImportClasses);
 // =============================================================================
 
 /**
- * GET /api/admin/classes/dashboard
+ * GET /api/classes/admin/dashboard
  * Get admin dashboard data
  */
 router.get('/dashboard', classAdminController.getDashboard);
 
 /**
- * GET /api/admin/classes/pending-approvals
+ * GET /api/classes/admin/pending-approvals
  * Get classes or participants pending approval
  */
 router.get('/pending-approvals', validatePagination, classAdminController.getPendingApprovals);
 
 /**
- * POST /api/admin/classes/approve-batch
+ * POST /api/classes/admin/approve-batch
  * Batch approve multiple pending items
  */
 router.post('/approve-batch', validateBulkOperation, classAdminController.batchApprove);
 
 /**
- * PUT /api/admin/classes/settings
+ * PUT /api/classes/admin/settings
  * Update system-wide class settings
  */
 router.put('/settings', classAdminController.updateSystemSettings);
@@ -223,19 +223,19 @@ router.put('/settings', classAdminController.updateSystemSettings);
 // =============================================================================
 
 /**
- * POST /api/admin/classes/:id/archive
+ * POST /api/classes/admin/:id/archive
  * Archive a class instead of deleting
  */
 router.post('/:id/archive', validateClassId, classAdminController.archiveClass);
 
 /**
- * POST /api/admin/classes/:id/restore
+ * POST /api/classes/admin/:id/restore
  * Restore an archived class
  */
 router.post('/:id/restore', validateClassId, classAdminController.restoreClass);
 
 /**
- * POST /api/admin/classes/:id/duplicate
+ * POST /api/classes/admin/:id/duplicate
  * Duplicate a class with options
  */
 router.post('/:id/duplicate', validateClassId, classAdminController.duplicateClass);
@@ -287,20 +287,20 @@ router.use('*', (req, res) => {
     path: req.originalUrl,
     method: req.method,
     available_endpoints: [
-      'GET /api/admin/classes - Get all classes',
-      'POST /api/admin/classes - Create class',
-      'GET /api/admin/classes/:id - Get class details',
-      'PUT /api/admin/classes/:id - Update class',
-      'DELETE /api/admin/classes/:id - Delete class',
-      'GET /api/admin/classes/:id/participants - Get participants',
-      'POST /api/admin/classes/:id/participants - Add participant',
-      'PUT /api/admin/classes/:id/participants/:userId - Manage participant',
-      'DELETE /api/admin/classes/:id/participants/:userId - Remove participant',
-      'GET /api/admin/classes/analytics - Get analytics',
-      'GET /api/admin/classes/stats - Get statistics',
-      'POST /api/admin/classes/bulk-create - Bulk create',
-      'PUT /api/admin/classes/bulk-update - Bulk update',
-      'DELETE /api/admin/classes/bulk-delete - Bulk delete'
+      'GET /api/classes/admin - Get all classes',
+      'POST /api/classes/admin - Create class',
+      'GET /api/classes/admin/:id - Get class details',
+      'PUT /api/classes/admin/:id - Update class',
+      'DELETE /api/classes/admin/:id - Delete class',
+      'GET /api/classes/admin/:id/participants - Get participants',
+      'POST /api/classes/admin/:id/participants - Add participant',
+      'PUT /api/classes/admin/:id/participants/:userId - Manage participant',
+      'DELETE /api/classes/admin/:id/participants/:userId - Remove participant',
+      'GET /api/classes/admin/analytics - Get analytics',
+      'GET /api/classes/admin/stats - Get statistics',
+      'POST /api/classes/admin/bulk-create - Bulk create',
+      'PUT /api/classes/admin/bulk-update - Bulk update',
+      'DELETE /api/classes/admin/bulk-delete - Bulk delete'
     ],
     note: 'All admin endpoints require admin role',
     timestamp: new Date().toISOString()
@@ -390,7 +390,7 @@ export default router;
 // // ===============================================
 
 // /**
-//  * GET /api/admin/classes/test
+//  * GET /api/classes/admin/test
 //  * Test endpoint for class admin system
 //  */
 // router.get('/test', (req, res) => {
@@ -406,27 +406,27 @@ export default router;
 //     },
 //     endpoints: {
 //       class_management: [
-//         'POST /api/admin/classes - Create class',
-//         'GET /api/admin/classes - Get all classes (admin view)',
-//         'GET /api/admin/classes/:id - Get class (admin view)',
-//         'PUT /api/admin/classes/:id - Update class',
-//         'DELETE /api/admin/classes/:id - Delete class'
+//         'POST /api/classes/admin - Create class',
+//         'GET /api/classes/admin - Get all classes (admin view)',
+//         'GET /api/classes/admin/:id - Get class (admin view)',
+//         'PUT /api/classes/admin/:id - Update class',
+//         'DELETE /api/classes/admin/:id - Delete class'
 //       ],
 //       participant_management: [
-//         'GET /api/admin/classes/:id/participants - Get participants',
-//         'PUT /api/admin/classes/:id/participants/:userId - Manage member',
-//         'POST /api/admin/classes/:id/participants/bulk - Bulk member operations'
+//         'GET /api/classes/admin/:id/participants - Get participants',
+//         'PUT /api/classes/admin/:id/participants/:userId - Manage member',
+//         'POST /api/classes/admin/:id/participants/bulk - Bulk member operations'
 //       ],
 //       analytics_and_reports: [
-//         'GET /api/admin/classes/analytics - Class analytics',
-//         'GET /api/admin/classes/stats - System statistics',
-//         'GET /api/admin/classes/export - Export class data',
-//         'POST /api/admin/classes/reports - Generate reports'
+//         'GET /api/classes/admin/analytics - Class analytics',
+//         'GET /api/classes/admin/stats - System statistics',
+//         'GET /api/classes/admin/export - Export class data',
+//         'POST /api/classes/admin/reports - Generate reports'
 //       ],
 //       bulk_operations: [
-//         'POST /api/admin/classes/bulk-create - Bulk create classes',
-//         'PUT /api/admin/classes/bulk-update - Bulk update classes',
-//         'DELETE /api/admin/classes/bulk-delete - Bulk delete classes'
+//         'POST /api/classes/admin/bulk-create - Bulk create classes',
+//         'PUT /api/classes/admin/bulk-update - Bulk update classes',
+//         'DELETE /api/classes/admin/bulk-delete - Bulk delete classes'
 //       ]
 //     },
 //     permissions: {
@@ -443,7 +443,7 @@ export default router;
 // });
 
 // /**
-//  * GET /api/admin/classes/health
+//  * GET /api/classes/admin/health
 //  * Health check for class admin system
 //  */
 // router.get('/health', (req, res) => {
@@ -462,31 +462,31 @@ export default router;
 // // ===============================================
 
 // /**
-//  * POST /api/admin/classes
+//  * POST /api/classes/admin
 //  * Create a new class
 //  */
 // router.post('/', validateClassCreation, createClass);
 
 // /**
-//  * GET /api/admin/classes
+//  * GET /api/classes/admin
 //  * Get all classes with admin details
 //  */
 // router.get('/', validatePagination, validateSorting, getAllClassesAdmin);
 
 // /**
-//  * GET /api/admin/classes/:id
+//  * GET /api/classes/admin/:id
 //  * Get specific class with admin details
 //  */
 // router.get('/:id', validateClassId, getClassByIdAdmin);
 
 // /**
-//  * PUT /api/admin/classes/:id
+//  * PUT /api/classes/admin/:id
 //  * Update a specific class
 //  */
 // router.put('/:id', validateClassId, validateClassUpdate, updateClass);
 
 // /**
-//  * DELETE /api/admin/classes/:id
+//  * DELETE /api/classes/admin/:id
 //  * Delete a specific class
 //  */
 // router.delete('/:id', validateClassId, deleteClass);
@@ -496,19 +496,19 @@ export default router;
 // // ===============================================
 
 // /**
-//  * GET /api/admin/classes/:id/participants
+//  * GET /api/classes/admin/:id/participants
 //  * Get all participants of a specific class
 //  */
 // router.get('/:id/participants', validateClassId, validatePagination, validateSorting, getClassParticipants);
 
 // /**
-//  * PUT /api/admin/classes/:id/participants/:userId
+//  * PUT /api/classes/admin/:id/participants/:userId
 //  * Manage a specific class member (approve, reject, change role, etc.)
 //  */
 // router.put('/:id/participants/:userId', validateClassId, validateMembershipAction, manageClassMember);
 
 // /**
-//  * POST /api/admin/classes/:id/participants/bulk
+//  * POST /api/classes/admin/:id/participants/bulk
 //  * Bulk operations on class participants
 //  */
 // router.post('/:id/participants/bulk', validateClassId, validateBulkOperation, (req, res) => {
@@ -525,7 +525,7 @@ export default router;
 // });
 
 // /**
-//  * POST /api/admin/classes/:id/participants/add
+//  * POST /api/classes/admin/:id/participants/add
 //  * Add participants to a class
 //  */
 // router.post('/:id/participants/add', validateClassId, (req, res) => {
@@ -540,7 +540,7 @@ export default router;
 // });
 
 // /**
-//  * DELETE /api/admin/classes/:id/participants/:userId
+//  * DELETE /api/classes/admin/:id/participants/:userId
 //  * Remove a participant from a class
 //  */
 // router.delete('/:id/participants/:userId', validateClassId, (req, res) => {
@@ -559,31 +559,31 @@ export default router;
 // // ===============================================
 
 // /**
-//  * GET /api/admin/classes/analytics
+//  * GET /api/classes/admin/analytics
 //  * Get comprehensive class analytics
 //  */
 // router.get('/analytics', validateDateRange, getClassAnalytics);
 
 // /**
-//  * GET /api/admin/classes/stats
+//  * GET /api/classes/admin/stats
 //  * Get system-wide class statistics
 //  */
 // router.get('/stats', getSystemStats);
 
 // /**
-//  * GET /api/admin/classes/export
+//  * GET /api/classes/admin/export
 //  * Export class data
 //  */
 // router.get('/export', validateDateRange, exportClassData);
 
 // /**
-//  * POST /api/admin/classes/reports
+//  * POST /api/classes/admin/reports
 //  * Generate custom reports
 //  */
 // router.post('/reports', validateDateRange, generateReports);
 
 // /**
-//  * GET /api/admin/classes/audit-logs
+//  * GET /api/classes/admin/audit-logs
 //  * Get audit logs for class operations
 //  */
 // router.get('/audit-logs', validatePagination, validateDateRange, getAuditLogs);
@@ -593,25 +593,25 @@ export default router;
 // // ===============================================
 
 // /**
-//  * POST /api/admin/classes/bulk-create
+//  * POST /api/classes/admin/bulk-create
 //  * Bulk create multiple classes
 //  */
 // router.post('/bulk-create', validateBulkOperation, bulkCreateClasses);
 
 // /**
-//  * PUT /api/admin/classes/bulk-update
+//  * PUT /api/classes/admin/bulk-update
 //  * Bulk update multiple classes
 //  */
 // router.put('/bulk-update', validateBulkOperation, bulkUpdateClasses);
 
 // /**
-//  * DELETE /api/admin/classes/bulk-delete
+//  * DELETE /api/classes/admin/bulk-delete
 //  * Bulk delete multiple classes
 //  */
 // router.delete('/bulk-delete', validateBulkOperation, bulkDeleteClasses);
 
 // /**
-//  * POST /api/admin/classes/bulk-import
+//  * POST /api/classes/admin/bulk-import
 //  * Import classes from CSV/Excel file
 //  */
 // router.post('/bulk-import', (req, res) => {
@@ -631,7 +631,7 @@ export default router;
 // // ===============================================
 
 // /**
-//  * GET /api/admin/classes/dashboard
+//  * GET /api/classes/admin/dashboard
 //  * Get admin dashboard data
 //  */
 // router.get('/dashboard', (req, res) => {
@@ -658,7 +658,7 @@ export default router;
 // });
 
 // /**
-//  * GET /api/admin/classes/pending-approvals
+//  * GET /api/classes/admin/pending-approvals
 //  * Get classes or participants pending approval
 //  */
 // router.get('/pending-approvals', validatePagination, (req, res) => {
@@ -676,7 +676,7 @@ export default router;
 // });
 
 // /**
-//  * POST /api/admin/classes/approve-batch
+//  * POST /api/classes/admin/approve-batch
 //  * Batch approve multiple pending items
 //  */
 // router.post('/approve-batch', validateBulkOperation, (req, res) => {
@@ -691,7 +691,7 @@ export default router;
 // });
 
 // /**
-//  * PUT /api/admin/classes/settings
+//  * PUT /api/classes/admin/settings
 //  * Update system-wide class settings
 //  */
 // router.put('/settings', (req, res) => {
@@ -709,7 +709,7 @@ export default router;
 // // ===============================================
 
 // /**
-//  * GET /api/admin/classes/:id/content
+//  * GET /api/classes/admin/:id/content
 //  * Get all content associated with a specific class
 //  */
 // router.get('/:id/content', validateClassId, validatePagination, (req, res) => {
@@ -724,7 +724,7 @@ export default router;
 // });
 
 // /**
-//  * POST /api/admin/classes/:id/content
+//  * POST /api/classes/admin/:id/content
 //  * Add content to a specific class
 //  */
 // router.post('/:id/content', validateClassId, (req, res) => {
@@ -795,32 +795,32 @@ export default router;
 //     method: req.method,
 //     available_endpoints: {
 //       class_management: [
-//         'POST /api/admin/classes - Create class',
-//         'GET /api/admin/classes - Get all classes (admin)',
-//         'GET /api/admin/classes/:id - Get class details (admin)',
-//         'PUT /api/admin/classes/:id - Update class',
-//         'DELETE /api/admin/classes/:id - Delete class'
+//         'POST /api/classes/admin - Create class',
+//         'GET /api/classes/admin - Get all classes (admin)',
+//         'GET /api/classes/admin/:id - Get class details (admin)',
+//         'PUT /api/classes/admin/:id - Update class',
+//         'DELETE /api/classes/admin/:id - Delete class'
 //       ],
 //       participant_management: [
-//         'GET /api/admin/classes/:id/participants - Get participants',
-//         'PUT /api/admin/classes/:id/participants/:userId - Manage member',
-//         'POST /api/admin/classes/:id/participants/bulk - Bulk operations'
+//         'GET /api/classes/admin/:id/participants - Get participants',
+//         'PUT /api/classes/admin/:id/participants/:userId - Manage member',
+//         'POST /api/classes/admin/:id/participants/bulk - Bulk operations'
 //       ],
 //       analytics: [
-//         'GET /api/admin/classes/analytics - Analytics',
-//         'GET /api/admin/classes/stats - Statistics',
-//         'GET /api/admin/classes/export - Export data',
-//         'POST /api/admin/classes/reports - Generate reports'
+//         'GET /api/classes/admin/analytics - Analytics',
+//         'GET /api/classes/admin/stats - Statistics',
+//         'GET /api/classes/admin/export - Export data',
+//         'POST /api/classes/admin/reports - Generate reports'
 //       ],
 //       bulk_operations: [
-//         'POST /api/admin/classes/bulk-create - Bulk create',
-//         'PUT /api/admin/classes/bulk-update - Bulk update',
-//         'DELETE /api/admin/classes/bulk-delete - Bulk delete'
+//         'POST /api/classes/admin/bulk-create - Bulk create',
+//         'PUT /api/classes/admin/bulk-update - Bulk update',
+//         'DELETE /api/classes/admin/bulk-delete - Bulk delete'
 //       ],
 //       system: [
-//         'GET /api/admin/classes/test - Test endpoint',
-//         'GET /api/admin/classes/health - Health check',
-//         'GET /api/admin/classes/dashboard - Admin dashboard'
+//         'GET /api/classes/admin/test - Test endpoint',
+//         'GET /api/classes/admin/health - Health check',
+//         'GET /api/classes/admin/dashboard - Admin dashboard'
 //       ]
 //     },
 //     note: 'All admin endpoints require admin role',

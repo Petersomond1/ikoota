@@ -69,7 +69,7 @@ const fetchFullMembershipApplications = async (filters = {}) => {
     ...filters
   });
   
-  const res = await api.get(`/admin/membership/applications?${params}`, { 
+  const res = await api.get(`/membership/admin/applications?${params}`, { 
     withCredentials: true 
   });
   
@@ -87,7 +87,7 @@ const reviewFullMembershipApplication = async ({ applicationId, status, adminNot
     throw new Error('Invalid status. Must be "approved" or "declined"');
   }
   
-  const res = await api.put(`/admin/membership/applications/${applicationId}/review`, {
+  const res = await api.put(`/membership/admin/applications/${applicationId}/review`, {
     status,
     adminNotes
   }, { 
@@ -104,7 +104,7 @@ const reviewFullMembershipApplication = async ({ applicationId, status, adminNot
 const getApplicationStatistics = async () => {
   console.log('🔍 Fetching application statistics...');
   
-  const res = await api.get('/admin/membership/stats', { 
+  const res = await api.get('/membership/admin/stats', { 
     withCredentials: true 
   });
   
@@ -139,7 +139,7 @@ const sendApplicationFeedbackEmail = async ({ email, status, applicantName, memb
 const bulkReviewApplications = async ({ applicationIds, action, adminNotes }) => {
   console.log('🔍 Bulk reviewing applications:', { applicationIds, action, adminNotes });
   
-  const res = await api.post('/admin/membership/applications/bulk-review', {
+  const res = await api.post('/membership/admin/applications/bulk-review', {
     applicationIds,
     action,
     adminNotes
@@ -158,7 +158,7 @@ const exportApplicationsData = async (filters = {}) => {
   console.log('🔍 Exporting applications data with filters:', filters);
   
   const params = new URLSearchParams(filters);
-  const res = await api.get(`/admin/membership/applications/export?${params}`, { 
+  const res = await api.get(`/membership/admin/applications/export?${params}`, { 
     withCredentials: true,
     responseType: 'blob' // For file download
   });
