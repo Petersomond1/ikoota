@@ -14,7 +14,8 @@ import {
   getCombinedContent,
   mapConverseIdToUserId,
   mapUserIdToConverseId,
-  getChatStats
+  getChatStats,
+  searchChats
 } from "../services/chatServices.js";
 
 import { validateChatData } from '../utils/contentValidation.js';
@@ -1146,6 +1147,102 @@ export const toggleChatLike = async (req, res) => {
 
   } catch (error) {
     console.error('Error in toggleChatLike:', error);
+    const { statusCode, errorResponse } = formatErrorResponse(error, req);
+    res.status(statusCode).json(errorResponse);
+  }
+};
+
+// ===============================================
+// SEARCH FUNCTIONALITY
+// ===============================================
+
+// ✅ NEW: Enhanced chat search controller
+export const searchChatsController = async (req, res) => {
+  try {
+    const {
+      query: searchQuery,
+      q, // Alternative query parameter
+      user_id,
+      approval_status = 'approved', // Default to approved for public search
+      page = 1,
+      limit = 20,
+      sort_by = 'updatedAt',
+      sort_order = 'desc',
+      // Enhanced search fields
+      search_fields = 'all', // 'title', 'content', 'user', 'all'
+      date_from,
+      date_to
+    } = req.query;
+
+    // Use either 'query' or 'q' parameter
+    const finalQuery = searchQuery || q;
+
+    if (!finalQuery || finalQuery.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query is required',
+        message: 'Please provide a search query using "query" or "q" parameter',
+        example: '/content/chats/search?q=mentorship'
+      });
+    }
+
+    if (finalQuery.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query too short',
+        message: 'Search query must be at least 2 characters long'
+      });
+    }
+
+    const searchOptions = {
+      query: finalQuery,
+      user_id,
+      approval_status,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort_by,
+      sort_order,
+      search_fields,
+      date_from,
+      date_to
+    };
+
+    console.log('🔍 Chat search with options:', searchOptions);
+
+    const searchResults = await searchChats(searchOptions);
+    
+    // Apply normalization
+    const normalizedResults = searchResults.map(chat => normalizeContentItem(chat, 'chat'));
+
+    res.status(200).json({
+      success: true,
+      message: 'Chat search completed successfully',
+      data: normalizedResults,
+      count: normalizedResults.length,
+      search: {
+        query: finalQuery,
+        fields: search_fields,
+        filters: {
+          user_id,
+          approval_status,
+          date_range: date_from && date_to ? `${date_from} to ${date_to}` : null
+        }
+      },
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: normalizedResults.length
+      },
+      suggestions: normalizedResults.length === 0 ? [
+        "Try broader search terms",
+        "Check spelling and try different keywords", 
+        "Use partial words or phrases"
+      ] : [],
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('searchChatsController error:', error);
     const { statusCode, errorResponse } = formatErrorResponse(error, req);
     res.status(statusCode).json(errorResponse);
   }

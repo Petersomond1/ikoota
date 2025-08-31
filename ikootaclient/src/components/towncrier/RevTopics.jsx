@@ -1,6 +1,7 @@
-// ikootaclient/src/components/towncrier/RevTopics.jsx - FIXED VERSION
+// ikootaclient/src/components/towncrier/RevTopics.jsx - ENHANCED WITH BACKEND SEARCH
 import React, { useState, useEffect, useMemo } from 'react';
 import SearchControls from '../search/SearchControls';
+import { useSmartSearch } from '../../hooks/useSearchContent';
 import './revtopics.css';
 import api from '../service/api';
 
@@ -9,6 +10,7 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
   const [filteredTeachings, setFilteredTeachings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Use prop teachings if available, otherwise fetch
   useEffect(() => {
@@ -78,23 +80,45 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
     fetchTeachings();
   }, [propTeachings.length]); // Only depend on length to avoid infinite loops
 
+  // ✅ ENHANCED: Use smart search hook for backend integration
+  const { 
+    data: searchResults, 
+    isLoading: isSearching, 
+    searchMethod 
+  } = useSmartSearch({
+    query: searchQuery,
+    contentType: 'teachings',
+    localData: teachings,
+    useServerSearch: searchQuery.length >= 2, // Use server search for queries >= 2 chars
+    enabled: searchQuery.length >= 2
+  });
+
+  // Update filtered results when search changes
+  useEffect(() => {
+    if (searchQuery.length === 0) {
+      setFilteredTeachings(teachings);
+    } else if (searchQuery.length >= 2) {
+      setFilteredTeachings(searchResults || []);
+    } else {
+      // For 1 character searches, use client-side filtering
+      const lowercaseQuery = searchQuery.toLowerCase();
+      const filtered = teachings.filter(teaching => {
+        const searchFields = [
+          teaching.topic, teaching.title, teaching.description,
+          teaching.subjectMatter, teaching.subject, teaching.audience,
+          teaching.author, teaching.prefixed_id, teaching.content
+        ];
+        
+        return searchFields.some(field => 
+          field && field.toString().toLowerCase().includes(lowercaseQuery)
+        );
+      });
+      setFilteredTeachings(filtered);
+    }
+  }, [searchQuery, searchResults, teachings]);
+
   const handleSearch = (query) => {
-    if (!Array.isArray(teachings)) return;
-    
-    const lowercaseQuery = query.toLowerCase();
-    const filtered = teachings.filter(teaching => {
-      const searchFields = [
-        teaching.topic, teaching.title, teaching.description,
-        teaching.subjectMatter, teaching.subject, teaching.audience,
-        teaching.author, teaching.prefixed_id, teaching.content
-      ];
-      
-      return searchFields.some(field => 
-        field && field.toString().toLowerCase().includes(lowercaseQuery)
-      );
-    });
-    
-    setFilteredTeachings(filtered);
+    setSearchQuery(query);
   };
 
   const handleTopicClick = (teaching) => {
@@ -185,6 +209,13 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
         </div>
         <div className="search-stats">
           <span>📖 {filteredTeachings.length} of {teachings.length} resources</span>
+          {searchQuery && (
+            <span className="search-method">
+              {isSearching && ' ⏳ Searching...'}
+              {!isSearching && searchMethod === 'server' && ' 🌐 Advanced Search'}
+              {!isSearching && searchMethod === 'client' && ' 💻 Quick Search'}
+            </span>
+          )}
         </div>
       </div>
 

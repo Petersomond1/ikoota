@@ -54,8 +54,11 @@ import IkoControl from './components/iko/IkoControls';
 // Search components
 import SearchControls from './components/search/SearchControls';
 
-// ✅ NEW: Import ClassContentViewer component
+// ✅ NEW: Import Class components
+import ClassPreview from './components/classes/ClassPreview';
 import ClassContentViewer from './components/classes/ClassContentViewer';
+import ClassListPage from './components/classes/ClassListPage';
+import MyClassesPage from './components/classes/MyClassesPage';
 
 // Test component
 // import Test from './Test';
@@ -190,19 +193,45 @@ function App() {
                 } />
 
                 {/* 
-                  ✅ NEW: CLASS CONTENT VIEWER ROUTES
-                  Protected routes for class content viewing with URL-safe class ID
-                  Handles both formats: OTU001234 and OTU#001234 (URL encoded)
+                  ✅ ENHANCED: CLASS SYSTEM ROUTES - TWO-STAGE FLOW
+                  Stage 1: Class Preview/Summary → Stage 2: Live Classroom
                 */}
-                <Route path="/classes/:classId" element={
-                  <ProtectedRoute requirePreMember={true}>
-                    <ClassContentViewer />
-                  </ProtectedRoute>
-                } />
+                
+                {/* Classes routes with nested structure */}
+                <Route path="/classes">
+                  {/* Exact /classes route - Class listing */}
+                  <Route index element={
+                    <ProtectedRoute requirePreMember={true}>
+                      <ClassListPage />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* My classes route */}
+                  <Route path="my-classes" element={
+                    <ProtectedRoute requirePreMember={true}>
+                      <MyClassesPage />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* STAGE 1: Class Preview/Summary - Shows overview, description, "Enter Classroom" button */}
+                  <Route path=":classId" element={
+                    <ProtectedRoute requirePreMember={true}>
+                      <ClassPreview />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* STAGE 2: Live Classroom - The actual teaching hub with interactive content */}
+                  <Route path=":classId/classroom" element={
+                    <ProtectedRoute requirePreMember={true}>
+                      <ClassContentViewer />
+                    </ProtectedRoute>
+                  } />
+                </Route>
 
+                {/* Backward compatibility route - redirects to new two-stage flow */}
                 <Route path="/class/:classId" element={
                   <ProtectedRoute requirePreMember={true}>
-                    <ClassContentViewer />
+                    <ClassPreview />
                   </ProtectedRoute>
                 } />
 

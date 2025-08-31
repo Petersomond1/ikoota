@@ -441,7 +441,7 @@ const ClassEnrollmentSection = ({ user }) => {
 
               <div className="class-actions">
                 <button 
-                  onClick={() => navigate(`/classes/${cls.class_id}`)}
+                  onClick={() => navigate(`/classes/${encodeURIComponent(cls.class_id)}`)}
                   className="btn-view"
                 >
                   View Class

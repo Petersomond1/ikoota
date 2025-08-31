@@ -41,8 +41,8 @@ router.get('/test', classController.testClassRoutes);
 /**
  * GET /api/classes
  * Get all public classes (no authentication required)
+ * ✅ ENHANCED: Public course catalog for prospective learners
  */
-// Nil
 router.get('/', 
   validatePagination, 
   validateSorting, 
@@ -147,8 +147,8 @@ router.get('/:id/members',
 /**
  * GET /api/classes/:id/content
  * Get content for a specific class
+ * ✅ ENHANCED: Interactive learning materials and resources
  */
-// Nil
 router.get('/:id/content',
   authenticate,
   validateClassId,
@@ -159,8 +159,8 @@ router.get('/:id/content',
 /**
  * GET /api/classes/:id/announcements
  * Get announcements for a specific class
+ * ✅ ENHANCED: Real-time class updates and important notifications
  */
-// Nil
 router.get('/:id/announcements',
   authenticate,
   validateClassId,
@@ -171,8 +171,8 @@ router.get('/:id/announcements',
 /**
  * POST /api/classes/:id/feedback
  * Submit feedback for a class
+ * ✅ ENHANCED: Continuous improvement through student feedback
  */
-// Nil
 router.post('/:id/feedback',
   authenticate,
   validateClassId,
@@ -182,8 +182,8 @@ router.post('/:id/feedback',
 /**
  * POST /api/classes/:id/attendance
  * Mark attendance for a class session
+ * ✅ ENHANCED: Automated attendance tracking for engagement metrics
  */
-// Nil
 router.post('/:id/attendance',
   authenticate,
   validateClassId,
@@ -193,13 +193,23 @@ router.post('/:id/attendance',
 /**
  * GET /api/classes/:id/schedule
  * Get class schedule
+ * ✅ ENHANCED: Dynamic scheduling for live sessions and deadlines
  */
-// Nil
 router.get('/:id/schedule',
   authenticate,
   validateClassId,
   validateDateRange,
   classController.getClassSchedule
+);
+
+/**
+ * GET /api/classes/:id/stats
+ * Get statistics for a specific class
+ */
+router.get('/:id/stats',
+  authenticate,
+  validateClassId,
+  classController.getClassStats
 );
 
 /**
@@ -212,6 +222,60 @@ router.get('/:id/progress',
   validateClassId,
   classController.getClassProgress
 );
+
+// ===============================================
+// MENTORSHIP ROUTES (CONVERSE ID INTEGRATION)
+// ===============================================
+
+/**
+ * GET /api/classes/:id/mentorship-pairs
+ * Get mentorship pairs within class with converse ID protection
+ */
+// ClassMentorshipView.jsx
+router.get('/:id/mentorship-pairs',
+  authenticate,
+  validateClassId,
+  classController.getClassMentorshipPairs
+);
+
+/**
+ * GET /api/classes/:id/my-mentorship-status
+ * Get user's mentorship status in specific class
+ */
+// ClassMentorshipView.jsx
+router.get('/:id/my-mentorship-status',
+  authenticate,
+  validateClassId,
+  classController.getUserMentorshipStatus
+);
+
+/**
+ * POST /api/classes/:id/request-mentor
+ * Request a mentor within class context
+ */
+// ClassMentorshipView.jsx
+router.post('/:id/request-mentor',
+  authenticate,
+  validateClassId,
+  classController.requestClassMentor
+);
+
+/**
+ * POST /api/classes/:id/accept-mentorship
+ * Accept mentorship responsibility within class
+ */
+// ClassMentorshipView.jsx
+router.post('/:id/accept-mentorship',
+  authenticate,
+  validateClassId,
+  classController.acceptClassMentorship
+);
+
+/**
+ * GET /api/classes/:id/members?include_mentorship=true
+ * Enhanced members endpoint with mentorship data
+ */
+// Enhanced version of existing endpoint - no new route needed
 
 // ===============================================
 // SEARCH ROUTES

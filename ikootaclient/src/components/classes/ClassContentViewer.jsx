@@ -1,6 +1,6 @@
 // ikootaclient/src/components/classes/ClassContentViewer.jsx
-// DEDICATED CLASS CONTENT VIEWER - Alternative to using Iko.jsx or Towncrier.jsx
-// Features: Class announcements, assignments, discussions, resources, real-time interactions
+// LIVE CLASSROOM HUB - Interactive teaching environment (Stage 2 of class experience)
+// Features: Live teaching board, video/audio, charts, real-time interactions, collaborative learning
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -8,6 +8,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '../auth/UserStatus';
 import api from '../service/api';
 import './ClassContentViewer.css';
+// ✅ NEW: AI Features Panel
+import AIFeaturesPanel from '../shared/AIFeaturesPanel';
 
 const ClassContentViewer = () => {
   const { classId } = useParams();
@@ -15,23 +17,152 @@ const ClassContentViewer = () => {
   const { user, isAuthenticated } = useUser();
   const queryClient = useQueryClient();
   
-  // Helper function to handle class ID formats
+  // Debug the actual URL and params received
+  console.log('🔍 ClassContentViewer Raw Debug:', {
+    classIdFromParams: classId,
+    windowLocationHref: window.location.href,
+    windowLocationPathname: window.location.pathname,
+    windowLocationHash: window.location.hash,
+    useParamsResult: useParams()
+  });
+  
+  // Helper function to handle class ID formats with proper URL handling
   const normalizeClassId = (id) => {
-    if (!id) return id;
-    // Handle URL encoding and # character
-    const decoded = decodeURIComponent(id);
-    // For display, keep original format; for API calls, remove #
-    return {
-      forApi: decoded.replace('#', ''),     // OTU001234 (URL-safe for API)
-      forDisplay: decoded,                  // OTU#001234 (original format for display)
-      isOriginalFormat: decoded.includes('#')
-    };
+    if (!id) return null;
+    
+    try {
+      // First, handle URL decoding
+      let decoded = decodeURIComponent(id);
+      
+      console.log('🔍 normalizeClassId input:', { original: id, decoded });
+      
+      // Check if we have a complete class ID with hash
+      const hasHash = decoded.includes('#');
+      let classId = decoded;
+      
+      // If we don't have a hash and the ID looks incomplete, try to reconstruct
+      if (!hasHash && decoded.length <= 4) {
+        console.log('🔧 Attempting to reconstruct incomplete class ID:', decoded);
+        
+        // Try to get the full URL path and extract the class ID
+        const currentPath = window.location.pathname;
+        console.log('🔍 Current pathname:', currentPath);
+        
+        // Look for encoded class ID in the URL path
+        const pathSegments = currentPath.split('/');
+        const classesIndex = pathSegments.indexOf('classes');
+        
+        if (classesIndex !== -1 && pathSegments[classesIndex + 1]) {
+          const urlClassId = decodeURIComponent(pathSegments[classesIndex + 1]);
+          console.log('🔍 URL class ID from path:', urlClassId);
+          
+          if (urlClassId.includes('#') || urlClassId.length > decoded.length) {
+            classId = urlClassId;
+            console.log('✅ Reconstructed class ID from URL path:', classId);
+          }
+        }
+      }
+      
+      // Parse the class ID components
+      const finalHasHash = classId.includes('#');
+      const withoutHash = classId.replace('#', '');
+      
+      // Construct proper formats
+      let forApi, forDisplay;
+      
+      if (finalHasHash) {
+        // Already has hash, use as-is
+        forApi = classId;
+        forDisplay = classId;
+      } else if (withoutHash.length > 3) {
+        // No hash but looks complete, add hash in the right place
+        const prefix = withoutHash.substring(0, 3);
+        const suffix = withoutHash.substring(3);
+        forApi = `${prefix}#${suffix}`;
+        forDisplay = `${prefix}#${suffix}`;
+      } else {
+        // Incomplete ID, use as-is (will likely fail validation)
+        forApi = classId;
+        forDisplay = classId;
+      }
+      
+      // Validation
+      const isValidFormat = /^[A-Z]{2,4}#[0-9A-Z]{3,10}$/i.test(forApi);
+      
+      console.log('🔍 normalizeClassId result:', {
+        input: id,
+        decoded,
+        reconstructed: classId,
+        forApi,
+        forDisplay,
+        isValidFormat
+      });
+      
+      return {
+        forApi,
+        forDisplay,
+        isOriginalFormat: finalHasHash,
+        isValid: isValidFormat
+      };
+      
+    } catch (error) {
+      console.error('❌ Error normalizing class ID:', error);
+      return {
+        forApi: id,
+        forDisplay: id,
+        isOriginalFormat: false,
+        isValid: false
+      };
+    }
   };
 
   const classIdInfo = normalizeClassId(classId);
   const apiClassId = classIdInfo?.forApi || classId;
   const displayClassId = classIdInfo?.forDisplay || classId;
   
+  // Debug logging
+  console.log('🔍 ClassContentViewer Debug:', {
+    originalClassId: classId,
+    windowLocationHref: window.location.href,
+    windowLocationHash: window.location.hash,
+    classIdInfo,
+    apiClassId,
+    displayClassId
+  });
+  
+  // Early return for invalid class IDs
+  if (!classId || classId.trim() === '') {
+    return (
+      <div className="class-content-viewer error">
+        <div className="error-container">
+          <div className="error-icon">⚠️</div>
+          <h3>Error Loading Class</h3>
+          <p>No class ID provided.</p>
+          <button onClick={() => navigate('/classes')} className="btn-back">
+            Back to Classes
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Check for URL fragment issue and show helpful error
+  if (classIdInfo && !classIdInfo.isValid && classId.length <= 3) {
+    return (
+      <div className="class-content-viewer error">
+        <div className="error-container">
+          <div className="error-icon">⚠️</div>
+          <h3>Invalid Class ID Format</h3>
+          <p>The class ID "{classId}" appears incomplete. Expected format: OTU#XXXXXX</p>
+          <p>This may be due to a URL parsing issue. Please navigate to this class from the class list.</p>
+          <button onClick={() => navigate('/classes')} className="btn-back">
+            Back to Classes
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // State management
   const [activeTab, setActiveTab] = useState('announcements');
   const [selectedContent, setSelectedContent] = useState(null);
@@ -56,7 +187,8 @@ const ClassContentViewer = () => {
   const { data: classData, isLoading: classLoading, error: classError } = useQuery({
     queryKey: ['classDetails', apiClassId],
     queryFn: async () => {
-      const { data } = await api.get(`/classes/${apiClassId}`);
+      const encodedClassId = encodeURIComponent(apiClassId);
+      const { data } = await api.get(`/classes/${encodedClassId}`);
       return data;
     },
     enabled: !!apiClassId && isAuthenticated,
@@ -68,12 +200,13 @@ const ClassContentViewer = () => {
   const { data: contentData, isLoading: contentLoading, refetch: refetchContent } = useQuery({
     queryKey: ['classContent', apiClassId, activeTab],
     queryFn: async () => {
+      const encodedClassId = encodeURIComponent(apiClassId);
       const params = new URLSearchParams({
         type: activeTab !== 'all' ? activeTab : '',
         limit: '50',
         ...(searchQuery && { search: searchQuery })
       });
-      const { data } = await api.get(`/classes/${apiClassId}/content?${params}`);
+      const { data } = await api.get(`/classes/${encodedClassId}/content?${params}`);
       return data;
     },
     enabled: !!apiClassId && isAuthenticated,
@@ -85,7 +218,8 @@ const ClassContentViewer = () => {
   const { data: announcementsData } = useQuery({
     queryKey: ['classAnnouncements', apiClassId],
     queryFn: async () => {
-      const { data } = await api.get(`/classes/${apiClassId}/announcements`);
+      const encodedClassId = encodeURIComponent(apiClassId);
+      const { data } = await api.get(`/classes/${encodedClassId}/announcements`);
       return data;
     },
     enabled: !!apiClassId && isAuthenticated,
@@ -97,7 +231,8 @@ const ClassContentViewer = () => {
   const { data: membersData, isLoading: membersLoading } = useQuery({
     queryKey: ['classMembers', apiClassId],
     queryFn: async () => {
-      const { data } = await api.get(`/classes/${apiClassId}/members`);
+      const encodedClassId = encodeURIComponent(apiClassId);
+      const { data } = await api.get(`/classes/${encodedClassId}/members`);
       return data;
     },
     enabled: !!apiClassId && isAuthenticated && showParticipants,
@@ -110,7 +245,8 @@ const ClassContentViewer = () => {
   // Submit feedback mutation
   const feedbackMutation = useMutation({
     mutationFn: async (feedbackData) => {
-      return await api.post(`/classes/${apiClassId}/feedback`, feedbackData);
+      const encodedClassId = encodeURIComponent(apiClassId);
+      return await api.post(`/classes/${encodedClassId}/feedback`, feedbackData);
     },
     onSuccess: () => {
       alert('Feedback submitted successfully!');
@@ -125,7 +261,8 @@ const ClassContentViewer = () => {
   // Mark attendance mutation
   const attendanceMutation = useMutation({
     mutationFn: async (attendanceData) => {
-      return await api.post(`/classes/${apiClassId}/attendance`, attendanceData);
+      const encodedClassId = encodeURIComponent(apiClassId);
+      return await api.post(`/classes/${encodedClassId}/attendance`, attendanceData);
     },
     onSuccess: () => {
       alert('Attendance marked successfully!');
@@ -140,7 +277,8 @@ const ClassContentViewer = () => {
   // Join class mutation
   const joinClassMutation = useMutation({
     mutationFn: async () => {
-      return await api.post(`/classes/${apiClassId}/join`);
+      const encodedClassId = encodeURIComponent(apiClassId);
+      return await api.post(`/classes/${encodedClassId}/join`);
     },
     onSuccess: () => {
       alert('Successfully joined class!');
@@ -156,7 +294,8 @@ const ClassContentViewer = () => {
   // Leave class mutation
   const leaveClassMutation = useMutation({
     mutationFn: async () => {
-      return await api.post(`/classes/${apiClassId}/leave`);
+      const encodedClassId = encodeURIComponent(apiClassId);
+      return await api.post(`/classes/${encodedClassId}/leave`);
     },
     onSuccess: () => {
       alert('Successfully left class!');
@@ -338,14 +477,14 @@ const ClassContentViewer = () => {
       <div className="class-header">
         <div className="class-info-header">
           <div className="class-title-section">
-            <button onClick={() => navigate('/classes')} className="btn-back-small">
-              ← Back
+            <button onClick={() => navigate(`/classes/${encodeURIComponent(apiClassId)}`)} className="btn-back-small">
+              ← Back to Preview
             </button>
             <div className="class-title">
-              <h1>{classInfo.class_name}</h1>
+              <h1>🎓 {classInfo.class_name} - Live Classroom</h1>
               <div className="class-meta">
                 <span className={`class-status ${classInfo.is_active ? 'active' : 'inactive'}`}>
-                  {classInfo.is_active ? 'Active' : 'Inactive'}
+                  {classInfo.is_active ? '🔴 Live' : '⚫ Offline'}
                 </span>
                 <span className="class-type">{classInfo.class_type}</span>
                 <span className="class-visibility">{classInfo.is_public ? 'Public' : 'Private'}</span>
@@ -571,6 +710,16 @@ const ClassContentViewer = () => {
                       <div className="content-text">
                         {item.content || item.text || item.description}
                       </div>
+                      
+                      {/* ✅ NEW: AI Features Panel for each content item */}
+                      <AIFeaturesPanel 
+                        content={item.content || item.text || item.description}
+                        contentType={item.content_type || item.type || 'class-content'}
+                        contentId={item.id}
+                        contentTitle={item.title}
+                        position="inline"
+                        showButton={true}
+                      />
                       
                       {/* Display teaching-specific fields */}
                       {item.content_type === 'teaching' && (

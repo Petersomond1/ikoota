@@ -7,6 +7,8 @@ import RevTopics from "./RevTopics";
 import RevTeaching from "./RevTeaching";
 import { useFetchTeachings } from "../service/useFetchTeachings";
 import { useUser } from "../auth/UserStatus";
+// ✅ NEW: AI Features Panel
+import AIFeaturesPanel from '../shared/AIFeaturesPanel';
 
 const Towncrier = () => {
   const { data: rawTeachings = [], isLoading, error, refetch } = useFetchTeachings();

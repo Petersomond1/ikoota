@@ -12,7 +12,8 @@ import {
   getCommentStats,
   getCommentById,
   updateCommentById,
-  deleteCommentById
+  deleteCommentById,
+  searchComments
 } from "../services/commentServices.js";
 
 import { validateCommentData } from '../utils/contentValidation.js';
@@ -1087,3 +1088,103 @@ export const bulkCommentOperations = async (req, res) => {
 //     });
 //   }
 // };
+
+// ===============================================
+// SEARCH FUNCTIONALITY
+// ===============================================
+
+// ✅ NEW: Enhanced comment search controller
+export const searchCommentsController = async (req, res) => {
+  try {
+    const {
+      query: searchQuery,
+      q, // Alternative query parameter
+      user_id,
+      parent_type, // 'chat', 'teaching', or 'all'
+      parent_id,
+      page = 1,
+      limit = 20,
+      sort_by = 'updatedAt',
+      sort_order = 'desc',
+      // Enhanced search fields
+      search_fields = 'all', // 'comment', 'user', 'all'
+      date_from,
+      date_to
+    } = req.query;
+
+    // Use either 'query' or 'q' parameter
+    const finalQuery = searchQuery || q;
+
+    if (!finalQuery || finalQuery.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query is required',
+        message: 'Please provide a search query using "query" or "q" parameter',
+        example: '/content/comments/search?q=mentorship'
+      });
+    }
+
+    if (finalQuery.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query too short',
+        message: 'Search query must be at least 2 characters long'
+      });
+    }
+
+    const searchOptions = {
+      query: finalQuery,
+      user_id,
+      parent_type,
+      parent_id,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort_by,
+      sort_order,
+      search_fields,
+      date_from,
+      date_to
+    };
+
+    console.log('🔍 Comment search with options:', searchOptions);
+
+    const searchResults = await searchComments(searchOptions);
+    
+    // Apply normalization
+    const normalizedResults = searchResults.map(comment => normalizeContentItem(comment, 'comment'));
+
+    res.status(200).json({
+      success: true,
+      message: 'Comment search completed successfully',
+      data: normalizedResults,
+      count: normalizedResults.length,
+      search: {
+        query: finalQuery,
+        fields: search_fields,
+        filters: {
+          user_id,
+          parent_type,
+          parent_id,
+          date_range: date_from && date_to ? `${date_from} to ${date_to}` : null
+        }
+      },
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: normalizedResults.length
+      },
+      suggestions: normalizedResults.length === 0 ? [
+        "Try broader search terms",
+        "Check spelling and try different keywords", 
+        "Search across different content types",
+        "Use partial words or phrases"
+      ] : [],
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('searchCommentsController error:', error);
+    const { statusCode, errorResponse } = formatErrorResponse(error, req);
+    res.status(statusCode).json(errorResponse);
+  }
+};

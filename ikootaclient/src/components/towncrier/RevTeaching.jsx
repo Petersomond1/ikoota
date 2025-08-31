@@ -2,6 +2,8 @@
 import React from "react";
 import ReactPlayer from "react-player";
 import "./revteaching.css";
+// ✅ NEW: AI Features Panel
+import AIFeaturesPanel from '../shared/AIFeaturesPanel';
 
 const RevTeaching = ({ teaching, allTeachings = [], onSelectNext }) => {
   if (!teaching) {
@@ -201,6 +203,16 @@ const RevTeaching = ({ teaching, allTeachings = [], onSelectNext }) => {
               </div>
             </div>
           )}
+
+          {/* ✅ NEW: AI Features Panel */}
+          <AIFeaturesPanel 
+            content={teaching.content || teaching.description}
+            contentType="teaching"
+            contentId={teaching.id}
+            contentTitle={teaching.topic}
+            position="inline"
+            showButton={true}
+          />
         </div>
 
         {/* Media content */}

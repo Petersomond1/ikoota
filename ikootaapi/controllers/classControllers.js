@@ -169,12 +169,14 @@ export const leaveClass = async (req, res) => {
 };
 
 /**
- * GET /api/classes/:id/members - Get class members
+ * GET /api/classes/:id/members - Get class members (enhanced with mentorship data)
  */
 export const getClassMembers = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
+    const includeMentorship = req.query.include_mentorship === 'true';
+    
     const options = {
       page: parseInt(req.query.page) || 1,
       limit: parseInt(req.query.limit) || 50,
@@ -183,11 +185,21 @@ export const getClassMembers = async (req, res) => {
       sort_order: req.query.sort_order || 'DESC'
     };
 
-    const result = await classService.getClassMembers(id, userId, options);
+    let result;
+    if (includeMentorship) {
+      result = await classService.getClassMembersWithMentorship(id, userId, options);
+    } else {
+      result = await classService.getClassMembers(id, userId, options);
+    }
     
     return successResponse(res, {
       ...result,
-      class_id: id
+      class_id: id,
+      mentorship_enhanced: includeMentorship,
+      user_context: {
+        user_id: userId,
+        converse_id: req.user.converse_id
+      }
     }, 'Class members retrieved successfully');
 
   } catch (error) {
@@ -443,7 +455,8 @@ export const testClassRoutes = async (req, res) => {
         user_context: req.user ? {
           id: req.user.id,
           username: req.user.username,
-          role: req.user.role
+          role: req.user.role,
+          converse_id: req.user.converse_id
         } : 'no_authentication',
         available_operations: [
           'view classes',
@@ -452,7 +465,8 @@ export const testClassRoutes = async (req, res) => {
           'search classes',
           'track progress',
           'submit feedback',
-          'mark attendance'
+          'mark attendance',
+          'mentorship management'
         ],
         service_layer: 'connected',
         database_layer: 'active'
@@ -462,6 +476,152 @@ export const testClassRoutes = async (req, res) => {
   } catch (error) {
     console.error('❌ testClassRoutes error:', error);
     return errorResponse(res, error);
+  }
+};
+
+// =============================================================================
+// MENTORSHIP INTEGRATION WITH CONVERSE ID SYSTEM
+// =============================================================================
+
+/**
+ * GET /api/classes/:id/mentorship-pairs - Get mentorship pairs within class
+ */
+export const getClassMentorshipPairs = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const result = await classService.getClassMentorshipPairs(id, userId);
+    
+    return successResponse(res, {
+      ...result,
+      class_id: id,
+      user_context: {
+        user_id: userId,
+        converse_id: req.user.converse_id
+      }
+    }, 'Class mentorship pairs retrieved successfully');
+
+  } catch (error) {
+    console.error('❌ getClassMentorshipPairs error:', error);
+    const statusCode = error.message.includes('Access denied') ? 403 : 
+                      error.message.includes('not found') ? 404 : 500;
+    return errorResponse(res, error, statusCode);
+  }
+};
+
+/**
+ * GET /api/classes/:id/my-mentorship-status - Get user's mentorship status
+ */
+export const getUserMentorshipStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const result = await classService.getUserMentorshipStatus(id, userId);
+    
+    return successResponse(res, {
+      data: result,
+      class_id: id,
+      user_id: userId,
+      converse_id: req.user.converse_id
+    }, 'User mentorship status retrieved successfully');
+
+  } catch (error) {
+    console.error('❌ getUserMentorshipStatus error:', error);
+    const statusCode = error.message.includes('not found') ? 404 : 500;
+    return errorResponse(res, error, statusCode);
+  }
+};
+
+/**
+ * POST /api/classes/:id/request-mentor - Request a mentor within class
+ */
+export const requestClassMentor = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const requestData = {
+      mentee_converse_id: req.user.converse_id,
+      class_id: id,
+      reason: req.body.reason || 'Requesting mentorship guidance',
+      learning_goals: req.body.learning_goals,
+      preferred_mentor_type: req.body.preferred_mentor_type || 'any'
+    };
+
+    const result = await classService.requestClassMentor(userId, id, requestData);
+    
+    return successResponse(res, {
+      data: result,
+      user_context: {
+        user_id: userId,
+        converse_id: req.user.converse_id
+      }
+    }, result.message || 'Mentor request submitted successfully', 201);
+
+  } catch (error) {
+    console.error('❌ requestClassMentor error:', error);
+    const statusCode = error.message.includes('already requested') ? 409 :
+                      error.message.includes('not found') ? 404 :
+                      error.message.includes('Access denied') ? 403 : 500;
+    return errorResponse(res, error, statusCode);
+  }
+};
+
+/**
+ * POST /api/classes/:id/accept-mentorship - Accept mentorship within class
+ */
+export const acceptClassMentorship = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const acceptanceData = {
+      mentor_converse_id: req.user.converse_id,
+      mentee_converse_id: req.body.mentee_converse_id,
+      class_id: id,
+      mentorship_type: req.body.mentorship_type || 'general',
+      notes: req.body.notes
+    };
+
+    const result = await classService.acceptClassMentorship(userId, id, acceptanceData);
+    
+    return successResponse(res, {
+      data: result,
+      mentor_context: {
+        user_id: userId,
+        converse_id: req.user.converse_id
+      }
+    }, result.message || 'Mentorship accepted successfully', 201);
+
+  } catch (error) {
+    console.error('❌ acceptClassMentorship error:', error);
+    const statusCode = error.message.includes('not eligible') ? 403 :
+                      error.message.includes('not found') ? 404 : 500;
+    return errorResponse(res, error, statusCode);
+  }
+};
+
+/**
+ * GET /api/classes/:id/stats - Get class statistics
+ */
+export const getClassStats = async (req, res) => {
+  try {
+    const { id: classId } = req.params;
+    const userId = req.user?.id;
+
+    console.log(`📊 Getting stats for class ${classId}`);
+
+    const result = await classService.getClassStats(classId, userId);
+
+    return successResponse(res, {
+      data: result.data
+    }, result.message || 'Class stats retrieved successfully');
+
+  } catch (error) {
+    console.error('❌ getClassStats error:', error);
+    const statusCode = error.message.includes('not found') ? 404 :
+                      error.message.includes('access') ? 403 : 500;
+    return errorResponse(res, error, statusCode);
   }
 };
 
@@ -490,6 +650,13 @@ export default {
   markAttendance,
   getClassSchedule,
   getClassProgress,
+  getClassStats,
+  
+  // Mentorship Integration
+  getClassMentorshipPairs,
+  getUserMentorshipStatus,
+  requestClassMentor,
+  acceptClassMentorship,
   
   // System
   testClassRoutes,

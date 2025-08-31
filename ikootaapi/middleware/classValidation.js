@@ -43,7 +43,7 @@ const isValidDate = (dateString) => {
  * Validate class ID parameter
  */
 export const validateClassId = (req, res, next) => {
-  const classId = req.params.id || req.params.classId || req.body.class_id || req.body.classId;
+  let classId = req.params.id || req.params.classId || req.body.class_id || req.body.classId;
   
   if (!classId) {
     return res.status(400).json({
@@ -52,6 +52,18 @@ export const validateClassId = (req, res, next) => {
       code: 'MISSING_CLASS_ID',
       timestamp: new Date().toISOString()
     });
+  }
+  
+  // Decode URL encoded class ID if necessary
+  try {
+    const decodedClassId = decodeURIComponent(classId);
+    if (decodedClassId !== classId) {
+      console.log('🔄 Decoded class ID:', classId, '->', decodedClassId);
+      classId = decodedClassId;
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to decode class ID:', classId, error.message);
+    // Continue with original classId if decoding fails
   }
   
   if (!isValidClassId(classId)) {
@@ -65,7 +77,7 @@ export const validateClassId = (req, res, next) => {
     });
   }
   
-  // Normalize the class ID in params
+  // Normalize the class ID in params (use the decoded version)
   if (req.params.id) req.params.id = classId;
   if (req.params.classId) req.params.classId = classId;
   

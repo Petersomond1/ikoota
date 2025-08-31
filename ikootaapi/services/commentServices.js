@@ -1019,6 +1019,182 @@ export const getCommentThreadDepth = async (commentId) => {
 
 
 
+// ===============================================
+// SEARCH FUNCTIONALITY
+// ===============================================
+
+// Search comments with comprehensive filtering
+export const searchComments = async (searchOptions) => {
+  try {
+    const { 
+      query, 
+      user_id, 
+      parent_type = 'all', // 'chat', 'teaching', 'all'
+      approval_status, 
+      start_date,
+      end_date,
+      page = 1, 
+      limit = 20,
+      sort_order = 'desc',
+      include_replies = true
+    } = searchOptions;
+
+    console.log('🔍 searchComments called with:', { query, user_id, parent_type, page, limit });
+
+    // Build WHERE conditions
+    let whereConditions = [];
+    let params = [];
+
+    // Search query condition - search in comment text
+    if (query && query.trim().length > 0) {
+      whereConditions.push('c.comment LIKE ?');
+      params.push(`%${query.trim()}%`);
+    }
+
+    // User filter
+    if (user_id) {
+      whereConditions.push('c.user_id = ?');
+      params.push(user_id);
+    }
+
+    // Parent type filter
+    if (parent_type === 'chat') {
+      whereConditions.push('c.chat_id IS NOT NULL');
+    } else if (parent_type === 'teaching') {
+      whereConditions.push('c.teaching_id IS NOT NULL');
+    }
+
+    // Date range filters
+    if (start_date) {
+      whereConditions.push('c.createdAt >= ?');
+      params.push(start_date);
+    }
+
+    if (end_date) {
+      whereConditions.push('c.createdAt <= ?');
+      params.push(end_date);
+    }
+
+    // Approval/visibility filter
+    if (approval_status) {
+      if (approval_status === 'visible') {
+        whereConditions.push('(c.is_hidden IS NULL OR c.is_hidden = 0)');
+      } else if (approval_status === 'hidden') {
+        whereConditions.push('c.is_hidden = 1');
+      }
+    }
+
+    // Include/exclude replies
+    if (!include_replies) {
+      whereConditions.push('c.parentcomment_id IS NULL');
+    }
+
+    // Build final WHERE clause
+    const whereClause = whereConditions.length > 0 ? 
+      `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // Sort order
+    const finalSortOrder = sort_order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+    // Calculate pagination
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // ✅ Primary query with enhanced details (fallback approach to avoid collation issues)
+    const searchQuery = `
+      SELECT c.*,
+             ch.title as chat_title, ch.prefixed_id as chat_prefixed_id,
+             t.topic as teaching_title, t.prefixed_id as teaching_prefixed_id,
+             c.user_id as username,
+             NULL as email,
+             CASE 
+               WHEN c.chat_id IS NOT NULL THEN 'chat'
+               WHEN c.teaching_id IS NOT NULL THEN 'teaching'
+               ELSE 'unknown'
+             END as parent_content_type,
+             CASE 
+               WHEN c.parentcomment_id IS NOT NULL THEN 'reply'
+               ELSE 'comment'
+             END as comment_type
+      FROM comments c
+      LEFT JOIN chats ch ON c.chat_id = ch.id
+      LEFT JOIN teachings t ON c.teaching_id = t.id
+      ${whereClause}
+      ORDER BY c.createdAt ${finalSortOrder}
+      LIMIT ${parseInt(limit)} OFFSET ${offset}
+    `;
+
+    console.log('✅ Search query:', searchQuery);
+    console.log('✅ Search params:', params);
+
+    const comments = await db.query(searchQuery, params);
+    
+    // Get total count for pagination
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM comments c
+      LEFT JOIN chats ch ON c.chat_id = ch.id
+      LEFT JOIN teachings t ON c.teaching_id = t.id
+      ${whereClause}
+    `;
+    
+    const countResult = await db.query(countQuery, params);
+    const total = countResult[0]?.total || 0;
+
+    // Enhance with usernames in a separate step (optional)
+    if (comments && comments.length > 0) {
+      try {
+        const userIds = [...new Set(comments.map(c => c.user_id))];
+        const userQuery = `SELECT converse_id, username, email FROM users WHERE converse_id IN (${userIds.map(() => '?').join(',')})`;
+        const users = await db.query(userQuery, userIds);
+        
+        // Create user lookup map
+        const userMap = {};
+        users.forEach(user => {
+          userMap[user.converse_id] = user;
+        });
+        
+        // Enhance comments with user info
+        comments.forEach(comment => {
+          const user = userMap[comment.user_id];
+          if (user) {
+            comment.username = user.username;
+            comment.email = user.email;
+          }
+        });
+        
+        console.log('✅ Enhanced search results with usernames');
+      } catch (userError) {
+        console.warn('⚠️ Could not enhance search results with usernames:', userError.message);
+        // Continue without enhancement
+      }
+    }
+
+    const result = {
+      comments: comments || [],
+      total: total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      pages: Math.ceil(total / parseInt(limit)),
+      query: query,
+      filters: {
+        user_id,
+        parent_type,
+        approval_status,
+        start_date,
+        end_date,
+        include_replies
+      }
+    };
+
+    console.log(`✅ searchComments completed: ${result.comments.length}/${total} results`);
+    return result;
+
+  } catch (error) {
+    console.error('❌ Error in searchComments:', error);
+    throw new CustomError('Failed to search comments');
+  }
+};
+
 // // ikootaapi/services/commentServices.js - FIXED VERSION with collation handling
 // // Enhanced comment services with collation-safe queries
 

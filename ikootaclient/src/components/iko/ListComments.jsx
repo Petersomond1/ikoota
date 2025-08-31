@@ -1,9 +1,12 @@
-//ikootaclient\src\components\iko\ListComments.jsx - FIXED for active content comments only, oldest first
+//ikootaclient\src\components\iko\ListComments.jsx - ENHANCED WITH BACKEND SEARCH & AI FEATURES
 import React, { useEffect, useState } from 'react';
 import SearchControls from '../search/SearchControls';
+import { useSmartSearch } from '../../hooks/useSearchContent';
 import { jwtDecode } from 'jwt-decode';
 import './listcomments.css';
 import api from '../service/api';
+// ✅ NEW: AI Features Panel
+import AIFeaturesPanel from '../shared/AIFeaturesPanel';
 
 const ListComments = ({ activeItem, setActiveComment, activeComment, deactivateListChats }) => {
   const [addMode, setAddMode] = useState(false);
@@ -272,6 +275,16 @@ const ListComments = ({ activeItem, setActiveComment, activeComment, deactivateL
           Order: Oldest First
         </div>
       </div>
+
+      {/* ✅ NEW: AI Features Panel */}
+      <AIFeaturesPanel 
+        content={activeItem?.text || activeItem?.content || activeItem?.description}
+        contentType={activeItem?.content_type || activeItem?.type}
+        contentId={activeItem?.id}
+        contentTitle={activeItem?.title || activeItem?.topic}
+        position="inline"
+        showButton={true}
+      />
 
       {/* Comments List */}
       {displayComments.length === 0 ? (

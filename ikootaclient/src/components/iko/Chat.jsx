@@ -12,6 +12,9 @@ import MediaGallery from "./MediaGallery";
 import { useUploadCommentFiles } from "../../hooks/useUploadCommentFiles";
 import useCommentMutation from "../../hooks/useCommentMutation";
 import { useMediaCapture } from "../../hooks/useMediaCapture";
+// ✅ NEW: AI Features Import
+import { useContentSummarization } from "../../hooks/useSummarization";
+import { useContentRecommendations } from "../../hooks/useRecommendations";
 
 const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
   const { handleSubmit, register, reset, setValue } = useForm();
@@ -59,6 +62,10 @@ const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [captureMode, setCaptureMode] = useState('photo');
   const [audioRecordingDuration, setAudioRecordingDuration] = useState(0);
+
+  // ✅ NEW: AI Features state
+  const [showAIFeatures, setShowAIFeatures] = useState(false);
+  const [aiPanelTab, setAIPanelTab] = useState('summary'); // 'summary', 'recommendations'
 
   // ✅ ENHANCED: Find active content with better error handling
   const findActiveContent = () => {
@@ -131,6 +138,37 @@ const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
   };
 
   const activeContent = findActiveContent();
+
+  // ✅ NEW: AI Features hooks - only activate when content is available
+  const { 
+    data: contentSummary, 
+    isLoading: summaryLoading, 
+    error: summaryError 
+  } = useContentSummarization(
+    activeContent?.content_type || activeContent?.type, 
+    activeContent?.id, 
+    {
+      method: 'auto',
+      maxLength: 200,
+      style: activeContent?.content_type === 'teaching' ? 'educational' : 'casual',
+      enabled: !!activeContent && showAIFeatures
+    }
+  );
+
+  const { 
+    data: contentRecommendations, 
+    isLoading: recommendationsLoading 
+  } = useContentRecommendations(
+    activeContent?.content_type || activeContent?.type, 
+    activeContent?.id, 
+    {
+      includeExternal: true,
+      maxCurated: 3,
+      maxExternal: 2,
+      sources: 'youtube',
+      enabled: !!activeContent && showAIFeatures
+    }
+  );
 
   // Audio recording timer
   useEffect(() => {
@@ -605,6 +643,21 @@ const handleInfoClick = () => {
       >
         💭 Chat
       </button>
+      
+      {/* ✅ NEW: AI Features Toggle Button */}
+      {activeContent && (
+        <button 
+          onClick={() => setShowAIFeatures(!showAIFeatures)}
+          title="Show AI features: Summary & Recommendations"
+          className={`action-btn ai-btn ${showAIFeatures ? 'active' : ''}`}
+          style={{
+            background: showAIFeatures ? '#4CAF50' : '#f0f0f0',
+            color: showAIFeatures ? 'white' : '#333'
+          }}
+        >
+          🤖 AI Features
+        </button>
+      )}
     </div>
   </div>
 </div>
@@ -644,6 +697,198 @@ const handleInfoClick = () => {
           {renderMedia(activeContent?.media_url3, activeContent?.media_type3, "Media 3")}
         </div>
       </div>
+
+      {/* ✅ NEW: AI Features Panel */}
+      {activeContent && showAIFeatures && (
+        <div className="ai-features-panel" style={{
+          border: "3px solid #4CAF50",
+          borderRadius: "8px",
+          margin: "10px 0",
+          background: "#f9f9f9",
+          overflow: "hidden"
+        }}>
+          {/* AI Panel Header */}
+          <div className="ai-panel-header" style={{
+            background: "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)",
+            color: "white",
+            padding: "10px 15px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
+            <h4 style={{margin: 0, fontSize: "16px"}}>🤖 AI-Powered Content Analysis</h4>
+            <button 
+              onClick={() => setShowAIFeatures(false)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "white",
+                fontSize: "16px",
+                cursor: "pointer"
+              }}
+              title="Close AI panel"
+            >
+              ✖
+            </button>
+          </div>
+
+          {/* AI Panel Tabs */}
+          <div className="ai-panel-tabs" style={{
+            display: "flex",
+            background: "#e8f5e8",
+            borderBottom: "1px solid #ccc"
+          }}>
+            <button 
+              onClick={() => setAIPanelTab('summary')}
+              style={{
+                padding: "10px 20px",
+                border: "none",
+                background: aiPanelTab === 'summary' ? '#4CAF50' : 'transparent',
+                color: aiPanelTab === 'summary' ? 'white' : '#333',
+                cursor: "pointer",
+                fontSize: "14px"
+              }}
+            >
+              📝 Smart Summary
+            </button>
+            <button 
+              onClick={() => setAIPanelTab('recommendations')}
+              style={{
+                padding: "10px 20px",
+                border: "none",
+                background: aiPanelTab === 'recommendations' ? '#4CAF50' : 'transparent',
+                color: aiPanelTab === 'recommendations' ? 'white' : '#333',
+                cursor: "pointer",
+                fontSize: "14px"
+              }}
+            >
+              🔍 Related Resources
+            </button>
+          </div>
+
+          {/* AI Panel Content */}
+          <div className="ai-panel-content" style={{padding: "15px"}}>
+            {aiPanelTab === 'summary' && (
+              <div className="summary-tab">
+                <div style={{marginBottom: "10px", fontSize: "14px", color: "#666"}}>
+                  AI-generated summary for better comprehension
+                </div>
+                {summaryLoading ? (
+                  <div style={{padding: "20px", textAlign: "center", color: "#666"}}>
+                    <div style={{display: "inline-block", animation: "pulse 1.5s infinite"}}>
+                      🤖 Analyzing content...
+                    </div>
+                  </div>
+                ) : summaryError ? (
+                  <div style={{padding: "15px", background: "#ffebee", border: "1px solid #ffcdd2", borderRadius: "4px", color: "#c62828"}}>
+                    ⚠️ Could not generate summary. Using built-in summarization.
+                  </div>
+                ) : contentSummary ? (
+                  <div style={{
+                    background: "white",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                    padding: "15px"
+                  }}>
+                    <div style={{fontSize: "15px", lineHeight: "1.6", marginBottom: "10px"}}>
+                      {contentSummary.summary}
+                    </div>
+                    {contentSummary.confidence && (
+                      <div style={{fontSize: "12px", color: "#666", borderTop: "1px solid #eee", paddingTop: "8px"}}>
+                        Method: {contentSummary.method} | 
+                        Confidence: {Math.round(contentSummary.confidence * 100)}% |
+                        Compression: {Math.round((1 - (contentSummary.summary?.length / (activeContent?.text?.length || 1))) * 100)}%
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{padding: "15px", background: "#fff3e0", border: "1px solid #ffcc02", borderRadius: "4px"}}>
+                    💡 Click the AI Features button to generate a summary of this content.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {aiPanelTab === 'recommendations' && (
+              <div className="recommendations-tab">
+                <div style={{marginBottom: "10px", fontSize: "14px", color: "#666"}}>
+                  Curated learning resources and related content
+                </div>
+                {recommendationsLoading ? (
+                  <div style={{padding: "20px", textAlign: "center", color: "#666"}}>
+                    <div style={{display: "inline-block", animation: "pulse 1.5s infinite"}}>
+                      🔍 Finding related resources...
+                    </div>
+                  </div>
+                ) : contentRecommendations ? (
+                  <div>
+                    {/* Curated Recommendations */}
+                    {contentRecommendations.curated?.length > 0 && (
+                      <div style={{marginBottom: "15px"}}>
+                        <h5 style={{margin: "0 0 10px 0", color: "#4CAF50"}}>📚 Platform Content</h5>
+                        {contentRecommendations.curated.slice(0, 3).map((rec, index) => (
+                          <div key={index} style={{
+                            background: "white",
+                            border: "1px solid #ddd",
+                            borderLeft: "4px solid #4CAF50",
+                            borderRadius: "4px",
+                            padding: "10px",
+                            marginBottom: "8px"
+                          }}>
+                            <div style={{fontWeight: "bold", fontSize: "14px", marginBottom: "4px"}}>
+                              {rec.title}
+                            </div>
+                            <div style={{fontSize: "13px", color: "#666", marginBottom: "6px"}}>
+                              {rec.description?.substring(0, 100)}...
+                            </div>
+                            <div style={{fontSize: "11px", color: "#888"}}>
+                              Type: {rec.type} | Rating: ⭐ {rec.rating}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* External Recommendations */}
+                    {contentRecommendations.external?.length > 0 && (
+                      <div>
+                        <h5 style={{margin: "0 0 10px 0", color: "#2196F3"}}>🌐 External Resources</h5>
+                        {contentRecommendations.external.slice(0, 2).map((rec, index) => (
+                          <div key={index} style={{
+                            background: "white",
+                            border: "1px solid #ddd",
+                            borderLeft: "4px solid #2196F3",
+                            borderRadius: "4px",
+                            padding: "10px",
+                            marginBottom: "8px",
+                            cursor: "pointer"
+                          }}
+                          onClick={() => window.open(rec.url, '_blank')}
+                          >
+                            <div style={{fontWeight: "bold", fontSize: "14px", marginBottom: "4px"}}>
+                              {rec.title} 🔗
+                            </div>
+                            <div style={{fontSize: "13px", color: "#666", marginBottom: "6px"}}>
+                              {rec.description?.substring(0, 100)}...
+                            </div>
+                            <div style={{fontSize: "11px", color: "#888"}}>
+                              Source: {rec.source} | {rec.channel && `Channel: ${rec.channel}`}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{padding: "15px", background: "#fff3e0", border: "1px solid #ffcc02", borderRadius: "4px"}}>
+                    🔍 Click the AI Features button to discover related learning resources.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ✅ BOTTOM SECTION: Active Comment Display */}
       <div className="bottom" style={{border:"3px solid purple"}}>

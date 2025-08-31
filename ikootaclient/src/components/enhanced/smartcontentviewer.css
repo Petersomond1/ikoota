@@ -1,0 +1,393 @@
+/* Smart Content Viewer with Enhanced Features */
+.smart-content-viewer {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin: 20px 0;
+}
+
+/* View Mode Selector */
+.view-mode-selector {
+  display: flex;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  padding: 8px;
+  gap: 4px;
+}
+
+.view-mode-selector button {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.view-mode-selector button:hover {
+  background: #e9ecef;
+}
+
+.view-mode-selector button.active {
+  background: #007bff;
+  color: white;
+}
+
+/* Content Display */
+.content-display {
+  min-height: 200px;
+}
+
+.full-content {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+}
+
+.main-content {
+  flex: 2;
+  line-height: 1.6;
+}
+
+.side-panels {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Summary Section */
+.summary-section {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.summary-header h3 {
+  margin: 0;
+  color: #495057;
+  font-size: 16px;
+}
+
+.summary-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summary-method {
+  font-size: 12px;
+  background: #e7f3ff;
+  color: #007bff;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.loading {
+  font-size: 12px;
+  color: #6c757d;
+  animation: pulse 1.5s infinite;
+}
+
+.summary-content p {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.summary-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: #6c757d;
+  border-top: 1px solid #e9ecef;
+  padding-top: 8px;
+}
+
+/* Recommendations Section */
+.recommendations-section {
+  background: #fff8e1;
+  border: 1px solid #ffeb3b;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.recommendations-section h3 {
+  margin: 0 0 16px 0;
+  color: #f57f17;
+  font-size: 16px;
+}
+
+.recommendations-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.curated-recommendations h4,
+.external-recommendations h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.recommendation-card {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+}
+
+.recommendation-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.recommendation-card.curated {
+  border-left: 4px solid #28a745;
+}
+
+.recommendation-card.external {
+  border-left: 4px solid #007bff;
+}
+
+.rec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.rec-title {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+  flex: 1;
+}
+
+.rec-rating {
+  font-size: 12px;
+  color: #f39c12;
+}
+
+.rec-thumbnail {
+  width: 40px;
+  height: 30px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+.rec-description {
+  font-size: 13px;
+  color: #666;
+  margin: 8px 0;
+  line-height: 1.4;
+}
+
+.rec-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.rec-type,
+.rec-difficulty,
+.rec-source,
+.rec-channel {
+  font-size: 11px;
+  background: #e9ecef;
+  color: #495057;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-right: 4px;
+}
+
+.rec-visit-btn {
+  padding: 4px 12px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.rec-visit-btn:hover {
+  background: #0056b3;
+}
+
+/* Related Content Section */
+.related-content-section {
+  background: #e8f5e8;
+  border: 1px solid #c3e6c3;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.related-content-section h3 {
+  margin: 0 0 16px 0;
+  color: #2e7d32;
+  font-size: 16px;
+}
+
+.related-content-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.related-item {
+  background: white;
+  border: 1px solid #c3e6c3;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.item-type {
+  font-size: 11px;
+  background: #2e7d32;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-bottom: 8px;
+  display: inline-block;
+}
+
+.related-item h4 {
+  margin: 8px 0 4px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.related-item p {
+  margin: 0;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* Status Bar */
+.status-bar {
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  padding: 8px 20px;
+  font-size: 12px;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .full-content {
+    flex-direction: column;
+    padding: 16px;
+  }
+  
+  .side-panels {
+    order: -1; /* Show panels above main content on mobile */
+  }
+  
+  .view-mode-selector {
+    flex-wrap: wrap;
+  }
+  
+  .recommendations-grid {
+    gap: 12px;
+  }
+  
+  .rec-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .rec-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .status-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.recommendation-card,
+.related-item,
+.summary-section {
+  animation: slideIn 0.3s ease;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .smart-content-viewer {
+    background: #2d3748;
+    color: #e2e8f0;
+  }
+  
+  .view-mode-selector {
+    background: #4a5568;
+    border-color: #718096;
+  }
+  
+  .view-mode-selector button:hover {
+    background: #718096;
+  }
+  
+  .summary-section,
+  .recommendations-section,
+  .related-content-section {
+    background: #4a5568;
+    border-color: #718096;
+  }
+  
+  .recommendation-card,
+  .related-item {
+    background: #2d3748;
+    border-color: #718096;
+    color: #e2e8f0;
+  }
+  
+  .status-bar {
+    background: #4a5568;
+    border-color: #718096;
+  }
+}

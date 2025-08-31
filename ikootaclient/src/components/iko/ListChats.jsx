@@ -1,6 +1,7 @@
-//ikootaclient\src\components\iko\ListChats.jsx - COMPLETELY FIXED VERSION
+//ikootaclient\src\components\iko\ListChats.jsx - ENHANCED WITH BACKEND SEARCH
 import React, { useState, useEffect } from 'react';
 import SearchControls from '../search/SearchControls';
+import { useSmartSearch } from '../../hooks/useSearchContent';
 import './listchats.css';
 import api from '../service/api';
 
@@ -12,6 +13,7 @@ const ListChats = ({ setActiveItem, deactivateListComments }) => {
   const [filteredItems, setFilteredItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -175,44 +177,47 @@ const ListChats = ({ setActiveItem, deactivateListComments }) => {
 
   const groupedComments = groupCommentsByParent();
 
-  // ✅ FIX 6: Enhanced search with null checks
-  const handleSearch = (query) => {
-    if (!Array.isArray(content)) {
-      console.warn('Content is not an array for search:', content);
-      return;
-    }
-    
-    if (!query || query.trim() === '') {
+  // ✅ ENHANCED: Use smart search hook for backend integration
+  const { 
+    data: searchResults, 
+    isLoading: isSearching, 
+    searchMethod 
+  } = useSmartSearch({
+    query: searchQuery,
+    contentType: 'all', // Search both chats and teachings
+    localData: content,
+    useServerSearch: searchQuery.length >= 2, // Use server search for queries >= 2 chars
+    enabled: searchQuery.length >= 2
+  });
+
+  // Update filtered results when search changes
+  useEffect(() => {
+    if (searchQuery.length === 0) {
       setFilteredItems(content);
-      return;
+    } else if (searchQuery.length >= 2) {
+      // For global search, combine all results
+      const combinedResults = searchResults?.chats || searchResults?.teachings || searchResults || [];
+      setFilteredItems(Array.isArray(combinedResults) ? combinedResults : []);
+    } else {
+      // For 1 character searches, use client-side filtering
+      const lowercaseQuery = searchQuery.toLowerCase();
+      const filtered = content.filter(item => {
+        const searchFields = [
+          item.content_title, item.title, item.topic, item.summary,
+          item.cleanSummary, item.description, item.text, item.content,
+          item.prefixed_id, item.subjectMatter, item.audience, item.user_id
+        ];
+        
+        return searchFields.some(field => 
+          field && field.toString().toLowerCase().includes(lowercaseQuery)
+        );
+      });
+      setFilteredItems(filtered);
     }
-    
-    const lowercaseQuery = query.toLowerCase();
-    const filtered = content.filter(item => {
-      // Search across all possible text fields
-      const searchFields = [
-        item.content_title,
-        item.title,
-        item.topic,
-        item.summary,
-        item.cleanSummary,
-        item.description,
-        item.text,
-        item.content,
-        item.prefixed_id,
-        item.subjectMatter,
-        item.audience,
-        item.user_id,
-        item.created_by
-      ];
-      
-      return searchFields.some(field => 
-        field && field.toString().toLowerCase().includes(lowercaseQuery)
-      );
-    });
-    
-    console.log(`🔍 Search for "${query}" found ${filtered.length} items`);
-    setFilteredItems(filtered);
+  }, [searchQuery, searchResults, content]);
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
   };
 
   // ✅ FIX 7: Enhanced item click handler
@@ -359,15 +364,52 @@ const ListChats = ({ setActiveItem, deactivateListComments }) => {
         />
       </div>
 
-      {/* Content Stats */}
+      {/* Content Stats with Search Status */}
       <div style={{
         padding: '8px',
         backgroundColor: '#f8f9fa',
         borderBottom: '1px solid #ddd',
         fontSize: '12px',
-        color: '#666'
+        color: '#666',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
-        Total: {content.length} | Showing: {filteredItems.length} | Comments: {comments.length}
+        <div>
+          Total: {content.length} | Showing: {filteredItems.length} | Comments: {comments.length}
+        </div>
+        
+        {/* Search Status Indicator */}
+        {searchQuery && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '11px'
+          }}>
+            {isSearching && (
+              <span style={{color: '#ff9800', animation: 'pulse 1.5s infinite'}}>
+                🔍 Searching...
+              </span>
+            )}
+            {searchQuery.length >= 2 && searchMethod && (
+              <span style={{
+                background: searchMethod === 'server' ? '#4CAF50' : '#2196F3',
+                color: 'white',
+                padding: '2px 6px',
+                borderRadius: '10px',
+                fontSize: '10px'
+              }}>
+                {searchMethod === 'server' ? '🤖 AI Search' : '⚡ Quick Filter'}
+              </span>
+            )}
+            {searchQuery && (
+              <span style={{color: '#666'}}>
+                Query: "{searchQuery}"
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Content List */}

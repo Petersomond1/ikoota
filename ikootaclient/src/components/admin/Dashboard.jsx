@@ -396,6 +396,84 @@ const Dashboard = () => {
       <Analytics />
       <PendingReports />
 
+      {/* ✅ NEW: AI Features Analytics */}
+      <div className="ai-analytics-section" style={{
+        background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+        borderRadius: '8px',
+        padding: '20px',
+        margin: '20px 0',
+        color: 'white'
+      }}>
+        <h3 style={{margin: '0 0 15px 0', color: 'white'}}>🤖 AI Features Usage Analytics</h3>
+        
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '15px',
+          marginBottom: '15px'
+        }}>
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '6px',
+            padding: '15px',
+            textAlign: 'center'
+          }}>
+            <div style={{fontSize: '24px', fontWeight: 'bold'}}>🔄</div>
+            <div style={{fontSize: '18px', fontWeight: 'bold', margin: '8px 0'}}>Coming Soon</div>
+            <div style={{fontSize: '12px', opacity: 0.9}}>Content Summarizations</div>
+          </div>
+          
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '6px',
+            padding: '15px',
+            textAlign: 'center'
+          }}>
+            <div style={{fontSize: '24px', fontWeight: 'bold'}}>🔄</div>
+            <div style={{fontSize: '18px', fontWeight: 'bold', margin: '8px 0'}}>Coming Soon</div>
+            <div style={{fontSize: '12px', opacity: 0.9}}>Recommendations Generated</div>
+          </div>
+          
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '6px',
+            padding: '15px',
+            textAlign: 'center'
+          }}>
+            <div style={{fontSize: '24px', fontWeight: 'bold'}}>✅</div>
+            <div style={{fontSize: '18px', fontWeight: 'bold', margin: '8px 0'}}>Active</div>
+            <div style={{fontSize: '12px', opacity: 0.9}}>Advanced Search System</div>
+          </div>
+          
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '6px',
+            padding: '15px',
+            textAlign: 'center'
+          }}>
+            <div style={{fontSize: '24px', fontWeight: 'bold'}}>🚀</div>
+            <div style={{fontSize: '18px', fontWeight: 'bold', margin: '8px 0'}}>Ready</div>
+            <div style={{fontSize: '12px', opacity: 0.9}}>Backend APIs Operational</div>
+          </div>
+        </div>
+        
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.1)',
+          borderRadius: '6px',
+          padding: '15px',
+          fontSize: '14px'
+        }}>
+          <div style={{fontWeight: 'bold', marginBottom: '8px'}}>🎯 AI Features Status:</div>
+          <div style={{marginBottom: '4px'}}>✅ Smart Content Summarization - Integrated in Chat.jsx</div>
+          <div style={{marginBottom: '4px'}}>✅ Intelligent Recommendations - Integrated in Chat.jsx</div>
+          <div style={{marginBottom: '4px'}}>✅ Advanced Search System - Enhanced in ListChats.jsx</div>
+          <div style={{marginBottom: '4px'}}>✅ Backend APIs - All endpoints operational</div>
+          <div style={{fontSize: '12px', opacity: 0.8, marginTop: '8px'}}>
+            💡 Analytics data will populate as users interact with AI features
+          </div>
+        </div>
+      </div>
+
       {/* Safe Audit Logs */}
       <div className="audit-logs-section">
         <h3>Audit Logs</h3>

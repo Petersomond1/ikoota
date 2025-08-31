@@ -2230,3 +2230,248 @@ Current database: ikoota_db
 63 rows in set (1.827 sec)
 
 MySQL [ikoota_db]>
+
+
+
+
+
+
+
+
+
+MySQL [ikoota_db]> show tables;
++-----------------------------------+
+| Tables_in_ikoota_db               |
++-----------------------------------+
+| admin_action_logs                 |
+| admin_dashboard_cache             |
+| admin_full_membership_overview    |
+| admin_initial_membership_overview |
+| admin_pending_summary             |
+| announcements                     |
+| audit_logs                        |
+| bookmarks                         |
+| bulk_operation_jobs               |
+| chats                             |
+| class_content                     |
+| class_content_access              |
+| class_content_access_backup       |
+| class_feedback                    |
+| class_member_counts               |
+| class_sessions                    |
+| classes                           |
+| classes_backup                    |
+| comments                          |
+| content_audit_logs                |
+| content_likes                     |
+| content_moderation_queue          |
+| content_reports                   |
+| content_tags                      |
+| content_views                     |
+| current_membership_status         |
+| daily_reports                     |
+| email_activity_logs               |
+| email_templates                   |
+| full_membership_applications      |
+| id_generation_log                 |
+| identity_masking_audit            |
+| identity_masks                    |
+| initial_membership_applications   |
+| membership_access_log             |
+| membership_review_history         |
+| membership_stats                  |
+| mentors                           |
+| notifications                     |
+| pending_surveys_view              |
+| question_labels                   |
+| reports                           |
+| sms_activity_logs                 |
+| sms_templates                     |
+| survey_analytics                  |
+| survey_categories                 |
+| survey_configurations             |
+| survey_drafts                     |
+| survey_questions                  |
+| survey_responses                  |
+| survey_stats_view                 |
+| survey_templates                  |
+| surveylog                         |
+| system_configuration              |
+| tags                              |
+| teachings                         |
+| user_chats                        |
+| user_class_memberships            |
+| user_class_memberships_backup     |
+| user_communication_preferences    |
+| user_deletion_log                 |
+| user_management_overview          |
+| user_profiles                     |
+| user_survey_history_view          |
+| users                             |
+| verification_codes                |
++-----------------------------------+
+66 rows in set (0.057 sec)
+
+
+
+
+
+
+
+
+MySQL [ikoota_db]> describe class_sessions;
++------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field            | Type                                           | Null | Key | Default           | Extra                                         |
++------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id               | int                                            | NO   | PRI | NULL              | auto_increment                                |
+| class_id         | varchar(12)                                    | NO   | MUL | NULL              |                                               |
+| session_title    | varchar(255)                                   | NO   |     | NULL              |                                               |
+| session_date     | datetime                                       | NO   | MUL | NULL              |                                               |
+| duration_minutes | int                                            | YES  |     | 60                |                                               |
+| session_type     | enum('lecture','workshop','discussion','exam') | YES  | MUL | lecture           |                                               |
+| is_mandatory     | tinyint(1)                                     | YES  |     | 1                 |                                               |
+| max_participants | int                                            | YES  |     | NULL              |                                               |
+| location         | varchar(255)                                   | YES  |     | NULL              |                                               |
+| online_link      | varchar(500)                                   | YES  |     | NULL              |                                               |
+| created_by       | int                                            | NO   | MUL | NULL              |                                               |
+| is_active        | tinyint(1)                                     | YES  |     | 1                 |                                               |
+| createdAt        | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt        | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+14 rows in set (0.274 sec)
+
+MySQL [ikoota_db]>
+
+
+MySQL [ikoota_db]> describe class_content;
++---------------------+-----------------------------------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field               | Type                                                                                    | Null | Key | Default           | Extra                                         |
++---------------------+-----------------------------------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id                  | int                                                                                     | NO   | PRI | NULL              | auto_increment                                |
+| class_id            | varchar(12)                                                                             | NO   | MUL | NULL              |                                               |
+| title               | varchar(255)                                                                            | NO   |     | NULL              |                                               |
+| content_type        | enum('lesson','assignment','announcement','resource','quiz','video','document','image') | YES  | MUL | lesson            |                                               |
+| content_text        | longtext                                                                                | YES  |     | NULL              |                                               |
+| media_url           | varchar(500)                                                                            | YES  |     | NULL              |                                               |
+| media_type          | varchar(50)                                                                             | YES  |     | NULL              |                                               |
+| file_size_bytes     | bigint                                                                                  | YES  |     | 0                 |                                               |
+| order_index         | int                                                                                     | YES  |     | 0                 |                                               |
+| is_required         | tinyint(1)                                                                              | YES  |     | 0                 |                                               |
+| estimated_duration  | int                                                                                     | YES  |     | NULL              |                                               |
+| points_value        | int                                                                                     | YES  |     | 0                 |                                               |
+| prerequisites       | text                                                                                    | YES  |     | NULL              |                                               |
+| learning_objectives | text                                                                                    | YES  |     | NULL              |                                               |
+| created_by          | int                                                                                     | NO   | MUL | NULL              |                                               |
+| is_active           | tinyint(1)                                                                              | YES  | MUL | 1                 |                                               |
+| is_published        | tinyint(1)                                                                              | YES  | MUL | 0                 |                                               |
+| publish_date        | datetime                                                                                | YES  |     | NULL              |                                               |
+| due_date            | datetime                                                                                | YES  |     | NULL              |                                               |
+| createdAt           | timestamp                                                                               | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt           | timestamp                                                                               | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++---------------------+-----------------------------------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+21 rows in set (0.067 sec)
+
+
+
+MySQL [ikoota_db]>  describe class_member_counts;
++-----------------+--------------------------------------------------+------+-----+-------------+-------+
+| Field           | Type                                             | Null | Key | Default     | Extra |
++-----------------+--------------------------------------------------+------+-----+-------------+-------+
+| class_id        | varchar(12)                                      | NO   |     | NULL        |       |
+| class_name      | varchar(255)                                     | NO   |     | NULL        |       |
+| class_type      | enum('demographic','subject','public','special') | YES  |     | demographic |       |
+| is_public       | tinyint(1)                                       | YES  |     | 0           |       |
+| total_members   | bigint                                           | NO   |     | 0           |       |
+| moderators      | bigint                                           | NO   |     | 0           |       |
+| pending_members | bigint                                           | NO   |     | 0           |       |
++-----------------+--------------------------------------------------+------+-----+-------------+-------+
+7 rows in set (0.085 sec)
+
+MySQL [ikoota_db]>  describe class_sessions;
++------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field            | Type                                           | Null | Key | Default           | Extra                                         |
++------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id               | int                                            | NO   | PRI | NULL              | auto_increment                                |
+| class_id         | varchar(12)                                    | NO   | MUL | NULL              |                                               |
+| session_title    | varchar(255)                                   | NO   |     | NULL              |                                               |
+| session_date     | datetime                                       | NO   | MUL | NULL              |                                               |
+| duration_minutes | int                                            | YES  |     | 60                |                                               |
+| session_type     | enum('lecture','workshop','discussion','exam') | YES  | MUL | lecture           |                                               |
+| is_mandatory     | tinyint(1)                                     | YES  |     | 1                 |                                               |
+| max_participants | int                                            | YES  |     | NULL              |                                               |
+| location         | varchar(255)                                   | YES  |     | NULL              |                                               |
+| online_link      | varchar(500)                                   | YES  |     | NULL              |                                               |
+| created_by       | int                                            | NO   | MUL | NULL              |                                               |
+| is_active        | tinyint(1)                                     | YES  |     | 1                 |                                               |
+| createdAt        | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt        | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+14 rows in set (0.051 sec)
+
+MySQL [ikoota_db]> describe  classes;
++-------------------------+-----------------------------------------------------+------+-----+-------------------+-------------------+
+| Field                   | Type                                                | Null | Key | Default           | Extra             |
++-------------------------+-----------------------------------------------------+------+-----+-------------------+-------------------+
+| id                      | int                                                 | NO   | PRI | NULL              | auto_increment    |
+| class_id                | varchar(12)                                         | NO   | UNI | NULL              |                   |
+| class_name              | varchar(255)                                        | NO   |     | NULL              |                   |
+| public_name             | varchar(255)                                        | YES  |     | NULL              |                   |
+| description             | text                                                | YES  |     | NULL              |                   |
+| class_type              | enum('demographic','subject','public','special')    | YES  | MUL | demographic       |                   |
+| category                | varchar(100)                                        | YES  | MUL | NULL              |                   |
+| difficulty_level        | enum('beginner','intermediate','advanced','expert') | YES  | MUL | beginner          |                   |
+| is_public               | tinyint(1)                                          | YES  | MUL | 0                 |                   |
+| max_members             | int                                                 | YES  |     | 50                |                   |
+| estimated_duration      | int                                                 | YES  | MUL | NULL              |                   |
+| prerequisites           | text                                                | YES  |     | NULL              |                   |
+| learning_objectives     | text                                                | YES  |     | NULL              |                   |
+| tags                    | varchar(500)                                        | YES  |     | NULL              |                   |
+| privacy_level           | enum('public','members_only','admin_only')          | YES  |     | members_only      |                   |
+| created_by              | int                                                 | YES  | MUL | NULL              |                   |
+| is_active               | tinyint(1)                                          | YES  | MUL | 1                 |                   |
+| createdAt               | timestamp                                           | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updatedAt               | timestamp                                           | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| allow_self_join         | tinyint(1)                                          | YES  |     | 1                 |                   |
+| require_full_membership | tinyint(1)                                          | YES  |     | 0                 |                   |
+| auto_approve_members    | tinyint(1)                                          | YES  |     | 1                 |                   |
+| require_approval        | tinyint(1)                                          | YES  |     | 0                 |                   |
+| allow_preview           | tinyint(1)                                          | YES  |     | 1                 |                   |
++-------------------------+-----------------------------------------------------+------+-----+-------------------+-------------------+
+24 rows in set (0.058 sec)
+
+MySQL [ikoota_db]> describe user_class_memberships ;
++-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field                 | Type                                           | Null | Key | Default           | Extra                                         |
++-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id                    | int                                            | NO   | PRI | NULL              | auto_increment                                |
+| user_id               | int                                            | NO   | MUL | NULL              |                                               |
+| class_id              | varchar(12)                                    | NO   | MUL | NULL              |                                               |
+| membership_status     | enum('active','pending','suspended','expired') | YES  | MUL | active            |                                               |
+| role_in_class         | enum('member','moderator','assistant')         | YES  | MUL | member            |                                               |
+| joinedAt              | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| assigned_by           | int                                            | YES  | MUL | NULL              |                                               |
+| expiresAt             | timestamp                                      | YES  |     | NULL              |                                               |
+| can_see_class_name    | tinyint(1)                                     | YES  |     | 1                 |                                               |
+| receive_notifications | tinyint(1)                                     | YES  |     | 1                 |                                               |
+| createdAt             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+12 rows in set (0.055 sec)
+
+MySQL [ikoota_db]> describe class_feedback;
++---------------+--------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| Field         | Type                                             | Null | Key | Default           | Extra                                         |
++---------------+--------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+| id            | int                                              | NO   | PRI | NULL              | auto_increment                                |
+| class_id      | varchar(12)                                      | NO   | MUL | NULL              |                                               |
+| user_id       | int                                              | NO   | MUL | NULL              |                                               |
+| session_id    | int                                              | YES  | MUL | NULL              |                                               |
+| rating        | int                                              | YES  | MUL | NULL              |                                               |
+| feedback_text | text                                             | YES  |     | NULL              |                                               |
+| feedback_type | enum('general','session','instructor','content') | YES  | MUL | general           |                                               |
+| is_anonymous  | tinyint(1)                                       | YES  |     | 0                 |                                               |
+| created_by    | int                                              | NO   |     | NULL              |                                               |
+| createdAt     | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
+| updatedAt     | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
++---------------+--------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
+11 rows in set (0.084 sec)

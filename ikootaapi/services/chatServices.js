@@ -1138,3 +1138,117 @@ export const getChatStats = async (filters = {}) => {
 //     throw new CustomError('Failed to get chat statistics');
 //   }
 // };
+
+// ===============================================
+// SEARCH FUNCTIONALITY
+// ===============================================
+
+// Enhanced chat search function
+export const searchChats = async (searchOptions) => {
+  try {
+    const {
+      query,
+      user_id,
+      approval_status = 'approved',
+      page = 1,
+      limit = 20,
+      sort_by = 'updatedAt',
+      sort_order = 'desc',
+      search_fields = 'all',
+      date_from,
+      date_to
+    } = searchOptions;
+
+    if (!query || query.trim().length === 0) {
+      throw new CustomError('Search query is required', 400);
+    }
+
+    let whereConditions = ['approval_status = ?'];
+    let params = [approval_status];
+
+    // Build search conditions based on search_fields
+    let searchConditions = [];
+    const searchTerm = `%${query.trim()}%`;
+
+    if (search_fields === 'all' || search_fields === 'title') {
+      searchConditions.push('title LIKE ?');
+      params.push(searchTerm);
+    }
+
+    if (search_fields === 'all' || search_fields === 'content') {
+      searchConditions.push('text LIKE ?');
+      searchConditions.push('summary LIKE ?');
+      params.push(searchTerm, searchTerm);
+    }
+
+    if (search_fields === 'all' || search_fields === 'user') {
+      searchConditions.push('user_id LIKE ?');
+      params.push(searchTerm);
+    }
+
+    if (searchConditions.length > 0) {
+      whereConditions.push(`(${searchConditions.join(' OR ')})`);
+    }
+
+    // Additional filters
+    if (user_id) {
+      whereConditions.push('user_id = ?');
+      params.push(user_id);
+    }
+
+    if (date_from) {
+      whereConditions.push('createdAt >= ?');
+      params.push(date_from);
+    }
+
+    if (date_to) {
+      whereConditions.push('createdAt <= ?');
+      params.push(date_to);
+    }
+
+    // Build the query
+    const whereClause = whereConditions.join(' AND ');
+    const offset = (page - 1) * limit;
+
+    const sql = `
+      SELECT 
+        id,
+        title,
+        user_id,
+        audience,
+        summary,
+        text,
+        approval_status,
+        media_url1,
+        media_url2, 
+        media_url3,
+        createdAt,
+        updatedAt,
+        CONCAT('c', id) as prefixed_id
+      FROM chats 
+      WHERE ${whereClause}
+      ORDER BY ${sort_by} ${sort_order}
+      LIMIT ? OFFSET ?
+    `;
+
+    params.push(limit, offset);
+
+    const rows = await db.query(sql, params);
+    
+    // Enhance results with normalized structure
+    const enhancedResults = rows.map(row => ({
+      ...row,
+      content_type: 'chat',
+      content_title: row.title,
+      content: row.text,
+      display_date: row.updatedAt || row.createdAt
+    }));
+
+    console.log(`🔍 Chat search found ${enhancedResults.length} results for query: "${query}"`);
+    return enhancedResults;
+
+  } catch (error) {
+    console.error('Error in searchChats:', error);
+    throw error instanceof CustomError ? error : new CustomError('Chat search failed', 500);
+  }
+};

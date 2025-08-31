@@ -21,7 +21,8 @@ import {
   removeChat,
   fetchChatsByIds,
   fetchChatByPrefixedId,
-  fetchCombinedContent
+  fetchCombinedContent,
+  searchChatsController
 } from '../controllers/chatControllers.js';
 
 // Teaching Controllers  
@@ -48,8 +49,27 @@ import {
   fetchCommentStats,
   fetchCommentById,
   updateComment,
-  deleteComment
+  deleteComment,
+  searchCommentsController
 } from '../controllers/commentsControllers.js';
+
+// Summarization Controllers
+import {
+  summarizeContent,
+  bulkSummarize,
+  summarizeText,
+  getSummarizationAnalytics
+} from '../controllers/summarizationController.js';
+
+// Recommendation Controllers
+import {
+  getContentRecommendations,
+  getTextRecommendations,
+  getTopicRecommendations,
+  trackInteraction,
+  getAnalytics,
+  getBulkRecommendations
+} from '../controllers/recommendationController.js';
 
 // Content Admin Controllers
 import {
@@ -95,39 +115,25 @@ const router = express.Router();
 // GET /content/chats - Fetch all chats with filtering
 router.get('/chats', fetchAllChats);
 
-//not used
-// GET /content/chats/user - Fetch chats by user_id
+// ✅ NEW: Enhanced chat search endpoint
+router.get('/chats/search', authenticate, searchChatsController);
+
+// ENHANCED: Personal mentorship chat history for user progress tracking
 router.get('/chats/user', authenticate, fetchChatsByUserId);
 
-//not used
-// GET /content/chats/ids - Fetch chats by multiple IDs
-router.get('/chats/ids', authenticate, fetchChatsByIds);
 
-//not used
-// GET /content/chats/prefixed/:prefixedId - Fetch chat by prefixed ID
-router.get('/chats/prefixed/:prefixedId', authenticate, fetchChatByPrefixedId);
 
 // GET /content/chats/combinedcontent - Combined chats + teachings endpoint
 router.get('/chats/combinedcontent', authenticate, fetchCombinedContent);
 
-//not used
-// GET /content/chats/:userId1/:userId2 - Get chat history between users
-router.get('/chats/:userId1/:userId2', authenticate, getChatHistory);
 
 // POST /content/chats - Create new chat (7-step form)
 router.post('/chats', authenticate, uploadMiddleware, uploadToS3, createChat);
 
-//not used
-// POST /content/chats/:chatId/comments - Add comment to chat
-router.post('/chats/:chatId/comments', authenticate, uploadMiddleware, uploadToS3, addCommentToChat);
 
-//not used
-// PUT /content/chats/:id - Update chat
+// ENHANCED: Allow users to edit their chat content for better UX
 router.put('/chats/:id', authenticate, uploadMiddleware, uploadToS3, editChat);
 
-//not used
-// DELETE /content/chats/:id - Delete chat
-router.delete('/chats/:id', authenticate, removeChat);
 
 // ===============================================
 // TEACHINGS ENDPOINTS - /api/content/teachings/*
@@ -136,40 +142,24 @@ router.delete('/chats/:id', authenticate, removeChat);
 // GET /content/teachings - Fetch all teachings with filtering
 router.get('/teachings', fetchAllTeachings);
 
-//not used
-// GET /content/teachings/search - Search teachings
+// ENHANCED: Advanced content discovery with skill-level and topic filters
 router.get('/teachings/search', authenticate, searchTeachingsController);
 
-//not used
-// GET /content/teachings/stats - Get teaching statistics
+// ENHANCED: Learning analytics and progress dashboards
 router.get('/teachings/stats', authenticate, fetchTeachingStats);
 
-//not used
-// GET /content/teachings/user - Fetch teachings by user_id
+// ENHANCED: Mentor's teaching portfolio and user's learning history
 router.get('/teachings/user', authenticate, fetchTeachingsByUserId);
 
-//not used
-// GET /content/teachings/ids - Fetch teachings by multiple IDs
-router.get('/teachings/ids', authenticate, fetchTeachingsByIds);
 
-//not used
-// GET /content/teachings/prefixed/:prefixedId - Fetch teaching by prefixed ID
-router.get('/teachings/prefixed/:prefixedId', authenticate, fetchTeachingByPrefixedId);
 
-//not used
-// GET /content/teachings/:id - Fetch single teaching by ID
-router.get('/teachings/:id', authenticate, fetchTeachingByPrefixedId);
 
 // POST /content/teachings - Create new teaching (8-step form)
 router.post('/teachings', authenticate, uploadMiddleware, uploadToS3, createTeaching);
 
-//not used
-// PUT /content/teachings/:id - Update teaching
+// ENHANCED: Mentors can update and improve their teaching content
 router.put('/teachings/:id', authenticate, uploadMiddleware, uploadToS3, editTeaching);
 
-//not used
-// DELETE /content/teachings/:id - Delete teaching
-router.delete('/teachings/:id', authenticate, removeTeaching);
 
 // ===============================================
 // COMMENTS ENDPOINTS - /api/content/comments/*
@@ -181,15 +171,156 @@ router.get('/comments', authenticate, fetchAllComments);
 // GET /content/comments/all - Fetch all comments
 router.get('/comments/all', authenticate, fetchAllComments);
 
-//not used
-// GET /content/comments/stats - Get comment statistics
+// ✅ NEW: Enhanced comment search endpoint
+router.get('/comments/search', authenticate, searchCommentsController);
+
+// ===============================================
+// GLOBAL SEARCH ENDPOINT
+// ===============================================
+
+// ✅ NEW: Global search across all content types
+router.get('/search/global', authenticate, async (req, res) => {
+  try {
+    const {
+      query: searchQuery,
+      q, // Alternative query parameter
+      types = 'all', // 'chats', 'teachings', 'comments', 'all'
+      page = 1,
+      limit = 20,
+      sort_by = 'updatedAt',
+      sort_order = 'desc'
+    } = req.query;
+
+    const finalQuery = searchQuery || q;
+
+    if (!finalQuery || finalQuery.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query is required',
+        message: 'Please provide a search query using "query" or "q" parameter',
+        example: '/content/search/global?q=mentorship&types=chats,teachings'
+      });
+    }
+
+    if (finalQuery.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query too short',
+        message: 'Search query must be at least 2 characters long'
+      });
+    }
+
+    const searchTypes = types === 'all' ? ['chats', 'teachings', 'comments'] : types.split(',');
+    const results = {
+      chats: [],
+      teachings: [],
+      comments: [],
+      total: 0
+    };
+
+    // Search chats if requested
+    if (searchTypes.includes('chats')) {
+      try {
+        const { searchChats } = await import('../services/chatServices.js');
+        results.chats = await searchChats({ query: finalQuery, limit: Math.ceil(limit/3) });
+      } catch (error) {
+        console.warn('Chat search failed:', error.message);
+      }
+    }
+
+    // Search teachings if requested
+    if (searchTypes.includes('teachings')) {
+      try {
+        const { searchTeachings } = await import('../services/teachingsServices.js');
+        results.teachings = await searchTeachings({ query: finalQuery, limit: Math.ceil(limit/3) });
+      } catch (error) {
+        console.warn('Teaching search failed:', error.message);
+      }
+    }
+
+    // Search comments if requested
+    if (searchTypes.includes('comments')) {
+      try {
+        const { searchComments } = await import('../services/commentServices.js');
+        results.comments = await searchComments({ query: finalQuery, limit: Math.ceil(limit/3) });
+      } catch (error) {
+        console.warn('Comment search failed:', error.message);
+      }
+    }
+
+    results.total = results.chats.length + results.teachings.length + results.comments.length;
+
+    res.status(200).json({
+      success: true,
+      message: 'Global search completed successfully',
+      data: results,
+      search: {
+        query: finalQuery,
+        types: searchTypes,
+        total_results: results.total
+      },
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit)
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Global search error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Global search failed',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// ===============================================
+// CONTENT SUMMARIZATION ENDPOINTS
+// ===============================================
+
+// ✅ NEW: Summarize specific content by type and ID
+router.get('/summarize/:contentType/:contentId', authenticate, summarizeContent);
+
+// ✅ NEW: Summarize arbitrary text
+router.post('/summarize/text', authenticate, summarizeText);
+
+// ✅ NEW: Bulk summarization for multiple content items
+router.post('/summarize/bulk', authenticate, bulkSummarize);
+
+// ✅ NEW: Summarization analytics and insights
+router.get('/summarize/analytics', authenticate, getSummarizationAnalytics);
+
+// ===============================================
+// EXTERNAL CONTENT RECOMMENDATIONS
+// ===============================================
+
+// ✅ NEW: Get recommendations for specific content
+router.get('/recommendations/:contentType/:contentId', authenticate, getContentRecommendations);
+
+// ✅ NEW: Get recommendations for arbitrary text
+router.post('/recommendations/text', authenticate, getTextRecommendations);
+
+// ✅ NEW: Get recommendations by topic/category
+router.get('/recommendations/topic/:topic', authenticate, getTopicRecommendations);
+
+// ✅ NEW: Bulk recommendations for multiple content items
+router.post('/recommendations/bulk', authenticate, getBulkRecommendations);
+
+// ✅ NEW: Track user interaction with recommendations
+router.post('/recommendations/track', authenticate, trackInteraction);
+
+// ✅ NEW: Get recommendation analytics
+router.get('/recommendations/analytics', authenticate, getAnalytics);
+
+// ENHANCED: Comment engagement analytics for mentorship insights
 router.get('/comments/stats', authenticate, fetchCommentStats);
 
 // GET /content/comments/parent-comments - Fetch parent content with comments
 router.get('/comments/parent-comments', authenticate, fetchParentChatsAndTeachingsWithComments);
 
-//not used
-// GET /content/comments/user/:user_id - Fetch comments by user
+// ENHANCED: User's interaction history for mentorship tracking
 router.get('/comments/user/:user_id', authenticate, fetchCommentsByUserId);
 
 // POST /content/comments/upload - Upload files for comments
@@ -198,17 +329,10 @@ router.post('/comments/upload', authenticate, uploadMiddleware, uploadToS3, uplo
 // POST /content/comments - Create new comment
 router.post('/comments', authenticate, uploadMiddleware, uploadToS3, createComment);
 
-//not used
-// GET /content/comments/:commentId - Get specific comment
-router.get('/comments/:commentId', authenticate, fetchCommentById);
 
-//not used
-// PUT /content/comments/:commentId - Update comment
+// ENHANCED: Users can edit their comments for better discussions
 router.put('/comments/:commentId', authenticate, uploadMiddleware, uploadToS3, updateComment);
 
-//not used
-// DELETE /content/comments/:commentId - Delete comment
-router.delete('/comments/:commentId', authenticate, deleteComment);
 
 // ===============================================
 // ADMIN CONTENT ENDPOINTS - /api/content/admin/*
@@ -376,26 +500,30 @@ router.use('*', (req, res) => {
     availableRoutes: {
       chats: [
         'GET /chats - Get all chats',
+        'GET /chats/search - 🔍 Advanced chat search',
         'GET /chats/user - Get user chats',
         'GET /chats/combinedcontent - Combined content',
         'POST /chats - Create chat',
-        'PUT /chats/:id - Update chat',
-        'DELETE /chats/:id - Delete chat'
+        'PUT /chats/:id - Update chat'
       ],
       teachings: [
         'GET /teachings - Get all teachings',
-        'GET /teachings/search - Search teachings',
+        'GET /teachings/search - 🔍 Advanced teaching search',
         'GET /teachings/stats - Teaching statistics',
         'POST /teachings - Create teaching',
-        'PUT /teachings/:id - Update teaching',
-        'DELETE /teachings/:id - Delete teaching'
+        'PUT /teachings/:id - Update teaching'
       ],
       comments: [
         'GET /comments/all - Get all comments',
+        'GET /comments/search - 🔍 Advanced comment search',
         'GET /comments/stats - Comment statistics',
         'POST /comments - Create comment',
-        'PUT /comments/:id - Update comment',
-        'DELETE /comments/:id - Delete comment'
+        'PUT /comments/:id - Update comment'
+      ],
+      search: [
+        'GET /search/global - 🌐 Global search (all content types)',
+        '  Parameters: ?q=query&types=chats,teachings,comments',
+        '  Advanced filters: date ranges, user filters, sorting'
       ],
       admin: [
         'GET /admin/pending - Pending content',
