@@ -63,29 +63,36 @@ router.get('/test', authenticate, (req, res) => {
 // ===============================================
 // SURVEY SUBMISSION ENDPOINTS
 // ===============================================
-
+// Nil
 // POST /api/survey/submit - Submit survey/application
 router.post('/submit', authenticate, submitSurvey);
-
+// Nil
 // POST /api/survey/application/submit - Submit application survey (alias)
 router.post('/application/submit', authenticate, submitSurvey);
 
 // Legacy compatibility for existing frontend
 router.post('/submit_applicationsurvey', authenticate, submitSurvey);
 
+// Nil but like @ ApplicationSurvey.jsx and membershipApi.js
+// POST /api/survey/application/submit-applicationsurvey - Submit application survey (alias)
+router.post('/application/submit-applicationsurvey', authenticate, submitSurvey);
+
+
 // ===============================================
 // SURVEY DRAFT MANAGEMENT
 // ===============================================
-
+// Nil
 // POST /api/survey/draft/save - Save survey draft
 router.post('/draft/save', authenticate, saveSurveyDraft);
 
+// membershipApi.js uses /api/survey/drafts to GET drafts
 // GET /api/survey/drafts - Get user's survey drafts
 router.get('/drafts', authenticate, getSurveyDrafts);
 
 // DELETE /api/survey/draft/:draftId - Delete survey draft
 router.delete('/draft/:draftId', authenticate, deleteSurveyDraftController);
 
+// Nil
 // PUT /api/survey/draft/:draftId - Update survey draft
 router.put('/draft/:draftId', authenticate, async (req, res, next) => {
   try {
@@ -100,10 +107,11 @@ router.put('/draft/:draftId', authenticate, async (req, res, next) => {
 // ===============================================
 // SURVEY QUESTIONS & LABELS
 // ===============================================
-
+// Nil
 // GET /api/survey/questions - Get survey questions
 router.get('/questions', authenticate, getSurveyQuestions);
 
+// Nil but @ membershipApi.js, useDynamicLabels.js uses survey/admin /api/survey/question-labels
 // GET /api/survey/question-labels - Get question labels for dynamic surveys
 router.get('/question-labels', authenticate, getQuestionLabels);
 
@@ -111,12 +119,15 @@ router.get('/question-labels', authenticate, getQuestionLabels);
 // SURVEY STATUS & HISTORY
 // ===============================================
 
+// Nil
 // GET /api/survey/status - Get survey status
 router.get('/status', authenticate, getSurveyStatus);
 
+// used @ useUserStatus.js, Applicationsurvey.jsx
 // GET /api/survey/check-status - Enhanced status check (compatibility)
 router.get('/check-status', authenticate, getSurveyStatus);
 
+// Nil
 // GET /api/survey/history - Get user's survey history
 router.get('/history', authenticate, getSurveyHistory);
 
@@ -124,9 +135,11 @@ router.get('/history', authenticate, getSurveyHistory);
 // SURVEY RESPONSE MANAGEMENT
 // ===============================================
 
-// PUT /api/survey/response/update - Update survey response
-router.put('/response/update', authenticate, updateSurveyResponse);
+// Nil
+// PUT /api/survey/response_update - Update survey response
+router.put('/response_update', authenticate, updateSurveyResponse);
 
+// Nil
 // DELETE /api/survey/response - Delete survey response
 router.delete('/response', authenticate, deleteSurveyResponse);
 
@@ -134,6 +147,7 @@ router.delete('/response', authenticate, deleteSurveyResponse);
 // SURVEY INFORMATION & REQUIREMENTS
 // ===============================================
 
+// Nil used at membershipApi.js
 // GET /api/survey/requirements - Get survey requirements
 router.get('/requirements', authenticate, async (req, res) => {
   try {
@@ -181,8 +195,9 @@ router.get('/requirements', authenticate, async (req, res) => {
 // SURVEY ANALYTICS (USER LEVEL)
 // ===============================================
 
-// GET /api/survey/my-analytics - Get user's survey analytics
-router.get('/my-analytics', authenticate, async (req, res) => {
+// Nil
+// GET /api/survey/my_analytics - Get user's survey analytics
+router.get('/my_analytics', authenticate, async (req, res) => {
   try {
     // This would call a service to get user-specific survey analytics
     res.json({
@@ -216,7 +231,7 @@ router.get('/my-analytics', authenticate, async (req, res) => {
 // ===============================================
 // TESTING ENDPOINTS
 // ===============================================
-
+// Nil
 // Draft system test
 router.get('/test/drafts', authenticate, async (req, res) => {
   try {
@@ -255,6 +270,7 @@ router.get('/test/drafts', authenticate, async (req, res) => {
   }
 });
 
+// Nil
 // Survey submission test
 router.get('/test/submission', authenticate, (req, res) => {
   res.json({
@@ -285,6 +301,7 @@ router.get('/test/submission', authenticate, (req, res) => {
 // SYSTEM INTEGRATION ENDPOINTS
 // ===============================================
 
+// Nil
 // GET /api/survey/integration-status - Check integration with other systems
 router.get('/integration-status', authenticate, async (req, res) => {
   try {

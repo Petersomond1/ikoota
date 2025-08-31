@@ -392,8 +392,55 @@ export const requireMembershipStage = (allowedStages) => {
   };
 };
 
-// Alternative export name for compatibility
-export const requireMembership = requireMembershipStage;
+
+// ===============================================
+// ENHANCED MEMBERSHIP-BASED AUTHORIZATION
+// ===============================================
+export const requireMembership = (allowedStages) => {
+  return (req, res, next) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      const userStage = req.user.membership_stage || 'none';
+      const stages = Array.isArray(allowedStages) ? allowedStages : [allowedStages];
+      
+      if (!stages.includes(userStage)) {
+        console.log('❌ Insufficient membership level:', {
+          userStage,
+          requiredStages: stages,
+          user: req.user.username
+        });
+        
+        return res.status(403).json({
+          success: false,
+          error: 'Membership level insufficient',
+          message: `Requires: ${stages.join(' or ')}`,
+          required: stages,
+          current: userStage,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      console.log('✅ Membership authorization successful:', userStage);
+      next();
+    } catch (error) {
+      console.error('Membership authorization error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Membership authorization failed',
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
+};
+
+
 
 // ===============================================
 // ENHANCED CONTENT ACCESS CONTROL
@@ -842,7 +889,6 @@ export default {
   
   // Role-based authorization
   requireRole,
-  requireMembershipStage,
   requireMembership,
   requireContentAccess,
   
@@ -1218,7 +1264,7 @@ if (process.env.NODE_ENV === 'development') {
 // // ===============================================
 // // ENHANCED MEMBERSHIP-BASED AUTHORIZATION
 // // ===============================================
-// export const requireMembershipStage = (allowedStages) => {
+// export const requireMembership = (allowedStages) => {
 //   return (req, res, next) => {
 //     try {
 //       if (!req.user) {
@@ -1263,7 +1309,7 @@ if (process.env.NODE_ENV === 'development') {
 // };
 
 // // Alternative export name for compatibility
-// export const requireMembership = requireMembershipStage;
+// export const requireMembership = requireMembership;
 
 // // ===============================================
 // // ENHANCED CONTENT ACCESS CONTROL
@@ -1589,7 +1635,7 @@ if (process.env.NODE_ENV === 'development') {
   
 //   // Role-based authorization
 //   requireRole,
-//   requireMembershipStage,
+//   requireMembership,
 //   requireMembership,
 //   requireContentAccess,
   

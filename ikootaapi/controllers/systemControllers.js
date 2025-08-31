@@ -204,7 +204,7 @@ export const getSystemStatus = async (req, res) => {
                 },
                 userManagement: {
                     profile: '/api/users/* - Profile, settings, preferences',
-                    status: '/api/user-status/* - Dashboard, status checks',
+                    status: '/api/user/userstatus/* - Dashboard, status checks',
                     admin: '/api/users/admin/* - Admin user management'
                 },
                 membershipSystem: {
@@ -540,7 +540,7 @@ export const getAPIInformation = async (req, res) => {
             endpointStructure: {
                 '/api/auth/*': 'Authentication endpoints',
                 '/api/users/*': 'User profile and settings',
-                '/api/user-status/*': 'User dashboard and status',
+                '/api/user/userstatus/*': 'User dashboard and status',
                 '/api/membership/*': 'Membership applications and status',
                 '/api/survey/*': 'Survey submissions and questions',
                 '/api/content/*': 'Unified content (chats, teachings, comments)',

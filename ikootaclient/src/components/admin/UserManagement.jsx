@@ -102,6 +102,22 @@ const fetchMentors = async () => {
   }
 };
 
+const exportUserData = async (filters = {}) => {
+  const params = new URLSearchParams(filters);
+  const { data } = await api.get(`/users/admin/export?${params}`);
+  return data;
+};
+
+const maskUserIdentity = async ({ userId, adminConverseId, mentorConverseId, classId }) => {
+  const { data } = await api.post('/users/admin/identity/mask-identity', {
+    userId,
+    adminConverseId,
+    mentorConverseId,
+    classId
+  });
+  return data;
+};
+
 // REMOVED: fetchPendingCount - we'll get this from overview instead
 
 // ==================================================

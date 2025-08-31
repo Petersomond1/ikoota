@@ -27,6 +27,14 @@ import {
 
 const router = express.Router();
 
+// Debug middleware - log ALL requests to survey admin routes
+router.use((req, res, next) => {
+  console.log(`🔍 Route Debug: ${req.method} ${req.originalUrl}`);
+  console.log(`📋 Survey admin route hit: ${req.method} ${req.path}`);
+  console.log(`🔍 Query params:`, req.query);
+  next();
+});
+
 // ===============================================
 // APPLY ADMIN AUTHENTICATION TO ALL ROUTES
 // ===============================================
@@ -36,7 +44,7 @@ router.use(canAdminSurveys); // Use our enhanced survey-specific middleware
 // ===============================================
 // SURVEY ADMIN SYSTEM TEST ENDPOINT
 // ===============================================
-
+// Nil
 router.get('/test', (req, res) => {
   res.json({
     success: true,
@@ -75,7 +83,7 @@ router.get('/test', (req, res) => {
 // ===============================================
 // SURVEY SYSTEM HEALTH CHECK
 // ===============================================
-
+// Nil
 router.get('/health', async (req, res) => {
   try {
     // This would typically check database connectivity and system status
@@ -122,6 +130,7 @@ router.get('/health', async (req, res) => {
 // QUESTION MANAGEMENT
 // ===============================================
 
+// Nil
 // GET /api/survey/admin/questions - Get all survey questions
 router.get('/questions', async (req, res) => {
   try {
@@ -142,12 +151,15 @@ router.get('/questions', async (req, res) => {
   }
 });
 
+// Nil
 // POST /api/survey/admin/questions - Create new survey question
 router.post('/questions', createSurveyQuestion);
 
+//Nil
 // PUT /api/survey/admin/questions - Update survey questions
 router.put('/questions', updateSurveyQuestions);
 
+//Nil
 // DELETE /api/survey/admin/questions/:id - Delete survey question
 router.delete('/questions/:id', deleteSurveyQuestion);
 
@@ -155,6 +167,7 @@ router.delete('/questions/:id', deleteSurveyQuestion);
 // QUESTION LABELS MANAGEMENT
 // ===============================================
 
+// SurveyControls.jsx, AuthControls.jsx, userDynamicLabels.js and under membership route @ membershipApi.js
 // GET /api/survey/admin/question-labels - Get question labels
 router.get('/question-labels', async (req, res) => {
   try {
@@ -174,9 +187,11 @@ router.get('/question-labels', async (req, res) => {
   }
 });
 
+// AutoCcontrols.jsx, SurveyControls.jsx
 // PUT /api/survey/admin/question-labels - Update question labels
 router.put('/question-labels', updateSurveyQuestionLabels);
 
+// Nil
 // POST /api/survey/admin/question-labels - Create new question label
 router.post('/question-labels', async (req, res) => {
   try {
@@ -200,18 +215,23 @@ router.post('/question-labels', async (req, res) => {
 // SURVEY REVIEW & APPROVAL
 // ===============================================
 
+// SurveyControls.jsx
 // GET /api/survey/admin/pending - Get pending surveys
 router.get('/pending', getPendingSurveys);
 
+// AuthControllers.jsx
 // GET /api/survey/admin/logs - Get survey logs
 router.get('/logs', getSurveyLogs);
 
+// SurveyControls.jsx, AuthControls.jsx
 // PUT /api/survey/admin/approve - Approve survey
 router.put('/approve', approveSurvey);
 
+// Nil (unnecessary can't reject survey)
 // PUT /api/survey/admin/reject - Reject survey
 router.put('/reject', rejectSurvey);
 
+// Nil
 // PUT /api/survey/admin/:id/status - Update survey status
 router.put('/:id/status', async (req, res) => {
   try {
@@ -244,6 +264,7 @@ router.put('/:id/status', async (req, res) => {
 // BULK OPERATIONS
 // ===============================================
 
+// SurveyControls.jsx
 // POST /api/survey/admin/bulk-approve - Bulk approve surveys
 router.post('/bulk-approve', async (req, res) => {
   try {
@@ -272,6 +293,7 @@ router.post('/bulk-approve', async (req, res) => {
   }
 });
 
+// Nil unnecessary
 // POST /api/survey/admin/bulk-reject - Bulk reject surveys
 router.post('/bulk-reject', async (req, res) => {
   try {
@@ -311,12 +333,15 @@ router.post('/bulk-reject', async (req, res) => {
 // ANALYTICS & REPORTING
 // ===============================================
 
+// Nil
 // GET /api/survey/admin/analytics - Get survey analytics
 router.get('/analytics', getSurveyAnalytics);
 
+// SurveyControls.jsx, Sidebar.jsx 
 // GET /api/survey/admin/stats - Get survey statistics
 router.get('/stats', getSurveyStats);
 
+// Nil
 // GET /api/survey/admin/completion-rates - Get completion rates
 router.get('/completion-rates', async (req, res) => {
   try {
@@ -336,6 +361,7 @@ router.get('/completion-rates', async (req, res) => {
   }
 });
 
+// Nil
 // GET /api/survey/admin/dashboard-stats - Dashboard statistics
 router.get('/dashboard-stats', async (req, res) => {
   try {
@@ -377,16 +403,16 @@ router.get('/dashboard-stats', async (req, res) => {
 // ===============================================
 // DATA EXPORT
 // ===============================================
-
+// Nil
 // GET /api/survey/admin/export - Export survey data (super admin only)
 router.get('/export', canExportSurveyData, exportSurveyData);
-
+// Nil
 // GET /api/survey/admin/export/responses - Export survey responses
 router.get('/export/responses', canExportSurveyData, (req, res, next) => {
   req.exportType = 'responses';
   exportSurveyData(req, res, next);
 });
-
+// Nil
 // GET /api/survey/admin/export/analytics - Export survey analytics
 router.get('/export/analytics', canExportSurveyData, (req, res, next) => {
   req.exportType = 'analytics';
@@ -396,7 +422,7 @@ router.get('/export/analytics', canExportSurveyData, (req, res, next) => {
 // ===============================================
 // SURVEY CONFIGURATION
 // ===============================================
-
+// Nil
 // GET /api/survey/admin/config - Get survey configuration
 router.get('/config', async (req, res) => {
   try {
@@ -444,6 +470,7 @@ router.get('/config', async (req, res) => {
   }
 });
 
+// Nil
 // PUT /api/survey/admin/config - Update survey configuration
 router.put('/config', async (req, res) => {
   try {
@@ -467,7 +494,7 @@ router.put('/config', async (req, res) => {
 // ===============================================
 // ADVANCED ADMIN FEATURES
 // ===============================================
-
+// Nil
 // GET /api/survey/admin/audit-logs - Get survey audit logs
 router.get('/audit-logs', async (req, res) => {
   try {
@@ -519,6 +546,7 @@ router.get('/audit-logs', async (req, res) => {
   }
 });
 
+// Nil
 // GET /api/survey/admin/system-metrics - Advanced system metrics
 router.get('/system-metrics', async (req, res) => {
   try {
@@ -572,6 +600,7 @@ router.get('/system-metrics', async (req, res) => {
 // FRONTEND INTEGRATION ENDPOINTS
 // ===============================================
 
+// Nil
 // GET /api/survey/admin/frontend-config - Configuration for SurveyControls.jsx
 router.get('/frontend-config', (req, res) => {
   res.json({

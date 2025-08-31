@@ -7,7 +7,7 @@ import api from './api';
  * Generates a cryptographically secure 6-character alphanumeric ID
  * @returns {string} A random 6-character alphanumeric ID
  */
-const generateSecureRandomId = () => {
+export const generateSecureRandomId = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
     
@@ -48,7 +48,7 @@ export const generatePreviewClassId = () => {
  */
 export const generateUniqueConverseId = async () => {
     try {
-        const response = await api.post('/admin/identity/generate-converse-id');
+        const response = await api.post('/users/admin/identity/generate-converse-id');
         return response.data.converseId;
     } catch (error) {
         console.error('Failed to generate unique converse ID:', error);
@@ -63,7 +63,7 @@ export const generateUniqueConverseId = async () => {
  */
 export const generateUniqueClassId = async () => {
     try {
-        const response = await api.post('/admin/identity/generate-class-id');
+        const response = await api.post('/users/admin/identity/generate-class-id');
         return response.data.classId;
     } catch (error) {
         console.error('Failed to generate unique class ID:', error);

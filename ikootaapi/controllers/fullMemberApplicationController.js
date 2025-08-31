@@ -668,14 +668,14 @@ export const withdrawFullMembershipApplication = async (req, res) => {
     
     try {
       // Update application status to withdrawn
-      await connection.execute(`
+      await connection.query(`
         UPDATE full_membership_applications 
         SET status = 'withdrawn', admin_notes = ?, reviewedAt = NOW(), updatedAt = NOW()
         WHERE id = ?
       `, [reason || 'Withdrawn by user', application.id]);
             
       // Update user status
-      await connection.execute(`
+      await connection.query(`
         UPDATE users 
         SET full_membership_status = 'withdrawn', updatedAt = NOW()
         WHERE id = ?

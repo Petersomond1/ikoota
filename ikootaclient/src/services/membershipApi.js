@@ -167,7 +167,7 @@ export const membershipApi = {
 
   // Withdraw application
   withdrawApplication: async (reason, applicationType = 'initial_application') => {
-    return await api.post('/application/withdraw', {
+    return await api.post('/admin/application/withdraw', {
       reason,
       applicationType
     });
@@ -193,7 +193,7 @@ export const membershipApi = {
 
   // Submit survey application
   submitSurveyApplication: async (answers, applicationTicket) => {
-    return await api.post('/survey/submit-application', {
+    return await api.post('/survey/submit-applicationsurvey', {
       answers,
       applicationTicket
     });

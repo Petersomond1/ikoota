@@ -4,7 +4,7 @@
 // *** MERGED WITH IDENTITY ROUTES ***
 
 import express from 'express';
-import { authenticate, requireMembership } from '../middleware/auth.js';
+import { authenticate, requireMembershipStage } from '../middleware/auth.js';
 
 // ✅ Controller Imports - Individual Functions (Clean Architecture)
 import {
@@ -91,15 +91,32 @@ router.get('/test-dashboard', authenticate, testDashboard);
 // ===============================================
 router.get('/dashboard', authenticate, getUserDashboard);
 router.get('/status', authenticate, getCurrentMembershipStatus);
+//Not used
 router.get('/membership/status', authenticate, getCurrentMembershipStatus);
+//similar membershipApi
 router.get('/application/status', authenticate, checkApplicationStatus);
 router.get('/survey/status', authenticate, checkSurveyStatus);
 router.get('/application-history', authenticate, getApplicationHistory);
 
+//USER USERSTATUS ALIAS FOR COMPATIBILITY
+//from Dashboard.jsx, MembershipStatus.jsx, ApplicationStatus.jsx, ApplicationSurvey.jsx, useUserStatus.js
+router.get('/userstatus/dashboard', authenticate, getUserDashboard);
+router.get('/userstatus/status', authenticate, getCurrentMembershipStatus);
+router.get('/userstatus/membership/status', authenticate, getCurrentMembershipStatus);
+router.get('/userstatus/application/status', authenticate, checkApplicationStatus);
+router.get('/userstatus/survey/status', authenticate, checkSurveyStatus);
+//Not used
+router.get('/userstatus/application-history', authenticate, getApplicationHistory); 
+
+//from Applicationsurvey.jsx, Login.jsx, useUserStatus.js,
+router.get('/userstatus/survey/check-status', authenticate, checkSurveyStatus); // Alias for survey status check
+
 // ===============================================
 // USER PROFILE MANAGEMENT (Authentication Required)
 // ===============================================
+//Not used
 router.get('/profile', authenticate, getProfile);
+//Not used
 router.get('/profile/basic', authenticate, getBasicProfile);
 router.put('/profile', authenticate, updateProfile);
 router.delete('/profile', authenticate, deleteProfile);
@@ -107,24 +124,28 @@ router.delete('/profile', authenticate, deleteProfile);
 // ===============================================
 // USER SETTINGS & PREFERENCES (Authentication Required)
 // ===============================================
+//Not used
 router.get('/settings', authenticate, getUserSettings);
 router.put('/settings', authenticate, updateUserSettings);
 router.put('/password', authenticate, updateUserPassword);
+//Not used
 router.get('/preferences', authenticate, getUserPreferences);
 router.put('/preferences', authenticate, updateUserPreferences);
 
 // ===============================================
 // USER PERMISSIONS (Authentication Required)
 // ===============================================
+//Not used
 router.get('/permissions', authenticate, getUserPermissions);
 
 // ===============================================
 // CONVERSE ID MANAGEMENT (MERGED FROM IDENTITY ROUTES)
 // ===============================================
-
+//Not used
 // GET /users/converse - Get user's converse ID
 router.get('/converse', authenticate, getConverseId);
 
+//Not used
 // POST /users/converse/generate - Generate new converse ID
 router.post('/converse/generate', authenticate, generateConverseId);
 
@@ -134,6 +155,7 @@ router.put('/converse', authenticate, updateConverseId);
 // DELETE /users/converse - Delete/reset converse ID
 router.delete('/converse', authenticate, deleteConverseId);
 
+//Not used
 // GET /users/converse/class/:classId/members - Get class members via converse ID
 router.get('/converse/class/:classId/members', authenticate, getClassMembers);
 
@@ -156,9 +178,11 @@ router.delete('/mentor', authenticate, deleteMentorId);
 // GET /users/mentor/mentees - Get mentor's mentees
 router.get('/mentor/mentees', authenticate, getMentees);
 
+//Not used
 // POST /users/mentor/mentees/assign - Assign mentee
 router.post('/mentor/mentees/assign', authenticate, assignMentee);
 
+//Not used
 // DELETE /users/mentor/mentees/:menteeId - Remove mentee
 router.delete('/mentor/mentees/:menteeId', authenticate, removeMentee);
 
@@ -166,6 +190,7 @@ router.delete('/mentor/mentees/:menteeId', authenticate, removeMentee);
 // IDENTITY STATUS & VERIFICATION (MERGED)
 // ===============================================
 
+//Not used
 // GET /users/identity/status - Get identity status
 router.get('/identity/status', authenticate, async (req, res) => {
   try {
@@ -194,6 +219,7 @@ router.get('/identity/status', authenticate, async (req, res) => {
   }
 });
 
+//Not used
 // POST /users/identity/verify - Start identity verification
 router.post('/identity/verify', authenticate, async (req, res) => {
   try {
@@ -219,10 +245,14 @@ router.post('/identity/verify', authenticate, async (req, res) => {
   }
 });
 
+
+//
+
 // ===============================================
 // PRIVACY SETTINGS (MERGED FROM IDENTITY ROUTES)
 // ===============================================
 
+//Not used
 // GET /users/privacy-settings - Get privacy settings
 router.get('/privacy-settings', authenticate, async (req, res) => {
   try {
@@ -302,15 +332,20 @@ router.put('/privacy-settings', authenticate, async (req, res) => {
 // ===============================================
 // NOTIFICATIONS (Authentication Required)
 // ===============================================
+// similar at communication route
 router.get('/notifications', authenticate, getUserNotifications);
 router.put('/notifications/:id/read', authenticate, markNotificationAsRead);
+//Not used
 router.put('/notifications/mark-all-read', authenticate, markAllNotificationsAsRead);
 
 // ===============================================
 // USER ACTIVITY & HISTORY (Authentication Required)
 // ===============================================
+//Not used
 router.get('/activity', authenticate, getUserActivity);
+//Not used
 router.get('/content-history', authenticate, getUserContentHistory);
+//similar at membershipApi
 router.get('/history', authenticate, getApplicationHistory); // Alias for application-history
 
 // ===============================================

@@ -616,7 +616,7 @@ export const withdrawApplication = async (req, res) => {
     
     try {
       // Update application status to withdrawn
-      await connection.execute(`
+      await connection.query(`
         UPDATE surveylog 
         SET approval_status = 'withdrawn', admin_notes = ?, reviewedAt = NOW()
         WHERE id = ?
@@ -624,7 +624,7 @@ export const withdrawApplication = async (req, res) => {
             
       // If withdrawing initial application, reset user status
       if (applicationType === 'initial_application') {
-        await connection.execute(`
+        await connection.query(`
           UPDATE users 
           SET membership_stage = 'none', is_member = 'pending', application_status = 'withdrawn'
           WHERE id = ?

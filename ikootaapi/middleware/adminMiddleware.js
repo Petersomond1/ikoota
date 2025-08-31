@@ -16,7 +16,7 @@ export const requireAdmin = async (req, res, next) => {
     }
     
     // Check admin status from database
-    const [adminCheck] = await db.execute(
+    const [adminCheck] = await db.query(
       `SELECT role, is_admin, status FROM users WHERE id = ? OR converse_id = ?`,
       [req.user.id, req.user.converse_id || req.user.id]
     );
@@ -69,7 +69,7 @@ export const requireModerator = async (req, res, next) => {
     }
     
     // Check moderator status
-    const [moderatorCheck] = await db.execute(
+    const [moderatorCheck] = await db.query(
       `SELECT role, is_admin, permissions FROM users WHERE id = ? OR converse_id = ?`,
       [req.user.id, req.user.converse_id || req.user.id]
     );
@@ -124,7 +124,7 @@ export const requireOwnershipOrAdmin = (contentType = 'content') => {
       }
       
       // Check if user is admin first
-      const [adminCheck] = await db.execute(
+      const [adminCheck] = await db.query(
         `SELECT role, is_admin FROM users WHERE id = ? OR converse_id = ?`,
         [req.user.id, req.user.converse_id || req.user.id]
       );
@@ -158,7 +158,7 @@ export const requireOwnershipOrAdmin = (contentType = 'content') => {
           throw new CustomError('Invalid content type', 400);
       }
       
-      const [ownershipCheck] = await db.execute(ownershipQuery, [contentId]);
+      const [ownershipCheck] = await db.query(ownershipQuery, [contentId]);
       
       if (!ownershipCheck || ownershipCheck.length === 0) {
         throw new CustomError(`${contentType} not found`, 404);

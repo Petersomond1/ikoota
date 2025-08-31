@@ -1013,7 +1013,8 @@ export const searchUsers = async (searchCriteria) => {
  */
 export const getAvailableMentors = async (includeWorkload = false) => {
   try {
-    const [mentors] = await db.query(`
+    console.log('🔍 getAvailableMentors: Starting mentor query...');
+    const queryResult = await db.query(`
       SELECT 
         m.id,
         m.username,
@@ -1025,6 +1026,32 @@ export const getAvailableMentors = async (includeWorkload = false) => {
       WHERE role IN ('admin', 'super_admin', 'mentor')
       ORDER BY current_mentees ASC, username ASC
     `);
+    
+    console.log('🔍 Raw query result type:', typeof queryResult);
+    console.log('🔍 Raw query result isArray:', Array.isArray(queryResult));
+    console.log('🔍 Raw query result length:', queryResult?.length);
+    console.log('🔍 Raw query result first item:', queryResult?.[0]);
+    
+    // Handle different result formats from db.query
+    let mentors;
+    if (Array.isArray(queryResult)) {
+      // If the result is directly an array
+      mentors = queryResult;
+    } else if (Array.isArray(queryResult[0])) {
+      // If the result is [rows, fields] format
+      mentors = queryResult[0];
+    } else {
+      console.error('❌ Unexpected query result format:', queryResult);
+      throw new Error('Unexpected database query result format');
+    }
+
+    console.log('🔍 Extracted mentors type:', typeof mentors);
+    console.log('🔍 Extracted mentors isArray:', Array.isArray(mentors));
+    console.log('🔍 Extracted mentors length:', mentors?.length);
+
+    if (!Array.isArray(mentors)) {
+      throw new Error(`mentors is not an array: ${typeof mentors}`);
+    }
 
     const formattedMentors = mentors.map(mentor => ({
       id: mentor.id,

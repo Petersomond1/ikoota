@@ -574,6 +574,7 @@ export const deleteUserSurveyResponse = async (surveyId, userId) => {
  */
 export const fetchAllSurveyLogs = async (filters = {}, pagination = {}) => {
   try {
+    console.log('🔍 fetchAllSurveyLogs called with:', { filters, pagination });
     const { page = 1, limit = 50 } = pagination;
     const offset = (page - 1) * limit;
     
@@ -612,12 +613,25 @@ export const fetchAllSurveyLogs = async (filters = {}, pagination = {}) => {
     }
     
     // Get total count
-    const [countResult] = await db.query(
+    console.log('🔍 Count query:', `SELECT COUNT(*) as total FROM surveylog sl INNER JOIN users u ON sl.user_id = u.id ${whereClause}`, 'params:', params);
+    const countQueryResult = await db.query(
       `SELECT COUNT(*) as total FROM surveylog sl 
        INNER JOIN users u ON sl.user_id = u.id
        ${whereClause}`,
       params
     );
+    
+    // Handle different result formats for count query
+    let countResult;
+    if (Array.isArray(countQueryResult)) {
+      countResult = countQueryResult[0];
+    } else if (Array.isArray(countQueryResult[0])) {
+      countResult = countQueryResult[0][0];
+    } else {
+      countResult = { total: 0 };
+    }
+    
+    console.log('🔍 Count result:', countResult);
     
     // Get paginated results with all necessary fields for membership admin
     const query = `
@@ -642,7 +656,30 @@ export const fetchAllSurveyLogs = async (filters = {}, pagination = {}) => {
       LIMIT ? OFFSET ?
     `;
     
-    const [logs] = await db.query(query, [...params, parseInt(limit), parseInt(offset)]);
+    console.log('🔍 Main query:', query.substring(0, 200) + '...', 'params:', [...params, parseInt(limit), parseInt(offset)]);
+    const queryResult = await db.query(query, [...params, parseInt(limit), parseInt(offset)]);
+    console.log('🔍 Raw query result:', { type: typeof queryResult, isArray: Array.isArray(queryResult), length: queryResult?.length });
+    
+    // Handle different result formats from db.query
+    let logs;
+    if (Array.isArray(queryResult)) {
+      // If the result is directly an array
+      logs = queryResult;
+    } else if (Array.isArray(queryResult[0])) {
+      // If the result is [rows, fields] format
+      logs = queryResult[0];
+    } else {
+      console.error('❌ Unexpected query result format:', queryResult);
+      logs = [];
+    }
+    
+    console.log('🔍 Extracted logs:', { type: typeof logs, isArray: Array.isArray(logs), length: logs?.length, firstItem: logs?.[0] ? 'found' : 'none' });
+    
+    // Ensure logs is an array
+    if (!Array.isArray(logs)) {
+      console.error('❌ Logs is not an array:', typeof logs);
+      logs = [];
+    }
     
     // Parse answers if JSON string
     const processedLogs = logs.map(log => ({
@@ -654,9 +691,9 @@ export const fetchAllSurveyLogs = async (filters = {}, pagination = {}) => {
     
     return {
       data: processedLogs,
-      count: countResult[0].total,
+      count: countResult.total || 0,
       page: parseInt(page),
-      totalPages: Math.ceil(countResult[0].total / limit)
+      totalPages: Math.ceil((countResult.total || 0) / limit)
     };
     
   } catch (error) {

@@ -1683,7 +1683,7 @@ export default {
 //       });
       
 //       // ✅ CORRECT: Insert user using your exact field names
-//       const [insertResult] = await connection.execute(`
+//       const [insertResult] = await connection.query(`
 //         INSERT INTO users (
 //           username, 
 //           email, 
@@ -1715,13 +1715,13 @@ export default {
 //       // ✅ ENHANCED: Better class assignment with error handling
 //       try {
 //         // Check if OTU#Public class exists
-//         const [classCheck] = await connection.execute(`
+//         const [classCheck] = await connection.query(`
 //           SELECT id FROM classes WHERE id = 'OTU#Public'
 //         `);
         
 //         if (classCheck.length === 0) {
 //           console.warn('⚠️ OTU#Public class not found, creating it...');
-//           await connection.execute(`
+//           await connection.query(`
 //             INSERT INTO classes (id, name, description, type, createdAt)
 //             VALUES ('OTU#Public', 'Public Class', 'Default public class for all users', 'public', NOW())
 //             ON DUPLICATE KEY UPDATE updatedAt = NOW()
@@ -1729,14 +1729,14 @@ export default {
 //         }
         
 //         // Insert into user_class_memberships with conflict resolution
-//         await connection.execute(`
+//         await connection.query(`
 //           INSERT INTO user_class_memberships (user_id, class_id, membership_status)
 //           VALUES (?, 'OTU#Public', 'active')
 //           ON DUPLICATE KEY UPDATE membership_status = 'active'
 //         `, [userId]);
         
 //         // Update user totals
-//         await connection.execute(`
+//         await connection.query(`
 //           UPDATE users 
 //           SET total_classes = 1, primary_class_id = 'OTU#Public'
 //           WHERE id = ?
@@ -1751,7 +1751,7 @@ export default {
 //       }
       
 //       // ✅ CORRECT: Clean up verification codes using your exact field names
-//       await connection.execute(`
+//       await connection.query(`
 //         DELETE FROM verification_codes 
 //         WHERE ${verificationMethod === 'email' ? 'email' : 'phone'} = ?
 //       `, [verificationTarget]);
@@ -2296,14 +2296,14 @@ export default {
 // export const verifyUser = async (req, res) => {
 //     try {
 //         const sql = "SELECT * FROM users WHERE email=?";
-//         const [result] = await db.execute(sql, [req.params.token]);
+//         const [result] = await db.query(sql, [req.params.token]);
 
 //         if (result.length === 0) {
 //             return res.json({ error: "Invalid token" });
 //         }
 
 //         const updateSql = "UPDATE users SET is_member = 'pending' WHERE email=?";
-//         await db.execute(updateSql, [req.params.token]);
+//         await db.query(updateSql, [req.params.token]);
 
 //         res.redirect(`http://localhost:5173/applicationsurvey/${req.params.token}`);
 //     } catch (err) {

@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import './ikocontrols.css';
+import api from '../service/api';
 // import Chat from "./Chat";
 
 const IkoControls = () => {
@@ -16,15 +17,15 @@ const IkoControls = () => {
       let response;
       switch (type) {
         case 'messages':
-          response = await axios.get(`/content/messages?status=${filter}`);
+          response = await api.get(`/content/messages?status=${filter}`);
           setMessages(response.data);
           break;
         case 'comments':
-          response = await axios.get(`/content/comments?status=${filter}`);
+          response = await api.get(`/content/comments?status=${filter}`);
           setComments(response.data);
           break;
         case 'chats':
-          response = await axios.get(`/content/chats`);
+          response = await api.get(`/content/chats`);
           setChats(response.data);
           break;
         default:
@@ -38,7 +39,7 @@ const IkoControls = () => {
   // Approve, Reject, or Delete items
   const handleAction = async (type, id, action) => {
     try {
-      await axios.put(`/content/${type}/${id}`, { status: action });
+      await api.put(`/content/${type}/${id}`, { status: action });
       fetchData(type);
     } catch (err) {
       console.error(err);

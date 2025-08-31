@@ -1,616 +1,666 @@
 // ikootaapi/controllers/userAdminControllers.js
-// ADMIN USER MANAGEMENT CONTROLLERS - COMPLETE FILE
-// Administrative control over user accounts and permissions
+// Controllers for user admin operations - routes → controllers → services
+// Connects userAdminRoutes.js to userAdminServices.js
 
-import {
-  // User Management Services
-  getAllUsersAdminService,
-  getUserByIdAdminService,
-  createUserAdminService,
-  updateUserAdminService,
-  deleteUserAdminService,
-  searchUsersAdminService,
-  
-  // User Actions Services
-  banUserAdminService,
-  unbanUserAdminService,
-  
-  // ID Generation Services
-  generateBulkIdsService,
-  generateConverseIdService,
-  generateClassIdService,
-  
-  // Identity Services
-  maskUserIdentityService,
-  
-  // Data Export Services
-  exportUserDataAdminService,
-  
-  // Statistics Services
-  getUserStatsAdminService
-} from '../services/userAdminServices.js';
+import CustomError from '../utils/CustomError.js';
+import userAdminServices from '../services/userAdminServices.js';
 
-import {
-  getAllMentorsForAdmin
-} from '../services/userServices.js';
+// ===============================================
+// DASHBOARD & ANALYTICS CONTROLLERS
+// ===============================================
 
-import { generateUniqueClassId } from '../utils/idGenerator.js';
+/**
+ * GET /api/users/admin/stats/overview - Dashboard overview
+ */
+export const getOverviewStats = async (req, res) => {
+  try {
+    const stats = await userAdminServices.getOverviewStats();
+    
+    res.json({
+      success: true,
+      overview: stats.overview,
+      applications: stats.applications,
+      content: stats.content,
+      activity: stats.activity,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Overview stats error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to fetch overview statistics',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * GET /api/users/admin/stats/detailed - Detailed analytics
+ */
+export const getDetailedStats = async (req, res) => {
+  try {
+    const { period = '30d', metrics } = req.query;
+    
+    const stats = await userAdminServices.getDetailedStats(period, metrics);
+    
+    res.json({
+      success: true,
+      data: stats,
+      period,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Detailed stats error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to fetch detailed statistics',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * GET /api/users/admin/analytics - Comprehensive analytics
+ */
+export const getAnalytics = async (req, res) => {
+  try {
+    const { startDate, endDate, groupBy = 'day' } = req.query;
+    
+    const analytics = await userAdminServices.getAnalytics(startDate, endDate, groupBy);
+    
+    res.json({
+      success: true,
+      analytics,
+      period: { startDate, endDate },
+      groupBy,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Analytics error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to fetch analytics data',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * GET /api/users/admin/pending-count - Real-time pending counts
+ */
+export const getPendingCount = async (req, res) => {
+  try {
+    const counts = await userAdminServices.getPendingCount();
+    
+    res.json({
+      success: true,
+      counts,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Pending count error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to fetch pending counts',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
 
 // ===============================================
 // USER MANAGEMENT CONTROLLERS
 // ===============================================
 
 /**
- * Get all users (Admin)
- * GET /api/users/admin
+ * GET /api/users/admin - Get all users with filtering
  */
 export const getAllUsers = async (req, res) => {
   try {
-    console.log('🔍 Admin users request from user:', req.user.username);
-    
-    const { 
-      page = 1, 
-      limit = 50, 
-      role, 
-      membership_stage,
-      is_member, 
-      isblocked, 
-      isbanned, 
-      search 
-    } = req.query;
-
     const filters = {
-      role,
-      membership_stage,
-      is_member,
-      isblocked: isblocked === 'true' ? true : isblocked === 'false' ? false : undefined,
-      isbanned: isbanned === 'true' ? true : isbanned === 'false' ? false : undefined,
-      search,
-      page: parseInt(page),
-      limit: parseInt(limit)
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 20,
+      search: req.query.search,
+      role: req.query.role,
+      membershipStage: req.query.membershipStage,
+      isVerified: req.query.isVerified === 'true' ? true : req.query.isVerified === 'false' ? false : undefined,
+      sortBy: req.query.sortBy || 'createdAt',
+      sortOrder: req.query.sortOrder || 'desc'
     };
 
-    const result = await getAllUsersAdminService(filters);
+    // Remove undefined values
+    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
+
+    const result = await userAdminServices.getAllUsers(filters);
     
-    res.status(200).json({
-      success: true,
-      data: result,
-      message: `Found ${result.users?.length || 0} users`
-    });
-    
+    res.json(result);
   } catch (error) {
-    console.error('❌ Error fetching users:', error);
-    res.status(500).json({
+    console.error('Get all users error:', error);
+    res.status(error.statusCode || 500).json({
       success: false,
-      error: 'Failed to fetch users',
-      details: error.message,
-      path: req.path,
+      message: error.message || 'Failed to fetch users',
       timestamp: new Date().toISOString()
     });
   }
 };
 
 /**
- * Get specific user by ID (Admin)
- * GET /api/users/admin/:id
+ * GET /api/users/admin/:id - Get specific user by ID
  */
 export const getUserById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const userId = parseInt(req.params.id);
     
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
-      });
+    if (isNaN(userId)) {
+      throw new CustomError('Valid user ID required', 400);
     }
-
-    console.log('🔍 Admin fetching user by ID:', id);
     
-    const user = await getUserByIdAdminService(id);
+    const result = await userAdminServices.getUserById(userId);
     
-    res.status(200).json({
-      success: true,
-      data: user,
-      message: 'User retrieved successfully'
-    });
-    
+    res.json(result);
   } catch (error) {
-    console.error('❌ Error fetching user by ID:', error);
-    
-    const statusCode = error.message.includes('not found') ? 404 : 500;
-    res.status(statusCode).json({
+    console.error('Get user by ID error:', error);
+    res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to fetch user',
-      path: req.path,
+      message: error.message || 'Failed to fetch user details',
       timestamp: new Date().toISOString()
     });
   }
 };
 
 /**
- * Create new user (Admin)
- * POST /api/users/admin/create
+ * POST /api/users/admin - Create new user
  */
 export const createUser = async (req, res) => {
   try {
-    console.log('👤 Admin creating new user:', req.body.username);
-
-    const newUser = await createUserAdminService(req.body, req.user);
+    const { username, email, password, role = 'user' } = req.body;
     
-    res.status(201).json({
-      success: true,
-      data: newUser,
-      message: 'User created successfully'
+    const result = await userAdminServices.createUser({
+      username,
+      email,
+      password,
+      role,
+      createdBy: req.user.id
     });
     
+    res.status(201).json(result);
   } catch (error) {
-    console.error('❌ Error creating user:', error);
-    
-    let statusCode = 500;
-    if (error.message.includes('already exists')) statusCode = 409;
-    if (error.message.includes('required')) statusCode = 400;
-    if (error.message.includes('Invalid')) statusCode = 400;
-    if (error.message.includes('super administrator')) statusCode = 403;
-    
-    res.status(statusCode).json({
+    console.error('Create user error:', error);
+    res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to create user',
-      path: req.path,
+      message: error.message || 'Failed to create user',
       timestamp: new Date().toISOString()
     });
   }
 };
 
 /**
- * Update user (Admin)
- * PUT /api/users/admin/:id
+ * PUT /api/users/admin/:id - Update user
  */
 export const updateUser = async (req, res) => {
   try {
-    const { id } = req.params;
-    const updateData = req.body;
+    const userId = parseInt(req.params.id);
     
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
-      });
+    if (isNaN(userId)) {
+      throw new CustomError('Valid user ID required', 400);
     }
-
-    if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No update data provided'
-      });
-    }
-
-    console.log('🔧 Admin updating user:', id);
-
-    const updatedUser = await updateUserAdminService(id, updateData, req.user);
     
-    res.status(200).json({
-      success: true,
-      data: updatedUser,
-      message: 'User updated successfully'
-    });
+    const updates = req.body;
+    updates.updatedBy = req.user.id;
     
+    const result = await userAdminServices.updateUser(userId, updates);
+    
+    res.json(result);
   } catch (error) {
-    console.error('❌ Error updating user:', error);
-    
-    let statusCode = 500;
-    if (error.message.includes('not found')) statusCode = 404;
-    if (error.message.includes('required')) statusCode = 400;
-    if (error.message.includes('super administrator')) statusCode = 403;
-    if (error.message.includes('Cannot demote')) statusCode = 403;
-    
-    res.status(statusCode).json({
+    console.error('Update user error:', error);
+    res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to update user',
-      path: req.path,
+      message: error.message || 'Failed to update user',
       timestamp: new Date().toISOString()
     });
   }
 };
 
 /**
- * Delete user (Super Admin only)
- * DELETE /api/users/admin/:id
+ * DELETE /api/users/admin/:id - Delete user
  */
 export const deleteUser = async (req, res) => {
   try {
-    const { id } = req.params;
+    const userId = parseInt(req.params.id);
     const { reason } = req.body;
     
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
-      });
+    if (isNaN(userId)) {
+      throw new CustomError('Valid user ID required', 400);
     }
-
-    console.log('🗑️ Super admin deleting user:', id);
-
-    const result = await deleteUserAdminService(id, req.user, reason);
     
-    res.status(200).json({
-      success: true,
-      message: 'User account deleted successfully',
-      data: result
+    if (!reason) {
+      throw new CustomError('Deletion reason required', 400);
+    }
+    
+    const result = await userAdminServices.deleteUser(userId, {
+      reason,
+      deletedBy: req.user.id
     });
     
+    res.json(result);
   } catch (error) {
-    console.error('❌ Error deleting user:', error);
-    
-    let statusCode = 500;
-    if (error.message.includes('not found')) statusCode = 404;
-    if (error.message.includes('Super administrator')) statusCode = 403;
-    if (error.message.includes('Cannot delete')) statusCode = 400;
-    
-    res.status(statusCode).json({
+    console.error('Delete user error:', error);
+    res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to delete user',
-      path: req.path,
+      message: error.message || 'Failed to delete user',
       timestamp: new Date().toISOString()
     });
   }
 };
 
 /**
- * Search users (Admin)
- * GET /api/users/admin/search
- */
-export const searchUsers = async (req, res) => {
-  try {
-    const { 
-      query = '', 
-      role = '', 
-      membership_stage = '', 
-      page = 1, 
-      limit = 20 
-    } = req.query;
-
-    console.log('🔍 Admin searching users:', { query, role, membership_stage });
-
-    const searchFilters = {
-      search: query,
-      role: role || undefined,
-      membership_stage: membership_stage || undefined,
-      page: parseInt(page),
-      limit: parseInt(limit)
-    };
-
-    const result = await searchUsersAdminService(searchFilters);
-    
-    res.status(200).json({
-      success: true,
-      data: result,
-      message: `Found ${result.users?.length || 0} users matching criteria`
-    });
-    
-  } catch (error) {
-    console.error('❌ Error searching users:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to search users',
-      details: error.message,
-      path: req.path,
-      timestamp: new Date().toISOString()
-    });
-  }
-};
-
-// ===============================================
-// USER PERMISSIONS & ROLES CONTROLLERS
-// ===============================================
-
-/**
- * Update user role (Admin)
- * PUT /api/users/admin/role
+ * PUT /api/users/admin/:id/role - Update user role
  */
 export const updateUserRole = async (req, res) => {
   try {
-    const { userId, role, is_member, isblocked, isbanned, mentor_id, class_id } = req.body;
+    const userId = parseInt(req.params.id);
+    const { role, reason } = req.body;
     
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
-      });
+    if (isNaN(userId)) {
+      throw new CustomError('Valid user ID required', 400);
     }
-
-    console.log('👑 Admin updating user role:', { userId, role, is_member });
-
-    const updateData = {
-      role,
-      is_member,
-      isblocked,
-      isbanned,
-      mentor_id,
-      class_id
-    };
-
-    // Filter out undefined values
-    const cleanData = Object.fromEntries(
-      Object.entries(updateData).filter(([_, v]) => v !== undefined)
-    );
-
-    const updatedUser = await updateUserAdminService(userId, cleanData, req.user);
     
-    res.status(200).json({
-      success: true,
-      data: updatedUser,
-      message: 'User role updated successfully'
+    const result = await userAdminServices.updateUserRole(userId, {
+      role,
+      reason,
+      updatedBy: req.user.id
     });
     
+    res.json(result);
   } catch (error) {
-    console.error('❌ Error updating user role:', error);
+    console.error('Update user role error:', error);
     res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to update user role',
-      path: req.path,
+      message: error.message || 'Failed to update user role',
       timestamp: new Date().toISOString()
     });
   }
 };
 
 /**
- * Grant posting rights to user (Admin)
- * POST /api/users/admin/grant-posting-rights
+ * PUT /api/users/admin/:id/posting-rights - Grant/revoke posting rights
  */
 export const grantPostingRights = async (req, res) => {
   try {
-    const { userId, rights = [] } = req.body;
+    const userId = parseInt(req.params.id);
+    const { canPost, reason } = req.body;
     
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
-      });
+    if (isNaN(userId)) {
+      throw new CustomError('Valid user ID required', 400);
     }
-
-    console.log('📝 Admin granting posting rights:', { userId, rights });
-
-    // Update user with posting rights
-    const updateData = {
-      can_post: true,
-      posting_rights_granted_at: new Date(),
-      posting_rights_granted_by: req.user.id
-    };
-
-    const updatedUser = await updateUserAdminService(userId, updateData, req.user);
-
-    res.status(200).json({
-      success: true,
-      message: 'Posting rights granted successfully',
-      data: {
-        userId,
-        rights_granted: rights,
-        granted_by: req.user.username,
-        granted_at: new Date().toISOString(),
-        user: updatedUser
-      }
+    
+    const result = await userAdminServices.grantPostingRights(userId, {
+      canPost,
+      reason,
+      updatedBy: req.user.id
     });
     
+    res.json(result);
   } catch (error) {
-    console.error('❌ Error granting posting rights:', error);
-    res.status(500).json({
+    console.error('Grant posting rights error:', error);
+    res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to grant posting rights',
-      path: req.path,
+      message: error.message || 'Failed to update posting rights',
       timestamp: new Date().toISOString()
     });
   }
 };
 
 /**
- * Ban user (Admin)
- * POST /api/users/admin/ban
+ * PUT /api/users/admin/:id/ban - Ban user
  */
 export const banUser = async (req, res) => {
   try {
-    const { userId, reason, duration } = req.body;
+    const userId = parseInt(req.params.id);
+    const { reason, duration = 'permanent', daysToUnban } = req.body;
     
-    if (!userId || !reason) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID and reason are required'
-      });
+    if (isNaN(userId)) {
+      throw new CustomError('Valid user ID required', 400);
     }
-
-    console.log('🚫 Admin banning user:', { userId, reason, duration });
-
-    const result = await banUserAdminService(userId, { reason, duration }, req.user);
     
-    res.status(200).json({
-      success: true,
-      message: 'User banned successfully',
-      data: result
+    const result = await userAdminServices.banUser(userId, {
+      reason,
+      duration,
+      daysToUnban: duration === 'temporary' ? daysToUnban : null,
+      bannedBy: req.user.id
     });
     
+    res.json(result);
   } catch (error) {
-    console.error('❌ Error banning user:', error);
-    
-    let statusCode = 500;
-    if (error.message.includes('not found')) statusCode = 404;
-    if (error.message.includes('Cannot ban')) statusCode = 403;
-    if (error.message.includes('your own')) statusCode = 400;
-    
-    res.status(statusCode).json({
+    console.error('Ban user error:', error);
+    res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to ban user',
-      path: req.path,
+      message: error.message || 'Failed to ban user',
       timestamp: new Date().toISOString()
     });
   }
 };
 
 /**
- * Unban user (Admin)
- * POST /api/users/admin/unban
+ * PUT /api/users/admin/:id/unban - Unban user
  */
 export const unbanUser = async (req, res) => {
   try {
-    const { userId, reason } = req.body;
+    const userId = parseInt(req.params.id);
+    const { reason } = req.body;
     
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
-      });
+    if (isNaN(userId)) {
+      throw new CustomError('Valid user ID required', 400);
     }
-
-    console.log('✅ Admin unbanning user:', { userId, reason });
-
-    const result = await unbanUserAdminService(userId, reason, req.user);
     
-    res.status(200).json({
-      success: true,
-      message: 'User unbanned successfully',
-      data: result
+    const result = await userAdminServices.unbanUser(userId, {
+      reason,
+      unbannedBy: req.user.id
     });
     
+    res.json(result);
   } catch (error) {
-    console.error('❌ Error unbanning user:', error);
-    
-    let statusCode = 500;
-    if (error.message.includes('not found')) statusCode = 404;
-    if (error.message.includes('not banned')) statusCode = 400;
-    
-    res.status(statusCode).json({
-      success: false,
-      error: error.message || 'Failed to unban user',
-      path: req.path,
-      timestamp: new Date().toISOString()
-    });
-  }
-};
-
-// ===============================================
-// ID GENERATION CONTROLLERS
-// ===============================================
-
-/**
- * Generate bulk IDs (Admin)
- * POST /api/users/admin/generate-bulk-ids
- */
-export const generateBulkIds = async (req, res) => {
-  try {
-    const { count = 10, type = 'user' } = req.body;
-    
-    console.log('🆔 Admin generating bulk IDs:', { count, type });
-
-    const result = await generateBulkIdsService(count, type, req.user);
-    
-    res.status(200).json({
-      success: true,
-      message: `Generated ${count} ${type} IDs`,
-      data: result
-    });
-    
-  } catch (error) {
-    console.error('❌ Error generating bulk IDs:', error);
+    console.error('Unban user error:', error);
     res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to generate bulk IDs',
-      path: req.path,
+      message: error.message || 'Failed to unban user',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+// ===============================================
+// APPLICATION MANAGEMENT CONTROLLERS
+// ===============================================
+
+/**
+ * GET /api/users/admin/applications - Get applications with filtering
+ */
+export const getApplications = async (req, res) => {
+  try {
+    const filters = {
+      status: req.query.status,
+      type: req.query.type,
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 20,
+      sortBy: req.query.sortBy || 'submittedAt',
+      sortOrder: req.query.sortOrder || 'desc'
+    };
+
+    // Remove undefined values
+    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
+
+    const result = await userAdminServices.getApplications(filters);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Get applications error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to fetch applications',
       timestamp: new Date().toISOString()
     });
   }
 };
 
 /**
- * Generate converse ID (Admin)
- * POST /api/users/admin/generate-converse-id
+ * GET /api/users/admin/applications/pending - Get pending applications
  */
-export const generateConverseId = async (req, res) => {
+export const getPendingApplications = async (req, res) => {
   try {
-    const { userId } = req.body;
-    
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
-      });
-    }
+    const filters = {
+      priority: req.query.priority,
+      assignedTo: req.query.assignedTo ? parseInt(req.query.assignedTo) : undefined
+    };
 
-    console.log('🆔 Admin generating converse ID for user:', userId);
+    // Remove undefined values
+    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
 
-    const result = await generateConverseIdService(userId, req.user);
+    const result = await userAdminServices.getPendingApplications(filters);
     
-    res.status(200).json({
-      success: true,
-      message: 'Converse ID generated successfully',
-      data: result
-    });
-    
+    res.json(result);
   } catch (error) {
-    console.error('❌ Error generating converse ID:', error);
-    
-    let statusCode = 500;
-    if (error.message.includes('not found')) statusCode = 404;
-    if (error.message.includes('already has')) statusCode = 400;
-    
-    res.status(statusCode).json({
+    console.error('Get pending applications error:', error);
+    res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to generate converse ID',
-      path: req.path,
+      message: error.message || 'Failed to fetch pending applications',
       timestamp: new Date().toISOString()
     });
   }
 };
 
 /**
- * Generate class ID (Admin)
- * POST /api/users/admin/generate-class-id
+ * PUT /api/users/admin/applications/:id/review - Review application
  */
-export const generateClassIdForAdmin = async (req, res) => {
+export const reviewApplication = async (req, res) => {
   try {
-    const { className, classType = 'demographic' } = req.body;
+    const applicationId = parseInt(req.params.id);
+    const { status, adminNotes, notifyUser = true } = req.body;
     
-    if (!className) {
-      return res.status(400).json({
-        success: false,
-        error: 'Class name is required'
-      });
+    if (isNaN(applicationId)) {
+      throw new CustomError('Valid application ID required', 400);
     }
-
-    console.log('🆔 Admin generating class ID:', { className, classType });
-
-    // Generate class ID using the utility function
-    const newClassId = await generateUniqueClassId();
     
-    // Create the class using database directly (could be moved to service)
-    const db = (await import('../config/db.js')).default;
-    await db.query(`
-      INSERT INTO classes (class_id, class_name, class_type, created_by, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, NOW(), NOW())
-    `, [newClassId, className, classType, req.user.id]);
-    
-    // Log the generation
-    await db.query(`
-      INSERT INTO id_generation_log (generated_id, id_type, generated_by, purpose, createdAt)
-      VALUES (?, 'class', ?, 'class_creation', NOW())
-    `, [newClassId, req.user.converse_id || req.user.id]);
-    
-    res.status(200).json({
-      success: true,
-      message: 'Class ID generated and class created successfully',
-      data: {
-        class_id: newClassId,
-        class_name: className,
-        class_type: classType,
-        created_by: req.user.username,
-        created_at: new Date().toISOString()
-      }
+    const result = await userAdminServices.reviewApplication(applicationId, {
+      status,
+      adminNotes,
+      notifyUser,
+      reviewedBy: req.user.id
     });
     
+    res.json(result);
   } catch (error) {
-    console.error('❌ Error generating class ID:', error);
-    res.status(500).json({
+    console.error('Review application error:', error);
+    res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to generate class ID',
-      path: req.path,
+      message: error.message || 'Failed to review application',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+// ===============================================
+// CONTENT MODERATION CONTROLLERS
+// ===============================================
+
+/**
+ * GET /api/users/admin/reports - Get content reports
+ */
+export const getContentReports = async (req, res) => {
+  try {
+    console.log('🎯 getContentReports controller called');
+    console.log('📝 Query params:', req.query);
+    
+    const filters = {
+      status: req.query.status,
+      contentType: req.query.contentType,
+      reason: req.query.reason,
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 20
+    };
+
+    // Remove undefined values
+    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
+    console.log('🔍 Applied filters:', filters);
+
+    console.log('🚀 Calling userAdminServices.getContentReports...');
+    const result = await userAdminServices.getContentReports(filters);
+    console.log('✅ Service call successful, returning data');
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Get content reports error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to fetch content reports',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * PUT /api/users/admin/reports/:id/resolve - Resolve content report
+ */
+export const resolveReport = async (req, res) => {
+  try {
+    const reportId = parseInt(req.params.id);
+    const { status, resolutionNotes, actionTaken } = req.body;
+    
+    if (isNaN(reportId)) {
+      throw new CustomError('Valid report ID required', 400);
+    }
+    
+    const result = await userAdminServices.resolveReport(reportId, {
+      status,
+      resolutionNotes,
+      actionTaken,
+      resolvedBy: req.user.id
+    });
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Resolve report error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to resolve report',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * GET /api/users/admin/activity-logs - Get user activity logs
+ */
+export const getActivityLogs = async (req, res) => {
+  try {
+    const filters = {
+      userId: req.query.userId ? parseInt(req.query.userId) : undefined,
+      action: req.query.action,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 50
+    };
+
+    // Remove undefined values
+    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
+
+    const result = await userAdminServices.getActivityLogs(filters);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Get activity logs error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to fetch activity logs',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * GET /api/users/admin/audit-trail - Get system audit trail (Super Admin only)
+ */
+export const getAuditTrail = async (req, res) => {
+  try {
+    const filters = {
+      adminId: req.query.adminId ? parseInt(req.query.adminId) : undefined,
+      action: req.query.action,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 50
+    };
+
+    // Remove undefined values
+    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
+
+    const result = await userAdminServices.getAuditTrail(filters);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Get audit trail error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to fetch audit trail',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+// ===============================================
+// BULK OPERATIONS CONTROLLERS
+// ===============================================
+
+/**
+ * POST /api/users/admin/bulk/approve - Bulk approve users
+ */
+export const bulkApproveUsers = async (req, res) => {
+  try {
+    const { userIds, reason, notifyUsers = true } = req.body;
+    
+    const result = await userAdminServices.bulkApproveUsers({
+      userIds,
+      reason,
+      notifyUsers,
+      approvedBy: req.user.id
+    });
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Bulk approve users error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to bulk approve users',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * POST /api/users/admin/bulk/assign-mentors - Bulk assign mentors
+ */
+export const bulkAssignMentors = async (req, res) => {
+  try {
+    const { assignments, reason } = req.body;
+    
+    const result = await userAdminServices.bulkAssignMentors({
+      assignments,
+      reason,
+      assignedBy: req.user.id
+    });
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Bulk assign mentors error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to bulk assign mentors',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * POST /api/users/admin/bulk/send-notifications - Bulk send notifications
+ */
+export const bulkSendNotifications = async (req, res) => {
+  try {
+    const { userIds, title, message, type } = req.body;
+    
+    const result = await userAdminServices.bulkSendNotifications({
+      userIds,
+      title,
+      message,
+      type,
+      sentBy: req.user.id
+    });
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Bulk send notifications error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to send bulk notifications',
       timestamp: new Date().toISOString()
     });
   }
@@ -621,406 +671,261 @@ export const generateClassIdForAdmin = async (req, res) => {
 // ===============================================
 
 /**
- * Mask user identity (Admin)
- * POST /api/users/admin/mask-identity
+ * POST /api/users/admin/mask-identity-advanced - Advanced identity masking
  */
-export const maskUserIdentity = async (req, res) => {
+export const maskUserIdentityAdvanced = async (req, res) => {
   try {
-    const { userId, adminConverseId, mentorConverseId, classId, reason } = req.body;
+    const { userId, reason, maskingLevel, duration } = req.body;
     
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
-      });
-    }
-
-    console.log('🎭 Admin masking user identity:', { userId, reason });
-
-    const result = await maskUserIdentityService(req.body, req.user);
-    
-    res.status(200).json({
-      success: true,
-      message: 'User identity masked successfully',
-      data: result
+    const result = await userAdminServices.maskUserIdentityAdvanced({
+      userId,
+      reason,
+      maskingLevel,
+      duration,
+      maskedBy: req.user.id
     });
     
+    res.json(result);
   } catch (error) {
-    console.error('❌ Error masking identity:', error);
-    
-    let statusCode = 500;
-    if (error.message.includes('not found')) statusCode = 404;
-    if (error.message.includes('already masked')) statusCode = 400;
-    
-    res.status(statusCode).json({
+    console.error('Mask user identity advanced error:', error);
+    res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to mask identity',
-      path: req.path,
+      message: error.message || 'Failed to mask user identity',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * POST /api/users/admin/unmask-identity - Unmask identity (Super Admin only)
+ */
+export const unmaskUserIdentity = async (req, res) => {
+  try {
+    const { userId, reason } = req.body;
+    
+    const result = await userAdminServices.unmaskUserIdentity({
+      userId,
+      reason,
+      unmaskedBy: req.user.id
+    });
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Unmask user identity error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to unmask user identity',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * GET /api/users/admin/identity-audit-trail - Identity audit trail (Super Admin only)
+ */
+export const getIdentityAuditTrail = async (req, res) => {
+  try {
+    const filters = {
+      userId: req.query.userId ? parseInt(req.query.userId) : undefined,
+      adminId: req.query.adminId,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 50
+    };
+
+    // Remove undefined values
+    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
+
+    const result = await userAdminServices.getIdentityAuditTrail(filters);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Get identity audit trail error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to fetch identity audit trail',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * GET /api/users/admin/identity-dashboard - Identity management dashboard
+ */
+export const getIdentityDashboard = async (req, res) => {
+  try {
+    const result = await userAdminServices.getIdentityDashboard();
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Get identity dashboard error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to fetch identity dashboard',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * GET /api/users/admin/mentor-analytics - Enhanced mentor analytics
+ */
+export const getMentorAnalytics = async (req, res) => {
+  try {
+    const { period = '30d', mentorId } = req.query;
+    
+    const result = await userAdminServices.getMentorAnalytics({ period, mentorId });
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Get mentor analytics error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to fetch mentor analytics',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * POST /api/users/admin/bulk-assign-mentors-advanced - Advanced bulk mentor assignment
+ */
+export const bulkAssignMentorsAdvanced = async (req, res) => {
+  try {
+    const { assignments, autoMatch = false, reason } = req.body;
+    
+    const result = await userAdminServices.bulkAssignMentorsAdvanced({
+      assignments,
+      autoMatch,
+      reason,
+      assignedBy: req.user.id
+    });
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Bulk assign mentors advanced error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to perform advanced mentor assignment',
       timestamp: new Date().toISOString()
     });
   }
 };
 
 // ===============================================
-// DATA EXPORT CONTROLLERS
+// SYSTEM MANAGEMENT CONTROLLERS
 // ===============================================
 
 /**
- * Export user data (Super Admin only)
- * GET /api/users/admin/export
+ * GET /api/users/admin/export/user-data - Export user data
  */
 export const exportUserData = async (req, res) => {
   try {
-    const { format = 'json', includePersonalData = false } = req.query;
+    const options = {
+      format: req.query.format || 'json',
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      includeFields: req.query.includeFields
+    };
     
-    console.log('📊 Admin exporting user data:', { format, includePersonalData });
-
-    const result = await exportUserDataAdminService({ 
-      format, 
-      includePersonalData: includePersonalData === 'true' 
-    }, req.user);
+    const result = await userAdminServices.exportUserData(options);
     
-    if (format === 'csv') {
-      // Convert to CSV format
-      if (!result.users || result.users.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'No user data found for export'
-        });
-      }
-      
-      const csvHeaders = Object.keys(result.users[0]).join(',');
-      const csvRows = result.users.map(user => 
-        Object.values(user).map(value => 
-          typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value
-        ).join(',')
-      );
-      const csvContent = [csvHeaders, ...csvRows].join('\n');
-      
+    // Set appropriate headers for file download
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `user-export-${timestamp}.${options.format}`;
+    
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    
+    if (options.format === 'csv') {
       res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename="users_export.csv"');
-      res.send(csvContent);
+      res.send(result.data);
+    } else if (options.format === 'xlsx') {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(result.data);
     } else {
-      res.status(200).json({
-        success: true,
-        data: result.users,
-        metadata: result.metadata
-      });
+      res.setHeader('Content-Type', 'application/json');
+      res.json(result);
     }
-    
   } catch (error) {
-    console.error('❌ Error exporting user data:', error);
-    
-    let statusCode = 500;
-    if (error.message.includes('Super administrator')) statusCode = 403;
-    
-    res.status(statusCode).json({
-      success: false,
-      error: error.message || 'Failed to export user data',
-      path: req.path,
-      timestamp: new Date().toISOString()
-    });
-  }
-};
-
-// ===============================================
-// STATISTICS & ANALYTICS CONTROLLERS
-// ===============================================
-
-/**
- * Get user statistics (Admin)
- * GET /api/users/admin/stats
- */
-export const getUserStatsAdmin = async (req, res) => {
-  try {
-    console.log('📊 Admin fetching user statistics');
-    
-    const stats = await getUserStatsAdminService();
-    
-    res.status(200).json({
-      success: true,
-      data: stats,
-      message: 'User statistics retrieved successfully',
-      generated_at: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('❌ Error fetching user statistics:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch user statistics',
-      path: req.path,
-      timestamp: new Date().toISOString()
-    });
-  }
-};
-
-// ===============================================
-// MENTORS MANAGEMENT CONTROLLERS
-// ===============================================
-
-/**
- * Get all mentors (Admin)
- * GET /api/users/admin/mentors
- */
-export const getMentors = async (req, res) => {
-  try {
-    console.log('👨‍🏫 Admin fetching mentors');
-    
-    const mentors = await getAllMentorsForAdmin();
-    
-    res.status(200).json({
-      success: true,
-      data: {
-        mentors: mentors || [],
-        count: mentors?.length || 0
-      },
-      message: 'Mentors retrieved successfully'
-    });
-    
-  } catch (error) {
-    console.error('❌ Error fetching mentors:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch mentors',
-      details: error.message,
-      path: req.path,
-      timestamp: new Date().toISOString()
-    });
-  }
-};
-
-/**
- * Assign mentor role (Admin)
- * POST /api/users/admin/mentors/assign
- */
-export const assignMentorRole = async (req, res) => {
-  try {
-    const { userId, maxMentees = 5 } = req.body;
-    
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
-      });
-    }
-
-    console.log('👨‍🏫 Admin assigning mentor role:', { userId, maxMentees });
-
-    // Update user role to mentor
-    const updateData = { role: 'mentor' };
-    const updatedUser = await updateUserAdminService(userId, updateData, req.user);
-    
-    res.status(200).json({
-      success: true,
-      message: 'Mentor role assigned successfully',
-      data: {
-        userId,
-        username: updatedUser.username,
-        role: 'mentor',
-        max_mentees: maxMentees,
-        assigned_by: req.user.username,
-        assigned_at: new Date().toISOString()
-      }
-    });
-    
-  } catch (error) {
-    console.error('❌ Error assigning mentor role:', error);
+    console.error('Export user data error:', error);
     res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to assign mentor role',
-      path: req.path,
+      message: error.message || 'Failed to export user data',
       timestamp: new Date().toISOString()
     });
   }
 };
 
 /**
- * Remove mentor role (Admin)
- * DELETE /api/users/admin/mentors/:id/remove
+ * POST /api/users/admin/generate/bulk-ids - Generate bulk IDs
  */
-export const removeMentorRole = async (req, res) => {
+export const generateBulkIds = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { count, type, purpose } = req.body;
     
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
-      });
-    }
-
-    console.log('❌ Admin removing mentor role:', id);
-
-    // Get user details first
-    const user = await getUserByIdAdminService(id);
-    
-    // Update user role back to regular user
-    const updateData = { role: 'user' };
-    await updateUserAdminService(id, updateData, req.user);
-    
-    res.status(200).json({
-      success: true,
-      message: 'Mentor role removed successfully',
-      data: {
-        userId: id,
-        username: user.username,
-        previous_role: 'mentor',
-        new_role: 'user',
-        removed_by: req.user.username,
-        removed_at: new Date().toISOString()
-      }
+    const result = await userAdminServices.generateBulkIds({
+      count,
+      type,
+      purpose,
+      generatedBy: req.user.id
     });
     
+    res.status(201).json(result);
   } catch (error) {
-    console.error('❌ Error removing mentor role:', error);
+    console.error('Generate bulk IDs error:', error);
     res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to remove mentor role',
-      path: req.path,
+      message: error.message || 'Failed to generate bulk IDs',
       timestamp: new Date().toISOString()
     });
   }
 };
 
-// ===============================================
-// TESTING CONTROLLERS
-// ===============================================
-
 /**
- * Admin user routes test
- * GET /api/users/admin/test
+ * POST /api/users/admin/generate/converse-id - Generate converse ID
  */
-export const testAdminRoutes = (req, res) => {
-  const testData = {
-    success: true,
-    message: 'Admin user routes are working!',
-    timestamp: new Date().toISOString(),
-    admin_user: {
-      id: req.user?.id,
-      username: req.user?.username,
-      role: req.user?.role
-    },
-    endpoint_info: {
-      path: req.path,
-      method: req.method,
-      access_level: 'admin_required'
-    },
-    available_endpoints: {
-      user_management: [
-        'GET / - Get all users',
-        'GET /:id - Get specific user',
-        'POST /create - Create new user',
-        'PUT /:id - Update user',
-        'DELETE /:id - Delete user (super admin)'
-      ],
-      permissions: [
-        'PUT /role - Update user role',
-        'POST /grant-posting-rights - Grant posting rights',
-        'POST /ban - Ban user',
-        'POST /unban - Unban user'
-      ],
-      id_generation: [
-        'POST /generate-bulk-ids - Generate bulk IDs',
-        'POST /generate-converse-id - Generate converse ID',
-        'POST /generate-class-id - Generate class ID'
-      ],
-      identity: [
-        'POST /mask-identity - Mask user identity'
-      ],
-      data_export: [
-        'GET /export - Export user data (super admin)'
-      ],
-      mentors: [
-        'GET /mentors - Get all mentors',
-        'POST /mentors/assign - Assign mentor role',
-        'DELETE /mentors/:id/remove - Remove mentor role'
-      ],
-      statistics: [
-        'GET /stats - Get user statistics'
-      ]
-    }
-  };
-  
-  res.status(200).json(testData);
+export const generateConverseId = async (req, res) => {
+  try {
+    const { userId, purpose } = req.body;
+    
+    const result = await userAdminServices.generateConverseId({
+      userId,
+      purpose,
+      generatedBy: req.user.id
+    });
+    
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Generate converse ID error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to generate converse ID',
+      timestamp: new Date().toISOString()
+    });
+  }
 };
 
-// ===============================================
-// EXPORT ALL FUNCTIONS
-// ===============================================
-
-// export {
-//   // User Management
-//   getAllUsers,
-//   getUserById,
-//   createUser,
-//   updateUser,
-//   deleteUser,
-//   searchUsers,
-  
-//   // User Permissions & Actions
-//   updateUserRole,
-//   grantPostingRights,
-//   banUser,
-//   unbanUser,
-  
-//   // ID Generation
-//   generateBulkIds,
-//   generateConverseId,
-//   generateClassIdForAdmin,
-  
-//   // Identity Management
-//   maskUserIdentity,
-  
-//   // Data Export
-//   exportUserData,
-  
-//   // Statistics
-//   getUserStatsAdmin,
-  
-//   // Mentors Management
-//   getMentors,
-//   assignMentorRole,
-//   removeMentorRole,
-  
-//   // Testing
-//   testAdminRoutes
-// };
-
-// export default {
-//   // User Management
-//   getAllUsers,
-//   getUserById,
-//   createUser,
-//   updateUser,
-//   deleteUser,
-//   searchUsers,
-  
-//   // User Permissions & Actions
-//   updateUserRole,
-//   grantPostingRights,
-//   banUser,
-//   unbanUser,
-  
-//   // ID Generation
-//   generateBulkIds,
-//   generateConverseId,
-//   generateClassIdForAdmin,
-  
-//   // Identity Management
-//   maskUserIdentity,
-  
-//   // Data Export
-//   exportUserData,
-  
-//   // Statistics
-//   getUserStatsAdmin,
-  
-//   // Mentors Management
-//   getMentors,
-//   assignMentorRole,
-//   removeMentorRole,
-  
-//   // Testing
-//   testAdminRoutes
-// };
+/**
+ * POST /api/users/admin/generate/class-id - Generate class ID
+ */
+export const generateClassId = async (req, res) => {
+  try {
+    const { className, createdBy } = req.body;
+    
+    const result = await userAdminServices.generateClassId({
+      className,
+      createdBy,
+      generatedBy: req.user.id
+    });
+    
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Generate class ID error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to generate class ID',
+      timestamp: new Date().toISOString()
+    });
+  }
+};

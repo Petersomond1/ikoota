@@ -359,7 +359,13 @@ export const getAllClassesForAdmin = async (filters = {}, options = {}) => {
     }
     
     const [countResult] = await db.query(countSql, countParams);
-    const total = countResult[0].total;
+    
+    let total;
+    if (!countResult || countResult.length === 0 || !countResult[0]) {
+      total = 0;
+    } else {
+      total = countResult[0].total || 0;
+    }
 
     // Build main query
     const sql = `
@@ -399,6 +405,24 @@ export const getAllClassesForAdmin = async (filters = {}, options = {}) => {
     finalParams.push(limit, offset);
 
     const [classes] = await db.query(sql, finalParams);
+
+    // Handle empty results
+    if (!classes || !Array.isArray(classes)) {
+      return {
+        success: true,
+        data: {
+          classes: [],
+          pagination: {
+            current_page: page,
+            total_pages: Math.ceil(total / limit),
+            total_items: total,
+            items_per_page: limit,
+            has_next: false,
+            has_previous: page > 1
+          }
+        }
+      };
+    }
 
     // Format results
     const formattedClasses = classes.map(cls => ({
@@ -1412,8 +1436,8 @@ export const getSystemStatistics = async (options = {}) => {
         FROM classes c
       `);
       stats.summary = {
-        ...summaryStats[0],
-        avg_capacity: Math.round(summaryStats[0].avg_capacity || 0)
+        ...(summaryStats[0] || {}),
+        avg_capacity: Math.round((summaryStats[0] || {}).avg_capacity || 0)
       };
     }
 
@@ -1428,10 +1452,10 @@ export const getSystemStatistics = async (options = {}) => {
         GROUP BY class_type
         ORDER BY total DESC
       `);
-      stats.by_type = typeStats.map(stat => ({
+      stats.by_type = Array.isArray(typeStats) ? typeStats.map(stat => ({
         ...stat,
         avg_capacity: Math.round(stat.avg_capacity || 0)
-      }));
+      })) : [];
     }
 
     if (by_status) {
@@ -1447,7 +1471,7 @@ export const getSystemStatistics = async (options = {}) => {
         FROM classes
         GROUP BY status
       `);
-      stats.by_status = statusStats;
+      stats.by_status = Array.isArray(statusStats) ? statusStats : [];
     }
 
     if (recent_activity) {
@@ -1478,9 +1502,11 @@ export const getSystemStatistics = async (options = {}) => {
       `);
       
       const activityObj = {};
-      activityStats.forEach(stat => {
-        activityObj[stat.metric] = stat.value;
-      });
+      if (Array.isArray(activityStats)) {
+        activityStats.forEach(stat => {
+          activityObj[stat.metric] = stat.value;
+        });
+      }
       stats.recent_activity = activityObj;
     }
 
@@ -2072,14 +2098,14 @@ export const getAdminDashboardData = async (adminUserId) => {
     // Get recent activity
     const [recentClasses] = await db.query(`
       SELECT 
-        class_id, 
-        class_name, 
-        class_type, 
-        createdAt,
+        c.class_id, 
+        c.class_name, 
+        c.class_type, 
+        c.createdAt,
         COALESCE(cmc.total_members, 0) as member_count
       FROM classes c
       LEFT JOIN class_member_counts cmc ON c.class_id = cmc.class_id
-      ORDER BY createdAt DESC 
+      ORDER BY c.createdAt DESC 
       LIMIT 10
     `);
 
@@ -2117,21 +2143,21 @@ export const getAdminDashboardData = async (adminUserId) => {
     `);
 
     return {
-      overview: overview[0],
-      recent_classes: recentClasses.map(cls => ({
+      overview: overview[0] || {},
+      recent_classes: Array.isArray(recentClasses) ? recentClasses.map(cls => ({
         ...cls,
         display_id: formatClassIdForDisplay(cls.class_id)
-      })),
-      recent_memberships: recentMemberships,
-      type_distribution: typeDistribution,
-      pending_items: pendingItems[0],
+      })) : [],
+      recent_memberships: Array.isArray(recentMemberships) ? recentMemberships : [],
+      type_distribution: Array.isArray(typeDistribution) ? typeDistribution : [],
+      pending_items: pendingItems[0] || { pending_memberships: 0 },
       quick_actions: [
         { action: 'create_class', label: 'Create New Class', count: null },
-        { action: 'review_pending', label: 'Review Pending Memberships', count: pendingItems[0].pending_memberships },
+        { action: 'review_pending', label: 'Review Pending Memberships', count: (pendingItems[0] || {}).pending_memberships || 0 },
         { action: 'view_analytics', label: 'View System Analytics', count: null },
         { action: 'export_data', label: 'Export Class Data', count: null }
       ],
-      system_alerts: generateSystemAlerts(overview[0]),
+      system_alerts: generateSystemAlerts(overview[0] || {}),
       last_updated: new Date().toISOString()
     };
 
@@ -2204,10 +2230,10 @@ export const getPendingApprovalItems = async (options = {}) => {
         LIMIT ? OFFSET ?
       `, [limit, offset]);
 
-      pendingItems.data = pendingMemberships.map(item => ({
+      pendingItems.data = Array.isArray(pendingMemberships) ? pendingMemberships.map(item => ({
         ...item,
         class_display_id: formatClassIdForDisplay(item.class_id)
-      }));
+      })) : [];
     }
 
     // Get total count for pagination
@@ -2217,7 +2243,12 @@ export const getPendingApprovalItems = async (options = {}) => {
       WHERE membership_status = 'pending'
     `);
 
-    const total = countResult[0].total;
+    let total;
+    if (!countResult || countResult.length === 0 || !countResult[0]) {
+      total = 0;
+    } else {
+      total = countResult[0].total || 0;
+    }
 
     pendingItems.pagination = {
       current_page: page,

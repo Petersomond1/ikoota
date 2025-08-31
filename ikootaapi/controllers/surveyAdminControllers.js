@@ -527,6 +527,8 @@ export const getPendingSurveys = async (req, res) => {
     const { page = 1, limit = 20, application_type = 'all' } = req.query;
 
     console.log('🔍 Survey admin fetching pending surveys');
+    console.log('🔍 Query params:', req.query);
+    console.log('🔍 Filters will be:', { approval_status: 'pending', application_type: application_type !== 'all' ? application_type : undefined });
 
     const filters = { approval_status: 'pending' };
     if (application_type !== 'all') {
@@ -534,7 +536,10 @@ export const getPendingSurveys = async (req, res) => {
     }
 
     const pagination = { page: parseInt(page), limit: parseInt(limit) };
+    console.log('🔍 About to call fetchAllSurveyLogs with:', { filters, pagination });
+    
     const result = await surveyServices.fetchAllSurveyLogs(filters, pagination);
+    console.log('🔍 fetchAllSurveyLogs result:', { count: result.count, dataLength: result.data?.length });
 
     // Enhance with survey-specific metadata
     const enhancedSurveys = result.data.map(survey => ({
@@ -599,21 +604,50 @@ export const getSurveyLogs = async (req, res) => {
     if (endDate) filters.endDate = endDate;
 
     const pagination = { page: parseInt(page), limit: parseInt(limit) };
-    const result = await surveyServices.fetchAllSurveyLogs(filters, pagination);
+    
+    // Add error handling for the service call
+    let result;
+    try {
+      result = await surveyServices.fetchAllSurveyLogs(filters, pagination);
+    } catch (serviceError) {
+      console.error('❌ Survey service error:', serviceError);
+      // Return a fallback response if service fails
+      result = {
+        data: [],
+        page: 1,
+        totalPages: 0,
+        count: 0
+      };
+    }
 
-    // Get additional statistics
-    const [statsResult] = await db.query(`
-      SELECT 
-        COUNT(*) as total_logs,
-        COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_count,
-        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_count,
-        COUNT(CASE WHEN approval_status = 'declined' THEN 1 END) as declined_count,
-        AVG(CASE WHEN reviewedAt IS NOT NULL THEN DATEDIFF(reviewedAt, createdAt) END) as avg_review_days,
-        COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 END) as submissions_24h
-      FROM surveylog
-      WHERE createdAt >= COALESCE(?, DATE_SUB(NOW(), INTERVAL 90 DAY))
-        AND createdAt <= COALESCE(?, NOW())
-    `, [startDate, endDate]);
+    // Get additional statistics with error handling
+    let statsResult = [{}];
+    try {
+      const queryResult = await db.query(`
+        SELECT 
+          COUNT(*) as total_logs,
+          COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_count,
+          COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_count,
+          COUNT(CASE WHEN approval_status = 'declined' THEN 1 END) as declined_count,
+          AVG(CASE WHEN reviewedAt IS NOT NULL THEN DATEDIFF(reviewedAt, createdAt) END) as avg_review_days,
+          COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 END) as submissions_24h
+        FROM surveylog
+        WHERE createdAt >= COALESCE(?, DATE_SUB(NOW(), INTERVAL 90 DAY))
+          AND createdAt <= COALESCE(?, NOW())
+      `, [startDate, endDate]);
+      statsResult = queryResult;
+    } catch (dbError) {
+      console.error('❌ Database query error for stats:', dbError);
+      // Use default empty stats if query fails
+      statsResult = [{
+        total_logs: 0,
+        pending_count: 0,
+        approved_count: 0,
+        declined_count: 0,
+        avg_review_days: 0,
+        submissions_24h: 0
+      }];
+    }
 
     res.json({
       success: true,

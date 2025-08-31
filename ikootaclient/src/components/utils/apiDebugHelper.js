@@ -1,5 +1,6 @@
 // ikootaclient/src/components/utils/apiDebugHelper.js
 // Utility to help debug API response issues
+import api from "../service/api";
 
 export const debugApiResponse = (response, endpoint = 'unknown') => {
   console.group(`🔍 API Debug: ${endpoint}`);

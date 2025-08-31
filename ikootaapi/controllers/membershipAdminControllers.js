@@ -36,7 +36,13 @@ import {
 } from '../services/membershipAdminServices.js';
 
 // Import response helpers
-import { responseHelper } from '../utils/responseHelpers.js';
+import { successResponse, errorResponse } from '../utils/responseHelpers.js';
+
+// Create responseHelper object for backward compatibility
+const responseHelper = {
+  success: successResponse,
+  error: errorResponse
+};
 
 // =============================================================================
 // TEST & CONNECTIVITY CONTROLLERS
@@ -282,14 +288,17 @@ export const searchUsersController = async (req, res) => {
 /**
  * Get available mentors
  * Route: GET /api/membership/admin/mentors
+ * Note: Service already returns { mentors: [], summary: {} } format
  */
 export const getAvailableMentorsController = async (req, res) => {
   try {
     const includeWorkload = req.query.workload === 'true';
     const result = await getAvailableMentors(includeWorkload);
-    return responseHelper.success(res, result);
+    // Service already returns the correct format: { mentors: [], summary: {} }
+    return responseHelper.success(res, result, 'Available mentors fetched successfully');
   } catch (error) {
-    return responseHelper.error(res, error);
+    console.error('❌ Error in getAvailableMentorsController:', error);
+    return responseHelper.error(res, new Error(`Failed to get available mentors: ${error.message}`));
   }
 };
 
@@ -633,6 +642,129 @@ export const dismissAlertController = async (req, res) => {
     return responseHelper.success(res, result, 'Alert dismissed');
   } catch (error) {
     return responseHelper.error(res, error);
+  }
+};
+
+// =============================================================================
+// ADDITIONAL APPLICATION REVIEW CONTROLLERS
+// =============================================================================
+
+/**
+ * Approve a specific application
+ * Route: POST /api/membership/admin/applications/:id/approve
+ */
+export const approveApplicationController = async (applicationId, approvalData, adminUser) => {
+  try {
+    console.log('🟢 approveApplicationController called:', { applicationId, approvalData, adminId: adminUser.id });
+    
+    if (!applicationId) {
+      throw new Error('Application ID is required');
+    }
+    
+    // This would typically call a service method
+    const result = await reviewApplication({
+      applicationId,
+      status: 'approved',
+      adminNotes: approvalData.adminNotes || 'Application approved',
+      reviewedBy: adminUser.id,
+      notifyUser: approvalData.notifyUser !== false,
+      grantAccess: approvalData.grantAccess !== false
+    });
+    
+    console.log('✅ Application approved successfully:', result);
+    return {
+      success: true,
+      application: result,
+      message: 'Application approved successfully'
+    };
+    
+  } catch (error) {
+    console.error('❌ approveApplicationController error:', error);
+    throw new Error(`Failed to approve application: ${error.message}`);
+  }
+};
+
+/**
+ * Decline a specific application
+ * Route: POST /api/membership/admin/applications/:id/decline
+ */
+export const declineApplicationController = async (applicationId, declineData, adminUser) => {
+  try {
+    console.log('🔴 declineApplicationController called:', { applicationId, declineData, adminId: adminUser.id });
+    
+    if (!applicationId) {
+      throw new Error('Application ID is required');
+    }
+    
+    if (!declineData.reason || declineData.reason.trim().length < 10) {
+      throw new Error('Decline reason is required and must be at least 10 characters');
+    }
+    
+    // This would typically call a service method
+    const result = await reviewApplication({
+      applicationId,
+      status: 'declined',
+      adminNotes: declineData.reason,
+      reviewedBy: adminUser.id,
+      notifyUser: declineData.notifyUser !== false,
+      declineReason: declineData.reason,
+      canReapply: declineData.canReapply !== false
+    });
+    
+    console.log('✅ Application declined successfully:', result);
+    return {
+      success: true,
+      application: result,
+      message: 'Application declined successfully'
+    };
+    
+  } catch (error) {
+    console.error('❌ declineApplicationController error:', error);
+    throw new Error(`Failed to decline application: ${error.message}`);
+  }
+};
+
+/**
+ * Review a full membership application
+ * Route: POST /api/membership/admin/full-membership/:id/review
+ */
+export const reviewFullMembershipController = async (applicationId, reviewData, adminUser) => {
+  try {
+    console.log('🔵 reviewFullMembershipController called:', { applicationId, reviewData, adminId: adminUser.id });
+    
+    if (!applicationId) {
+      throw new Error('Application ID is required');
+    }
+    
+    if (!reviewData.status || !['approved', 'declined'].includes(reviewData.status)) {
+      throw new Error('Valid review status is required (approved or declined)');
+    }
+    
+    if (reviewData.status === 'declined' && (!reviewData.reason || reviewData.reason.trim().length < 10)) {
+      throw new Error('Decline reason is required and must be at least 10 characters');
+    }
+    
+    // This would typically call a service method for full membership review
+    const result = await reviewApplication({
+      applicationId,
+      status: reviewData.status,
+      adminNotes: reviewData.reason || reviewData.notes || 'Full membership reviewed',
+      reviewedBy: adminUser.id,
+      applicationType: 'full_membership',
+      notifyUser: reviewData.notifyUser !== false,
+      grantFullAccess: reviewData.status === 'approved'
+    });
+    
+    console.log('✅ Full membership application reviewed successfully:', result);
+    return {
+      success: true,
+      application: result,
+      message: `Full membership application ${reviewData.status} successfully`
+    };
+    
+  } catch (error) {
+    console.error('❌ reviewFullMembershipController error:', error);
+    throw new Error(`Failed to review full membership application: ${error.message}`);
   }
 };
 

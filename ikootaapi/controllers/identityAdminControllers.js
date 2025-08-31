@@ -548,41 +548,41 @@ export const manageMentorAssignment = async (req, res) => {
  * Generate unique converse ID (Admin utility)
  * POST /api/admin/identity/generate-converse-id
  */
-export const generateUniqueConverseId = async (req, res) => {
-    try {
-        // Only admins can generate converse IDs
-        if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
-            throw new CustomError('Unauthorized: Admin access required', 403);
-        }
+// export const generateUniqueConverseId = async (req, res) => {
+//     try {
+//         // Only admins can generate converse IDs
+//         if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+//             throw new CustomError('Unauthorized: Admin access required', 403);
+//         }
         
-        const { purpose, count = 1 } = req.body;
+//         const { purpose, count = 1 } = req.body;
         
-        if (count > 50) {
-            throw new CustomError('Cannot generate more than 50 IDs at once', 400);
-        }
+//         if (count > 50) {
+//             throw new CustomError('Cannot generate more than 50 IDs at once', 400);
+//         }
         
-        const result = await identityAdminServices.generateUniqueConverseIds(
-            count,
-            req.user.id,
-            purpose
-        );
+//         const result = await identityAdminServices.generateUniqueConverseIds(
+//             count,
+//             req.user.id,
+//             purpose
+//         );
         
-        res.status(201).json({
-            success: true,
-            message: `${count} unique converse ID(s) generated`,
-            converseIds: result.converseIds,
-            generatedBy: req.user.username,
-            purpose: purpose || 'Administrative use',
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        console.error('❌ Error generating unique converse ID:', error);
-        res.status(error.statusCode || 500).json({ 
-            success: false,
-            error: error.message || 'Failed to generate unique converse ID' 
-        });
-    }
-};
+//         res.status(201).json({
+//             success: true,
+//             message: `${count} unique converse ID(s) generated`,
+//             converseIds: result.converseIds,
+//             generatedBy: req.user.username,
+//             purpose: purpose || 'Administrative use',
+//             timestamp: new Date().toISOString()
+//         });
+//     } catch (error) {
+//         console.error('❌ Error generating unique converse ID:', error);
+//         res.status(error.statusCode || 500).json({ 
+//             success: false,
+//             error: error.message || 'Failed to generate unique converse ID' 
+//         });
+//     }
+// };
 
 /**
  * Get user's complete identity record (Super Admin only)

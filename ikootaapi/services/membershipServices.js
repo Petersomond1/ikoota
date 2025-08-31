@@ -1093,6 +1093,345 @@ const getEstimatedResponseTime = (priority) => {
 };
 
 /**
+ * Get stage-specific requirements
+ * @param {Object} userStatus - User status object
+ * @returns {Object} Stage-specific requirements
+ */
+const getStageSpecificRequirements = (userStatus) => {
+  const stage = userStatus.membership_stage;
+  
+  switch (stage) {
+    case 'none':
+    case null:
+    case undefined:
+      return {
+        stage: 'new_user',
+        title: 'New User',
+        description: 'Ready to begin membership journey',
+        requirements: [
+          'Complete account verification',
+          'Submit initial membership application',
+          'Provide required information in survey'
+        ],
+        next_action: 'Submit initial application',
+        estimated_time: '10-15 minutes'
+      };
+      
+    case 'applicant':
+      return {
+        stage: 'applicant',
+        title: 'Application Submitted',
+        description: 'Application under review by administrators',
+        requirements: [
+          'Wait for admin review',
+          'Respond to any follow-up questions',
+          'Maintain good standing during review'
+        ],
+        next_action: 'Wait for review completion',
+        estimated_time: '3-5 business days'
+      };
+      
+    case 'pre_member':
+      return {
+        stage: 'pre_member',
+        title: 'Pre-Member',
+        description: 'Approved for basic access, eligible for full membership',
+        requirements: [
+          'Participate actively in community',
+          'Maintain good standing for 30+ days',
+          'Complete full membership application when ready'
+        ],
+        next_action: 'Apply for full membership',
+        estimated_time: '20-30 minutes'
+      };
+      
+    case 'member':
+      return {
+        stage: 'member',
+        title: 'Full Member',
+        description: 'Complete access to all platform features',
+        requirements: [
+          'Continue active participation',
+          'Maintain community guidelines',
+          'Consider mentorship opportunities'
+        ],
+        next_action: 'Explore all features',
+        estimated_time: 'Ongoing'
+      };
+      
+    default:
+      return {
+        stage: 'unknown',
+        title: 'Unknown Stage',
+        description: 'Please contact support for assistance',
+        requirements: [],
+        next_action: 'Contact support',
+        estimated_time: 'N/A'
+      };
+  }
+};
+
+/**
+ * Get estimated timeline for user's current stage
+ * @param {Object} userStatus - User status object
+ * @returns {Object} Timeline estimation
+ */
+const getEstimatedTimeline = (userStatus) => {
+  const stage = userStatus.membership_stage;
+  const createdAt = userStatus.user_id ? new Date() : new Date(); // This would come from user creation date
+  
+  const timeline = {
+    current_stage: stage,
+    time_in_current_stage: 0, // This would be calculated from actual dates
+    estimated_progression: {}
+  };
+  
+  switch (stage) {
+    case 'none':
+      timeline.estimated_progression = {
+        to_applicant: '10-15 minutes (application submission)',
+        to_pre_member: '3-5 business days (after admin review)',
+        to_member: '30+ days minimum (from pre-member status)'
+      };
+      break;
+      
+    case 'applicant':
+      timeline.estimated_progression = {
+        to_pre_member: '1-5 business days (pending admin review)',
+        to_member: '30+ days minimum (after pre-member approval)'
+      };
+      break;
+      
+    case 'pre_member':
+      timeline.estimated_progression = {
+        to_member: 'Ready to apply (when requirements met)'
+      };
+      break;
+      
+    case 'member':
+      timeline.estimated_progression = {
+        complete: 'Full access achieved'
+      };
+      break;
+  }
+  
+  return timeline;
+};
+
+/**
+ * Get membership progression information
+ * @param {number} userId - User ID
+ * @returns {Object} Progression information
+ */
+export const getMembershipProgression = async (userId) => {
+  try {
+    // Import from applicationService to avoid circular dependency
+    const { getMembershipProgression: getProgressionApp } = await import('./applicationService.js');
+    return await getProgressionApp(userId);
+  } catch (error) {
+    console.error('❌ Error getting membership progression:', error);
+    throw new Error(`Failed to get membership progression: ${error.message}`);
+  }
+};
+
+/**
+ * Get membership requirements and next steps
+ * @param {number} userId - User ID
+ * @returns {Object} Requirements and next steps
+ */
+export const getMembershipRequirements = async (userId) => {
+  try {
+    const userStatus = await getUserMembershipStatus(userId);
+    
+    const requirements = {
+      current_stage: userStatus.membership_stage,
+      overall_requirements: {
+        initial_application: {
+          required: true,
+          completed: userStatus.initial_application.status === 'approved',
+          description: 'Complete and get approval for initial membership application',
+          requirements: [
+            'Submit membership survey',
+            'Provide valid contact information',
+            'Wait for admin review and approval'
+          ]
+        },
+        full_membership: {
+          required: userStatus.membership_stage === 'pre_member',
+          completed: userStatus.full_membership_application.status === 'approved',
+          description: 'Apply for and get approval for full membership',
+          requirements: [
+            'Must be an approved pre-member',
+            'Active participation for at least 30 days',
+            'Complete full membership questionnaire',
+            'Maintain good standing in community'
+          ]
+        }
+      },
+      
+      next_steps: userStatus.next_actions,
+      
+      stage_specific: getStageSpecificRequirements(userStatus),
+      
+      progress_summary: {
+        current_stage: userStatus.membership_stage,
+        progress_percentage: userStatus.status_progression.progress_percentage,
+        next_milestone: userStatus.status_progression.next_stage,
+        estimated_timeline: getEstimatedTimeline(userStatus)
+      }
+    };
+    
+    return requirements;
+  } catch (error) {
+    console.error('❌ Error getting membership requirements:', error);
+    throw new Error(`Failed to get membership requirements: ${error.message}`);
+  }
+};
+
+/**
+ * Withdraw application
+ * @param {number} userId - User ID
+ * @param {string} reason - Withdrawal reason
+ * @param {string} applicationType - Application type
+ * @returns {Object} Withdrawal result
+ */
+export const withdrawApplication = async (userId, reason, applicationType) => {
+  const connection = await db.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    if (!userId || !reason || !applicationType) {
+      throw new Error('User ID, reason, and application type are required');
+    }
+    
+    if (reason.trim().length < 10) {
+      throw new Error('Withdrawal reason must be at least 10 characters');
+    }
+    
+    const validTypes = ['initial_application', 'full_membership'];
+    if (!validTypes.includes(applicationType)) {
+      throw new Error(`Invalid application type. Must be one of: ${validTypes.join(', ')}`);
+    }
+    
+    const user = await connection.query('SELECT * FROM users WHERE id = ?', [userId]);
+    if (!user.length) {
+      throw new Error('User not found');
+    }
+    
+    const withdrawalId = `WD-${Date.now()}-${userId}`;
+    let applicationUpdated = false;
+    let currentApplicationId = null;
+    
+    if (applicationType === 'initial_application') {
+      // Find pending initial application
+      const [pendingApp] = await connection.query(`
+        SELECT id FROM surveylog 
+        WHERE user_id = ? AND application_type = 'initial_application' 
+        AND approval_status = 'pending'
+        ORDER BY createdAt DESC LIMIT 1
+      `, [userId]);
+      
+      if (!pendingApp.length) {
+        throw new Error('No pending initial application found to withdraw');
+      }
+      
+      currentApplicationId = pendingApp[0].id;
+      
+      // Update application status
+      await connection.query(`
+        UPDATE surveylog 
+        SET approval_status = 'withdrawn',
+            admin_notes = CONCAT(COALESCE(admin_notes, ''), '\n[WITHDRAWN BY USER] ', ?),
+            reviewedAt = NOW()
+        WHERE id = ?
+      `, [reason, currentApplicationId]);
+      
+      // Update user status
+      await connection.query(`
+        UPDATE users 
+        SET application_status = 'withdrawn', updatedAt = NOW()
+        WHERE id = ?
+      `, [userId]);
+      
+      applicationUpdated = true;
+      
+    } else if (applicationType === 'full_membership') {
+      // Find pending full membership application
+      const [pendingFullApp] = await connection.query(`
+        SELECT id FROM full_membership_applications 
+        WHERE user_id = ? AND status = 'pending'
+        ORDER BY submittedAt DESC LIMIT 1
+      `, [userId]);
+      
+      if (!pendingFullApp.length) {
+        throw new Error('No pending full membership application found to withdraw');
+      }
+      
+      currentApplicationId = pendingFullApp[0].id;
+      
+      // Update full membership application
+      await connection.query(`
+        UPDATE full_membership_applications 
+        SET status = 'withdrawn',
+            admin_notes = CONCAT(COALESCE(admin_notes, ''), '\n[WITHDRAWN BY USER] ', ?),
+            reviewedAt = NOW()
+        WHERE id = ?
+      `, [reason, currentApplicationId]);
+      
+      // Update user status
+      await connection.query(`
+        UPDATE users 
+        SET full_membership_status = 'withdrawn', updatedAt = NOW()
+        WHERE id = ?
+      `, [userId]);
+      
+      applicationUpdated = true;
+    }
+    
+    if (!applicationUpdated) {
+      throw new Error('Failed to update application status');
+    }
+    
+    // Log withdrawal in audit
+    await connection.query(`
+      INSERT INTO audit_logs (user_id, action, details, createdAt)
+      VALUES (?, 'application_withdrawn', ?, NOW())
+    `, [
+      userId,
+      JSON.stringify({
+        withdrawal_id: withdrawalId,
+        application_type: applicationType,
+        application_id: currentApplicationId,
+        reason: reason
+      })
+    ]);
+    
+    await connection.commit();
+    
+    const reapplyAfter = new Date();
+    reapplyAfter.setDate(reapplyAfter.getDate() + 30); // 30-day waiting period
+    
+    return {
+      success: true,
+      withdrawal_id: withdrawalId,
+      application_id: currentApplicationId,
+      application_type: applicationType,
+      can_reapply: true,
+      reapply_after: reapplyAfter.toISOString(),
+      message: 'Application withdrawn successfully'
+    };
+    
+  } catch (error) {
+    await connection.rollback();
+    console.error('❌ Error withdrawing application:', error);
+    throw new Error(`Failed to withdraw application: ${error.message}`);
+  } finally {
+    connection.release();
+  }
+};
+
+/**
  * Check user eligibility (delegated to applicationService)
  * @param {number} userId - User ID
  * @param {string} action - Action to check
@@ -1119,5 +1458,8 @@ export default {
   getMembershipStats,
   getMembershipHelp,
   submitSupportRequest,
+  getMembershipProgression,
+  getMembershipRequirements,
+  withdrawApplication,
   checkEligibility
 };

@@ -62,30 +62,56 @@ router.get('/health', classAdminController.getSystemHealth);
  * POST /api/classes/admin
  * Create a new class
  */
+// Nil
 router.post('/', validateClassCreation, classAdminController.createClass);
 
 /**
  * GET /api/classes/admin
  * Get all classes with admin details
  */
+// Nil
 router.get('/', validatePagination, validateSorting, classAdminController.getAllClasses);
+
+/**
+ * GET /api/classes/admin/stats
+ * Get system-wide class statistics
+ */
+// AudienceClassMger.jsx
+router.get('/stats', classAdminController.getSystemStats);
+
+/**
+ * GET /api/classes/admin/dashboard
+ * Get admin dashboard data
+ */
+// AudienceClassMger.jsx
+router.get('/dashboard', classAdminController.getDashboard);
+
+/**
+ * GET /api/classes/admin/pending-approvals
+ * Get classes or participants pending approval
+ */
+// AudienceClassMger.jsx
+router.get('/pending-approvals', validatePagination, classAdminController.getPendingApprovals);
 
 /**
  * GET /api/classes/admin/:id
  * Get specific class with admin details
  */
+// Nil
 router.get('/:id', validateClassId, classAdminController.getClassById);
 
 /**
  * PUT /api/classes/admin/:id
  * Update a specific class
  */
+// AudienceClassMger.jsx
 router.put('/:id', validateClassId, validateClassUpdate, classAdminController.updateClass);
 
 /**
  * DELETE /api/classes/admin/:id
  * Delete a specific class
  */
+// AudienceClassMger.jsx
 router.delete('/:id', validateClassId, classAdminController.deleteClass);
 
 // =============================================================================
@@ -96,30 +122,35 @@ router.delete('/:id', validateClassId, classAdminController.deleteClass);
  * GET /api/classes/admin/:id/participants
  * Get all participants of a specific class
  */
+// Nil
 router.get('/:id/participants', validateClassId, validatePagination, validateSorting, classAdminController.getClassParticipants);
 
 /**
  * POST /api/classes/admin/:id/participants
  * Add participants to a class
  */
+// Nil
 router.post('/:id/participants', validateClassId, classAdminController.addParticipant);
 
 /**
  * PUT /api/classes/admin/:id/participants/:userId
  * Manage a specific class member (approve, reject, change role, etc.)
  */
+// Nil
 router.put('/:id/participants/:userId', validateClassId, validateMembershipAction, classAdminController.manageParticipant);
 
 /**
  * DELETE /api/classes/admin/:id/participants/:userId
  * Remove a participant from a class
  */
+// Nil
 router.delete('/:id/participants/:userId', validateClassId, classAdminController.removeParticipant);
 
 /**
  * POST /api/classes/admin/:id/participants/bulk
  * Bulk operations on class participants
  */
+// Nil
 router.post('/:id/participants/bulk', validateClassId, validateBulkOperation, classAdminController.bulkParticipantActions);
 
 // =============================================================================
@@ -130,37 +161,46 @@ router.post('/:id/participants/bulk', validateClassId, validateBulkOperation, cl
  * GET /api/classes/admin/analytics
  * Get comprehensive class analytics
  */
+// AudienceClassMger.jsx
 router.get('/analytics', validateDateRange, classAdminController.getAnalytics);
-
-/**
- * GET /api/classes/admin/stats
- * Get system-wide class statistics
- */
-router.get('/stats', classAdminController.getSystemStats);
 
 /**
  * GET /api/classes/admin/:id/analytics
  * Get specific class analytics
  */
+// Nil
 router.get('/:id/analytics', validateClassId, classAdminController.getClassAnalytics);
 
 /**
  * GET /api/classes/admin/export
  * Export class data
  */
+// AudienceClassMger.jsx with params
 router.get('/export', validateDateRange, classAdminController.exportClassData);
 
 /**
  * POST /api/classes/admin/reports
  * Generate custom reports
  */
+// AudienceClassMger.jsx
 router.post('/reports', validateDateRange, classAdminController.generateReports);
 
 /**
  * GET /api/classes/admin/audit-logs
  * Get audit logs for class operations
  */
+// AudienceClassMgr.jsx
 router.get('/audit-logs', validatePagination, validateDateRange, classAdminController.getAuditLogs);
+
+// Nil
+// Create route to create additions of classes to make a an Audience (groupings of classes) for publication/notifications
+/**
+ *  POST /api/classes/admin/audience
+ *  Create a new audience (grouping of classes)
+ *  TODO: Implement createAudience controller function
+ */
+// router.post('/audience', validateClassCreation, classAdminController.createAudience);
+
 
 // =============================================================================
 // BULK OPERATIONS
@@ -170,52 +210,34 @@ router.get('/audit-logs', validatePagination, validateDateRange, classAdminContr
  * POST /api/classes/admin/bulk-create
  * Bulk create multiple classes
  */
+// Nil
 router.post('/bulk-create', validateBulkOperation, classAdminController.bulkCreateClasses);
 
-/**
- * PUT /api/classes/admin/bulk-update
- * Bulk update multiple classes
- */
-router.put('/bulk-update', validateBulkOperation, classAdminController.bulkUpdateClasses);
 
 /**
  * DELETE /api/classes/admin/bulk-delete
  * Bulk delete multiple classes
  */
+// see AudienceClassMger.jsx
 router.delete('/bulk-delete', validateBulkOperation, classAdminController.bulkDeleteClasses);
 
-/**
- * POST /api/classes/admin/bulk-import
- * Import classes from CSV/Excel file
- */
-router.post('/bulk-import', classAdminController.bulkImportClasses);
 
 // =============================================================================
 // ADVANCED ADMIN FEATURES
 // =============================================================================
 
 /**
- * GET /api/classes/admin/dashboard
- * Get admin dashboard data
- */
-router.get('/dashboard', classAdminController.getDashboard);
-
-/**
- * GET /api/classes/admin/pending-approvals
- * Get classes or participants pending approval
- */
-router.get('/pending-approvals', validatePagination, classAdminController.getPendingApprovals);
-
-/**
  * POST /api/classes/admin/approve-batch
  * Batch approve multiple pending items
  */
+// AudienceClassMger.jsx
 router.post('/approve-batch', validateBulkOperation, classAdminController.batchApprove);
 
 /**
  * PUT /api/classes/admin/settings
  * Update system-wide class settings
  */
+// AudienceClassMger.jsx
 router.put('/settings', classAdminController.updateSystemSettings);
 
 // =============================================================================
@@ -226,18 +248,21 @@ router.put('/settings', classAdminController.updateSystemSettings);
  * POST /api/classes/admin/:id/archive
  * Archive a class instead of deleting
  */
+// Nil
 router.post('/:id/archive', validateClassId, classAdminController.archiveClass);
 
 /**
  * POST /api/classes/admin/:id/restore
  * Restore an archived class
  */
+// Nil
 router.post('/:id/restore', validateClassId, classAdminController.restoreClass);
 
 /**
  * POST /api/classes/admin/:id/duplicate
  * Duplicate a class with options
  */
+// Nil
 router.post('/:id/duplicate', validateClassId, classAdminController.duplicateClass);
 
 // =============================================================================

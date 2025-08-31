@@ -95,30 +95,37 @@ const router = express.Router();
 // GET /content/chats - Fetch all chats with filtering
 router.get('/chats', fetchAllChats);
 
+//not used
 // GET /content/chats/user - Fetch chats by user_id
 router.get('/chats/user', authenticate, fetchChatsByUserId);
 
+//not used
 // GET /content/chats/ids - Fetch chats by multiple IDs
 router.get('/chats/ids', authenticate, fetchChatsByIds);
 
+//not used
 // GET /content/chats/prefixed/:prefixedId - Fetch chat by prefixed ID
 router.get('/chats/prefixed/:prefixedId', authenticate, fetchChatByPrefixedId);
 
 // GET /content/chats/combinedcontent - Combined chats + teachings endpoint
 router.get('/chats/combinedcontent', authenticate, fetchCombinedContent);
 
+//not used
 // GET /content/chats/:userId1/:userId2 - Get chat history between users
 router.get('/chats/:userId1/:userId2', authenticate, getChatHistory);
 
 // POST /content/chats - Create new chat (7-step form)
 router.post('/chats', authenticate, uploadMiddleware, uploadToS3, createChat);
 
+//not used
 // POST /content/chats/:chatId/comments - Add comment to chat
 router.post('/chats/:chatId/comments', authenticate, uploadMiddleware, uploadToS3, addCommentToChat);
 
+//not used
 // PUT /content/chats/:id - Update chat
 router.put('/chats/:id', authenticate, uploadMiddleware, uploadToS3, editChat);
 
+//not used
 // DELETE /content/chats/:id - Delete chat
 router.delete('/chats/:id', authenticate, removeChat);
 
@@ -129,30 +136,38 @@ router.delete('/chats/:id', authenticate, removeChat);
 // GET /content/teachings - Fetch all teachings with filtering
 router.get('/teachings', fetchAllTeachings);
 
+//not used
 // GET /content/teachings/search - Search teachings
 router.get('/teachings/search', authenticate, searchTeachingsController);
 
+//not used
 // GET /content/teachings/stats - Get teaching statistics
 router.get('/teachings/stats', authenticate, fetchTeachingStats);
 
+//not used
 // GET /content/teachings/user - Fetch teachings by user_id
 router.get('/teachings/user', authenticate, fetchTeachingsByUserId);
 
+//not used
 // GET /content/teachings/ids - Fetch teachings by multiple IDs
 router.get('/teachings/ids', authenticate, fetchTeachingsByIds);
 
+//not used
 // GET /content/teachings/prefixed/:prefixedId - Fetch teaching by prefixed ID
 router.get('/teachings/prefixed/:prefixedId', authenticate, fetchTeachingByPrefixedId);
 
+//not used
 // GET /content/teachings/:id - Fetch single teaching by ID
 router.get('/teachings/:id', authenticate, fetchTeachingByPrefixedId);
 
 // POST /content/teachings - Create new teaching (8-step form)
 router.post('/teachings', authenticate, uploadMiddleware, uploadToS3, createTeaching);
 
+//not used
 // PUT /content/teachings/:id - Update teaching
 router.put('/teachings/:id', authenticate, uploadMiddleware, uploadToS3, editTeaching);
 
+//not used
 // DELETE /content/teachings/:id - Delete teaching
 router.delete('/teachings/:id', authenticate, removeTeaching);
 
@@ -160,15 +175,20 @@ router.delete('/teachings/:id', authenticate, removeTeaching);
 // COMMENTS ENDPOINTS - /api/content/comments/*
 // ===============================================
 
+// GET /content/comments - Fetch comments with status filtering (for admin)
+router.get('/comments', authenticate, fetchAllComments);
+
 // GET /content/comments/all - Fetch all comments
 router.get('/comments/all', authenticate, fetchAllComments);
 
+//not used
 // GET /content/comments/stats - Get comment statistics
 router.get('/comments/stats', authenticate, fetchCommentStats);
 
 // GET /content/comments/parent-comments - Fetch parent content with comments
 router.get('/comments/parent-comments', authenticate, fetchParentChatsAndTeachingsWithComments);
 
+//not used
 // GET /content/comments/user/:user_id - Fetch comments by user
 router.get('/comments/user/:user_id', authenticate, fetchCommentsByUserId);
 
@@ -178,12 +198,15 @@ router.post('/comments/upload', authenticate, uploadMiddleware, uploadToS3, uplo
 // POST /content/comments - Create new comment
 router.post('/comments', authenticate, uploadMiddleware, uploadToS3, createComment);
 
+//not used
 // GET /content/comments/:commentId - Get specific comment
 router.get('/comments/:commentId', authenticate, fetchCommentById);
 
+//not used
 // PUT /content/comments/:commentId - Update comment
 router.put('/comments/:commentId', authenticate, uploadMiddleware, uploadToS3, updateComment);
 
+//not used
 // DELETE /content/comments/:commentId - Delete comment
 router.delete('/comments/:commentId', authenticate, deleteComment);
 
@@ -196,36 +219,46 @@ router.use('/admin/*', authenticate, authorize(['admin', 'super_admin']));
 
 // ===== MAIN ADMIN CONTENT MANAGEMENT =====
 
+//not used
 // GET /content/admin/pending - Get pending content across all types
 router.get('/admin/pending', getPendingContent);
 
+//not used
 // GET/POST /content/admin/manage - Manage content (bulk operations)
 router.get('/admin/manage', manageContent);
 router.post('/admin/manage', manageContent);
 
+//not used
 // POST /content/admin/bulk-manage - Enhanced bulk operations
 router.post('/admin/bulk-manage', bulkManageContent);
 
+//not used
 // POST /content/admin/:id/approve - Approve content
 router.post('/admin/:id/approve', approveContent);
 
+//not used
 // POST /content/admin/:id/reject - Reject content
 router.post('/admin/:id/reject', rejectContent);
 
+//not used
 // DELETE /content/admin/:contentType/:id - Delete specific content
 router.delete('/admin/:contentType/:id', deleteContent);
 
 // ===== CONTENT TYPE SPECIFIC ADMIN ENDPOINTS =====
 
-// GET /content/admin/chats - Get all chats for admin management
+//not used
+// // GET /content/admin/chats - Get all chats for admin management
 router.get('/admin/chats', getChatsForAdmin);
 
+//not used
 // GET /content/admin/teachings - Get all teachings for admin management
 router.get('/admin/teachings', getTeachingsForAdmin);
 
+//not used
 // GET /content/admin/comments - Get all comments for admin management
 router.get('/admin/comments', getCommentsForAdmin);
 
+//not used
 // PUT /content/admin/:contentType/:id - Update content status
 router.put('/admin/:contentType/:id', updateContentStatus);
 
@@ -234,6 +267,7 @@ router.put('/admin/:contentType/:id', updateContentStatus);
 // GET /content/admin/reports - Get content reports
 router.get('/admin/reports', getReports);
 
+//not used
 // PUT /content/admin/reports/:reportId/status - Update report status
 router.put('/admin/reports/:reportId/status', updateReportStatus);
 
@@ -242,9 +276,11 @@ router.get('/admin/audit-logs', getAuditLogs);
 
 // ===== ADMIN UTILITIES =====
 
+//not used
 // POST /content/admin/notifications/send - Send notification
 router.post('/admin/notifications/send', sendNotification);
 
+//not used
 // GET /content/admin/stats - Get content statistics
 router.get('/admin/stats', getContentStats);
 

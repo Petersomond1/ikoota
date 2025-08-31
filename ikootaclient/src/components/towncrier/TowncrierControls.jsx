@@ -5,6 +5,7 @@ import { jwtDecode } from "jwt-decode";
 import useUpload from "../../hooks/useUpload";
 import { useFetchTeachings } from "../service/useFetchTeachings";
 import "../../components/admin/navbar.css";
+import api from "../service/api";
 
 const TowncrierControls = () => {
   const { handleSubmit, register, reset, formState: { errors } } = useForm();

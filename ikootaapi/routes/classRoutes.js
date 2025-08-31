@@ -42,6 +42,7 @@ router.get('/test', classController.testClassRoutes);
  * GET /api/classes
  * Get all public classes (no authentication required)
  */
+// Nil
 router.get('/', 
   validatePagination, 
   validateSorting, 
@@ -56,6 +57,7 @@ router.get('/',
  * GET /api/classes/my-classes
  * Get classes for the authenticated user
  */
+// UserDashboard.jsx, ClassContentViewer.jsx its navigate
 router.get('/my-classes',
   authenticate,
   validatePagination,
@@ -67,6 +69,7 @@ router.get('/my-classes',
  * GET /api/classes/recommendations
  * Get personalized class recommendations
  */
+// UserDashboard.jsx
 router.get('/recommendations',
   authenticate,
   validatePagination,
@@ -77,6 +80,7 @@ router.get('/recommendations',
  * GET /api/classes/my-progress
  * Get user's progress across all classes
  */
+// UserDashboard.jsx
 router.get('/my-progress',
   authenticate,
   validateDateRange,
@@ -87,6 +91,7 @@ router.get('/my-progress',
  * GET /api/classes/my-activity
  * Get user's recent class activity
  */
+// UserDashboard.jsx
 router.get('/my-activity',
   authenticate,
   validatePagination,
@@ -97,6 +102,7 @@ router.get('/my-activity',
  * GET /api/classes/:id
  * Get specific class details
  */
+// Nil
 router.get('/:id',
   authenticate,
   validateClassId,
@@ -107,6 +113,7 @@ router.get('/:id',
  * POST /api/classes/:id/join
  * Join a specific class
  */
+// Nil
 router.post('/:id/join',
   authenticate,
   validateClassId,
@@ -117,6 +124,7 @@ router.post('/:id/join',
  * POST /api/classes/:id/leave
  * Leave a specific class
  */
+// Nil
 router.post('/:id/leave',
   authenticate,
   validateClassId,
@@ -127,6 +135,7 @@ router.post('/:id/leave',
  * GET /api/classes/:id/members
  * Get members of a specific class
  */
+// Nil
 router.get('/:id/members',
   authenticate,
   validateClassId,
@@ -139,6 +148,7 @@ router.get('/:id/members',
  * GET /api/classes/:id/content
  * Get content for a specific class
  */
+// Nil
 router.get('/:id/content',
   authenticate,
   validateClassId,
@@ -150,6 +160,7 @@ router.get('/:id/content',
  * GET /api/classes/:id/announcements
  * Get announcements for a specific class
  */
+// Nil
 router.get('/:id/announcements',
   authenticate,
   validateClassId,
@@ -161,6 +172,7 @@ router.get('/:id/announcements',
  * POST /api/classes/:id/feedback
  * Submit feedback for a class
  */
+// Nil
 router.post('/:id/feedback',
   authenticate,
   validateClassId,
@@ -171,6 +183,7 @@ router.post('/:id/feedback',
  * POST /api/classes/:id/attendance
  * Mark attendance for a class session
  */
+// Nil
 router.post('/:id/attendance',
   authenticate,
   validateClassId,
@@ -181,6 +194,7 @@ router.post('/:id/attendance',
  * GET /api/classes/:id/schedule
  * Get class schedule
  */
+// Nil
 router.get('/:id/schedule',
   authenticate,
   validateClassId,
@@ -192,6 +206,7 @@ router.get('/:id/schedule',
  * GET /api/classes/:id/progress
  * Get user's progress in specific class
  */
+// Nil
 router.get('/:id/progress',
   authenticate,
   validateClassId,
@@ -206,6 +221,7 @@ router.get('/:id/progress',
  * GET /api/classes/search
  * Search classes with filters
  */
+// Nil
 router.get('/search',
   validatePagination,
   validateSorting,
@@ -225,6 +241,7 @@ router.get('/search',
  * GET /api/classes/by-type/:type
  * Get classes by type
  */
+// Nil
 router.get('/by-type/:type',
   validatePagination,
   validateSorting,

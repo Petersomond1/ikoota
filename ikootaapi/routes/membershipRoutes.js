@@ -17,6 +17,14 @@ import {
 
 // Import controllers
 import * as membershipController from '../controllers/membershipControllers.js';
+import { authorize } from '../middleware/auth.js';
+import {
+  getMembershipStatusByIdController,
+  getFullMembershipStatusByIdController,
+  withdrawApplicationController
+} from '../controllers/membershipControllers.js';
+
+
 
 const router = express.Router();
 
@@ -38,6 +46,7 @@ router.use(addMembershipContext);
  * GET /api/membership/status
  * Get current user's membership status
  */
+// from membershipApi.js
 router.get('/status', 
   logMembershipAction('get_membership_status'),
   membershipController.getCurrentMembershipStatus
@@ -47,6 +56,7 @@ router.get('/status',
  * GET /api/membership/dashboard
  * Get user's membership dashboard
  */
+// from membershipApi.js
 router.get('/dashboard', 
   logMembershipAction('get_membership_dashboard'),
   membershipController.getUserDashboard
@@ -56,6 +66,7 @@ router.get('/dashboard',
  * GET /api/membership/analytics
  * Get user's membership analytics
  */
+// Nil
 router.get('/analytics', 
   logMembershipAction('get_membership_analytics'),
   membershipController.getMembershipAnalytics
@@ -69,6 +80,7 @@ router.get('/analytics',
  * POST /api/membership/apply/initial
  * Submit initial membership application
  */
+// from membershipApi.js
 router.post('/apply/initial',
   validateMembershipEligibility('submit_initial_application'),
   validateMembershipApplication,
@@ -81,6 +93,7 @@ router.post('/apply/initial',
  * POST /api/membership/apply/full
  * Submit full membership application
  */
+// from membershipApi.js
 router.post('/apply/full',
   canApplyForMembership,
   validateMembershipApplication,
@@ -97,6 +110,7 @@ router.post('/apply/full',
  * GET /api/membership/application/status
  * Get current application status
  */
+// from membershipApi.js
 router.get('/application/status',
   logMembershipAction('get_application_status'),
   membershipController.getApplicationStatus
@@ -106,6 +120,7 @@ router.get('/application/status',
  * GET /api/membership/application/:applicationId
  * Get specific application details
  */
+// Nil
 router.get('/application/:applicationId',
   logMembershipAction('get_application_details'),
   membershipController.getApplicationDetails
@@ -119,6 +134,7 @@ router.get('/application/:applicationId',
  * GET /api/membership/progression
  * Get membership progression information
  */
+// Nil
 router.get('/progression',
   logMembershipAction('get_membership_progression'),
   membershipController.getMembershipProgression
@@ -128,6 +144,7 @@ router.get('/progression',
  * GET /api/membership/requirements
  * Get membership requirements and next steps
  */
+// from membershipApi.js
 router.get('/requirements',
   logMembershipAction('get_membership_requirements'),
   membershipController.getMembershipRequirements
@@ -150,6 +167,7 @@ router.get('/profile',
  * PUT /api/membership/profile
  * Update user's membership profile
  */
+// Nil
 router.put('/profile',
   logMembershipAction('update_membership_profile'),
   membershipController.updateMembershipProfile
@@ -163,6 +181,7 @@ router.put('/profile',
  * GET /api/membership/class
  * Get user's class information
  */
+// Nil
 router.get('/class',
   requirePreMemberOrHigher,
   logMembershipAction('get_user_class'),
@@ -173,6 +192,7 @@ router.get('/class',
  * GET /api/membership/mentor
  * Get user's mentor information
  */
+// Nil
 router.get('/mentor',
   requirePreMemberOrHigher,
   logMembershipAction('get_user_mentor'),
@@ -187,6 +207,7 @@ router.get('/mentor',
  * GET /api/membership/notifications
  * Get user's membership-related notifications
  */
+// Nil here
 router.get('/notifications',
   logMembershipAction('get_membership_notifications'),
   membershipController.getMembershipNotifications
@@ -196,6 +217,7 @@ router.get('/notifications',
  * PUT /api/membership/notifications/:notificationId/read
  * Mark notification as read
  */
+// Nill here
 router.put('/notifications/:notificationId/read',
   logMembershipAction('mark_notification_read'),
   membershipController.markNotificationRead
@@ -209,6 +231,7 @@ router.put('/notifications/:notificationId/read',
  * GET /api/membership/eligibility
  * Check user's eligibility for various actions
  */
+// Nil
 router.get('/eligibility',
   logMembershipAction('check_eligibility'),
   membershipController.checkEligibility
@@ -218,6 +241,7 @@ router.get('/eligibility',
  * GET /api/membership/stats
  * Get membership statistics for current user
  */
+// from membershipApi.js
 router.get('/stats',
   logMembershipAction('get_membership_stats'),
   membershipController.getMembershipStats
@@ -231,6 +255,7 @@ router.get('/stats',
  * GET /api/membership/help
  * Get membership help and FAQ information
  */
+// Nil
 router.get('/help',
   logMembershipAction('get_membership_help'),
   membershipController.getMembershipHelp
@@ -240,6 +265,7 @@ router.get('/help',
  * POST /api/membership/support
  * Submit support request related to membership
  */
+// Nil
 router.post('/support',
   logMembershipAction('submit_support_request'),
   membershipController.submitSupportRequest
@@ -250,10 +276,11 @@ router.post('/support',
 // =============================================================================
 
 /**
- * GET /api/membership/member/benefits
+ * GET /api/membership/member_benefits
  * Get member-specific benefits and features (Full members only)
  */
-router.get('/member/benefits',
+// Nil
+router.get('/member_benefits',
   requireMember,
   logMembershipAction('get_member_benefits'),
   async (req, res) => {
@@ -288,10 +315,11 @@ router.get('/member/benefits',
 );
 
 /**
- * GET /api/membership/pre-member/features
+ * GET /api/membership/pre-member_features
  * Get pre-member specific features (Pre-members and above)
  */
-router.get('/pre-member/features',
+// Nil
+router.get('/pre-member_features',
   requirePreMemberOrHigher,
   logMembershipAction('get_pre_member_features'),
   async (req, res) => {
@@ -332,10 +360,11 @@ router.get('/pre-member/features',
 // =============================================================================
 
 /**
- * POST /api/membership/quick/withdraw-application
+ * POST /api/membership/withdraw-application
  * Withdraw pending application
  */
-router.post('/quick/withdraw-application',
+// Nil
+router.post('/withdraw-application',
   logMembershipAction('withdraw_application'),
   async (req, res) => {
     try {
@@ -362,10 +391,11 @@ router.post('/quick/withdraw-application',
 );
 
 /**
- * POST /api/membership/quick/request-review-status
+ * POST /api/membership/request-review-status
  * Request status update on pending review
  */
-router.post('/quick/request-review-status',
+// Nil
+router.post('/request-review-status',
   logMembershipAction('request_review_status'),
   async (req, res) => {
     try {
@@ -387,6 +417,164 @@ router.post('/quick/request-review-status',
         success: false,
         error: 'Failed to request review status',
         message: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+);
+
+
+
+// ===============================================
+//  ADD TO membershipRoutes.js - APPLICATION WITHDRAWAL FOR USERS
+// ===============================================
+
+// Add this route to your existing membershipRoutes.js file:
+
+// Nil under admin @ membershipApi.js
+// POST /api/membership/application/withdraw
+router.post('/application/withdraw',
+  logMembershipAction('withdraw_application'),
+  async (req, res) => {
+    try {
+      const { reason, applicationType = 'initial_application' } = req.body;
+      const userId = req.user.id;
+      
+      if (!reason || reason.trim().length < 10) {
+        return res.status(400).json({
+          success: false,
+          error: 'Withdrawal reason is required (minimum 10 characters)',
+          example: {
+            reason: 'Personal circumstances have changed',
+            applicationType: 'initial_application'
+          }
+        });
+      }
+      
+      const validApplicationTypes = ['initial_application', 'full_membership'];
+      if (!validApplicationTypes.includes(applicationType)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid application type: ${applicationType}`,
+          validTypes: validApplicationTypes
+        });
+      }
+      
+      const result = await withdrawApplicationController(userId, reason, applicationType);
+      
+      res.json({
+        success: true,
+        message: 'Application withdrawn successfully',
+        userId,
+        withdrawnBy: req.user.username,
+        reason,
+        applicationType,
+        withdrawalId: result.withdrawalId,
+        canReapply: result.canReapply,
+        reapplyAfter: result.reapplyAfter,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Error withdrawing application:', error);
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || 'Failed to withdraw application',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+);
+
+// ===============================================
+//  ADD TO membershipRoutes.js - ADMIN USER STATUS ROUTES
+// ===============================================
+
+// Add these routes to your existing membershipRoutes.js file:
+
+// from membershipApi.js
+// GET /api/membership/status/:userId (Admin only - view other users' status)
+router.get('/status/:userId',
+  authorize(['admin', 'super_admin']), // Only admins can view other users' status
+  logMembershipAction('get_user_status_by_id'),
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Validate userId parameter
+      if (!userId || isNaN(parseInt(userId))) {
+        return res.status(400).json({
+          success: false,
+          error: 'Valid user ID is required'
+        });
+      }
+      
+      const status = await getMembershipStatusByIdController(userId);
+      
+      if (!status) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found or has no membership status'
+        });
+      }
+      
+      res.json({
+        success: true,
+        userId,
+        status,
+        requestedBy: req.user.username,
+        requestedByUserId: req.user.id,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Error getting user status by ID:', error);
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || 'Failed to get user status',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+);
+
+// from membershipApi.js
+// GET /api/membership/full-membership/status/:userId (Admin only)
+router.get('/full-membership/status/:userId',
+  authorize(['admin', 'super_admin']),
+  logMembershipAction('get_full_membership_status_by_id'),
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Validate userId parameter
+      if (!userId || isNaN(parseInt(userId))) {
+        return res.status(400).json({
+          success: false,
+          error: 'Valid user ID is required'
+        });
+      }
+      
+      const status = await getFullMembershipStatusByIdController(userId);
+      
+      if (!status) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found or has no full membership status'
+        });
+      }
+      
+      res.json({
+        success: true,
+        userId,
+        fullMembershipStatus: status,
+        requestedBy: req.user.username,
+        requestedByUserId: req.user.id,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Error getting full membership status by ID:', error);
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || 'Failed to get full membership status',
         timestamp: new Date().toISOString()
       });
     }
@@ -505,7 +693,7 @@ router.use((error, req, res, next) => {
  * - GET /pre-member/features (Get pre-member features)
  * 
  * MEMBER-ONLY ROUTES:
- * - GET /member/benefits (Get member benefits)
+ * - GET /member_benefits (Get member benefits)
  * 
  * QUICK ACTION ROUTES:
  * - POST /quick/withdraw-application (Withdraw application)

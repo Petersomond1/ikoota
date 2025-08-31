@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { validateIdFormat, getEntityTypeFromId } from '../service/idGenerationService';
+import api from '../service/api';
 
 export const EntityIdDisplay = ({ id, entityName }) => {
   const entityType = getEntityTypeFromId(id);

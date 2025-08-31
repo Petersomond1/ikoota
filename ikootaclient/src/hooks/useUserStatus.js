@@ -20,7 +20,7 @@ export const useUserStatus = () => {
       // Set authorization header
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
-      const response = await api.get('/user-status/survey/check-status');
+      const response = await api.get('/user/userstatus/survey/check-status');
       
       if (response.data) {
         console.log('📋 Survey status fetched:', response.data);
@@ -69,7 +69,7 @@ export const useUserStatus = () => {
       
       // ✅ ENHANCED: Fetch both user status and survey status
       const [userResponse, surveyData] = await Promise.allSettled([
-        api.get('/user-status/dashboard'),
+        api.get('/user/userstatus/dashboard'),
         checkSurveyStatus()
       ]);
 

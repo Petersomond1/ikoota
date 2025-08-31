@@ -276,7 +276,7 @@ const startServer = async () => {
       logger.info(`   • Content routes: /chats, /teachings, /comments → /content/*`);
       logger.info(`   • Membership routes: /apply → /membership/*`);
       logger.info(`   • Survey routes: /membership/survey → /survey/*`);
-      logger.info(`   • User status: /api/user-status/* preserved`);
+      logger.info(`   • User status: /api/user/userstatus/* preserved`);
       
       // ===============================================
       // NEXT STEPS & RECOMMENDATIONS
@@ -535,7 +535,7 @@ startServer();
 //       logger.info(`   • Content routes: /chats, /teachings, /comments → /content/*`);
 //       logger.info(`   • Membership routes: /apply → /membership/*`);
 //       logger.info(`   • Survey routes: /membership/survey → /survey/*`); // ✅ NEW
-//       logger.info(`   • User status: /api/user-status/* preserved`);
+//       logger.info(`   • User status: /api/user/userstatus/* preserved`);
       
 //       // ===============================================
 //       // NEXT STEPS & RECOMMENDATIONS

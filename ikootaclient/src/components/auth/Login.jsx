@@ -276,7 +276,7 @@ const Login = () => {
       }
 
       // ✅ FIXED: Use the endpoint we just added to server.js
-      const response = await axios.get('http://localhost:3000/api/user-status/survey/check-status', {
+      const response = await axios.get('http://localhost:3000/api/user/userstatus/survey/check-status', {
         headers: { 'Authorization': `Bearer ${token}` },
         timeout: 5000
       });

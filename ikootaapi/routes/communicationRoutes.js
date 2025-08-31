@@ -89,12 +89,14 @@ router.use(communicationLimiter);
 // EMAIL ROUTES
 // ===============================================
 
+// AutoControls.jsx
 // POST /communication/email/send - Send single email
 router.post('/email/send', 
   authenticate, 
   sendEmailHandler
 );
 
+// Nil
 // POST /communication/email/bulk - Send bulk emails (admin only)
 router.post('/email/bulk', 
   authenticate, 
@@ -102,7 +104,7 @@ router.post('/email/bulk',
   bulkOperationLimiter,
   sendBulkEmailHandler
 );
-
+// fullMembershipService.js
 // POST /communication/email/send-membership-feedback - Send membership feedback email
 router.post('/email/send-membership-feedback', 
   authenticate, 
@@ -114,6 +116,7 @@ router.post('/email/send-membership-feedback',
 // SMS ROUTES
 // ===============================================
 
+// Nil
 // POST /communication/sms/send - Send single SMS
 router.post('/sms/send', 
   authenticate, 
@@ -121,6 +124,7 @@ router.post('/sms/send',
   sendSMSHandler
 );
 
+// Nil
 // POST /communication/sms/bulk - Send bulk SMS (admin only)
 router.post('/sms/bulk', 
   authenticate, 
@@ -130,16 +134,34 @@ router.post('/sms/bulk',
   sendBulkSMSHandler
 );
 
+// Nil
+//  Admin will need endpoint route to send out regular notifications to users
+//  for system updates, promotions, alerts, etc.
+router.post('/sms/send-group-alerts',
+  authenticate,
+  authorize(['admin', 'super_admin']),
+  sendSMSHandler
+);
+
+// Nil  
+router.post('/email/send-group-alerts',
+  authenticate,
+  authorize(['admin', 'super_admin']),
+  sendEmailHandler
+);
+
 // ===============================================
 // NOTIFICATION ROUTES
 // ===============================================
 
+// UserManagement.jsx
 // POST /communication/notification - Send combined notification (email + SMS)
 router.post('/notification', 
   authenticate, 
   sendNotificationHandler
 );
 
+// Nil
 // POST /communication/notifications/bulk - Send bulk notifications (admin only)
 router.post('/notifications/bulk', 
   authenticate, 
@@ -168,12 +190,14 @@ router.put('/settings',
 // TEMPLATE MANAGEMENT ROUTES
 // ===============================================
 
-// GET /communication/templates - Get available communication templates
+// Nil
+// GET /communication/templates - Get available pre-prepared communication templates
 router.get('/templates', 
   authenticate, 
   getCommunicationTemplates
 );
 
+// Nil
 // POST /communication/templates - Create new communication template (admin only)
 router.post('/templates', 
   authenticate, 
@@ -181,6 +205,7 @@ router.post('/templates',
   createCommunicationTemplate
 );
 
+// Nil
 // PUT /communication/templates/:id - Update communication template (admin only)
 router.put('/templates/:id', 
   authenticate, 
@@ -254,6 +279,7 @@ router.put('/templates/:id',
   }
 );
 
+// Nil
 // DELETE /communication/templates/:id - Delete communication template (admin only)
 router.delete('/templates/:id', 
   authenticate, 
@@ -316,6 +342,7 @@ router.delete('/templates/:id',
   }
 );
 
+// Nil
 // GET /communication/templates/:id - Get specific template (admin only)
 router.get('/templates/:id', 
   authenticate, 
@@ -363,6 +390,7 @@ router.get('/templates/:id',
 // CHAT ROOMS & MESSAGING (FUTURE EXPANSION)
 // ===============================================
 
+// Nil
 // GET /communication/rooms - Get chat rooms
 router.get('/rooms', 
   authenticate, 
@@ -394,6 +422,7 @@ router.get('/rooms',
   }
 );
 
+// Nil
 // POST /communication/rooms - Create chat room
 router.post('/rooms', 
   authenticate, 
@@ -437,6 +466,7 @@ router.post('/rooms',
   }
 );
 
+// Nil
 // GET /communication/rooms/:id/messages - Get room messages
 router.get('/rooms/:id/messages', 
   authenticate, 
@@ -470,6 +500,7 @@ router.get('/rooms/:id/messages',
   }
 );
 
+// Nil
 // POST /communication/rooms/:id/messages - Send message to room
 router.post('/rooms/:id/messages', 
   authenticate, 
@@ -518,7 +549,8 @@ router.post('/rooms/:id/messages',
 // DIRECT MESSAGING (FUTURE EXPANSION)
 // ===============================================
 
-// GET /communication/conversations - Get user conversations
+//Nil
+// GET /communication/conversations - Get user conversations one-on-one and group
 router.get('/conversations', 
   authenticate, 
   async (req, res) => {
@@ -550,6 +582,7 @@ router.get('/conversations',
   }
 );
 
+//Nil
 // POST /communication/conversations - Create/start conversation
 router.post('/conversations', 
   authenticate, 
@@ -591,6 +624,7 @@ router.post('/conversations',
   }
 );
 
+//Nil
 // GET /communication/conversations/:id - Get specific conversation
 router.get('/conversations/:id', 
   authenticate, 
@@ -625,6 +659,7 @@ router.get('/conversations/:id',
   }
 );
 
+//Nil
 // POST /communication/conversations/:id/messages - Send message in conversation
 router.post('/conversations/:id/messages', 
   authenticate, 
@@ -673,6 +708,7 @@ router.post('/conversations/:id/messages',
 // VIDEO/AUDIO CALLING (FUTURE EXPANSION)
 // ===============================================
 
+//Nil
 // POST /communication/video/initiate - Initiate video call
 router.post('/video/initiate', 
   authenticate, 
@@ -721,6 +757,7 @@ router.post('/video/initiate',
   }
 );
 
+//Nil
 // POST /communication/audio/initiate - Initiate audio call
 router.post('/audio/initiate', 
   authenticate, 
@@ -763,6 +800,7 @@ router.post('/audio/initiate',
   }
 );
 
+//Nil
 // GET /communication/calls/history - Get call history
 router.get('/calls/history', 
   authenticate, 
@@ -830,6 +868,7 @@ router.post('/test',
 // COMMUNICATION LOGS & AUDIT (ADMIN ROUTES)
 // ===============================================
 
+// Nil
 // GET /communication/logs/email - Get email logs (admin only)
 router.get('/logs/email', 
   authenticate, 
@@ -918,6 +957,7 @@ router.get('/logs/email',
   }
 );
 
+// Nil
 // GET /communication/logs/sms - Get SMS logs (admin only)
 router.get('/logs/sms', 
   authenticate, 
@@ -1006,6 +1046,7 @@ router.get('/logs/sms',
   }
 );
 
+// Nil
 // GET /communication/logs/bulk - Get bulk operation logs (admin only)
 router.get('/logs/bulk', 
   authenticate, 

@@ -54,7 +54,7 @@ const testConnection = async () => {
     try {
         console.log('🔍 Testing MySQL connection...');
         const connection = await pool.getConnection();
-        await connection.execute('SELECT 1 as test');
+        await connection.query('SELECT 1 as test');
         connection.release();
         console.log('✅ MySQL connection successful');
         return true;

@@ -151,7 +151,7 @@ const ApplicationSurvey = () => {
     try {
       console.log('🔍 Checking application status... (ONE TIME ONLY)');
       
-      const response = await api.get('/user-status/survey/check-status');
+      const response = await api.get('/user/userstatus/survey/check-status');
       console.log('✅ Response data:', response.data);
       
       // ✅ CRITICAL FIX: DO NOT REDIRECT IF SURVEY NOT COMPLETED
@@ -310,7 +310,7 @@ const ApplicationSurvey = () => {
   //         answer: Array.isArray(value) ? value.join(', ') : value.toString()
   //       }));
 
-  //     const response = await api.post('/membership/survey/submit-application', {
+  //     const response = await api.post('/survey/submit-application', {
   //       answers,
   //       applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`
   //     });
@@ -368,7 +368,7 @@ const ApplicationSurvey = () => {
         answer: Array.isArray(value) ? value.join(', ') : value.toString()
       }));
 
-    const response = await api.post('/membership/survey/submit-application', {
+    const response = await api.post('/survey/submit-applicationsurvey', {
       answers,
       applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`,
       username: user.username, // ADD THIS LINE

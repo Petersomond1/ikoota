@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './surveyControls.css';
+import api from '../service/api';
 
 const SurveyControls = () => {
   const [selectedSurveys, setSelectedSurveys] = useState([]);
@@ -16,88 +17,88 @@ const SurveyControls = () => {
   const [error, setError] = useState(null);
 
   // Mock API function - replace with your actual API implementation
-  const mockApiCall = async (endpoint, options = {}) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  // const mockApiCall = async (endpoint, options = {}) => {
+  //   // Simulate API delay
+  //   await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Mock responses based on endpoint
-    if (endpoint.includes('/survey/admin/pending')) {
-      return {
-        data: {
-          success: true,
-          data: [
-            {
-              id: 1,
-              user_id: 101,
-              username: 'survey_user1',
-              user_email: 'user1@example.com',
-              survey_type: 'general_survey',
-              survey_category: 'feedback',
-              survey_title: 'Platform Feedback Survey',
-              approval_status: 'pending',
-              completion_percentage: 100,
-              time_spent_minutes: 15,
-              answers: [
-                { question: 'satisfaction', answer: 'Very satisfied' },
-                { question: 'improvements', answer: 'Better mobile interface' },
-                { question: 'recommendation', answer: 'Yes, definitely' }
-              ],
-              createdAt: '2025-01-15T10:30:00Z',
-              application_ticket: 'SUR-USR1-12345'
-            },
-            {
-              id: 2,
-              user_id: 102,
-              username: 'survey_user2',
-              user_email: 'user2@example.com',
-              survey_type: 'assessment',
-              survey_category: 'general',
-              survey_title: 'Skills Assessment',
-              approval_status: 'pending',
-              completion_percentage: 85,
-              time_spent_minutes: 22,
-              answers: [
-                { question: 'experience_level', answer: 'Intermediate' },
-                { question: 'preferred_topics', answer: 'Web Development, Data Science' },
-                { question: 'learning_goals', answer: 'Advance my technical skills' }
-              ],
-              createdAt: '2025-01-12T14:20:00Z',
-              application_ticket: 'SUR-USR2-67890'
-            }
-          ]
-        }
-      };
-    } else if (endpoint.includes('/survey/admin/stats')) {
-      return {
-        data: {
-          success: true,
-          data: {
-            pending: 8,
-            approved: 45,
-            rejected: 3,
-            total: 56
-          }
-        }
-      };
-    } else if (endpoint.includes('/survey/admin/question-labels')) {
-      return {
-        data: {
-          success: true,
-          data: {
-            satisfaction: 'How satisfied are you with our platform?',
-            improvements: 'What improvements would you suggest?',
-            recommendation: 'Would you recommend us to others?',
-            experience_level: 'What is your experience level?',
-            preferred_topics: 'What topics interest you most?',
-            learning_goals: 'What are your learning goals?'
-          }
-        }
-      };
-    }
+  //   // Mock responses based on endpoint
+  //   if (endpoint.includes('/survey/admin/pending')) {
+  //     return {
+  //       data: {
+  //         success: true,
+  //         data: [
+  //           {
+  //             id: 1,
+  //             user_id: 101,
+  //             username: 'survey_user1',
+  //             user_email: 'user1@example.com',
+  //             survey_type: 'general_survey',
+  //             survey_category: 'feedback',
+  //             survey_title: 'Platform Feedback Survey',
+  //             approval_status: 'pending',
+  //             completion_percentage: 100,
+  //             time_spent_minutes: 15,
+  //             answers: [
+  //               { question: 'satisfaction', answer: 'Very satisfied' },
+  //               { question: 'improvements', answer: 'Better mobile interface' },
+  //               { question: 'recommendation', answer: 'Yes, definitely' }
+  //             ],
+  //             createdAt: '2025-01-15T10:30:00Z',
+  //             application_ticket: 'SUR-USR1-12345'
+  //           },
+  //           {
+  //             id: 2,
+  //             user_id: 102,
+  //             username: 'survey_user2',
+  //             user_email: 'user2@example.com',
+  //             survey_type: 'assessment',
+  //             survey_category: 'general',
+  //             survey_title: 'Skills Assessment',
+  //             approval_status: 'pending',
+  //             completion_percentage: 85,
+  //             time_spent_minutes: 22,
+  //             answers: [
+  //               { question: 'experience_level', answer: 'Intermediate' },
+  //               { question: 'preferred_topics', answer: 'Web Development, Data Science' },
+  //               { question: 'learning_goals', answer: 'Advance my technical skills' }
+  //             ],
+  //             createdAt: '2025-01-12T14:20:00Z',
+  //             application_ticket: 'SUR-USR2-67890'
+  //           }
+  //         ]
+  //       }
+  //     };
+  //   } else if (endpoint.includes('/survey/admin/stats')) {
+  //     return {
+  //       data: {
+  //         success: true,
+  //         data: {
+  //           pending: 8,
+  //           approved: 45,
+  //           rejected: 3,
+  //           total: 56
+  //         }
+  //       }
+  //     };
+  //   } else if (endpoint.includes('/survey/admin/question-labels')) {
+  //     return {
+  //       data: {
+  //         success: true,
+  //         data: {
+  //           satisfaction: 'How satisfied are you with our platform?',
+  //           improvements: 'What improvements would you suggest?',
+  //           recommendation: 'Would you recommend us to others?',
+  //           experience_level: 'What is your experience level?',
+  //           preferred_topics: 'What topics interest you most?',
+  //           learning_goals: 'What are your learning goals?'
+  //         }
+  //       }
+  //     };
+  //   }
     
-    // Default success response
-    return { data: { success: true, message: 'Operation completed successfully' } };
-  };
+  //   // Default success response
+  //   return { data: { success: true, message: 'Operation completed successfully' } };
+  // };
 
   // Detect if we're in admin context (mock implementation)
   const isInAdminContext = true;
@@ -131,7 +132,7 @@ const SurveyControls = () => {
       if (filterCategory !== 'all') params.append('category', filterCategory);
       if (searchTerm) params.append('search', searchTerm);
       
-      const response = await mockApiCall(`/survey/admin/pending?${params}`);
+      const response = await api.get(`/survey/admin/pending?${params}`);
       console.log('✅ Surveys response:', response.data);
       
       if (response.data?.success && response.data?.data) {
@@ -155,7 +156,7 @@ const SurveyControls = () => {
     try {
       console.log('🔍 Fetching survey stats');
       
-      const response = await mockApiCall('/survey/admin/stats');
+      const response = await api.get('/survey/admin/stats');
       console.log('✅ Survey stats response:', response.data);
       
       if (response.data?.success && response.data?.data) {
@@ -176,7 +177,7 @@ const SurveyControls = () => {
 
   const fetchQuestionLabels = async () => {
     try {
-      const response = await mockApiCall('/survey/admin/question-labels');
+      const response = await api.get('/survey/admin/question-labels');
       console.log('✅ Question labels response:', response.data);
       
       if (response.data?.success && response.data?.data) {
@@ -218,7 +219,7 @@ const SurveyControls = () => {
         setIsLoading(true);
         console.log('🔍 Reviewing survey:', { surveyId, status, notes });
         
-        const response = await mockApiCall('/survey/admin/approve', {
+        const response = await api.put('/survey/admin/approve', {
           method: 'PUT',
           body: {
             surveyId, 
@@ -258,7 +259,7 @@ const SurveyControls = () => {
         setIsLoading(true);
         console.log('🔍 Bulk reviewing surveys:', { selectedSurveys, status, notes });
         
-        const response = await mockApiCall('/survey/admin/bulk-approve', {
+        const response = await api.post('/survey/admin/bulk-approve', {
           method: 'POST',
           body: {
             surveyIds: selectedSurveys, 
@@ -295,7 +296,7 @@ const SurveyControls = () => {
         throw new Error('Please provide at least one question label before saving');
       }
       
-      const response = await mockApiCall('/survey/admin/question-labels', {
+      const response = await api.put('/survey/admin/question-labels', {
         method: 'PUT',
         body: { labels }
       });

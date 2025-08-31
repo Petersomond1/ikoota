@@ -50,9 +50,9 @@ export const getUserDashboardService = async (userId) => {
         full_app.reviewedAt as full_membership_reviewed_date,
         full_reviewer.username as full_membership_reviewer_name,
         
-        -- Access Info
-        fma.firstAccessedAt as full_membership_first_access,
-        fma.access_count as full_membership_access_count,
+        -- Access Info from membership_access_log
+        mal.first_accessed_at as full_membership_first_access,
+        mal.total_accesses as full_membership_access_count,
         
         -- Mentor Info
         mentor.username as mentor_name,
@@ -71,7 +71,7 @@ export const getUserDashboardService = async (userId) => {
       LEFT JOIN users initial_reviewer ON initial_app.reviewed_by = initial_reviewer.id
       LEFT JOIN full_membership_applications full_app ON u.id = full_app.user_id
       LEFT JOIN users full_reviewer ON full_app.reviewed_by = full_reviewer.id
-      LEFT JOIN full_membership_access fma ON u.id = fma.user_id
+      LEFT JOIN membership_access_log mal ON u.id = mal.user_id AND mal.membership_type = 'full'
       LEFT JOIN users mentor ON u.mentor_id = mentor.id
       LEFT JOIN classes class ON u.primary_class_id = class.id
       WHERE u.id = ?

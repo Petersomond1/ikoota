@@ -82,7 +82,7 @@ router.get('/info', (req, res) => {
       },
       userManagement: {
         profile: '/api/users/* - Profile, settings, preferences',
-        status: '/api/user-status/* - Dashboard, status checks',
+        status: '/api/user/userstatus/* - Dashboard, status checks',
         admin: '/api/users/admin/* - Admin user management'
       },
       membershipSystem: {

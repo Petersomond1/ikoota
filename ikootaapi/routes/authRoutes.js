@@ -16,6 +16,8 @@ import {
     getAuthStats
 } from '../controllers/authControllers.js';
 
+import { getBasicProfile } from '../controllers/userStatusControllers.js';
+
 // Import your existing middleware
 import { authenticate } from '../middleware/auth.js';
 
@@ -50,6 +52,13 @@ router.get('/verify/:token', verifyUser);
 // ===============================================
 
 router.get('/', authenticate, getAuthenticatedUser);
+
+
+//Userinfo.jsx, AuthContext.js,
+// New route to get user profile info
+router.get('/users/profile', authenticate, getBasicProfile);
+
+
 
 // ===============================================
 // TESTING ROUTES

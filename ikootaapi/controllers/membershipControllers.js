@@ -1439,6 +1439,329 @@ export const testUserLookup = async (req, res) => {
 };
 
 // =============================================================================
+// ADMIN-ONLY CONTROLLER FUNCTIONS
+// =============================================================================
+
+/**
+ * GET /api/membership/status/:userId - Get membership status by user ID (Admin only)
+ * Used by admin routes to check other users' status
+ */
+export const getMembershipStatusByIdController = async (userId) => {
+  try {
+    console.log('🔍 getMembershipStatusByIdController called with userId:', userId);
+    
+    if (!userId || (typeof userId !== 'number' && typeof userId !== 'string')) {
+      throw new CustomError('Valid user ID required', 400);
+    }
+    
+    const user = await getUserById(userId);
+    
+    // Get latest application info
+    const [applications] = await db.query(`
+      SELECT approval_status, createdAt, reviewedAt, admin_notes, application_type
+      FROM surveylog 
+      WHERE user_id = ? 
+      ORDER BY createdAt DESC 
+      LIMIT 1
+    `, [userId]);
+
+    const latestApplication = applications.length > 0 ? applications[0] : null;
+
+    // Get full membership application info
+    const [fullMembershipApps] = await db.query(`
+      SELECT status, submittedAt, reviewedAt
+      FROM full_membership_applications 
+      WHERE user_id = ? 
+      ORDER BY submittedAt DESC 
+      LIMIT 1
+    `, [userId]);
+
+    const latestFullApp = fullMembershipApps.length > 0 ? fullMembershipApps[0] : null;
+
+    const status = {
+      user_id: user.id,
+      username: user.username,
+      email: user.email,
+      user_status: user.is_member || 'pending',
+      membership_stage: user.membership_stage || 'none',
+      application_status: user.application_status || 'not_submitted',
+      needs_survey: false,
+      survey_completed: latestApplication ? true : false,
+      approval_status: latestApplication?.approval_status || 'not_submitted',
+      converse_id: user.converse_id || null,
+      submittedAt: latestApplication?.createdAt || null,
+      reviewedAt: latestApplication?.reviewedAt || null,
+      decline_reason: user.decline_reason || null,
+      permissions: {
+        can_access_towncrier: ['pre_member', 'member'].includes(user.membership_stage),
+        can_access_iko: user.membership_stage === 'member',
+        can_apply_full_membership: user.membership_stage === 'pre_member' && 
+                                  (!user.full_membership_status || user.full_membership_status === 'declined')
+      },
+      latest_application: latestApplication,
+      latest_full_membership_application: latestFullApp
+    };
+    
+    console.log('✅ Status retrieved for user:', userId);
+    return status;
+    
+  } catch (error) {
+    console.error('❌ getMembershipStatusByIdController error:', error);
+    if (error instanceof CustomError) {
+      throw error;
+    }
+    throw new CustomError('Failed to get membership status: ' + error.message, 500);
+  }
+};
+
+/**
+ * GET /api/membership/full-membership/status/:userId - Get full membership status by user ID (Admin only)
+ * Used by admin routes to check users' full membership status
+ */
+export const getFullMembershipStatusByIdController = async (userId) => {
+  try {
+    console.log('🔍 getFullMembershipStatusByIdController called with userId:', userId);
+    
+    if (!userId || (typeof userId !== 'number' && typeof userId !== 'string')) {
+      throw new CustomError('Valid user ID required', 400);
+    }
+    
+    const user = await getUserById(userId);
+    
+    // Get full membership application details
+    const [fullMembershipApps] = await db.query(`
+      SELECT 
+        id, status, submittedAt, reviewedAt, 
+        admin_notes, membership_ticket, answers
+      FROM full_membership_applications 
+      WHERE user_id = ? 
+      ORDER BY submittedAt DESC 
+      LIMIT 1
+    `, [userId]);
+
+    const fullApplication = fullMembershipApps.length > 0 ? fullMembershipApps[0] : null;
+    
+    // Get access logs if they exist
+    const [accessLogs] = await db.query(`
+      SELECT access_count, last_accessedAt, first_accessedAt
+      FROM full_membership_access 
+      WHERE user_id = ?
+    `, [userId]);
+
+    const accessData = accessLogs.length > 0 ? accessLogs[0] : null;
+    
+    const isEligible = user.membership_stage === 'pre_member';
+    
+    const fullMembershipStatus = {
+      user_id: user.id,
+      username: user.username,
+      email: user.email,
+      membership_stage: user.membership_stage,
+      is_member: user.is_member,
+      full_membership_status: user.full_membership_status || 'not_applied',
+      
+      eligibility: {
+        isEligible,
+        canApply: isEligible && (!fullApplication || fullApplication.status === 'declined'),
+        requirements: [
+          'Must be an approved pre-member',
+          'Active participation for at least 30 days',
+          'Good standing with community guidelines',
+          'Complete full membership questionnaire'
+        ],
+        benefits: [
+          'Access to exclusive Iko Chat',
+          'Advanced educational content',
+          'Mentorship opportunities',
+          'Community leadership roles',
+          'Priority support and feedback'
+        ]
+      },
+      
+      application: fullApplication ? {
+        id: fullApplication.id,
+        status: fullApplication.status,
+        submittedAt: fullApplication.submittedAt,
+        reviewedAt: fullApplication.reviewedAt,
+        admin_notes: fullApplication.admin_notes,
+        membership_ticket: fullApplication.membership_ticket
+      } : null,
+      
+      access_data: accessData ? {
+        access_count: accessData.access_count,
+        last_accessed: accessData.last_accessedAt,
+        first_accessed: accessData.first_accessedAt
+      } : null,
+      
+      next_steps: isEligible ? [
+        'Review full membership benefits',
+        'Complete full membership application',
+        'Submit required information'
+      ] : [
+        'Complete initial membership process first'
+      ]
+    };
+    
+    console.log('✅ Full membership status retrieved for user:', userId);
+    return fullMembershipStatus;
+    
+  } catch (error) {
+    console.error('❌ getFullMembershipStatusByIdController error:', error);
+    if (error instanceof CustomError) {
+      throw error;
+    }
+    throw new CustomError('Failed to get full membership status: ' + error.message, 500);
+  }
+};
+
+/**
+ * POST /api/membership/application/withdraw - Withdraw application controller
+ * Handle application withdrawal requests from users
+ */
+export const withdrawApplicationController = async (userId, reason, applicationType) => {
+  try {
+    console.log('🔍 withdrawApplicationController called:', { userId, reason, applicationType });
+    
+    if (!userId || !reason || !applicationType) {
+      throw new CustomError('User ID, reason, and application type are required', 400);
+    }
+    
+    if (reason.trim().length < 10) {
+      throw new CustomError('Withdrawal reason must be at least 10 characters', 400);
+    }
+    
+    const validTypes = ['initial_application', 'full_membership'];
+    if (!validTypes.includes(applicationType)) {
+      throw new CustomError(`Invalid application type. Must be one of: ${validTypes.join(', ')}`, 400);
+    }
+    
+    const user = await getUserById(userId);
+    
+    // Create withdrawal record
+    const withdrawalId = `WD-${Date.now()}-${userId}`;
+    const withdrawalTimestamp = new Date();
+    
+    // Determine what application to withdraw based on type
+    let applicationUpdated = false;
+    let currentApplicationId = null;
+    
+    if (applicationType === 'initial_application') {
+      // Check if user has a pending initial application
+      const [pendingApp] = await db.query(`
+        SELECT id, approval_status 
+        FROM surveylog 
+        WHERE user_id = ? AND application_type = 'initial_application' 
+        AND approval_status = 'pending'
+        ORDER BY createdAt DESC LIMIT 1
+      `, [userId]);
+      
+      if (!pendingApp.length) {
+        throw new CustomError('No pending initial application found to withdraw', 404);
+      }
+      
+      currentApplicationId = pendingApp[0].id;
+      
+      // Update the application status to withdrawn
+      await db.query(`
+        UPDATE surveylog 
+        SET approval_status = 'withdrawn',
+            admin_notes = CONCAT(COALESCE(admin_notes, ''), '\n[WITHDRAWN] ', ?),
+            reviewedAt = NOW()
+        WHERE id = ?
+      `, [reason, currentApplicationId]);
+      
+      // Update user status
+      await db.query(`
+        UPDATE users 
+        SET application_status = 'withdrawn',
+            updatedAt = NOW()
+        WHERE id = ?
+      `, [userId]);
+      
+      applicationUpdated = true;
+      
+    } else if (applicationType === 'full_membership') {
+      // Check if user has a pending full membership application
+      const [pendingFullApp] = await db.query(`
+        SELECT id, status 
+        FROM full_membership_applications 
+        WHERE user_id = ? AND status = 'pending'
+        ORDER BY submittedAt DESC LIMIT 1
+      `, [userId]);
+      
+      if (!pendingFullApp.length) {
+        throw new CustomError('No pending full membership application found to withdraw', 404);
+      }
+      
+      currentApplicationId = pendingFullApp[0].id;
+      
+      // Update the full membership application
+      await db.query(`
+        UPDATE full_membership_applications 
+        SET status = 'withdrawn',
+            admin_notes = CONCAT(COALESCE(admin_notes, ''), '\n[WITHDRAWN] ', ?),
+            reviewedAt = NOW()
+        WHERE id = ?
+      `, [reason, currentApplicationId]);
+      
+      // Update user status
+      await db.query(`
+        UPDATE users 
+        SET full_membership_status = 'withdrawn',
+            updatedAt = NOW()
+        WHERE id = ?
+      `, [userId]);
+      
+      applicationUpdated = true;
+    }
+    
+    if (!applicationUpdated) {
+      throw new CustomError('Failed to update application status', 500);
+    }
+    
+    // Log the withdrawal in audit logs
+    await db.query(`
+      INSERT INTO audit_logs (user_id, action, details, createdAt)
+      VALUES (?, 'application_withdrawn', ?, NOW())
+    `, [
+      userId,
+      JSON.stringify({
+        withdrawal_id: withdrawalId,
+        application_type: applicationType,
+        application_id: currentApplicationId,
+        reason: reason,
+        withdrawn_at: withdrawalTimestamp
+      })
+    ]);
+    
+    // Determine when user can reapply
+    const canReapplyAfter = new Date();
+    canReapplyAfter.setDate(canReapplyAfter.getDate() + 30); // 30-day waiting period
+    
+    const result = {
+      success: true,
+      withdrawalId,
+      applicationId: currentApplicationId,
+      applicationType,
+      withdrawnAt: withdrawalTimestamp.toISOString(),
+      canReapply: true,
+      reapplyAfter: canReapplyAfter.toISOString(),
+      message: `${applicationType === 'initial_application' ? 'Initial' : 'Full membership'} application withdrawn successfully`
+    };
+    
+    console.log('✅ Application withdrawn successfully:', result);
+    return result;
+    
+  } catch (error) {
+    console.error('❌ withdrawApplicationController error:', error);
+    if (error instanceof CustomError) {
+      throw error;
+    }
+    throw new CustomError('Failed to withdraw application: ' + error.message, 500);
+  }
+};
+
+// =============================================================================
 // EXPORT ALL CONTROLLER FUNCTIONS
 // =============================================================================
 
@@ -1491,6 +1814,11 @@ export default {
   // Support
   getMembershipHelp,
   submitSupportRequest,
+  
+  // Admin-only Functions
+  getMembershipStatusByIdController,
+  getFullMembershipStatusByIdController,
+  withdrawApplicationController,
   
   // System & Testing
   healthCheck,
