@@ -6,6 +6,9 @@
 import express from 'express';
 import { authenticate, requireMembershipStage } from '../middleware/auth.js';
 
+// Import simple mentorship controller (merged from standalone routes)
+import SimpleMentorshipController from '../controllers/mentorshipControllers.js';
+
 // ✅ Controller Imports - Individual Functions (Clean Architecture)
 import {
   // Health & Testing
@@ -78,6 +81,37 @@ const router = express.Router();
 // ===============================================
 router.get('/health', healthCheck);
 router.get('/system/status', getSystemStatus);
+
+// ===============================================
+// SIMPLE MENTORSHIP ROUTES (MERGED)
+// ===============================================
+
+// GET /api/users/mentorship/health - Health check for mentorship system
+router.get('/mentorship/health', SimpleMentorshipController.healthCheck);
+
+// GET /api/users/mentorship/statistics - System statistics
+router.get('/mentorship/statistics', SimpleMentorshipController.getSystemStatistics);
+
+// GET /api/users/mentorship/mentors/available - Get available mentors
+router.get('/mentorship/mentors/available', SimpleMentorshipController.getAvailableMentorsSimple);
+
+// POST /api/users/mentorship/assign - Assign mentee to mentor
+router.post('/mentorship/assign', 
+  authenticate,
+  SimpleMentorshipController.assignMenteeToMentorSimple
+);
+
+// POST /api/users/mentorship/reassign - Reassign mentee
+router.post('/mentorship/reassign', 
+  authenticate,
+  SimpleMentorshipController.reassignMenteeSimple
+);
+
+// GET /api/users/mentorship/hierarchy/:mentorConverseId - Get mentorship hierarchy
+router.get('/mentorship/hierarchy/:mentorConverseId', 
+  authenticate,
+  SimpleMentorshipController.getMentorshipHierarchy
+);
 
 // ===============================================
 // TESTING ENDPOINTS

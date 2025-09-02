@@ -44,7 +44,7 @@ Now more about the converse Id system, mentorship system and users classes (audi
 
 converse Id system.
 upon moment of membership granted, user profile (name/username, email and phone) will be encoded and the real names expunged from the system into an external record system. so a special encoding logic will be needed to convert the profile (email, phone, username and avatar) into a converse 6-digit alphanumeric letters and avatar that will thenceoforth be used for user identification or profile. It will only be the system that can decode/reveal the original id/profile when needed to relate with the real user. So, this is going to be a converse identity system from the moment membership is granted.
-every user will have a permanent 6-digit alphanumeric id that will be used in place of their username from the moment membership is granted.
+every user will have a permanent 10-digit alphanumeric id that will be used in place of their username from the moment membership is granted.
 
 mentorship system.
 Every user will have a mentor whose real id might not be known to them. but the mentors will know their mentee

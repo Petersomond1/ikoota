@@ -30,6 +30,10 @@ import surveyAdminRoutes from './surveyAdminRoutes.js';
 import classRoutes from './classRoutes.js';
 import classAdminRoutes from './classAdminRoutes.js';
 
+// ❌ REMOVED: Pyramidal mentorship routes (merged into user routes)
+// import pyramidalMentorshipAdminRoutes from './pyramidalMentorshipAdminRoutes.js';
+// import pyramidalMentorshipSimpleRoutes from './pyramidalMentorshipSimpleRoutes.js';
+
 // Communication and system routes
 import communicationRoutes from './communicationRoutes.js';
 import systemRoutes from './systemRoutes.js';
@@ -173,7 +177,15 @@ try {
   console.warn('⚠️ Continuing without class routes...');
 }
 
-// 11. Communication Routes
+// ❌ REMOVED: Pyramidal mentorship routes (merged into user routes)
+// These routes are now available at:
+// • Admin routes: /api/users/admin/mentorship/*
+// • Simple routes: /api/users/mentorship/*
+console.log('ℹ️ Pyramidal mentorship routes merged into user routes');
+console.log('   🏛️ Admin mentorship endpoints: /api/users/admin/mentorship/*');
+console.log('   🏛️ Simple mentorship endpoints: /api/users/mentorship/*');
+
+// 12. Communication Routes
 console.log('🔗 Mounting communication routes at /communication...');
 try {
   router.use('/communication', communicationRoutes);
@@ -441,8 +453,10 @@ router.get('/', (req, res) => {
       },
       for_backend_developers: {
         removed_files: [
-          'routes/identityRoutes.js',
-          'routes/identityAdminRoutes.js'
+          'routes/identityRoutes.js (deleted - merged into userRoutes.js)',
+          'routes/identityAdminRoutes.js (deleted - merged into userAdminRoutes.js)',
+          'routes/pyramidalMentorshipAdminRoutes.js (deleted - merged into userAdminRoutes.js)',
+          'routes/pyramidalMentorshipSimpleRoutes.js (deleted - merged into userRoutes.js)'
         ],
         updated_files: [
           'routes/userRoutes.js (added identity endpoints)',

@@ -52,6 +52,12 @@ const Admin = () => {
     } else if (path.includes('survey-controls')) {
       // ✅ ADD: Handle survey controls route
       setSelectedItem('Survey Controls');
+    } else if (path.includes('converseidcontrols')) {
+      // ✅ ADD: Handle converse ID controls route
+      setSelectedItem('ConverseIdControls');
+    } else if (path.includes('mentorshipcontrols')) {
+      // ✅ ADD: Handle mentorship controls route
+      setSelectedItem('MentorshipControls');
     }
   }, [location.pathname]);
 

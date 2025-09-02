@@ -43,6 +43,8 @@ import FullMembershipReviewControls from './components/admin/FullMembershipRevie
 // ✅ NEW: Import the new admin components
 import MembershipReviewControls from './components/admin/MembershipReviewControls';
 import SurveyControls from './components/admin/SurveyControls';
+import ConverseIdControls from './components/admin/ConverseIdControls';
+import MentorshipControls from './components/admin/MentorshipControls';
 
 // Towncrier components
 import Towncrier from './components/towncrier/Towncrier';
@@ -288,6 +290,12 @@ function App() {
                   
                   {/* ✅ NEW: Survey Controls Route */}
                   <Route path="survey-controls" element={<SurveyControls />} />
+                  
+                  {/* ✅ NEW: Converse ID Controls Route */}
+                  <Route path="converseidcontrols" element={<ConverseIdControls />} />
+                  
+                  {/* ✅ NEW: Mentorship Controls Route */}
+                  <Route path="mentorshipcontrols" element={<MentorshipControls />} />
                   
                   {/* ✅ ADMIN MEMBERSHIP MANAGEMENT ROUTES */}
                   <Route path="membership/info" element={<FullMembershipInfo />} />

@@ -40,7 +40,7 @@ import rateLimit from 'express-rate-limit';
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 300, // limit each IP to 300 requests per windowMs (increased for development)
   message: 'Too many requests from this IP'
 });
 
@@ -49,7 +49,7 @@ app.use('/api/', limiter);
 // Stricter limits for admin endpoints
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: 150, // Increased for development (was 50)
   message: 'Admin rate limit exceeded'
 });
 

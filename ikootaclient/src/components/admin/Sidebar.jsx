@@ -24,7 +24,9 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
         return 0;
       }
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 120000, // Refresh every 2 minutes (was 30 seconds)
+    refetchOnWindowFocus: false,
+    staleTime: 60000, // Data stays fresh for 1 minute
     retry: 1
   });
 
@@ -56,7 +58,9 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
         }
       }
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 150000, // Refresh every 2.5 minutes (was 30 seconds)
+    refetchOnWindowFocus: false,
+    staleTime: 90000, // Data stays fresh for 1.5 minutes
     retry: 1
   });
 
@@ -74,7 +78,9 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
         return 0;
       }
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 180000, // Refresh every 3 minutes (was 30 seconds)
+    refetchOnWindowFocus: false,
+    staleTime: 120000, // Data stays fresh for 2 minutes
     retry: 1
   });
 
@@ -105,6 +111,20 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
       label: 'Survey Controls',
       icon: '📋',
       badge: pendingSurveysCount // Add badge count
+    },
+    // ✅ ADD: Converse ID Controls item
+    {
+      name: 'ConverseIdControls',
+      to: 'converseidcontrols',
+      label: 'Converse ID Controls',
+      icon: '🔐',
+    },
+    // ✅ ADD: Mentorship Controls item
+    {
+      name: 'MentorshipControls',
+      to: 'mentorshipcontrols',
+      label: 'Mentorship Controls',
+      icon: '🏛️',
     }
 
 

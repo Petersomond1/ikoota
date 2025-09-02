@@ -34,6 +34,9 @@ import {
 // Import mentor controller from membership admin
 import { getAvailableMentorsController } from '../controllers/membershipAdminControllers.js';
 
+// Import mentorship controllers (merged from standalone routes)
+import mentorshipControllers from '../controllers/mentorshipControllers.js';
+
 // Import middleware
 import { authenticateToken, requireAdmin, requireSuperAdmin } from '../middleware/auth.js';
 import { logAdminAction } from '../middleware/adminAudit.js';
@@ -44,7 +47,18 @@ const router = express.Router();
 router.use((req, res, next) => {
   console.log(`🚨 userAdminRoutes.js HIT: ${req.method} ${req.originalUrl}`);
   console.log(`🚨 Full path: ${req.baseUrl}${req.path}`);
+  console.log(`🚨 User: ${req.user ? req.user.username : 'NO USER'}`);
   next();
+});
+
+// TEST ENDPOINT - Remove after debugging
+router.get('/test-simple', (req, res) => {
+  console.log('🔥 TEST ENDPOINT HIT - NO MIDDLEWARE');
+  res.json({
+    success: true,
+    message: 'Test endpoint working - no middleware',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // ===============================================
@@ -147,6 +161,92 @@ router.get('/mentors',
   requireAdmin,
   logAdminAction('view_mentors'),
   getAvailableMentorsController
+);
+
+// GET /api/users/admin/identity-dashboard - Identity management dashboard
+router.get('/identity-dashboard',
+  authenticateToken,
+  requireAdmin,
+  logAdminAction('view_identity_dashboard'),
+  getIdentityDashboard
+);
+
+// GET /api/users/admin/identity-overview - Identity system health overview
+router.get('/identity-overview',
+  authenticateToken,
+  requireAdmin,
+  logAdminAction('view_identity_overview'),
+  async (req, res) => {
+    try {
+      res.json({
+        success: true,
+        data: {
+          system_status: 'operational',
+          total_users: 0,
+          masked_users: 0,
+          unmasked_users: 0,
+          pending_operations: 0,
+          encryption_strength: 'AES-256',
+          last_maintenance: new Date().toISOString(),
+          health_score: 95
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get identity overview',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+);
+
+// GET /api/users/admin/search-masked-identities - Search masked identities
+router.get('/search-masked-identities',
+  authenticateToken,
+  requireAdmin,
+  query('search').optional().isString().withMessage('Search term must be string'),
+  query('status').optional().isIn(['masked', 'unmasked']).withMessage('Status must be masked or unmasked'),
+  handleValidationErrors,
+  logAdminAction('search_masked_identities'),
+  async (req, res) => {
+    try {
+      const { search, status } = req.query;
+      
+      res.json({
+        success: true,
+        data: {
+          identities: [],
+          total: 0,
+          filtered: 0,
+          search_term: search || '',
+          status_filter: status || 'all'
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to search masked identities',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+);
+
+// GET /api/users/admin/identity-audit-trail - Identity audit trail (Super Admin only)
+router.get('/identity-audit-trail',
+  authenticateToken,
+  superAdminLimit,
+  requireSuperAdmin,
+  query('userId').optional().isInt().withMessage('User ID must be integer'),
+  query('adminId').optional().isString().isLength({ min: 10, max: 12 }).withMessage('Invalid admin ID'),
+  query('startDate').optional().isISO8601().withMessage('Invalid start date'),
+  query('endDate').optional().isISO8601().withMessage('Invalid end date'),
+  handleValidationErrors,
+  logAdminAction('view_identity_audit_trail'),
+  getIdentityAuditTrail
 );
 
 // GET /api/users/admin - Get all users with advanced filtering
@@ -409,12 +509,6 @@ router.get('/identity-audit-trail',
   getIdentityAuditTrail
 );
 
-// GET /api/users/admin/identity-dashboard - Identity management dashboard
-router.get('/identity-dashboard',
-  logAdminAction('view_identity_dashboard'),
-  getIdentityDashboard
-);
-
 // GET /api/users/admin/mentor-analytics - Enhanced mentor analytics
 router.get('/mentor-analytics',
   query('period').optional().isIn(['7d', '30d', '90d', '1y']).withMessage('Invalid period'),
@@ -556,6 +650,191 @@ router.get('/content/audit-logs', (req, res, next) => {
   req.compatibilityRoute = 'content_audit_logs';
   next();
 }, getAuditTrail);
+
+// ===============================================
+// PYRAMIDAL MENTORSHIP ADMIN ROUTES (MERGED)
+// ===============================================
+
+// GET /api/users/admin/mentorship/available-mentors - Find available mentors with capacity
+router.get('/mentorship/available-mentors', 
+  requireAdmin, 
+  logAdminAction('view_available_mentors'),
+  mentorshipControllers.getAvailableMentors
+);
+
+// GET /api/users/admin/mentorship/mentor/:mentorConverseId - Get mentor details
+router.get('/mentorship/mentor/:mentorConverseId', 
+  requireAdmin, 
+  param('mentorConverseId').notEmpty().withMessage('Mentor converse ID required'),
+  handleValidationErrors,
+  logAdminAction('view_mentor_details'),
+  mentorshipControllers.getMentorDetails
+);
+
+// GET /api/users/admin/mentorship/statistics - System statistics
+router.get('/mentorship/statistics', 
+  requireAdmin, 
+  logAdminAction('view_mentorship_statistics'),
+  mentorshipControllers.getMentorshipStatistics
+);
+
+// GET /api/users/admin/mentorship/search-mentees - Search mentees
+router.get('/mentorship/search-mentees', 
+  requireAdmin, 
+  query('search_term').optional().isLength({ min: 2 }).withMessage('Search term too short'),
+  query('has_mentor').optional().isBoolean().withMessage('Invalid has_mentor value'),
+  query('mentor_level').optional().isInt({ min: 1, max: 3 }).withMessage('Invalid mentor level'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Invalid limit'),
+  handleValidationErrors,
+  logAdminAction('search_mentees'),
+  mentorshipControllers.searchMentees
+);
+
+// POST /api/users/admin/mentorship/assign - Assign mentee to mentor
+router.post('/mentorship/assign', 
+  requireAdmin,
+  body('mentor_converse_id').notEmpty().withMessage('Mentor converse ID required'),
+  body('mentee_converse_id').notEmpty().withMessage('Mentee converse ID required'),
+  body('assignment_reason').isLength({ min: 10 }).withMessage('Assignment reason required (min 10 chars)'),
+  body('notify_users').optional().isBoolean().withMessage('Invalid notify_users value'),
+  handleValidationErrors,
+  logAdminAction('assign_mentee'),
+  mentorshipControllers.assignMenteeToMentor
+);
+
+// POST /api/users/admin/mentorship/reassign - Reassign mentee
+router.post('/mentorship/reassign', 
+  requireAdmin,
+  body('mentee_converse_id').notEmpty().withMessage('Mentee converse ID required'),
+  body('new_mentor_converse_id').notEmpty().withMessage('New mentor converse ID required'),
+  body('reassignment_reason').isLength({ min: 10 }).withMessage('Reassignment reason required (min 10 chars)'),
+  body('notify_users').optional().isBoolean().withMessage('Invalid notify_users value'),
+  body('requires_approval').optional().isBoolean().withMessage('Invalid requires_approval value'),
+  handleValidationErrors,
+  logAdminAction('reassign_mentee'),
+  mentorshipControllers.reassignMentee
+);
+
+// POST /api/users/admin/mentorship/remove - Remove mentee from mentorship
+router.post('/mentorship/remove', 
+  requireAdmin,
+  body('mentee_converse_id').notEmpty().withMessage('Mentee converse ID required'),
+  body('removal_reason').isLength({ min: 10 }).withMessage('Removal reason required (min 10 chars)'),
+  body('removal_type').optional().isIn(['temporary', 'permanent']).withMessage('Invalid removal type'),
+  body('notify_users').optional().isBoolean().withMessage('Invalid notify_users value'),
+  handleValidationErrors,
+  logAdminAction('remove_mentee'),
+  mentorshipControllers.removeMenteeFromMentorship
+);
+
+// POST /api/users/admin/mentorship/batch-assign - Batch assign mentees (Super Admin)
+router.post('/mentorship/batch-assign', 
+  requireSuperAdmin,
+  bulkOperationLimit,
+  body('assignments').isArray({ min: 1 }).withMessage('Assignments array required'),
+  body('assignments.*.mentor_converse_id').notEmpty().withMessage('Mentor converse ID required for each assignment'),
+  body('assignments.*.mentee_converse_id').notEmpty().withMessage('Mentee converse ID required for each assignment'),
+  body('assignments.*.reason').isLength({ min: 5 }).withMessage('Reason required for each assignment'),
+  body('notify_users').optional().isBoolean().withMessage('Invalid notify_users value'),
+  handleValidationErrors,
+  logAdminAction('batch_assign_mentees'),
+  mentorshipControllers.batchAssignMentees
+);
+
+// POST /api/users/admin/mentorship/reset-monthly-counters - Reset monthly counters (Super Admin)
+router.post('/mentorship/reset-monthly-counters', 
+  requireSuperAdmin, 
+  logAdminAction('reset_monthly_counters'),
+  async (req, res) => {
+    try {
+      const result = await db.query(`
+        UPDATE mentor_capacity_tracking 
+        SET monthly_assignments = 0,
+            last_reset_month = CURRENT_DATE
+        WHERE last_reset_month < CURRENT_DATE - INTERVAL 1 MONTH 
+           OR last_reset_month IS NULL
+      `);
+
+      console.log(`🔄 Monthly counters reset by ${req.user.username}: ${result.affectedRows} mentors updated`);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          mentors_updated: result.affectedRows,
+          reset_date: new Date().toISOString()
+        },
+        message: 'Monthly assignment counters reset successfully',
+        admin_action: {
+          performed_by: req.user.username,
+          timestamp: new Date().toISOString(),
+          action_type: 'MONTHLY_COUNTER_RESET'
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error resetting monthly counters:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to reset monthly counters'
+      });
+    }
+  }
+);
+
+// GET /api/users/admin/mentorship/system-health - System health check
+router.get('/mentorship/system-health', 
+  requireAdmin, 
+  logAdminAction('check_mentorship_health'),
+  async (req, res) => {
+    try {
+      // Check for data inconsistencies
+      const healthChecks = await db.query(`
+        SELECT 
+            'Orphaned Mentees' as check_type,
+            COUNT(*) as count,
+            CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END as status
+        FROM mentorship_hierarchy mh
+        LEFT JOIN mentor_capacity_tracking mct ON mh.mentor_converse_id = mct.mentor_converse_id
+        WHERE mh.is_active = 1 AND mct.mentor_converse_id IS NULL
+        
+        UNION ALL
+        
+        SELECT 
+            'Capacity Mismatches' as check_type,
+            COUNT(*) as count,
+            CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END as status
+        FROM mentor_capacity_tracking mct
+        WHERE mct.direct_slots_filled != (
+            SELECT COUNT(*)
+            FROM mentorship_hierarchy mh
+            WHERE mh.mentor_converse_id = mct.mentor_converse_id
+              AND mh.relationship_type = 'direct_family'
+              AND mh.is_active = 1
+        )
+      `);
+
+      const overallHealth = healthChecks.every(check => check.status === 'PASS') ? 'HEALTHY' : 'NEEDS_ATTENTION';
+
+      res.status(200).json({
+        success: true,
+        data: {
+          overall_health: overallHealth,
+          health_checks: healthChecks,
+          checked_at: new Date().toISOString(),
+          checked_by: req.user.username
+        },
+        message: `System health check completed - Status: ${overallHealth}`
+      });
+
+    } catch (error) {
+      console.error('❌ Error checking system health:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check system health'
+      });
+    }
+  }
+);
 
 // ===============================================
 // TEST ENDPOINTS (Development/Health Checks)

@@ -529,8 +529,8 @@ export const getAPIInformation = async (req, res) => {
                     'classAdminRoutes.js - Class creation, management, analytics'
                 ],
                 identitySystem: [
-                    'identityRoutes.js - Converse/mentor ID operations, privacy',
-                    'identityAdminRoutes.js - Identity administration, verification'
+                    'userRoutes.js - Includes merged identity operations, privacy',
+                    'userAdminRoutes.js - Includes merged identity administration, verification'
                 ],
                 communication: [
                     'communicationRoutes.js - Email, SMS, notifications, future video/audio'
@@ -1054,8 +1054,8 @@ export const getDetailedRoutes = async (req, res) => {
                     'contentRoutes.js - Unified chats, teachings, comments + admin endpoints',
                     'classRoutes.js - Class enrollment, content access, participation',
                     'classAdminRoutes.js - Class creation, management, analytics',
-                    'identityRoutes.js - Converse/mentor ID operations, privacy',
-                    'identityAdminRoutes.js - Identity administration, verification',
+                    'userRoutes.js - Includes merged identity operations, privacy',
+                    'userAdminRoutes.js - Includes merged identity administration, verification',
                     'communicationRoutes.js - Email, SMS, notifications, future video/audio'
                 ],
                 nextPhase: 'Controller and service reorganization according to specifications'

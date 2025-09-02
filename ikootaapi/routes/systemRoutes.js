@@ -229,8 +229,8 @@ router.get('/routes', (req, res) => {
         'classAdminRoutes.js - Admin class management'
       ],
       identitySystem: [
-        'identityRoutes.js - Converse/mentor ID operations',
-        'identityAdminRoutes.js - Admin identity control'
+        'userRoutes.js - Includes merged identity operations',
+        'userAdminRoutes.js - Includes merged identity admin control'
       ],
       communication: [
         'communicationRoutes.js - Email, SMS, notifications, future video/audio'
@@ -372,8 +372,8 @@ if (process.env.NODE_ENV === 'development') {
           'contentRoutes.js',
           'classRoutes.js',
           'classAdminRoutes.js',
-          'identityRoutes.js',
-          'identityAdminRoutes.js',
+          'userRoutes.js (includes merged identity)',
+          'userAdminRoutes.js (includes merged identity admin)',
           'communicationRoutes.js'
         ],
         nextPhase: 'Controller and service reorganization'
