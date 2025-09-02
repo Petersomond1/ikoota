@@ -8,12 +8,9 @@
   background: #f7f7f736;
   border-radius: 12px;
   box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  overflow: hidden; /* Prevent body scrolling */
+  position: relative;
 }
-
-
-
-
 
 /* ============================================
    ENHANCED TOP SECTION STYLING FOR CHAT.JSX
@@ -35,6 +32,7 @@
   position: relative;
   overflow: hidden;
   min-height: 80px;
+  flex-shrink: 0; /* Prevent shrinking */
 }
 
 /* Animated background pattern */
@@ -122,15 +120,11 @@
 
 .top .chat_top_texts {
   flex: 1;
-  /* max-width: 450px; */
   width: fit-content;
-  /* height: 80px; */
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* gap: 10px; */
   padding: 5px 5px;
-  /* margin: 0 2px; */
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(15px);
   border-radius: 15px;
@@ -141,19 +135,6 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
   box-sizing: content-box;
 }
-
-/* .top .chat_top_texts::before {
-  content: '📋';
-  position: absolute;
-  top: -10px;
-  left: 15px;
-  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
-  color: white;
-  padding: 6px 10px;
-  border-radius: 15px;
-  font-size: 14px;
-  box-shadow: 0 3px 12px rgba(243, 156, 18, 0.4);
-} */
 
 .top .chat_top_texts span,
 .top .chat_top_texts p {
@@ -215,7 +196,6 @@
 
 /* Enhanced content ID */
 .top .chat_top_texts .content-id {
-  /* background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%) !important; */
   color: white !important;
   font-weight: bold;
   font-family: 'Courier New', monospace;
@@ -427,191 +407,22 @@
 }
 
 /* =======================================
-   RESPONSIVE DESIGN
+   CENTER SECTION - FIXED OVERFLOW BEHAVIOR
    ======================================= */
 
-@media (max-width: 1024px) {
-  .top {
-    padding: 14px 18px;
-  }
-  
-  .top .user img {
-    width: 60px;
-    height: 60px;
-  }
-  
-  .top .chat_top_texts {
-    max-width: 350px;
-    margin: 0 15px;
-    padding: 12px 16px;
-  }
-  
-  .top-action-buttons {
-    margin-left: 15px;
-    gap: 10px;
-  }
-  
-  .top-action-buttons .action-btn {
-    padding: 10px 16px;
-    font-size: 13px;
-    min-width: 85px;
-  }
-  
-  .chat-top-icons img {
-    width: 38px;
-    height: 38px;
-    padding: 8px;
-  }
-}
-
-@media (max-width: 768px) {
-  .top {
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-    gap: 20px;
-    min-height: auto;
-  }
-  
-  .top .user {
-    order: 1;
-  }
-  
-  .top .chat_top_texts {
-    order: 2;
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    text-align: center;
-  }
-  
-  .chat-top-icons {
-    order: 3;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 12px;
-  }
-  
-  .top-action-buttons {
-    order: 4;
-    margin-left: 0;
-    flex-wrap: wrap;
-    justify-content: center;
-    width: 100%;
-  }
-  
-  .top-action-buttons .action-btn {
-    flex: 1;
-    min-width: calc(33.333% - 8px);
-  }
-}
-
-@media (max-width: 480px) {
-  .top .user img {
-    width: 55px;
-    height: 55px;
-  }
-  
-  .top .chat_top_texts span,
-  .top .chat_top_texts p {
-    font-size: 13px;
-    padding: 8px 12px;
-  }
-  
-  .chat-top-icons img {
-    width: 35px;
-    height: 35px;
-    padding: 7px;
-  }
-  
-  .top-action-buttons .action-btn {
-    padding: 10px 14px;
-    font-size: 12px;
-    min-width: calc(50% - 6px);
-  }
-  
-  .top-action-buttons {
-    gap: 8px;
-  }
-}
-
-/* =======================================
-   ACCESSIBILITY ENHANCEMENTS
-   ======================================= */
-
-@media (prefers-reduced-motion: reduce) {
-  .top::before,
-  .top .user img,
-  .chat-top-icons img,
-  .top-action-buttons .action-btn {
-    animation: none;
-    transition: none;
-  }
-  
-  .top .user img:hover,
-  .chat-top-icons img:hover,
-  .top-action-buttons .action-btn:hover {
-    transform: none;
-  }
-}
-
-@media (prefers-contrast: high) {
-  .top {
-    background: #000000;
-    border-bottom: 4px solid #ffffff;
-    color: #ffffff;
-  }
-  
-  .top .chat_top_texts {
-    background: rgba(255, 255, 255, 0.95);
-    border: 3px solid #000000;
-  }
-  
-  .top .chat_top_texts span,
-  .top .chat_top_texts p {
-    background: #ffffff;
-    color: #000000;
-    border: 2px solid #000000;
-  }
-  
-  .chat-top-icons img {
-    border: 3px solid #ffffff;
-    background: rgba(255, 255, 255, 0.9);
-  }
-  
-  .top-action-buttons .action-btn {
-    border: 3px solid #ffffff;
-  }
-}
-
-/* High contrast focus indicators */
-@media (prefers-contrast: high) {
-  .chat-top-icons img:focus,
-  .top-action-buttons .action-btn:focus,
-  .top .user img:focus {
-    outline: 4px solid #ffff00;
-    outline-offset: 3px;
-  }
-}
-
-
-
-
-
-
-
-
-
-
-/* Chat messages */
+/* Chat messages with proper overflow handling */
 .center {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: auto; /* Enable scrolling only within center */
+  overflow-x: hidden; /* Prevent horizontal scroll */
   padding: 12px;
   background: #f6eef021;
-  display: grid;
-  flex-direction:row;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  /* Prevent body scroll - only this container scrolls */
+  max-height: calc(100vh - 300px); /* Adjust based on header/footer height */
+  position: relative;
 }
 
 .message-heading {
@@ -657,8 +468,6 @@
   margin-left: 10px;
 }
 
-
-
 .message-heading.Own .texts {
   background: #0078ff;
   color: black;
@@ -692,34 +501,105 @@
   margin-top: 8px;
 }
 
-/* Chat input section */
+/* =======================================
+   BOTTOM SECTION - HIDDEN FORMS FUNCTIONALITY
+   ======================================= */
+
+/* Chat input section - visible by default */
 .bottom {
   padding: 10px;
   background: #ffffff13;
   border-top: 1px solid #e0e0e0;
+  flex-shrink: 0; /* Prevent shrinking */
+  position: relative;
+  z-index: 10;
 }
 
 .toggle_buttons {
   display: flex;
   justify-content: space-around;
   padding-bottom: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 25px;
+  padding: 4px;
+  margin-bottom: 20px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .toggle_buttons button {
   flex: 1;
-  padding: 8px;
+  padding: 12px 20px;
   border: none;
-  cursor: pointer;
   background: transparent;
-  font-size: 14px;
-  font-weight: bold;
-  color: #555;
-  transition: all 0.3s;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  color: #7f8c8d;
 }
 
 .toggle_buttons button.active {
-  color: #0078ff;
-  border-bottom: 2px solid #0078ff;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  box-shadow: 0 3px 10px rgba(52, 152, 219, 0.3);
+  transform: scale(1.02);
+}
+
+/* =======================================
+   HIDDEN FORMS - SLIDE UP FROM FOOTER
+   ======================================= */
+
+/* Hidden forms container */
+.hidden-bottom-forms {
+  position: fixed;
+  bottom: -400px; /* Hidden under footer initially */
+  left: 0;
+  right: 0;
+  height: 400px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3);
+  transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1500;
+  overflow-y: auto;
+  border: 2px solid rgba(52, 152, 219, 0.2);
+}
+
+/* Show forms when active */
+.hidden-bottom-forms.show {
+  bottom: 0;
+}
+
+/* Close button for hidden forms */
+.hidden-forms-close {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  z-index: 10;
+  box-shadow: 0 3px 10px rgba(231, 76, 60, 0.4);
+  transition: all 0.3s ease;
+}
+
+.hidden-forms-close:hover {
+  background: #c0392b;
+  transform: scale(1.1);
+}
+
+/* Form sections inside hidden forms */
+.hidden-form-section {
+  padding: 60px 30px 30px 30px;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* ================================================
@@ -727,7 +607,6 @@
    ================================================ */
 
 .bottom_comment input[type="text"] {
-  /* Base styling for high visibility */
   width: 100%;
   padding: 16px 20px;
   font-size: 16px;
@@ -742,8 +621,6 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   z-index: 10;
-  
-  /* Ensure high contrast */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -849,7 +726,6 @@
   gap: 30px;
   align-items: center;
   justify-content: space-between;
-  /* margin: 5px 0; */
   padding: 10px;
   background: rgba(255, 255, 255, 0.7);
   border-radius: 10px;
@@ -933,36 +809,6 @@
   box-shadow: 0 6px 15px rgba(127, 140, 141, 0.3);
 }
 
-/* Toggle buttons enhancement */
-.toggle_buttons {
-  display: flex;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 25px;
-  padding: 4px;
-  margin-top: 40px;
-  margin-bottom: 20px;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.toggle_buttons button {
-  flex: 1;
-  padding: 12px 20px;
-  border: none;
-  background: transparent;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-weight: 600;
-  color: #7f8c8d;
-}
-
-.toggle_buttons button.active {
-  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-  color: blue;
-  box-shadow: 0 3px 10px rgba(52, 152, 219, 0.3);
-  transform: scale(1.02);
-}
-
 /* File input enhancement */
 .bottom_comment input[type="file"] {
   width: 100%;
@@ -1011,81 +857,7 @@
   transform: translateY(-2px);
 }
 
-/* Responsive design for mobile */
-@media (max-width: 768px) {
-  .bottom_comment input[type="text"] {
-    font-size: 16px; /* Prevents zoom on iOS */
-    padding: 14px 16px;
-  }
-  
-  .bottom_comment::before {
-    font-size: 11px;
-    padding: 3px 8px;
-  }
-  
-  .SendButton {
-    padding: 14px 24px;
-    font-size: 15px;
-  }
-  
-  .bottom_comment .icons img {
-    width: 24px;
-    height: 24px;
-  }
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  .bottom_comment input[type="text"] {
-    border-color: #000000;
-    background: #ffffff;
-    color: #000000;
-  }
-  
-  .bottom_comment input[type="text"]:focus {
-    border-color: #000000;
-    box-shadow: 0 0 0 3px #000000;
-  }
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  .bottom_comment input[type="text"],
-  .SendButton,
-  .bottom_comment .icons img {
-    transition: none;
-  }
-  
-  .bottom_comment input[type="text"]:focus {
-    transform: none;
-  }
-  
-  .SendButton:hover {
-    transform: none;
-  }
-}
-
-/* Add to ikootaclient/src/components/iko/chat.css */
-
-/* 🎤 Recording Pulse Animation */
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.1); opacity: 0.7; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-/* 📱 Camera Modal Styles */
-.camera-modal {
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-}
-
-.camera-container {
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  border: 2px solid rgba(255, 255, 255, 0.1);
-}
-
-/* 📁 Media Step Styles */
+/* Media step styles */
 .media-step {
   padding: 20px;
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
@@ -1106,13 +878,221 @@
   font-style: italic;
 }
 
-/* 📊 Media Status Indicator */
-.media-status {
-  animation: slideIn 0.3s ease-out;
+/* =======================================
+   RESPONSIVE DESIGN
+   ======================================= */
+
+@media (max-width: 1024px) {
+  .top {
+    padding: 14px 18px;
+  }
+  
+  .top .user img {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .top .chat_top_texts {
+    max-width: 350px;
+    margin: 0 15px;
+    padding: 12px 16px;
+  }
+  
+  .top-action-buttons {
+    margin-left: 15px;
+    gap: 10px;
+  }
+  
+  .top-action-buttons .action-btn {
+    padding: 10px 16px;
+    font-size: 13px;
+    min-width: 85px;
+  }
+  
+  .chat-top-icons img {
+    width: 38px;
+    height: 38px;
+    padding: 8px;
+  }
 }
 
-.recording-status {
-  animation: slideIn 0.3s ease-out, pulse 2s infinite;
+@media (max-width: 768px) {
+  .top {
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    gap: 20px;
+    min-height: auto;
+  }
+  
+  .top .user {
+    order: 1;
+  }
+  
+  .top .chat_top_texts {
+    order: 2;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    text-align: center;
+  }
+  
+  .chat-top-icons {
+    order: 3;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+  
+  .top-action-buttons {
+    order: 4;
+    margin-left: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .top-action-buttons .action-btn {
+    flex: 1;
+    min-width: calc(33.333% - 8px);
+  }
+  
+  .bottom_comment input[type="text"] {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 14px 16px;
+  }
+  
+  .bottom_comment::before {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+  
+  .SendButton {
+    padding: 14px 24px;
+    font-size: 15px;
+  }
+  
+  .bottom_comment .icons img {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .hidden-bottom-forms {
+    height: 350px;
+    bottom: -350px;
+  }
+}
+
+@media (max-width: 480px) {
+  .top .user img {
+    width: 55px;
+    height: 55px;
+  }
+  
+  .top .chat_top_texts span,
+  .top .chat_top_texts p {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  
+  .chat-top-icons img {
+    width: 35px;
+    height: 35px;
+    padding: 7px;
+  }
+  
+  .top-action-buttons .action-btn {
+    padding: 10px 14px;
+    font-size: 12px;
+    min-width: calc(50% - 6px);
+  }
+  
+  .top-action-buttons {
+    gap: 8px;
+  }
+  
+  .hidden-bottom-forms {
+    height: 300px;
+    bottom: -300px;
+  }
+}
+
+/* =======================================
+   ACCESSIBILITY ENHANCEMENTS
+   ======================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .top::before,
+  .top .user img,
+  .chat-top-icons img,
+  .top-action-buttons .action-btn,
+  .hidden-bottom-forms {
+    animation: none;
+    transition: none;
+  }
+  
+  .top .user img:hover,
+  .chat-top-icons img:hover,
+  .top-action-buttons .action-btn:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .top {
+    background: #000000;
+    border-bottom: 4px solid #ffffff;
+    color: #ffffff;
+  }
+  
+  .top .chat_top_texts {
+    background: rgba(255, 255, 255, 0.95);
+    border: 3px solid #000000;
+  }
+  
+  .top .chat_top_texts span,
+  .top .chat_top_texts p {
+    background: #ffffff;
+    color: #000000;
+    border: 2px solid #000000;
+  }
+  
+  .chat-top-icons img {
+    border: 3px solid #ffffff;
+    background: rgba(255, 255, 255, 0.9);
+  }
+  
+  .top-action-buttons .action-btn {
+    border: 3px solid #ffffff;
+  }
+  
+  .bottom_comment input[type="text"] {
+    border-color: #000000;
+    background: #ffffff;
+    color: #000000;
+  }
+  
+  .bottom_comment input[type="text"]:focus {
+    border-color: #000000;
+    box-shadow: 0 0 0 3px #000000;
+  }
+}
+
+/* High contrast focus indicators */
+@media (prefers-contrast: high) {
+  .chat-top-icons img:focus,
+  .top-action-buttons .action-btn:focus,
+  .top .user img:focus {
+    outline: 4px solid #ffff00;
+    outline-offset: 3px;
+  }
+}
+
+/* Recording and media animations */
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes slideIn {
@@ -1126,27 +1106,33 @@
   }
 }
 
-/* 🎯 Enhanced Icon Interactions */
-.step-indicator .icons img:hover {
-  transform: scale(1.2);
-  filter: brightness(1.2) contrast(1.1);
+.media-status {
+  animation: slideIn 0.3s ease-out;
 }
 
-.step-indicator .icons img:active {
-  transform: scale(0.95);
+.recording-status {
+  animation: slideIn 0.3s ease-out, pulse 2s infinite;
 }
 
-/* 📹 Camera Controls */
-.camera-controls button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+.recording-status::before {
+  content: "🔴";
+  display: inline-block;
+  animation: pulse 1s infinite;
+  margin-right: 5px;
 }
 
-.camera-controls button:active {
-  transform: translateY(0);
+/* Camera modal styles */
+.camera-modal {
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
 }
 
-/* 🔴 Recording State */
+.camera-container {
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Recording states */
 .icons img[alt="Microphone"].recording {
   filter: hue-rotate(0deg) saturate(2) brightness(1.2);
   border: 2px solid #e74c3c;
@@ -1154,7 +1140,6 @@
   padding: 2px;
 }
 
-/* 📸 Capture State */
 .icons img[alt="Camera"].capturing {
   filter: hue-rotate(60deg) saturate(1.5) brightness(1.1);
   border: 2px solid #f39c12;
@@ -1162,13 +1147,7 @@
   padding: 2px;
 }
 
-/* ✅ Success State */
-.media-status {
-  border: 1px solid #27ae60;
-  color: #27ae60;
-}
-
-/* 🎨 Button Enhancement for Loading States */
+/* Button disabled states */
 .SendButton:disabled {
   background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
   cursor: not-allowed;
@@ -1178,36 +1157,4 @@
 .SendButton:disabled:hover {
   transform: none;
   box-shadow: none;
-}
-
-/* 📱 Mobile Responsive Media Controls */
-@media (max-width: 768px) {
-  .camera-modal .camera-container {
-    width: 95%;
-    height: auto;
-    max-height: 90%;
-  }
-  
-  .camera-controls {
-    flex-wrap: wrap;
-    gap: 10px !important;
-  }
-  
-  .camera-controls button {
-    padding: 10px 16px;
-    font-size: 14px;
-  }
-  
-  .step-indicator .icons img {
-    width: 20px;
-    height: 20px;
-  }
-}
-
-/* 🎵 Audio Recording Visualization */
-.recording-status::before {
-  content: "🔴";
-  display: inline-block;
-  animation: pulse 1s infinite;
-  margin-right: 5px;
 }

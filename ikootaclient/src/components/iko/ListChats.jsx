@@ -309,12 +309,11 @@ const ListChats = ({ setActiveItem, deactivateListComments }) => {
   // Loading state
   if (loading) {
     return (
-      <div className='listchats_container' style={{border:"3px solid brown"}}>
-        <div className="loading-message">
+      <div className='listchats_container'>
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
           <p>Loading content...</p>
-          <div style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
-            Fetching chats, teachings, and comments...
-          </div>
+          <span className="loading-detail">Fetching chats and teachings...</span>
         </div>
       </div>
     );
@@ -323,33 +322,24 @@ const ListChats = ({ setActiveItem, deactivateListComments }) => {
   // Error state
   if (error) {
     return (
-      <div className='listchats_container' style={{border:"3px solid brown"}}>
-        <div className="error-message">
-          <h4 style={{color: 'red', marginBottom: '10px'}}>Error Loading Content</h4>
-          <p style={{color: 'red', marginBottom: '15px'}}>{error}</p>
+      <div className='listchats_container'>
+        <div className="error-state">
+          <span className="error-icon">⚠️</span>
+          <h4>Unable to Load Content</h4>
+          <p>{error}</p>
           <button 
             onClick={() => window.location.reload()}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
+            className="retry-button"
           >
-            Retry
+            🔄 Retry
           </button>
-          <div style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
-            If this persists, check the browser console for details.
-          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className='listchats_container' style={{border:"3px solid brown"}}>
+    <div className='listchats_container'>
       {/* Search Header */}
       <div className="search">
         <div className="searchbar">
@@ -488,53 +478,16 @@ const ListChats = ({ setActiveItem, deactivateListComments }) => {
                 )}
               </div>
 
-              {/* Comments Preview */}
-              <div className="comments-preview" style={{marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '8px'}}>
+              {/* Comments Count */}
+              <div className="comments-count-section">
                 {commentsForItem && commentsForItem.length > 0 ? (
-                  <div className="comments">
-                    <h4 style={{margin: '0 0 8px 0', fontSize: '14px', color: '#333'}}>
-                      Comments ({commentsForItem.length}):
-                    </h4>
-                    {commentsForItem.slice(0, 2).map((comment, commentIndex) => (
-                      <div 
-                        key={comment.id || `comment-${item.id}-${commentIndex}`} 
-                        className="comment-item"
-                        style={{
-                          marginBottom: '6px',
-                          padding: '6px',
-                          backgroundColor: '#f8f9fa',
-                          borderRadius: '3px',
-                          fontSize: '12px'
-                        }}
-                      >
-                        <div style={{marginBottom: '2px'}}>
-                          <strong>By:</strong> {comment.user_id || comment.username || 'Unknown'}
-                          <span style={{marginLeft: '10px', color: '#666'}}>
-                            {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : 'Unknown date'}
-                          </span>
-                        </div>
-                        {(comment.comment || comment.content || comment.text) && (
-                          <div style={{color: '#555'}}>
-                            {(() => {
-                              const commentText = comment.comment || comment.content || comment.text;
-                              return commentText.length > 50 ? 
-                                `"${commentText.substring(0, 50)}..."` : 
-                                `"${commentText}"`;
-                            })()}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    {commentsForItem.length > 2 && (
-                      <p className="more-comments" style={{fontSize: '11px', color: '#666', margin: '5px 0 0 0'}}>
-                        +{commentsForItem.length - 2} more comments
-                      </p>
-                    )}
-                  </div>
+                  <span className="comments-count">
+                    💬 {commentsForItem.length} {commentsForItem.length === 1 ? 'comment' : 'comments'}
+                  </span>
                 ) : (
-                  <div className="no-comments" style={{fontSize: '12px', color: '#999'}}>
-                    No comments for {getContentIdentifier(item)}
-                  </div>
+                  <span className="no-comments-indicator">
+                    💭 No comments yet
+                  </span>
                 )}
               </div>
             </div>

@@ -1,6 +1,3 @@
-
-
-
 /* ikootaclient/src/components/iko/iko.css - FULL PAGE SCROLLABLE VERSION */
 
 /* ================================================
@@ -68,6 +65,19 @@
 /* Remove the ::before pseudo-element since we want natural scrolling */
 
 /* ================================================
+   SIDEBAR LEFT - COMBINED USERINFO + LISTCHATS
+   ================================================ */
+
+.sidebar-left {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  gap: 16px;
+  padding-right: 8px;
+}
+
+/* ================================================
    LISTCHATS CONTAINER - SCROLLABLE
    ================================================ */
 
@@ -75,7 +85,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
- height: auto;
+  height: auto;
   border-right: 2px solid #ddd;
   background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
   /* Remove overflow: hidden - allow natural scrolling */
@@ -447,6 +457,11 @@
 .footer-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.footer-btn.dashboard-btn {
+  background: #2196f3;
+  color: white;
 }
 
 .footer-btn.towncrier-btn {

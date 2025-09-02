@@ -1,36 +1,203 @@
+/* ikootaclient/src/components/iko/userinfo.css */
+
+.userinfo-container {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 200px;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .userinfo {
-    padding: 10px;
-    display: flex;
-    align-items: center;
-    background-color: red;
-    border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background-color: transparent;
+}
+
+.userinfo .user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.userinfo .user img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2px;
+}
+
+.userinfo .user h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2c3e50;
+  letter-spacing: -0.3px;
+}
+
+.userinfo .icons {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: rgba(103, 126, 234, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: #5f6368;
+}
+
+.icon-btn:hover {
+  background: rgba(103, 126, 234, 0.15);
+  transform: scale(1.05);
+  color: #667eea;
+}
+
+.icon-btn:active {
+  transform: scale(0.95);
+}
+
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.user-details-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(103, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border-radius: 12px;
+}
+
+.user-details-info p {
+  margin: 0;
+  font-size: 13px;
+  color: #5f6368;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.user-details-info p strong {
+  color: #2c3e50;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.user-details-info p span {
+  font-weight: 500;
+  color: #5f6368;
+}
+
+.session-time {
+  padding: 2px 8px;
+  background: #4caf50;
+  color: white !important;
+  border-radius: 12px;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+/* Loading State */
+.userinfo-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  color: #5f6368;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(103, 126, 234, 0.2);
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error State */
+.userinfo-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px;
+  color: #f44336;
+}
+
+.error-icon {
+  font-size: 24px;
+}
+
+/* Responsive Design */
+@media (max-width: 1400px) {
+  .userinfo-container {
+    padding: 16px;
   }
   
-  .user {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-    margin-right: 10px;
+  .userinfo .user img {
+    width: 42px;
+    height: 42px;
   }
   
-  .user img {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-right: 5px;
+  .userinfo .user h4 {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .userinfo-container {
+    padding: 12px;
   }
   
-  .icons {
-    display: flex;
-    align-items: center;
-    gap: 20px;
+  .user-details-info {
+    padding: 8px;
   }
   
-  .icons img {
-    width: 20px;
-    height: 20px;
-    margin-right: 10px;
-    cursor: pointer;
+  .user-details-info p {
+    font-size: 12px;
   }
+}

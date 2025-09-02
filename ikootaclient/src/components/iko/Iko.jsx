@@ -8,6 +8,7 @@ import './iko.css';
 import ListChats from './ListChats';
 import Chat from './Chat';
 import ListComments from './ListComments';
+import UserInfo from './Userinfo';
 import { useFetchChats } from '../service/useFetchChats';
 import { useFetchComments } from '../service/useFetchComments';
 import { useFetchTeachings } from '../service/useFetchTeachings';
@@ -279,11 +280,17 @@ const Iko = ({ isNested = false }) => {
       
       {/* ✅ FIXED: Main Chat Viewport with safe array props */}
       <div className="iko_viewport">
-        <ListChats 
-          setActiveItem={handleContentSelect}
-          deactivateListComments={deactivateListComments}
-          isInAdmin={isInAdmin}
-        />
+        {/* Left Panel */}
+        <div className="sidebar-left">
+          <UserInfo />
+          <ListChats 
+            setActiveItem={handleContentSelect}
+            deactivateListComments={deactivateListComments}
+            isInAdmin={isInAdmin}
+          />
+        </div>
+        
+        {/* Center Panel */}
         <Chat 
           activeItem={activeItem} 
           activeComment={activeComment}
@@ -291,6 +298,8 @@ const Iko = ({ isNested = false }) => {
           teachings={safeTeachings}
           isInAdmin={isInAdmin}
         />
+        
+        {/* Right Panel */}
         <ListComments 
           activeItem={activeItem}
           setActiveComment={handleCommentSelect}
