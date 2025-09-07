@@ -30,9 +30,22 @@
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   flex-wrap: wrap;
   gap: 8px;
-  height: 60px; /* Fixed height */
+  height: fit-content; /* Fixed height */
   flex-shrink: 0; /* Don't shrink */
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  font-size: 15px;
 }
+
+
+.user-info {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 20px;
+}
+
 
 .footnote {
   position: sticky;
@@ -106,9 +119,9 @@
   width: 15%;
 }
 
-/* Adjust viewport padding when banners are present */
+/* Adjust viewport padding when banners are present.   Space for banners */
 .towncrier_viewport.with-banners {
-  padding-top: 100px; /* Space for banners */
+  /* padding-top: 100px;  */
 }
 
 /* ================================================
@@ -130,13 +143,15 @@
 .revtopic-container .search {
   flex-shrink: 0; /* Don't shrink */
   display: flex;
+  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  gap: 15px;
-  padding: 15px;
-  background: rgba(255, 255, 255, 0.95);
-  border-bottom: 1px solid #ddd;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  height: 80px; /* Fixed height */
+  gap: 5px;
+  padding: 5px;
+  background: rgba(255, 255, 255, 0.319);
+  border: 1px solid blue;
+  box-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+  position: sticky;
 }
 
 .topics-list {
@@ -166,9 +181,16 @@
   display: flex;
   flex-direction: column;
   height: 100%; /* Full height of viewport */
-  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+  /* background-image: url('../../assets/map%20of%20afrika.png'); */
+  /* background-size: cover; */
+  /* background-position: center; */
+  /* background-repeat: no-repeat; */
+  /* background: linear-gradient(135deg, #e166ea63 0%, #764ba2 100%); */
+  background-color: rgba(0, 0, 0, 0.392);
+  color: white;
   min-height: 0; /* Allow content to scroll */
-  overflow: hidden; /* Prevent overflow, let children handle scrolling */
+  overflow-y: auto; /* Enable vertical scroll bar */
+  scroll-behavior: smooth;
 }
 
 .teaching-item {
@@ -184,7 +206,8 @@
 
 .teaching-header {
   flex-shrink: 0; /* Don't shrink */
-  background: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(135deg, #945ec9b1 100%);
+  /* background: rgba(255, 255, 255, 0.548); */
   padding: 15px 20px;
   border-bottom: 2px solid #ecf0f1;
   display: flex;
@@ -211,15 +234,19 @@
    ================================================ */
 
 .teaching-details {
+  display: flex;
+  flex-direction: row;
   background: rgba(52, 152, 219, 0.05);
   padding: 15px;
   border-radius: 8px;
   border-left: 4px solid #3498db;
   flex-shrink: 0; /* Don't shrink */
+  justify-content: space-between;
+  border: 2px solid whitesmoke;
 }
 
 .main-content {
-  background: white;
+  /* background: white; */
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -228,7 +255,7 @@
 }
 
 .media-container {
-  background: white;
+  background: rgba(255, 255, 255, 0.281);
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -384,10 +411,10 @@
   background-color: rgba(52, 152, 219, 0.1);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 2px;
   border-radius: 8px;
-  padding: 8px 12px;
-  border: 1px solid rgba(52, 152, 219, 0.2);
+  padding: 2px 2px;
+  border: 2px solid rgba(52, 152, 219, 0.2);
 }
 
 .searchbar input {

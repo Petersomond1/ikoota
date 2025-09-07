@@ -3,6 +3,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import SearchControls from '../search/SearchControls';
 import { useSmartSearch } from '../../hooks/useSearchContent';
 import './revtopics.css';
+import './towncrier.css'; // Shared styles
+import './revteaching.css'; // Shared styles
+import '../search/searchcontrols.css'; // Shared styles
 import api from '../service/api';
 
 const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }) => {
@@ -202,12 +205,13 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
 
   return (
     <div className="revtopic-container">
-      <div className="search">
+      {/* <div className="search"> */}
         <div className="searchbar">
-          <img src="./search.png" alt="Search Icon" />
           <SearchControls onSearch={handleSearch} />
-        </div>
-        <div className="search-stats">
+        {/* </div> */}
+   
+      </div>
+           <div className="search-stats">
           <span>📖 {filteredTeachings.length} of {teachings.length} resources</span>
           {searchQuery && (
             <span className="search-method">
@@ -217,9 +221,16 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
             </span>
           )}
         </div>
-      </div>
-
+      {/* <div> */}
+     
+      {/* </div> */}
       <div className="topics-list">
+         
+ <div className="topic-header">
+        <span className="content-type-badge">📚 Educational Resource</span>
+        <span>Available Teachings</span>
+      </div>
+      <div className="topics-scroll">
         {filteredTeachings.length > 0 ? (
           filteredTeachings.map((teaching, index) => {
             const selected = isSelected(teaching);
@@ -230,12 +241,10 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
                 className={`topic-item ${selected ? 'selected' : ''}`}
                 onClick={() => handleTopicClick(teaching)}
               >
-                <div className="topic-header">
-                  <span className="content-type-badge">📚 Educational Resource</span>
-                  <span className="content-id">{getContentIdentifier(teaching)}</span>
-                </div>
-                
+              
                 <div className="texts">
+                     <span className="content-id">{getContentIdentifier(teaching)}</span>
+               
                   <span className="topic-title">
                     {teaching.topic || teaching.title || 'Untitled Resource'}
                   </span>
@@ -278,6 +287,7 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
             </div>
           </div>
         )}
+      </div>
       </div>
       
       <div className="topics-footer">

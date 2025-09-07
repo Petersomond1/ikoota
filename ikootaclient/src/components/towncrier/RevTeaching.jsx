@@ -185,13 +185,20 @@ const RevTeaching = ({ teaching, allTeachings = [], onSelectNext }) => {
         {/* Content */}
         <div className="teaching-content">
           <div className="teaching-details">
+            <div>
+              <p><strong>ID:</strong> {getContentIdentifier(teaching)}</p>
+              <p><strong>Topic:</strong> {teaching.topic || 'No topic provided'}</p>
             <p><strong>Description:</strong> {teaching.description || 'No description available'}</p>
-            <p><strong>Lesson #:</strong> {teaching.lessonNumber || getContentIdentifier(teaching)}</p>
             <p><strong>Subject Matter:</strong> {teaching.subjectMatter || 'Not specified'}</p>
+          <p><strong>By converse_id:</strong> {teaching.converse_id || 'Unknown'}</p>
+           </div>
+           <div>
+             <p><strong>Lesson #:</strong> {teaching.lessonNumber || getContentIdentifier(teaching)}</p>
             <p><strong>Audience:</strong> {teaching.audience || 'General'}</p>
             <p><strong>By:</strong> {teaching.author || teaching.user_id || 'Admin'}</p>
             <p><strong>Created:</strong> {formatDate(teaching.createdAt)}</p>
             <p><strong>Updated:</strong> {formatDate(teaching.updatedAt)}</p>
+          </div>
           </div>
 
           {/* Main content */}

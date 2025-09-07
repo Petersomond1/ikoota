@@ -338,8 +338,22 @@ const Towncrier = () => {
     <div className="towncrier_container">
       {/* Enhanced Navigation Bar */}
       <div className="nav">
-        <div className="nav-left">
-          <span>Towncrier - Public Educational Content</span>
+        <div className="nav-left" >
+           <span   style={{
+            fontWeight: 'bold',
+            fontFamily: 'Poppins, Segoe UI, Arial, sans-serif',
+            fontSize: '2.5rem',
+            background: 'linear-gradient(90deg, #ff9800 0%, #2196f3 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            letterSpacing: '2px'
+          }}>The Towncrier </span>
+          <div style={{ display: 'flex', flexDirection: 'column', fontSize: '12px', fontFamily: 'Arial, sans-serif', color: 'black', marginLeft: '20px', lineHeight: '1.2' }}>
+          <span>-A Clarion Call-out to Real Men;</span>
+          <span>-{user?.username || user?.email || 'User'}! Join us for it's time to Rebuild & Re-institute the world's Altar & Temples of the Land of the Gods, </span>
+          <span>-Together, we'll again reconnect to the Spirits of the Gods & restart the almost lost, awaited civilization for eternity.</span>
+          </div>
+          
           {isAuthenticated && (
             <div className="user-status">
               <span className="user-info">
