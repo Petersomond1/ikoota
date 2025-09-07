@@ -10,7 +10,8 @@
   flex-direction: column;
   min-height: 100vh; /* Changed from height: 100vh */
   width: 100%;
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  /* Background now handled by .iko_viewport - keep this simple */
+  background-color: transparent;
   position: relative;
 }
 
@@ -31,23 +32,108 @@
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   flex-wrap: wrap;
   gap: 8px;
+
+  .button {
+    width: 5px;
+  }
 }
 
-.iko_container .footnote {
-  position: sticky; /* Changed from flex-shrink: 0 */
-  bottom: 0;
-  z-index: 1000;
+
+/* ================================================
+   NAVIGATION ELEMENTS
+   ================================================ */
+
+.nav-left {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 6px 15px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  font-size: 0.75em;
+  gap: 12px;
+
+  .title{
+    font-weight: bolder;
+    font-size:larger;
+    font-family: sans-serif;
+  }
+
+  .title_def{
+font-weight:lighter;
+font-size: small;
+font-family: Georgia, 'Times New Roman', Times, serif;
+  }
+}
+
+.nav-centre {
+ display: flex;
+ flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
-  gap: 8px;
-  border-top: 1px solid rgba(255,255,255,0.1);
-  min-height: 40px;
+}
+
+  
+  .nav-left, .nav-right {
+    gap: 6px;
+  }
+  
+  .user-info {
+    font-size: 0.7em;
+  }
+
+.member-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85em;
+}
+
+.user-info {
+  background: rgba(255,255,255,0.1);
+  padding: 3px 6px;
+  border-radius: 10px;
+  font-size: 0.8em;
+}
+
+.status-badge {
+  padding: 2px 5px;
+  border-radius: 6px;
+  font-size: 0.7em;
+  font-weight: bold;
+}
+
+.status-badge.loading {
+  background: #ffa726;
+  color: white;
+}
+
+.status-badge.error {
+  background: #ef5350;
+  color: white;
+}
+
+.status-badge.member {
+  background: #4caf50;
+  color: white;
+}
+
+.admin-badge {
+  background: #9c27b0;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 6px;
+  font-size: 0.7em;
+  margin-left: 4px;
+}
+
+.chat-count, .teaching-count {
+  background: rgba(255,255,255,0.1);
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 0.75em;
 }
 
 /* ================================================
@@ -58,87 +144,256 @@
   display: flex;
   flex-direction: row;
   min-height: calc(100vh - 100px); /* Account for nav and footer */
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  /* Use sky background image instead of gradient */
+  background-image: url('../../assets/sky.png');
+  background-size: cover; /* Scale image to cover entire viewport */
+  background-position: center center; /* Center the image */
+  background-repeat: no-repeat; /* Don't repeat the image */
+  background-attachment: fixed; /* Keep background fixed during scroll */
+  /* Fallback: dark gradient if image doesn't load */
+  background-color: #0a0e27;
+  
   position: relative;
+  overflow: hidden;
 }
+
+/* Add subtle animated background effect */
+.iko_viewport::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 50% 100%, rgba(34, 211, 238, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Ensure content appears above background effect */
+.iko_viewport > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ================================================
+   RESIZABLE DIVIDERS
+   ================================================ */
+   
+/* Prevent text selection during dragging */
+body.no-select,
+body.no-select * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+.resize-divider {
+  width: 12px; /* Wider for easier grabbing */
+  cursor: col-resize;
+  position: relative;
+  background: rgba(255, 255, 255, 0.15); /* More visible */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 1000; /* Higher z-index */
+  min-height: 100%;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.resize-divider:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.resize-divider:active,
+.resize-divider.dragging {
+  background: rgba(59, 130, 246, 0.4);
+  border-color: rgba(59, 130, 246, 0.6);
+}
+
+.divider-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  width: 100%;
+}
+
+.divider-dots {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 16px;
+  line-height: 1;
+  cursor: col-resize;
+  writing-mode: vertical-rl; /* Vertical text */
+  letter-spacing: 2px;
+}
+
+.resize-divider:hover .divider-dots {
+  color: rgba(255, 255, 255, 1);
+}
+
+/* ================================================
+   GLASSMORPHISM FOR ALL THREE PANELS
+   ================================================ */
+.listchats_container {
+  /* Transparent panel - only text visible over deep blue-black background */
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  margin: 0 4px !important;
+}
+
+.chat_container {
+  /* Glassmorphism effect for center panel */
+  background: rgba(255, 255, 255, 0.07) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 
+    0 8px 32px 0 rgba(31, 38, 135, 0.25),
+    inset 0 0 30px rgba(255, 255, 255, 0.05) !important;
+  border-radius: 20px !important;
+  margin: 0 4px !important;
+  overflow: hidden;
+}
+
+.listcomments_container {
+  /* Transparent panel - only text visible over deep blue-black background */
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  margin: 0 4px !important;
+  
+  /* Reduced size styling for narrow panel */
+  font-size: 0.8em;
+}
+
+.listcomments_container * {
+  background: transparent !important;
+  color: white !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9) !important;
+}
+
+.listcomments_container img {
+  text-shadow: none !important; /* Don't apply text shadow to images */
+}
+
+/* ListComments section adjustments for narrow width - Transparent with visible text */
+.listcomments_container .comment-item {
+  padding: 8px !important;
+  margin-bottom: 6px !important;
+  font-size: 0.9em !important;
+  font-weight: 400 !important;
+  background: transparent !important; /* Transparent background */
+  /* border: none !important; */
+  color: white !important; /* White text for visibility */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7) !important; /* Text shadow for readability */
+}
+
+.listcomments_container .comment-header {
+  font-size: 0.8em !important;
+  font-weight: 500 !important;
+  color: white !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7) !important;
+}
+
+.listcomments_container .comment-content {
+  font-size: 0.85em !important;
+  font-weight: 300 !important;
+  line-height: 1.3 !important;
+  color: rgba(255, 255, 255, 0.9) !important; /* Slightly transparent white */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7) !important;
+}
+
+.listcomments_container .comment-timestamp {
+  font-size: 0.7em !important;
+  font-weight: 300 !important;
+  color: rgba(255, 255, 255, 0.7) !important; /* More transparent for less emphasis */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7) !important;
+}
+
 
 /* Remove the ::before pseudo-element since we want natural scrolling */
 
 /* ================================================
-   SIDEBAR LEFT - COMBINED USERINFO + LISTCHATS
-   ================================================ */
-
-.sidebar-left {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  gap: 16px;
-  padding-right: 8px;
-}
-
-/* ================================================
-   LISTCHATS CONTAINER - SCROLLABLE
+   LISTCHATS CONTAINER - SCROLLABLE (REDUCED SIZE)
    ================================================ */
 
 .listchats_container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: auto;
-  border-right: 2px solid #ddd;
-  background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
-  /* Remove overflow: hidden - allow natural scrolling */
+  font-size: 0.8em;
+  /* Ensure all child elements are transparent */
 }
 
-.listchats_container .search {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 15px;
-  border-bottom: 1px solid #ddd;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.listchats_container * {
+  background: transparent !important;
+  color: white !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9) !important;
+}
+
+.listchats_container img {
+  text-shadow: none !important; /* Don't apply text shadow to images */
 }
 
 .chats-list {
-  flex: 2;
-  padding: 10px;
+  flex: 6;
+  padding: 8px;
   overflow: auto;
-  /* Natural scrolling - no overflow hidden */
+  background: transparent !important; /* Ensure list background is transparent */
 }
 
 .chat-item {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 15px;
-  margin-bottom: 10px;
+  gap: 6px;
+  padding: 10px;
+  margin-bottom: 8px;
   cursor: pointer;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  background: rgba(255, 255, 255, 0.9);
+  border-radius: 0; /* Remove border radius for full transparency */
+  border: none !important; /* Remove all borders */
+  background: transparent !important; /* Fully transparent background */
   transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: none !important; /* Remove shadow for transparency */
+  color: white !important; /* White text */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important; /* Strong text shadow */
 }
 
 .chat-item:hover {
-  background: rgba(52, 152, 219, 0.1);
-  border-color: rgba(52, 152, 219, 0.3);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  background: rgba(255, 255, 255, 0.05) !important; /* Very subtle hover effect */
+  border: none !important;
+  transform: none; /* Remove transform for cleaner look */
+  box-shadow: none !important;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9) !important; /* Stronger shadow on hover */
 }
 
 .chat-item.active {
-  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
+  background: rgba(52, 152, 219, 0.15) !important; /* Semi-transparent active state */
   color: white !important;
-  border-color: #2980b9 !important;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+  border: none !important;
+  transform: none;
+  box-shadow: none !important;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 1) !important; /* Strongest shadow for active */
 }
 
 .chat-item.active * {
   color: white !important;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 1) !important;
 }
 
 /* ================================================
@@ -146,20 +401,13 @@
    ================================================ */
 
 .chat_container {
-  flex: 4;
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
-  border-left: 2px solid #ddd;
-  border-right: 2px solid #ddd;
+  flex: 6;
 }
 
 .chat_container .top {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.95);
   padding: 15px;
   border-bottom: 1px solid #ddd;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -172,13 +420,14 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  border-radius: 30px;
 }
 
 .chat_container .bottom {
   position: sticky;
   bottom: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.95);
+  /* background: rgba(255, 255, 255, 0.95); */
   padding: 15px;
   border-top: 1px solid #ddd;
   box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
@@ -238,68 +487,6 @@
 }
 
 /* ================================================
-   LISTCOMMENTS CONTAINER - SCROLLABLE
-   ================================================ */
-
-.listcomments_container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
-  border-left: 2px solid #ddd;
-}
-
-.listcomments_container .search {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 15px;
-  border-bottom: 1px solid #ddd;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.comments-list {
-  flex: 1;
-  padding: 10px;
-  /* Natural scrolling - no overflow hidden */
-}
-
-.comment-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  margin-bottom: 10px;
-  cursor: pointer;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  background: rgba(255, 255, 255, 0.9);
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.comment-item:hover {
-  background: rgba(52, 152, 219, 0.1);
-  border-color: rgba(52, 152, 219, 0.3);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.comment-item.active {
-  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
-  color: white !important;
-  border-color: #2980b9 !important;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
-}
-
-.comment-item.active * {
-  color: white !important;
-}
-
-/* ================================================
    FORM ELEMENTS
    ================================================ */
 
@@ -338,74 +525,24 @@
   transform: translateY(-1px);
 }
 
-/* ================================================
-   NAVIGATION ELEMENTS
-   ================================================ */
 
-.nav-left {
+.iko_container .footnote {
+  position: sticky; /* Changed from flex-shrink: 0 */
+  bottom: 0;
+  z-index: 1000;
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
-}
-
-.nav-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.member-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85em;
-}
-
-.user-info {
-  background: rgba(255,255,255,0.1);
-  padding: 3px 6px;
-  border-radius: 10px;
-  font-size: 0.8em;
-}
-
-.status-badge {
-  padding: 2px 5px;
-  border-radius: 6px;
-  font-size: 0.7em;
-  font-weight: bold;
-}
-
-.status-badge.loading {
-  background: #ffa726;
+  padding: 6px 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-}
-
-.status-badge.error {
-  background: #ef5350;
-  color: white;
-}
-
-.status-badge.member {
-  background: #4caf50;
-  color: white;
-}
-
-.admin-badge {
-  background: #9c27b0;
-  color: white;
-  padding: 2px 4px;
-  border-radius: 6px;
-  font-size: 0.7em;
-  margin-left: 4px;
-}
-
-.chat-count, .teaching-count {
-  background: rgba(255,255,255,0.1);
-  padding: 3px 6px;
-  border-radius: 6px;
   font-size: 0.75em;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  min-height: 40px;
 }
+
 
 /* ================================================
    FOOTER CONTROLS
@@ -459,11 +596,6 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
-.footer-btn.dashboard-btn {
-  background: #2196f3;
-  color: white;
-}
-
 .footer-btn.towncrier-btn {
   background: #673ab7;
   color: white;
@@ -511,99 +643,222 @@
    RESPONSIVE DESIGN
    ================================================ */
 
-@media (max-width: 1024px) {
-  .iko_viewport {
-    flex-direction: column;
-    min-height: auto;
+/* Large tablets and small desktops */
+@media (max-width: 1200px) {
+  .iko_container .nav {
+    padding: 6px 12px;
+    font-size: 0.9em;
   }
   
+  .nav-left .title {
+    font-size: 1.1em;
+  }
+  
+  .nav-left .title_def {
+    font-size: 0.8em;
+  }
+  
+  /* Adjust panel widths for smaller screens */
   .listchats_container {
-    flex: none;
-    height: 300px;
-    border-right: none;
-    border-bottom: 2px solid #ddd;
-  }
-  
-  .chat_container {
-    flex: 1;
-    border-left: none;
-    border-right: none;
-    border-top: 2px solid #ddd;
-    border-bottom: 2px solid #ddd;
+    font-size: 0.75em;
   }
   
   .listcomments_container {
-    flex: none;
-    height: 250px;
-    border-left: none;
-    border-top: 2px solid #ddd;
+    font-size: 0.75em;
   }
 }
 
+/* Tablets */
+@media (max-width: 1024px) {
+  .iko_viewport {
+    flex-direction: column !important;
+    min-height: auto;
+  }
+  
+  /* Hide resize dividers on tablet/mobile */
+  .resize-divider {
+    display: none !important;
+  }
+  
+  /* Stack panels vertically with fixed heights */
+  .listchats_container {
+    width: 100% !important;
+    height: 250px;
+    flex: none;
+    margin: 4px 0;
+    border-radius: 15px;
+  }
+  
+  .chat_container {
+    width: 100% !important;
+    flex: 1;
+    min-height: 400px;
+    margin: 4px 0;
+    border-radius: 20px;
+  }
+  
+  .listcomments_container {
+    width: 100% !important;
+    height: 200px;
+    flex: none;
+    margin: 4px 0;
+    border-radius: 15px;
+  }
+  
+  /* Adjust navigation for tablets */
+  .nav-centre {
+    gap: 8px;
+  }
+  
+  .footer-btn {
+    padding: 6px 10px;
+    font-size: 0.7em;
+  }
+}
+
+/* Mobile tablets */
 @media (max-width: 768px) {
   .iko_container .nav {
-    padding: 6px 10px;
+    padding: 5px 8px;
+    flex-wrap: wrap;
   }
   
   .iko_container .footnote {
-    padding: 4px 10px;
-  }
-  
-  .nav-left, .nav-right {
-    gap: 6px;
-  }
-  
-  .user-info {
+    padding: 4px 8px;
     font-size: 0.7em;
+  }
+  
+  /* Hide title definition on smaller screens */
+  .nav-left .title_def {
+    display: none;
+  }
+  
+  .nav-left .title {
+    font-size: 1em;
+  }
+  
+  /* Compact navigation buttons */
+  .nav-centre {
+    gap: 4px;
   }
   
   .footer-controls {
     gap: 2px;
+    flex-wrap: wrap;
   }
   
   .footer-btn {
-    padding: 3px 6px;
+    padding: 4px 6px;
     font-size: 0.6em;
+    white-space: nowrap;
   }
   
+  /* Adjust panel heights for mobile */
   .listchats_container {
-    height: 250px;
+    height: 200px !important;
+    font-size: 0.7em;
   }
   
   .listcomments_container {
-    height: 200px;
-  }
-}
-
-@media (max-width: 480px) {
-  .iko_viewport {
-    flex-direction: column;
+    height: 150px !important;
+    font-size: 0.7em;
   }
   
-  .listchats_container {
-    height: 200px;
+  .chat_container {
+    min-height: 350px !important;
   }
   
-  .chat_container .center {
-    padding: 10px;
-  }
-  
+  /* Smaller chat elements */
   .message {
-    margin-bottom: 15px;
+    margin-bottom: 12px;
   }
   
   .message img {
-    width: 35px;
-    height: 35px;
+    width: 32px;
+    height: 32px;
   }
   
   .input_div {
-    padding: 10px;
+    padding: 8px;
     font-size: 13px;
+    min-height: 35px;
   }
   
   .SendButton {
-    padding: 10px 16px;
+    padding: 8px 12px;
     font-size: 13px;
+  }
+}
+
+/* Small mobile phones */
+@media (max-width: 480px) {
+  .iko_container {
+    min-height: 100vh;
+  }
+  
+  .iko_container .nav {
+    padding: 4px 6px;
+  }
+  
+  .iko_container .footnote {
+    padding: 3px 6px;
+    font-size: 0.65em;
+  }
+  
+  /* Stack navigation vertically if needed */
+  .nav-left, .nav-centre, .nav-right {
+    flex-wrap: wrap;
+  }
+  
+  .nav-centre {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
+  
+  /* Ultra-compact panels */
+  .listchats_container {
+    height: 180px !important;
+    font-size: 0.65em;
+  }
+  
+  .listcomments_container {
+    height: 120px !important;
+    font-size: 0.65em;
+  }
+  
+  .chat_container {
+    min-height: 300px !important;
+  }
+  
+  .chat_container .center {
+    padding: 8px;
+  }
+  
+  .message {
+    margin-bottom: 10px;
+    max-width: 85%;
+  }
+  
+  .message img {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .input_div {
+    padding: 6px;
+    font-size: 12px;
+    min-height: 32px;
+  }
+  
+  .SendButton {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  
+  .footer-btn {
+    padding: 3px 5px;
+    font-size: 0.55em;
   }
 }

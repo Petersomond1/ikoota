@@ -29,6 +29,72 @@ const Iko = ({ isNested = false }) => {
   // Detect if we're inside admin layout
   const [isInAdmin, setIsInAdmin] = useState(false);
 
+  // States for resizable panels - default ratio 1:7:1
+  const [leftPanelWidth, setLeftPanelWidth] = useState(11.11); // 1/9 = 11.11% (1 part of 9 total)
+  const [rightPanelWidth, setRightPanelWidth] = useState(11.11); // 1/9 = 11.11% (1 part of 9 total)
+  // Center panel will be 77.78% (7 parts of 9 total)
+  const [isDraggingLeft, setIsDraggingLeft] = useState(false);
+  const [isDraggingRight, setIsDraggingRight] = useState(false);
+  
+  // Handle mouse move for resizing
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      // Disable resizing on tablets and mobile
+      if (window.innerWidth <= 1024) {
+        return;
+      }
+      
+      e.preventDefault(); // Prevent text selection
+      
+      if (isDraggingLeft) {
+        const viewport = document.querySelector('.iko_viewport');
+        if (viewport) {
+          const rect = viewport.getBoundingClientRect();
+          const newWidth = ((e.clientX - rect.left) / rect.width) * 100;
+          // Limit between 10% and 35% for side panels
+          if (newWidth >= 10 && newWidth <= 35) {
+            setLeftPanelWidth(newWidth);
+          }
+        }
+      } else if (isDraggingRight) {
+        const viewport = document.querySelector('.iko_viewport');
+        if (viewport) {
+          const rect = viewport.getBoundingClientRect();
+          const rightEdgePercent = ((rect.right - e.clientX) / rect.width) * 100;
+          // Limit between 10% and 35% for side panels
+          if (rightEdgePercent >= 10 && rightEdgePercent <= 35) {
+            setRightPanelWidth(rightEdgePercent);
+          }
+        }
+      }
+    };
+
+    const handleMouseUp = (e) => {
+      e.preventDefault();
+      setIsDraggingLeft(false);
+      setIsDraggingRight(false);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+      document.body.classList.remove('no-select');
+    };
+
+    if (isDraggingLeft || isDraggingRight) {
+      document.addEventListener('mousemove', handleMouseMove, { passive: false });
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      document.body.classList.add('no-select');
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+      document.body.classList.remove('no-select');
+    };
+  }, [isDraggingLeft, isDraggingRight]);
+
   useEffect(() => {
     // Check if we're rendered inside admin layout
     const checkAdminContext = () => {
@@ -257,16 +323,57 @@ const Iko = ({ isNested = false }) => {
       {/* Navigation Bar */}
       <div className="nav">
         <div className="nav-left">
-          <span>Iko Chat - Member System</span>
-          <div className="member-status">
-            <span className="status-badge member">✅ Member</span>
-            <span className="user-info">
-              👤 {user?.username || user?.email || 'Member'}
-              {isAdmin && <span className="admin-badge">🛡️ Admin</span>}
-            </span>
+          <div className='nav-title'> 
+            <p className='title'> Iko oo'Ta </p>
+            <p className='title_def'> The Chat & Discussion Board for the Re-Institution of the Altar of the Land of the Gods</p> 
           </div>
-        </div>
         
+          </div>
+
+        <div className="nav-centre">
+             <button 
+              onClick={() => navigate('/dashboard')}
+              className="footer-btn dashboard-btn"
+              title="Go to User Dashboard"
+            >
+              📊 Dashboard
+            </button>
+            {!isInAdmin && (
+              <button 
+                onClick={handleNavigateToTowncrier} 
+                className="footer-btn towncrier-btn"
+                title="View public content"
+              >
+                📖 Public
+              </button>
+            )}
+            
+            {isAdmin && !isInAdmin && (
+              <button 
+                onClick={handleNavigateToAdmin} 
+                className="footer-btn admin-btn"
+                title="Admin Panel"
+              >
+                ⚙️ Admin
+              </button>
+            )}
+            
+            <button 
+              onClick={() => window.location.reload()} 
+              className="footer-btn refresh-btn"
+              title="Refresh chat system"
+            >
+              🔄 Refresh
+            </button>
+            
+            <button 
+              onClick={handleSignOut} 
+              className="footer-btn signout-btn"
+              title="Sign out"
+            >
+              👋 Out
+            </button>
+        </div>
         <div className="nav-right">
           <span className="chat-count">💬 {safeChats.length}</span>
           <span className="teaching-count">📚 {safeTeachings.length}</span>
@@ -276,13 +383,21 @@ const Iko = ({ isNested = false }) => {
             </span>
           )}
         </div>
+
       </div>
+  
       
-      {/* ✅ FIXED: Main Chat Viewport with safe array props */}
+      {/* ✅ FIXED: Main Chat Viewport with safe array props and resizable panels */}
       <div className="iko_viewport">
-        {/* Left Panel */}
-        <div className="sidebar-left">
-          <UserInfo />
+        {/* Left Panel with dynamic width - use flex-basis for proper resizing */}
+        <div 
+          className="listchats_container" 
+          style={{ 
+            flexBasis: `${leftPanelWidth}%`,
+            flexGrow: 0,
+            flexShrink: 0
+          }}
+        >
           <ListChats 
             setActiveItem={handleContentSelect}
             deactivateListComments={deactivateListComments}
@@ -290,23 +405,77 @@ const Iko = ({ isNested = false }) => {
           />
         </div>
         
-        {/* Center Panel */}
-        <Chat 
-          activeItem={activeItem} 
-          activeComment={activeComment}
-          chats={safeChats} 
-          teachings={safeTeachings}
-          isInAdmin={isInAdmin}
-        />
+        {/* Left Resizable Divider */}
+        <div 
+          className={`resize-divider resize-divider-left ${isDraggingLeft ? 'dragging' : ''}`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            if (window.innerWidth > 1024) {
+              setIsDraggingLeft(true);
+              document.body.style.cursor = 'col-resize';
+            }
+          }}
+          title="Drag to resize panels"
+        >
+          <div className="divider-handle">
+            <span className="divider-dots">⋮⋮⋮</span>
+          </div>
+        </div>
         
-        {/* Right Panel */}
-        <ListComments 
-          activeItem={activeItem}
-          setActiveComment={handleCommentSelect}
-          activeComment={activeComment}
-          deactivateListChats={deactivateListChats}
-          isInAdmin={isInAdmin}
-        />
+        {/* Center Panel with dynamic width - use flex-basis for proper resizing */}
+        <div 
+          className='chat_container'
+          style={{ 
+            flexBasis: `${100 - leftPanelWidth - rightPanelWidth}%`,
+            flexGrow: 0,
+            flexShrink: 0
+          }}
+        > 
+          <UserInfo />
+          <Chat 
+            activeItem={activeItem} 
+            activeComment={activeComment}
+            chats={safeChats} 
+            teachings={safeTeachings}
+            isInAdmin={isInAdmin}
+          />
+        </div>
+        
+        {/* Right Resizable Divider */}
+        <div 
+          className={`resize-divider resize-divider-right ${isDraggingRight ? 'dragging' : ''}`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            if (window.innerWidth > 1024) {
+              setIsDraggingRight(true);
+              document.body.style.cursor = 'col-resize';
+            }
+          }}
+          title="Drag to resize panels"
+        >
+          <div className="divider-handle">
+            <span className="divider-dots">⋮⋮⋮</span>
+          </div>
+        </div>
+        
+        {/* Right Panel with dynamic width - use flex-basis for proper resizing */}
+        <div 
+          className='listcomments_container'
+          style={{ 
+            flexBasis: `${rightPanelWidth}%`,
+            flexGrow: 0,
+            flexShrink: 0
+          }}
+        >
+          <ListComments 
+            activeItem={activeItem}
+            setActiveComment={handleCommentSelect}
+            activeComment={activeComment}
+            deactivateListChats={deactivateListChats}
+            isInAdmin={isInAdmin}
+          />
+        </div>
+        
       </div>
       
       {/* Footer */}

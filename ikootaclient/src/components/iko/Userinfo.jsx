@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../service/api';
 import {jwtDecode} from 'jwt-decode';
+import { useUser } from '../auth/UserStatus';
 import './userinfo.css';
 
 const Userinfo = () => {
@@ -11,13 +12,58 @@ const Userinfo = () => {
   const [user_id, setUserId] = useState(null);
   const [sessionStart, setSessionStart] = useState(Date.now());
   const [activeTime, setActiveTime] = useState('Just now');
+  const { user, isAdmin } = useUser();
 
+  // First try to use user from context
+  useEffect(() => {
+    console.log('=== UserInfo Component Debug ===');
+    console.log('User from context:', user);
+    console.log('Is Admin:', isAdmin);
+    
+    // If we have user data from context, use it immediately
+    if (user && Object.keys(user).length > 0) {
+      console.log('Using user data from context');
+      const userDataFromContext = {
+        username: user.username || user.name || user.user_name || 'pet',
+        avatar: user.avatar || user.profile_image || user.profile_picture || null,
+        classid: user.class_id || user.classid || user.audience || user.class_name || 'N/A',
+        Membership_status: user.membership_status || user.membership_stage || user.Membership_status || 'Member',
+        role: user.role || user.user_role || (user.is_admin || isAdmin ? 'Super Admin' : 'Member'),
+        email: user.email || null,
+        converseid: user.converse_id || user.converseid || null,
+        is_admin: user.is_admin || user.isAdmin || isAdmin || false
+      };
+      console.log('Setting user info from context:', userDataFromContext);
+      setUserInfo(userDataFromContext);
+      setLoading(false);
+    }
+  }, [user, isAdmin]);
+
+  // Get user ID from token
   useEffect(() => {
     try {
       const token = localStorage.getItem("token");
       if (token) {
         const decoded = jwtDecode(token);
+        console.log('Token decoded:', decoded);
         setUserId(decoded.user_id || decoded.id);
+        
+        // If no user from context, use token data as fallback
+        if (!user || Object.keys(user).length === 0) {
+          const tokenUserData = {
+            username: decoded.username || decoded.name || decoded.user_name || 'N/A',
+            avatar: null,
+            classid: decoded.class_id || decoded.classid || decoded.audience || 'N/A',
+            Membership_status: decoded.membership_status || decoded.membership_stage || 'Member',
+            role: decoded.role || decoded.user_role || (decoded.is_admin ? 'Super Admin' : 'Member'),
+            email: decoded.email || null,
+            converseid: decoded.converse_id || decoded.converseid || null,
+            is_admin: decoded.is_admin || decoded.isAdmin || false
+          };
+          console.log('No context user, using token data:', tokenUserData);
+          setUserInfo(tokenUserData);
+          setLoading(false);
+        }
       } else {
         const tokenCookie = document.cookie.split("; ").find((row) => row.startsWith("access_token="));
         if (tokenCookie) {
@@ -29,42 +75,57 @@ const Userinfo = () => {
         }
       }
     } catch (err) {
+      console.error("Failed to decode token:", err);
       setError("Failed to decode token");
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
+  // Try to fetch from API if we still don't have complete data
   useEffect(() => {
-    if (!user_id) return;
+    if (!user_id || (userInfo && userInfo.username !== 'Member')) return;
 
     const fetchUserInfo = async () => {
       try {
+        console.log('Attempting to fetch user data from API for user_id:', user_id);
+        
+        // Try the profile endpoint
         const response = await api.get('/auth/users/profile', {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
         });
         
-        // Handle both response.data and response.data.data structures
+        console.log('API Response:', response);
         const userData = response.data?.data || response.data;
-        setUserInfo(userData);
+        console.log('User data from API:', userData);
+        
+        if (userData && Object.keys(userData).length > 0) {
+          const apiUserData = {
+            username: userData.username || userData.name || userData.user_name || userInfo?.username || 'pet',
+            avatar: userData.avatar || userData.profile_image || userData.profile_picture || null,
+            classid: userData.class_id || userData.classid || userData.audience || userData.class_name || userInfo?.classid || 'N/A',
+            Membership_status: userData.membership_status || userData.membership_stage || userData.Membership_status || userInfo?.Membership_status || 'Member',
+            role: userData.role || userData.user_role || (userData.is_admin || isAdmin ? 'Super Admin' : 'Member'),
+            email: userData.email || userInfo?.email || null,
+            converseid: userData.converseid || userData.converse_id || userInfo?.converseid || null,
+            is_admin: userData.is_admin || userData.isAdmin || isAdmin || false
+          };
+          console.log('Updated user info from API:', apiUserData);
+          setUserInfo(apiUserData);
+        }
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching user info:', error);
-        // Fallback to basic user info if profile fetch fails
-        setUserInfo({
-          id: user_id,
-          username: 'Member',
-          email: 'member@ikoota.com',
-          class_id: 'N/A'
-        });
+        console.error('Error fetching user info from API:', error);
+        // Keep existing userInfo if API fails
         setLoading(false);
       }
     };
 
     fetchUserInfo();
-  }, [user_id]);
+  }, [user_id, userInfo, isAdmin]);
 
+  // Session timer
   useEffect(() => {
     const updateActiveTime = () => {
       const elapsedTime = Date.now() - sessionStart;
@@ -95,6 +156,11 @@ const Userinfo = () => {
     return () => clearInterval(intervalId);
   }, [sessionStart]);
 
+  // Debug current state
+  useEffect(() => {
+    console.log('Current UserInfo state:', userInfo);
+  }, [userInfo]);
+
   if (loading) {
     return (
       <div className='userinfo-container'>
@@ -120,48 +186,33 @@ const Userinfo = () => {
   return (
     <div className='userinfo-container'>
       <div className='userinfo'>
-        <div className="user">
-          <img 
+        {/* <div className="user"> */}
+          <img className='avatar'
             src={userInfo?.avatar || "./avatar.png"} 
             alt="User Avatar" 
             onError={(e) => { e.target.src = "./avatar.png"; }}
           />
-          <h4>{userInfo?.username || 'Member'}</h4>
-        </div>
-        <div className="icons">
-          <button className="icon-btn" title="More options">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="5" r="2"/>
-              <circle cx="12" cy="12" r="2"/>
-              <circle cx="12" cy="19" r="2"/>
-            </svg>
-          </button>
-          <button className="icon-btn" title="Start video call">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
-            </svg>
-          </button>
-          <button className="icon-btn" title="Edit profile">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-      
-      <div className="user-details-info">
+           
+            <span className="status-badge">
+              👤 {userInfo?.username || 'Loading...'}
+              </span>
+            <span className="user-info">
+             ✅ {userInfo?.Membership_status || 'Member'}
+              {(isAdmin || userInfo?.is_admin) && <span className="admin-badge">🛡️ {userInfo?.role || 'Admin'}</span>}
+            </span>
+        
         <p>
-          <strong>Email:</strong>
-          <span>{userInfo?.email || 'Not available'}</span>
+          <strong>Class:</strong>
+          <span>{userInfo?.classid || 'N/A'}</span>
         </p>
-        <p>
-          <strong>Class ID:</strong>
-          <span>{userInfo?.class_id || 'Not assigned'}</span>
-        </p>
-        <p>
-          <strong>User ID:</strong>
-          <span>#{userInfo?.id || user_id || 'N/A'}</span>
-        </p>
+        
+        {userInfo?.converseid && (
+          <p>
+            <strong>Converse ID:</strong>
+            <span style={{fontFamily: 'monospace', fontSize: '11px'}}>{userInfo.converseid}</span>
+          </p>
+        )}
+       
         <p>
           <strong>Session:</strong>
           <span className="session-time">{activeTime}</span>
@@ -169,6 +220,7 @@ const Userinfo = () => {
       </div>
     </div>
   );
+
 };
 
 export default Userinfo;

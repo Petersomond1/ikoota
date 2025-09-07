@@ -172,7 +172,12 @@ const ListComments = ({ activeItem, setActiveComment, activeComment, deactivateL
   };
 
   const getCommentAuthor = (comment) => {
-    return comment.author || comment.user_id || comment.username || 'Unknown User';
+    // For comments, user_id field already contains the converse ID in OTO#XXXXXX format
+    if (comment.user_id && typeof comment.user_id === 'string' && comment.user_id.startsWith('OTO#')) {
+      return comment.user_id;
+    }
+    // Fallback to other fields if needed
+    return comment.author || comment.username || 'Unknown User';
   };
 
   // Loading state
@@ -337,7 +342,7 @@ const ListComments = ({ activeItem, setActiveComment, activeComment, deactivateL
                 transition: 'all 0.2s ease'
               }}
             >
-              <div className="comment-header" style={{marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+              <div className="comment-header" style={{marginBottom: '8px', border: '2px solid purple', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
                 <div className="comment-author" style={{fontWeight: 'bold', fontSize: '13px', color: '#2c3e50'}}>
                   👤 {getCommentAuthor(comment)}
                 </div>

@@ -1,11 +1,121 @@
 //ikootaclient\src\components\iko\ListChats.jsx - ENHANCED WITH BACKEND SEARCH
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import SearchControls from '../search/SearchControls';
 import { useSmartSearch } from '../../hooks/useSearchContent';
+import { jwtDecode } from 'jwt-decode';
 import './listchats.css';
 import api from '../service/api';
 
-const ListChats = ({ setActiveItem, deactivateListComments }) => {
+// Cache for converse_id lookups to prevent repeated API calls
+const converseIdCacheList = new Map();
+
+// Async version of getUserIDDisplay
+const getUserIDDisplayAsync = async (item) => {
+  // Extract converse ID in OTO#XXXXXX format for privacy
+  console.log('Getting converse ID for item:', item);
+  
+  // Method 1: Direct converse_id field
+  if (item?.converse_id && typeof item.converse_id === 'string' && item.converse_id.startsWith('OTO#')) {
+    console.log('Found converse_id directly:', item.converse_id);
+    return item.converse_id;
+  }
+  
+  // Method 2: Check if user_id contains converse ID (like in comments)
+  if (item?.user_id && typeof item.user_id === 'string' && item.user_id.startsWith('OTO#')) {
+    console.log('Found converse ID in user_id:', item.user_id);
+    return item.user_id;
+  }
+  
+  // Method 3: Get from token if current user created this content
+  try {
+    const token = localStorage.getItem("token");
+    if (token) {
+      const decoded = jwtDecode(token);
+      if ((item?.user_id === decoded.user_id || item?.created_by === decoded.user_id) && decoded.converse_id) {
+        console.log('Using converse_id from token:', decoded.converse_id);
+        return decoded.converse_id;
+      }
+    }
+  } catch (error) {
+    console.error('Error decoding token for converse ID:', error);
+  }
+  
+  // Method 4: API FALLBACK - Query users table by user_id to get converse_id
+  const userId = item?.user_id || item?.created_by || item?.author_id;
+  if (userId && typeof userId === 'number') {
+    console.log('Making API call to fetch converse_id for user_id:', userId);
+    
+    // Check cache first
+    if (converseIdCacheList.has(userId)) {
+      console.log('Found converse_id in cache:', converseIdCacheList.get(userId));
+      return converseIdCacheList.get(userId);
+    }
+    
+    try {
+      // Make API call to get user's converse_id
+      const response = await api.get(`/auth/users/${userId}/converse-id`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      
+      const converseId = response.data?.converse_id || response.data?.data?.converse_id;
+      if (converseId && converseId.startsWith('OTO#')) {
+        console.log('API returned converse_id:', converseId);
+        // Cache the result
+        converseIdCacheList.set(userId, converseId);
+        return converseId;
+      }
+    } catch (apiError) {
+      console.error('Error fetching converse_id from API:', apiError);
+      
+      // Try alternative endpoint
+      try {
+        const altResponse = await api.get(`/users/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        
+        const altConverseId = altResponse.data?.converse_id || altResponse.data?.user?.converse_id;
+        if (altConverseId && altConverseId.startsWith('OTO#')) {
+          console.log('Alternative API returned converse_id:', altConverseId);
+          converseIdCacheList.set(userId, altConverseId);
+          return altConverseId;
+        }
+      } catch (altError) {
+        console.error('Alternative API also failed:', altError);
+      }
+    }
+  }
+  
+  // Absolute fallback - this should never happen in production
+  console.error('CRITICAL: Could not find converse_id for item:', item);
+  return "SYSTEM";
+};
+
+// Component for displaying creator converse ID with async loading
+const CreatorDisplayList = ({ item }) => {
+  const [creatorId, setCreatorId] = useState('Loading...');
+  
+  useEffect(() => {
+    const fetchCreatorId = async () => {
+      try {
+        const id = await getUserIDDisplayAsync(item);
+        setCreatorId(id);
+      } catch (error) {
+        console.error('Error fetching creator ID:', error);
+        setCreatorId('SYSTEM');
+      }
+    };
+    
+    fetchCreatorId();
+  }, [item]);
+  
+  return creatorId;
+};
+
+const ListChats = ({ setActiveItem, activeChat, deactivateListComments }) => {
   const [addMode, setAddMode] = useState(false);
   const [activeItem, setActiveItemState] = useState({ id: null, type: null });
   const [content, setContent] = useState([]);
@@ -14,6 +124,11 @@ const ListChats = ({ setActiveItem, deactivateListComments }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // You can access activeChat and activeTeaching directly as props
+  // Example usage:
+  // console.log('Active Chat:', activeChat);
+  // console.log('Active Teaching:', activeTeaching);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -242,6 +357,45 @@ const ListChats = ({ setActiveItem, deactivateListComments }) => {
   };
 
   // ✅ FIX 8: Enhanced helper functions with null safety
+  const getUserIDDisplay = (item) => {
+    // Extract converse ID in OTO#XXXXXX format for privacy
+    console.log('Getting converse ID for item:', item);
+    
+    // Method 1: Direct converse_id field
+    if (item?.converse_id && typeof item.converse_id === 'string' && item.converse_id.startsWith('OTO#')) {
+      console.log('Found converse_id directly:', item.converse_id);
+      return item.converse_id;
+    }
+    
+    // Method 2: Check if user_id contains converse ID (like in comments)
+    if (item?.user_id && typeof item.user_id === 'string' && item.user_id.startsWith('OTO#')) {
+      console.log('Found converse ID in user_id:', item.user_id);
+      return item.user_id;
+    }
+    
+    // Method 3: Get from token if current user created this content
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        const decoded = jwtDecode(token);
+        if ((item?.user_id === decoded.user_id || item?.created_by === decoded.user_id) && decoded.converse_id) {
+          console.log('Using converse_id from token:', decoded.converse_id);
+          return decoded.converse_id;
+        }
+      }
+    } catch (error) {
+      console.error('Error decoding token for converse ID:', error);
+    }
+    
+    // Fallback - show numeric ID temporarily (but this should be replaced by proper converse ID)
+    if (item?.user_id && typeof item.user_id === 'number') {
+      console.log('Numeric user_id found, need to fetch converse_id for:', item.user_id);
+      return `User ${item.user_id}`;
+    }
+    
+    return 'Unknown';
+  };
+
   const getContentTitle = (item) => {
     return item?.content_title || item?.title || item?.topic || 'Untitled';
   };
@@ -263,7 +417,10 @@ const ListChats = ({ setActiveItem, deactivateListComments }) => {
   };
 
   const getUserDisplay = (item) => {
-    return item?.user_id || item?.created_by || 'Admin';
+    // Get converse ID for display (same logic as getUserIDDisplay)
+    // This will show the converse ID instead of numeric user ID
+    const converseId = getUserIDDisplay(item);
+    return converseId !== 'Unknown' ? converseId : 'System';
   };
 
   const getAudienceDisplay = (item) => {
@@ -354,18 +511,12 @@ const ListChats = ({ setActiveItem, deactivateListComments }) => {
         />
       </div>
 
-      {/* Content Stats with Search Status */}
-      <div style={{
-        padding: '8px',
-        backgroundColor: '#f8f9fa',
-        borderBottom: '1px solid #ddd',
-        fontSize: '12px',
-        color: '#666',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <div>
+      {/* Show activeChat and activeTeaching info */}
+      <div className='listchats_info' style={{padding: '35px', background: '#eef', fontSize: '12px', marginBottom: '4px'}}>
+        {activeChat && (
+          <span style={{marginRight: '12px'}}></span>
+        )}
+        <div className='total-info'>
           Total: {content.length} | Showing: {filteredItems.length} | Comments: {comments.length}
         </div>
         
@@ -404,7 +555,7 @@ const ListChats = ({ setActiveItem, deactivateListComments }) => {
 
       {/* Content List */}
       {!Array.isArray(filteredItems) || filteredItems.length === 0 ? (
-        <div style={{padding: '20px', textAlign: 'center', color: '#666'}}>
+        <div style={{padding: '35px', textAlign: 'center', color: '#666'}}>
           {!Array.isArray(filteredItems) ? 
             'Error: Invalid content data' : 
             'No content available'
@@ -436,49 +587,62 @@ const ListChats = ({ setActiveItem, deactivateListComments }) => {
                       marginRight: '8px'
                     }}
                   >
-                    {item.content_type || 'content'}
+                    {item.content_type === 'chat' ? 'C' : 'T'}
                   </span>
                   <span className="content-id" style={{fontSize: '12px', color: '#666'}}>
                     {getContentIdentifier(item)}
                   </span>
+                  <span className="content-title" style={{fontSize: '12px', color: '#666'}}>
+                    {item.content_title || 'content'}
+                  </span>
                 </div>
                 
-                {/* Main content info */}
-                <div style={{marginBottom: '5px'}}>
-                  <strong>Title:</strong> {getContentTitle(item)}
-                </div>
-                
-                <div style={{fontSize: '13px', color: '#555', marginBottom: '3px'}}>
-                  <strong>Lesson#:</strong> {item.lessonNumber || item.id}
-                </div>
-                
-                <div style={{fontSize: '13px', color: '#555', marginBottom: '3px'}}>
-                  <strong>Audience:</strong> {getAudienceDisplay(item)}
-                </div>
-                
-                <div style={{fontSize: '13px', color: '#555', marginBottom: '3px'}}>
-                  <strong>By:</strong> {getUserDisplay(item)}
-                </div>
-                
-                <div style={{fontSize: '13px', color: '#555', marginBottom: '3px'}}>
-                  <strong>Date:</strong> {getCreationDate(item)}
-                </div>
-                
-                {item.content_type === 'teaching' && getSubjectDisplay(item) !== 'General' && (
-                  <div style={{fontSize: '13px', color: '#555', marginBottom: '3px'}}>
-                    <strong>Subject:</strong> {getSubjectDisplay(item)}
-                  </div>
-                )}
+                {/* Conditional content based on active state */}
+                {activeItem?.prefixed_id === item.prefixed_id ? (
+                  // Show full details when active
+                  <>
+                    <div style={{marginBottom: '5px'}}>
+                      <strong>Title:</strong> {getContentTitle(item)}
+                    </div>
+                    
+                    <div style={{fontSize: '13px', color: '#555', marginBottom: '3px'}}>
+                      <strong>Lesson#:</strong> {item.lessonNumber || item.id}
+                    </div>
+                    
+                    <div style={{fontSize: '13px', color: '#555', marginBottom: '3px'}}>
+                      <strong>Audience:</strong> {getAudienceDisplay(item)}
+                    </div>
+                    
+                    <div style={{fontSize: '13px', color: '#555', marginBottom: '3px'}}>
+                      <strong>Posted By:</strong> <CreatorDisplayList item={item} />
+                    </div>
+                    
+                    <div style={{fontSize: '13px', color: '#555', marginBottom: '3px'}}>
+                      <strong>Date:</strong> {getCreationDate(item)}
+                    </div>
+                    
+                    {item.content_type === 'teaching' && getSubjectDisplay(item) !== 'General' && (
+                      <div style={{fontSize: '13px', color: '#555', marginBottom: '3px'}}>
+                        <strong>Subject:</strong> {getSubjectDisplay(item)}
+                      </div>
+                    )}
 
-                {/* Summary if available */}
-                {(item.summary || item.cleanSummary) && (
-                  <div style={{fontSize: '12px', color: '#666', marginTop: '5px', fontStyle: 'italic'}}>
-                    {item.cleanSummary || item.summary}
+                    {/* Summary if available */}
+                    {(item.summary || item.cleanSummary) && (
+                      <div style={{fontSize: '12px', color: '#666', marginTop: '5px', fontStyle: 'italic'}}>
+                        {item.cleanSummary || item.summary}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  // Show only title when not active
+                  <div style={{marginBottom: '5px', fontSize: '12px', color: 'white'}}>
+                    <strong>Title:</strong> {getContentTitle(item)}
                   </div>
                 )}
               </div>
 
-              {/* Comments Count */}
+              {/* Comments Count - Always visible */}
               <div className="comments-count-section">
                 {commentsForItem && commentsForItem.length > 0 ? (
                   <span className="comments-count">

@@ -1,15 +1,17 @@
 /* ikootaclient/src/components/iko/userinfo.css */
 
 .userinfo-container {
-  background: white;
+  background:black;
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: 200px;
+  /* min-height:fit-content; */
   animation: slideIn 0.3s ease;
+  border-color:greenyellow;
+  border: solid 3px red;
 }
 
 @keyframes slideIn {
@@ -23,29 +25,52 @@
   }
 }
 
+
+.status-badge{
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 15px;
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 1.2rem;
+  text-transform: none;
+  letter-spacing: .5px;
+}
+
 .userinfo {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding-bottom: 16px;
+  border-radius: 30px;
+  gap: 5px;
+  padding: 5px 15px;
+  font-weight: 500;
+  font-size: 1.2rem;
+  text-transform: none;
+  letter-spacing: .5px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  background-color: transparent;
+  background-color: cadetblue;
 }
 
 .userinfo .user {
   display: flex;
   align-items: center;
   gap: 12px;
+  /* object-fit: cover; */
+  border: 3px solid #667eea;
+  /* background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); */
+  padding: 2px;
 }
 
-.userinfo .user img {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 3px solid #667eea;
+
+.avatar{
+  border: 3px solid #ea66a6;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 2px;
+  border-radius: 30px;
+  width: 80px;
+  height: 80px;
+  border-radius: 30px;
 }
 
 .userinfo .user h4 {
@@ -90,37 +115,6 @@
   height: 18px;
 }
 
-.user-details-info {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  background: linear-gradient(135deg, rgba(103, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-  border-radius: 12px;
-}
-
-.user-details-info p {
-  margin: 0;
-  font-size: 13px;
-  color: #5f6368;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 0;
-}
-
-.user-details-info p strong {
-  color: #2c3e50;
-  font-weight: 600;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.user-details-info p span {
-  font-weight: 500;
-  color: #5f6368;
-}
 
 .session-time {
   padding: 2px 8px;
@@ -178,9 +172,11 @@
     padding: 16px;
   }
   
-  .userinfo .user img {
-    width: 42px;
-    height: 42px;
+  .avatar  {
+    width: 80px;
+    height: 80px;
+    border-radius: 30px;
+    box-sizing: border-box;
   }
   
   .userinfo .user h4 {
@@ -192,12 +188,5 @@
   .userinfo-container {
     padding: 12px;
   }
-  
-  .user-details-info {
-    padding: 8px;
-  }
-  
-  .user-details-info p {
-    font-size: 12px;
-  }
+ 
 }

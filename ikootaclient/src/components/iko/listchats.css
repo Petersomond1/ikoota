@@ -1,33 +1,97 @@
-  .listchats_container {
-    flex: 1;
+/* Parent container layers */
+.iko_viewport {
+  position: relative;
+  z-index: 0; /* Parent base layer */
+  overflow: hidden;
+  
+}
+
+.listchats_info {
+  position: relative;
+  z-index: 500; /* Above items but can be below search */
+  background: linear-gradient(135deg, rgba(52, 73, 94, 0.7) 0%, rgba(44, 62, 80, 0.8) 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 10px 15px;
+  margin: 5px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 2px 10px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.total-info {
+  position: relative;
+  z-index: 500; /* Above items but can be below search */
+  background: linear-gradient(135deg, rgba(41, 128, 185, 0.6) 0%, rgba(52, 152, 219, 0.7) 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 8px 12px;
+  margin: 5px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 
+    0 2px 8px rgba(52, 152, 219, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+    .listchats_container {
+    flex: 1 1 auto; /* Default 1 part, but allow override from inline styles */
     overflow: scroll;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
-    border: 2px solid white;
+    border: none; /* Remove border for transparency */
     height:100vh;
     overflow-y: scroll;
-    border-radius: 5px;
+    border-radius: 0; /* Remove border radius */
     margin-right: 2px;
     margin-left: 2px;
+    color: white;
+    background-color: transparent; /* Fully transparent background */
+    position: relative;
+    z-index: 1; /* Base layer */
   }
+
+  
   
   .search {
     display: flex;
     align-items: center;
+    margin-top: 5px;
     gap: 20px;
     padding: 20px;
+box-shadow:
+  0 0 0 1px white,  /* Base layer: white, 1px */
+  0 0 0 3px red,      /* Inner ring: red, 3px */
+  0 0 0 8px purple;   /* Outer ring: purple, 5px beyond red */
+border-radius: 10px;
+    width: 95%;
+    background-color: rgba(0, 0, 0, 0.95); /* Near-opaque black to hide items underneath */
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 1000; /* Very high to stay on top */
   }
   
   .searchbar {
     flex: 1;
-    background-color: rgba(17, 25, 40, 0.5);
+    /* background-color: transparent; */
+    border: 1px solid rgba(255, 255, 255, 0.3); 
     display: flex;
     align-items: center;
     gap: 20px;
     border-radius: 10px;
     padding: 10px;
+     background-color: black;
   }
   
   .searchbar input {
@@ -47,98 +111,134 @@
   .add {
     width: 35px;
     height: 35px;
-    background-color: rgba(17, 25, 40, 0.5);
+    background-color: transparent; /* Transparent add button */
+    border: 1px solid rgba(255, 255, 255, 0.3); /* Subtle border */
     padding: 10px;
     border-radius: 10%;
     cursor: pointer;
   }
   
   .item {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    padding: 20px;
+    display: flex !important;
+    align-items: flex-start !important;
+    align-self: flex-start !important; /* Align items to left */
+    gap: 5px !important;
+    padding: 8px 5px !important;
     cursor: pointer;
-    border-bottom: 2px solid #dddddd35;
-    transition: background-color 0.3s, max-height 0.3s;
-    max-height: 100px;
-    overflow: hidden;
+    border-bottom: 2px solid rgba(221, 221, 221, 0.35) !important;
+    background: transparent !important;
+    transition: all 0.3s ease;
+    max-height: 60px; /* Height for two lines */
+    overflow: visible !important; /* Show content */
+    color: white !important;
+    position: relative;
+    z-index: 10;
+    margin: 0 !important;
   }
   
   .item.active {
-    background-color: #5183fe;
-    max-height: 500px;
-    overflow: visible;
+    background: rgba(81, 131, 254, 0.05) !important;
+    max-height: 150px !important; /* More space for expanded state */
+    overflow: visible !important;
+    color: white !important;
+    padding: 12px 5px !important; /* Same horizontal alignment */
+    border-bottom: 2px solid rgba(81, 131, 254, 0.4) !important;
+  }
+  
+  .item.active .texts {
+    padding: 0 !important; /* No extra padding */
   }
   
   .item img {
-    width: 50px;
-    height: 50px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     object-fit: cover;
+    display: none; /* Hide images for cleaner look */
   }
   
   .item .texts {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    flex-direction: row; /* Horizontal layout for inactive */
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  
+  .item.active .texts {
+    flex-direction: column; /* Vertical layout when active */
+    gap: 3px;
   }
   
   .item .texts span {
-    font-size: 18px;
-    font-weight: 500;
-    color: white;
+    font-size: 10px; /* Slightly bigger text */
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.2;
   }
   
   .item .texts p {
-    font-size: 14px;
+    font-size: 11px; /* Slightly bigger text */
     font-weight: 300;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0;
+    line-height: 1.2;
   }
   
   .item .time {
-    font-size: 12px;
+    font-size: 7px; /* Very small text */
     color: rgba(255, 255, 255, 0.5);
   }
 
+
   /* Add to your listchats.css */
 .content-type-badge {
-  background: #34495e;
-  color: white;
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  background: transparent !important; /* Completely transparent */
+  color: white !important;
+  padding: 2px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important; /* Subtle border only */
+  border-radius: 4px;
+  font-size: 10px; /* Slightly bigger */
+  font-weight: 500;
   text-transform: uppercase;
-  margin-right: 0.5rem;
+  margin-right: 5px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
 }
 
 .item[data-type="chat"] .content-type-badge {
-  background: #3498db;
+  background: transparent !important; /* Override - keep transparent */
+  border-color: rgba(52, 152, 219, 0.5) !important; /* Blue border for chat */
 }
 
 .item[data-type="teaching"] .content-type-badge {
-  background: #e67e22;
+  background: transparent !important; /* Override - keep transparent */
+  border-color: rgba(230, 126, 34, 0.5) !important; /* Orange border for teaching */
 }
 
 .content-id {
   font-family: 'Courier New', monospace;
-  background: #ecf0f1;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  background: transparent !important; /* Completely transparent */
+  padding: 2px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important; /* Subtle border only */
+  border-radius: 3px;
   font-weight: bold;
-  color: #2c3e50;
-  margin-right: 0.5rem;
+  color: white !important;
+  margin-right: 5px;
+  font-size: 10px; /* Slightly bigger */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9) !important; /* Strong shadow for readability */
 }
+
 
 .loading-message,
 .error-message {
   text-align: center;
   padding: 2rem;
-  background: white;
+  background: transparent; /* Transparent background */
+  border: 1px solid rgba(255, 255, 255, 0.3); /* Subtle border */
   border-radius: 8px;
   margin: 1rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: none; /* Remove shadow for transparency */
+  color: white; /* Ensure text is visible */
 }
 
 .error-message button {
@@ -192,120 +292,326 @@
 
 .item-title {
   font-weight: 600;
-  color: #2c3e50;
+  color: white; /* White text for visibility on transparent background */
   display: block;
   margin-bottom: 0.5rem;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Text shadow for better readability */
 }
 
 .more-comments {
   font-style: italic;
-  color: #7f8c8d;
+  color: rgba(255, 255, 255, 0.8); /* Light white for visibility */
   font-size: 0.875rem;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
 }
 
 .no-comments {
-  color: #95a5a6;
+  color: rgba(255, 255, 255, 0.6); /* Lighter white for less emphasis */
   font-style: italic;
   font-size: 0.875rem;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
 }
 
 /* ================================================
-   COMMENT COUNT STYLES - KEEP THIS ENHANCEMENT
+   RESPONSIVE DESIGN FOR LISTCHATS
    ================================================ */
 
-.comments-count-section {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.comments-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.no-comments-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 12px;
-  font-style: italic;
-}
-
-/* Loading and Error States */
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 40px;
-  color: white;
-}
-
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+/* Tablets */
+@media (max-width: 1024px) {
+  .listchats_container {
+    height: 250px;
+  }
+  
+  .item {
+    gap: 10px;
+    padding: 10px;
+  }
+  
+  .item img {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .item .texts span {
+    font-size: 13px;
+  }
+  
+  .item .texts p {
+    font-size: 11px;
+  }
+  
+  .content-type-badge {
+    font-size: 0.6rem;
+    padding: 0.15rem 0.3rem;
   }
 }
 
-.error-state {
+/* Mobile tablets */
+@media (max-width: 768px) {
+  .listchats_container {
+    height: 200px;
+  }
+  
+  .search {
+    padding: 12px;
+    gap: 12px;
+  }
+  
+  .item {
+    gap: 8px;
+    padding: 8px;
+    max-height: 60px;
+  }
+  
+  .item.active {
+    max-height: 200px;
+  }
+  
+  .item img {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .item .texts span {
+    font-size: 12px;
+    font-weight: 400;
+  }
+  
+  .item .texts p {
+    font-size: 10px;
+  }
+  
+  .item .time {
+    font-size: 9px;
+  }
+  
+  .content-type-badge {
+    font-size: 0.55rem;
+    padding: 0.1rem 0.25rem;
+    border-radius: 6px;
+  }
+  
+  .content-id {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.3rem;
+  }
+}
+
+/* Comments section styling */
+.comments-count-section {
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 10px; /* Slightly bigger */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+  margin-left: auto;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 40px;
-  text-align: center;
-  color: white;
 }
 
-.error-icon {
-  font-size: 48px;
+.no-comments-indicator {
+  color: rgba(255, 255, 255, 0.6);
+  font-style: normal;
+  font-size: 10px; /* Slightly bigger */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
 }
 
-.error-state h4 {
-  margin: 0;
-  font-size: 18px;
-  color: #f44336;
+.comments-count {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 10px; /* Slightly bigger */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
 }
 
-.error-state p {
-  margin: 0;
-  font-size: 14px;
-  max-width: 300px;
+/* Item header styling for smaller text */
+.item-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 2px;
 }
 
-.retry-button {
-  margin-top: 8px;
-  padding: 10px 20px;
-  background: #3498db;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
+.content-title {
+  font-size: 11px !important; /* Slightly bigger */
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 400;
 }
 
-.retry-button:hover {
-  background: #2980b9;
-  transform: translateY(-1px);
+/* Inactive state - show essential info in two lines */
+.item:not(.active) {
+  max-height: 65px !important; /* Height to show exactly two lines */
+  padding: 8px 5px !important;
+  margin: 0 !important;
+  align-self: flex-start !important; /* Align to left side */
+  overflow: visible !important; /* Allow content to show */
+}
+
+.item:not(.active) .texts {
+  display: flex !important;
+  flex-direction: column !important; /* Stack vertically for two lines */
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  align-self: flex-start !important; /* Align content to left */
+  gap: 2px !important; /* Small gap between lines */
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Show only first two lines when inactive */
+.item:not(.active) .texts > div:not(.item-header):not(:nth-child(2)) {
+  display: none !important;
+}
+
+/* Ensure the title line (second line) shows */
+.item:not(.active) .texts > div:nth-child(2) {
+  display: flex !important;
+}
+
+/* Active state - show all details */
+.item.active .texts {
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item.active .texts > div {
+  display: block !important;
+  font-size: 10px; /* Slightly bigger */
+  line-height: 1.3;
+}
+
+.item.active .texts strong {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* First line when inactive - T t6 one */
+.item:not(.active) .item-header {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 6px !important;
+  align-items: center !important;
+  align-self: flex-start !important;
+  white-space: nowrap;
+  overflow: visible !important;
+  width: 100% !important;
+  height: auto !important;
+  line-height: 1.2 !important;
+}
+
+/* Second line when inactive - Title: one + comments */
+.item:not(.active) .title-line,
+.item:not(.active) .texts > div:nth-child(2) {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  align-self: flex-start !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  width: 100% !important;
+  height: auto !important;
+  line-height: 1.2 !important;
+}
+
+/* Override any conflicting global styles */
+.listchats_container .item {
+  padding: 8px 5px !important;
+  margin: 0 !important;
+  max-height: 60px !important;
+  align-self: flex-start !important;
+  overflow: visible !important;
+}
+
+.listchats_container .item:not(.active) {
+  max-height: 60px !important;
+  padding: 8px 5px !important;
+  margin: 0 !important;
+  align-self: flex-start !important;
+  overflow: visible !important;
+}
+
+.listchats_container .item.active {
+  max-height: 250px !important;
+  padding: 12px 5px !important;
+}
+
+/* Ensure proper text sizing */
+.listchats_container .item .content-type-badge,
+.listchats_container .item .content-id,
+.listchats_container .item .content-title,
+.listchats_container .item .comments-count-section {
+  font-size: 10px !important;
+  color: white !important;
+}
+
+/* Small mobile phones */
+@media (max-width: 480px) {
+  .listchats_container {
+    height: 180px;
+  }
+  
+  .search {
+    padding: 8px;
+    gap: 8px;
+  }
+  
+  .searchbar {
+    padding: 6px;
+  }
+  
+  .add {
+    width: 30px;
+    height: 30px;
+    padding: 6px;
+  }
+  
+  .item {
+    gap: 6px;
+    padding: 6px;
+    max-height: 50px;
+  }
+  
+  .item.active {
+    max-height: 180px;
+  }
+  
+  .item img {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .item .texts {
+    gap: 4px;
+  }
+  
+  .item .texts span {
+    font-size: 11px;
+    font-weight: 400;
+  }
+  
+  .item .texts p {
+    font-size: 9px;
+  }
+  
+  .item .time {
+    font-size: 8px;
+  }
+  
+  .content-type-badge {
+    font-size: 0.5rem;
+    padding: 0.1rem 0.2rem;
+    border-radius: 4px;
+  }
+  
+  .content-id {
+    font-size: 0.6rem;
+    padding: 0.1rem 0.25rem;
+  }
+  
+  .item-header {
+    margin-bottom: 0.25rem;
+  }
+  
+  .more-comments, .no-comments {
+    font-size: 0.75rem;
+  }
 }

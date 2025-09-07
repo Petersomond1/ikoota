@@ -2475,3 +2475,12 @@ MySQL [ikoota_db]> describe class_feedback;
 | updatedAt     | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
 +---------------+--------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
 11 rows in set (0.084 sec)
+
+
+
+
+
+
+NOTE
+
+the list of the class id(s) of all the classess that a user belongs to should be shown/listed at the users dashboard, and it should also show as a listing of the possible audience (to be chosen) when a user is making/creating any post or conversation. It is from this list of classes that user can create their audience (there should be previledge to post directly to those of immediate and approval to post to those above)
