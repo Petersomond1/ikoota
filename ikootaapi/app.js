@@ -10,6 +10,9 @@ import jwt from 'jsonwebtoken';
 // ✅ Import ONLY the main router (which now handles all sub-routes including class management)
 import mainRouter from './routes/index.js';
 
+// ✅ Import user routes for backward compatibility
+import userRoutes from './routes/userRoutes.js';
+
 // ✅ Import existing middleware (enhanced with class permissions)
 import { authenticate, requireMembership } from './middleware/auth.js';
 import db from './config/db.js';
@@ -254,6 +257,15 @@ app.get('/api/health', async (req, res) => {
     });
   }
 });
+
+// ===============================================
+// ✅ BACKWARD COMPATIBILITY ROUTES
+// ===============================================
+
+// ✅ Backward compatibility: Mount user routes at /api/user (singular) to handle missing routes
+console.log('🔗 Mounting backward compatibility routes at /api/user...');
+app.use('/api/user', userRoutes);
+console.log('✅ Backward compatibility routes mounted at /api/user');
 
 // ===============================================
 // ✅ MOUNT THE MAIN ROUTER (NOW INCLUDES CLASS ROUTES)

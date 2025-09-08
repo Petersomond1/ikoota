@@ -68,6 +68,11 @@ import MyClassesPage from './components/classes/MyClassesPage';
 // Import user dashboard component
 import UserDashboard from './components/user/UserDashboard';
 
+// Import user pages
+import ProfilePage from './components/user/ProfilePage';
+import HelpPage from './components/user/HelpPage';
+import SettingsPage from './components/user/SettingsPage';
+
 // Create a client
 const queryClient = new QueryClient();
 
@@ -237,8 +242,22 @@ function App() {
                   </ProtectedRoute>
                 } />
 
-                {/* User Dashboard route - for personal dashboard view */}
+                {/* User Dashboard routes - for personal dashboard view */}
                 <Route path="/dashboard" element={
+                  <ProtectedRoute allowPending={true}>
+                    <UserDashboard />
+                  </ProtectedRoute>
+                } />
+                
+                {/* Profile dashboard route - direct profile access */}
+                <Route path="/dashboard/profile" element={
+                  <ProtectedRoute allowPending={true}>
+                    <UserDashboard />
+                  </ProtectedRoute>
+                } />
+                
+                {/* Analytics dashboard route - direct analytics access */}
+                <Route path="/dashboard/analytics" element={
                   <ProtectedRoute allowPending={true}>
                     <UserDashboard />
                   </ProtectedRoute>
@@ -248,6 +267,25 @@ function App() {
                 <Route path="/member-dashboard" element={
                   <ProtectedRoute allowPending={true}>
                     <UserDashboard />
+                  </ProtectedRoute>
+                } />
+
+                {/* User Profile, Help, and Settings pages */}
+                <Route path="/profile" element={
+                  <ProtectedRoute allowPending={true}>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/help" element={
+                  <ProtectedRoute allowPending={true}>
+                    <HelpPage />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/settings" element={
+                  <ProtectedRoute allowPending={true}>
+                    <SettingsPage />
                   </ProtectedRoute>
                 } />
 

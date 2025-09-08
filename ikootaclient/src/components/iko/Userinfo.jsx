@@ -201,22 +201,14 @@ const Userinfo = () => {
               {(isAdmin || userInfo?.is_admin) && <span className="admin-badge">🛡️ {userInfo?.role || 'Admin'}</span>}
             </span>
         
-        <p>
-          <strong>Class:</strong>
-          <span>{userInfo?.classid || 'N/A'}</span>
-        </p>
-        
+          <span className="class-id">Class: {userInfo?.classid || 'N/A'}</span>
+
         {userInfo?.converseid && (
-          <p>
-            <strong>Converse ID:</strong>
-            <span style={{fontFamily: 'monospace', fontSize: '11px'}}>{userInfo.converseid}</span>
-          </p>
+            <span className="converse-id" style={{fontFamily: 'monospace', fontSize: '11px'}}>{userInfo.converseid}</span>
         )}
+
+        <span className="session-time">Session: {activeTime}</span>
        
-        <p>
-          <strong>Session:</strong>
-          <span className="session-time">{activeTime}</span>
-        </p>
       </div>
     </div>
   );

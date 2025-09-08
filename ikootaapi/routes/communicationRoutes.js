@@ -154,6 +154,81 @@ router.post('/email/send-group-alerts',
 // NOTIFICATION ROUTES
 // ===============================================
 
+// UserDashboard.jsx - Get user notifications
+router.get('/notifications', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Mock notifications data based on database schema
+      const notifications = [
+        {
+          id: 1,
+          type: 'membership',
+          title: 'Application Review Complete',
+          message: 'Your membership application has been reviewed and approved!',
+          read: false,
+          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString()
+        },
+        {
+          id: 2,
+          type: 'class',
+          title: 'New Class Available',
+          message: 'A new African History class is now available for enrollment.',
+          read: true,
+          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString()
+        },
+        {
+          id: 3,
+          type: 'system',
+          title: 'System Maintenance',
+          message: 'Scheduled maintenance will occur this weekend.',
+          read: false,
+          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString()
+        }
+      ];
+      
+      res.json({
+        success: true,
+        data: notifications,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch notifications',
+        details: error.message
+      });
+    }
+  }
+);
+
+// UserDashboard.jsx - Mark notification as read
+router.put('/notifications/:id/read', 
+  authenticate, 
+  async (req, res) => {
+    try {
+      const notificationId = req.params.id;
+      const userId = req.user.id;
+      
+      // Mock updating notification as read
+      res.json({
+        success: true,
+        message: 'Notification marked as read',
+        notificationId: notificationId,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to mark notification as read',
+        details: error.message
+      });
+    }
+  }
+);
+
 // UserManagement.jsx
 // POST /communication/notification - Send combined notification (email + SMS)
 router.post('/notification', 

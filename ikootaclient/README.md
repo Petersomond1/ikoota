@@ -923,7 +923,278 @@ secondly; there should be outlets or page link for users to nevigate from the ik
 
 
 
+Complete User Profile Structure Based on Actual Database
 
+  Based on your up-to-date database schema, here's the comprehensive user profile structure:
+
+  Database-Driven User Profile Model
+
+  const UserProfile = {
+    // ============ CORE IDENTITY (users table) ============
+    identity: {
+      id: number,
+      username: string,
+      email: string,
+      phone: string,
+      avatar: string,
+      isVerified: boolean,
+      verificationMethod: 'email' | 'phone',
+      createdAt: timestamp,
+      updatedAt: timestamp
+    },
+
+    // ============ CONVERSE IDENTITY SYSTEM ============
+    converseIdentity: {
+      // Primary masking
+      converseId: string(12),
+      converseAvatar: string,
+      isIdentityMasked: boolean,
+
+      // Encrypted vault (user_profiles table)
+      vault: {
+        vaultId: string(32),
+        encryptedUsername: text,
+        encryptedEmail: text,
+        encryptedPhone: text,
+        encryptionKey: string
+      },
+
+      // Avatar customization (avatar_configurations table)
+      avatarConfig: {
+        avatarType: 'cartoon' | 'abstract' | 'animal' | 'robot' | 'geometric',
+        colorScheme: string,
+        pattern: string,
+        customFeatures: JSON,
+        animationSettings: JSON
+      },
+
+      // Voice modification (voice_presets table)
+      voicePreset: {
+        presetName: string,
+        pitchShift: number,
+        formantShift: decimal,
+        reverbSettings: JSON,
+        effectsChain: JSON
+      },
+
+      // Privacy settings (user_privacy_settings table)
+      privacy: {
+        allowUnmaskRequests: boolean,
+        requireUnmaskReason: boolean,
+        unmaskNotification: boolean,
+        autoMaskNewContent: boolean,
+        hideOnlineStatus: boolean,
+        hideLastSeen: boolean,
+        hideTypingIndicator: boolean,
+        anonymousReactions: boolean
+      }
+    },
+
+    // ============ MEMBERSHIP PROGRESSION ============
+    membership: {
+      // Current stage
+      membershipStage: 'none' | 'applicant' | 'pre_member' | 'member',
+      isMember: 'applied' | 'pending' | 'suspended' | 'granted' | 'declined' | 'pre_member' | 'member' | 'rejected',
+
+      // Initial application
+      initialApplication: {
+        applicationTicket: string(20),
+        applicationStatus: 'not_submitted' | 'submitted' | 'under_review' | 'approved' | 'declined',
+        applicationSubmittedAt: timestamp,
+        applicationReviewedAt: timestamp
+      },
+
+      // Full membership
+      fullMembership: {
+        fullMembershipTicket: string(25),
+        fullMembershipStatus: 'not_applied' | 'applied' | 'pending' | 'suspended' | 'approved' | 'declined',
+        fullMembershipAppliedAt: timestamp,
+        fullMembershipReviewedAt: timestamp
+      }
+    },
+
+    // ============ AUTHORIZATION & PERMISSIONS ============
+    authorization: {
+      role: 'super_admin' | 'admin' | 'user',
+      permissions: {
+        canPost: boolean,
+        canMentor: boolean,
+        isBlocked: JSON, // Contains blocking details
+        isBanned: boolean,
+        isDeleted: boolean,
+        deletedAt: timestamp
+      }
+    },
+
+    // ============ CLASS SYSTEM ============
+    classAffiliation: {
+      // Primary class
+      primaryClassId: string(12),
+      totalClasses: number,
+
+      // From classes table
+      primaryClassDetails: {
+        className: string,
+        publicName: string,
+        classType: 'demographic' | 'subject' | 'public' | 'special',
+        category: string,
+        difficultyLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert',
+        privacyLevel: 'public' | 'members_only' | 'admin_only'
+      },
+
+      // From user_class_memberships
+      enrolledClasses: [{
+        classId: string,
+        className: string,
+        enrollmentDate: timestamp,
+        role: 'student' | 'assistant' | 'instructor',
+        completionStatus: decimal,
+        lastAccessed: timestamp
+      }],
+
+      // From class_content_access
+      contentAccess: [{
+        classId: string,
+        contentType: string,
+        accessLevel: string,
+        expiresAt: timestamp
+      }]
+    },
+
+    // ============ MENTORSHIP HIERARCHY ============
+    mentorship: {
+      // Basic mentorship
+      mentorId: string(10),
+      canMentor: boolean,
+
+      // From mentors table
+      relationships: [{
+        mentorConverseId: string,
+        menteeConverseId: string,
+        relationshipType: 'mentor' | 'peer' | 'admin',
+        isActive: boolean
+      }],
+
+      // From mentorship_hierarchy (pyramidal structure)
+      pyramidalPosition: {
+        mentorLevel: number(1-5), // 1=Grand Master, 5=Junior
+        relationshipType: 'direct_family' | 'extended_community',
+        familyPosition: number(1-12), // Position in direct family
+        establishedDate: date
+      },
+
+      // From mentorship_families
+      family: {
+        familyIdentifier: string,
+        familyName: string,
+        mentorLevel: number,
+        memberCount: number(max:12),
+        isActive: boolean
+      },
+
+      // From mentor_capacity_tracking
+      capacity: {
+        directSlotsFilled: number(max:12),
+        directSlotsAvailable: number,
+        communitySlotsFilled: number(max:144),
+        communitySlotsAvailable: number,
+        totalSphereSize: number(max:156),
+        performanceScore: decimal
+      }
+    },
+
+    // ============ ACTIVITY & ENGAGEMENT ============
+    activity: {
+      // Content creation
+      stats: {
+        totalChats: number,
+        totalComments: number,
+        totalTeachings: number,
+        totalLikes: number,
+        totalViews: number
+      },
+
+      // Survey participation
+      surveys: {
+        completedSurveys: number,
+        surveyResponses: array,
+        lastSurveyDate: timestamp
+      },
+
+      // Session tracking (from masking_sessions)
+      sessions: [{
+        sessionId: string,
+        sessionType: 'video' | 'audio' | 'both',
+        startTime: timestamp,
+        duration: number
+      }],
+
+      // Notifications
+      notifications: [{
+        templateType: 'approval' | 'decline' | 'admin_notification',
+        status: 'sent' | 'pending' | 'failed',
+        createdAt: timestamp
+      }]
+    },
+
+    // ============ AUDIT & COMPLIANCE ============
+    compliance: {
+      // From audit_logs
+      auditHistory: [{
+        action: string,
+        resource: string,
+        ipAddress: string,
+        timestamp: timestamp
+      }],
+
+      // From identity_masking_audit
+      maskingHistory: [{
+        operationType: 'MASK' | 'UNMASK' | 'VIEW',
+        performedBy: string,
+        reason: text,
+        timestamp: timestamp
+      }],
+
+      // From content_moderation_queue
+      moderationStatus: {
+        hasViolations: boolean,
+        violationCount: number,
+        lastReviewDate: timestamp
+      }
+    }
+  };
+
+  Key Features of Your System:
+
+  1. Multi-Layered Identity
+    - Real identity with encryption
+    - Converse ID for anonymous interactions
+    - Customizable avatars and voice modification
+  2. Tiered Membership Journey
+    - Guest → Applicant → Pre-member → Full Member
+    - Dual application system (initial + full)
+    - Detailed tracking of application status
+  3. Pyramidal Mentorship (156 Total)
+    - 5-level hierarchy
+    - 12 direct family members
+    - 144 extended community members
+    - Family groupings with names and identities
+  4. Class-Based Organization
+    - Demographic, subject, public, and special classes
+    - Content access control per class
+    - Progress tracking and completion metrics
+  5. Comprehensive Permissions
+    - Role-based (super_admin/admin/user)
+    - Feature-specific (canPost, canMentor)
+    - Block/ban system with JSON details
+  6. Privacy & Security
+    - Encrypted personal data vault
+    - Masking audit trails
+    - Emergency unmask request system
+    - Configurable privacy settings
+
+  This structure fully represents your sophisticated user management system with all its layers of identity, membership, mentorship,     
+  and authorization!
 
 
 
@@ -932,1555 +1203,3503 @@ secondly; there should be outlets or page link for users to nevigate from the ik
 
 
 //==========================================================================================================
+
+
+  ✅ Completed Implementation:
+
+  1. Privacy Rules Enforced:
+
+  - User profiles are ALWAYS masked to other users - only the user sees their own full profile
+  - Converse IDs are the primary public identifier for all user interactions
+  - Only SuperAdmin can unmask real identities when necessary
+
+  2. Mentorship Privacy System:
+
+  - Mentees NEVER know their mentor's identity - mentors remain completely anonymous
+  - Mentees only know they have a mentor assigned (no identifying information shown)
+  - Other users cannot see who anyone else's mentor is
+  - Mentors can see their mentees' Converse IDs only (not real identities)
+
+  3. Identity Request System:
+
+  - Mentors can request mentee real identities through SuperAdmin approval
+  - Added API endpoint: POST /users/mentor/request-identity
+  - Requests are submitted to SuperAdmin for review and approval
+  - Only approved requests reveal real identities to mentors
+
+  4. API Endpoints Created:
+
+  - /users/dashboard/overview - Dashboard overview data
+  - /users/analytics - User analytics
+  - /users/activity/recent - Recent activity feed
+  - /users/profile/me - Comprehensive profile data with privacy enforcement
+  - /users/profile/me (PUT) - Profile editing with restricted fields
+  - /communication/notifications - User notifications
+  - /communication/notifications/:id/read - Mark notifications as read
+  - /users/mentor/request-identity - Request mentee identity through SuperAdmin
+
+  5. Frontend Components Updated:
+
+  - UserDashboard with comprehensive features and proper API integration
+  - UserProfile with enforced privacy rules and mentorship anonymity
+  - MentorshipSection that never reveals mentor identities to mentees
+  - All components use Converse IDs for user identification
+
+  The system now properly enforces your privacy requirements:
+  - ✅ Mentees never know their mentors
+  - ✅ Users are identified by Converse IDs in all interactions
+  - ✅ Only SuperAdmin can unmask real identities
+  - ✅ Mentors must request identity access through SuperAdmin
+  - ✅ All profile data is masked from other users
+
+
+
+
+
 //============================================================================================================
 //============================================================================================================
 //=============================================================================================================
 
 
-
-
-
-MySQL [ikoota_db]> show tables;
-+-----------------------------------+
-| Tables_in_ikoota_db               |
-+-----------------------------------+
-| admin_full_membership_overview    |
-| admin_initial_membership_overview |
-| announcements                     |
-| audit_logs                        |
-| bookmarks                         |
-| chats                             |
-| class_content_access              |
-| class_content_access_backup       |
-| class_feedback                    |
-| class_member_counts               |
-| class_sessions                    |
-| classes                           |
-| classes_backup                    |
-| comments                          |
-| content_audit_logs                |
-| content_likes                     |
-| content_reports                   |
-| content_tags                      |
-| content_views                     |
-| current_membership_status         |
-| daily_reports                     |
-| email_activity_logs               |
-| email_templates                   |
-| full_membership_applications      |
-| id_generation_log                 |
-| identity_masking_audit            |
-| initial_membership_applications   |
-| membership_access_log             |
-| membership_review_history         |
-| membership_stats                  |
-| mentors                           |
-| notification_history              |
-| notification_queue                |
-| notification_templates            |
-| pending_full_memberships          |
-| pending_initial_applications      |
-| pending_surveys_view              |
-| question_labels                   |
-| reports                           |
-| sms_activity_logs                 |
-| sms_templates                     |
-| survey_analytics                  |
-| survey_categories                 |
-| survey_configurations             |
-| survey_drafts                     |
-| survey_questions                  |
-| survey_responses                  |
-| survey_stats_view                 |
-| survey_templates                  |
-| surveylog                         |
-| system_configuration              |
-| tags                              |
-| teachings                         |
-| user_chats                        |
-| user_class_memberships            |
-| user_class_memberships_backup     |
-| user_communication_preferences    |
-| user_deletion_log                 |
-| user_profiles                     |
-| user_survey_history_view          |
-| users                             |
-| verification_codes                |
-+-----------------------------------+
-62 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe admin_full_membership_overview;
-+-------------------+---------------------------------------------------+------+-----+-------------------+-------------------+
-| Field             | Type                                              | Null | Key | Default           | Extra             |
-+-------------------+---------------------------------------------------+------+-----+-------------------+-------------------+
-| id                | int                                               | NO   | PRI | NULL              | auto_increment    |
-| user_id           | int                                               | NO   | UNI | NULL              |                   |
-| username          | varchar(255)                                      | NO   | MUL | NULL              |                   |
-| email             | varchar(255)                                      | NO   | MUL | NULL              |                   |
-| ticket            | varchar(25)                                       | NO   | MUL | NULL              |                   |
-| status            | enum('pending','suspended','approved','declined') | YES  | MUL | pending           |                   |
-| submittedAt       | timestamp                                         | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| reviewedAt        | timestamp                                         | YES  |     | NULL              |                   |
-| reviewed_by       | int                                               | YES  | MUL | NULL              |                   |
-| admin_notes       | text                                              | YES  |     | NULL              |                   |
-| reviewer_name     | varchar(255)                                      | YES  |     | NULL              |                   |
-| membership_ticket | varchar(25)                                       | YES  |     | NULL              |                   |
-+-------------------+---------------------------------------------------+------+-----+-------------------+-------------------+
-12 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe admin_initial_membership_overview;
-+-----------------------+---------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| Field                 | Type                                                                      | Null | Key | Default           | Extra             |
-+-----------------------+---------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| id                    | int                                                                       | NO   | PRI | NULL              | auto_increment    |
-| user_id               | int                                                                       | NO   | UNI | NULL              |                   |
-| username              | varchar(255)                                                              | NO   | MUL | NULL              |                   |
-| email                 | varchar(255)                                                              | NO   | MUL | NULL              |                   |
-| ticket                | varchar(20)                                                               | YES  | MUL | NULL              |                   |
-| status                | enum('pending','approved','rejected','under_review','granted','declined') | YES  | MUL | pending           |                   |
-| createdAt             | timestamp                                                                 | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| reviewedAt            | timestamp                                                                 | YES  |     | NULL              |                   |
-| reviewed_by           | int                                                                       | YES  | MUL | NULL              |                   |
-| admin_notes           | text                                                                      | YES  |     | NULL              |                   |
-| reviewer_name         | varchar(255)                                                              | YES  |     | NULL              |                   |
-| survey_id             | int                                                                       | YES  |     | 0                 |                   |
-| completion_percentage | decimal(5,2)                                                              | YES  |     | 0.00              |                   |
-+-----------------------+---------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-13 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe announcements ;
-+-------------------+-------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field             | Type                                | Null | Key | Default           | Extra                                         |
-+-------------------+-------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id                | int                                 | NO   | PRI | NULL              | auto_increment                                |
-| class_id          | varchar(12)                         | NO   | MUL | NULL              |                                               |
-| title             | varchar(255)                        | NO   |     | NULL              |                                               |
-| content           | text                                | YES  |     | NULL              |                                               |
-| announcement_type | enum('general','urgent','reminder') | YES  | MUL | general           |                                               |
-| created_by        | int                                 | NO   | MUL | NULL              |                                               |
-| is_active         | tinyint(1)                          | YES  | MUL | 1                 |                                               |
-| scheduled_for     | timestamp                           | YES  |     | NULL              |                                               |
-| createdAt         | timestamp                           | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt         | timestamp                           | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+-------------------+-------------------------------------+------+-----+-------------------+-----------------------------------------------+
-10 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> audit_logs;
-ERROR 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'audit_logs' at line 1
-MySQL [ikoota_db]> describe audit_logs;
-+------------+--------------+------+-----+-------------------+-------------------+
-| Field      | Type         | Null | Key | Default           | Extra             |
-+------------+--------------+------+-----+-------------------+-------------------+
-| id         | int          | NO   | PRI | NULL              | auto_increment    |
-| user_id    | int          | NO   | MUL | NULL              |                   |
-| action     | varchar(255) | NO   | MUL | NULL              |                   |
-| resource   | varchar(255) | YES  |     | NULL              |                   |
-| details    | json         | YES  |     | NULL              |                   |
-| ip_address | varchar(45)  | YES  |     | NULL              |                   |
-| user_agent | text         | YES  |     | NULL              |                   |
-| createdAt  | timestamp    | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+------------+--------------+------+-----+-------------------+-------------------+
-8 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe bookmarks ;
-+--------------+-------------------------+------+-----+-------------------+-------------------+
-| Field        | Type                    | Null | Key | Default           | Extra             |
-+--------------+-------------------------+------+-----+-------------------+-------------------+
-| id           | int                     | NO   | PRI | NULL              | auto_increment    |
-| user_id      | char(10)                | NO   | MUL | NULL              |                   |
-| content_type | enum('chat','teaching') | NO   | MUL | NULL              |                   |
-| content_id   | int                     | NO   |     | NULL              |                   |
-| folder       | varchar(100)            | YES  | MUL | default           |                   |
-| notes        | text                    | YES  |     | NULL              |                   |
-| createdAt    | datetime                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+--------------+-------------------------+------+-----+-------------------+-------------------+
-7 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe chats;
-+------------------+----------------------------------------------------------+------+-----+-------------------+-------------------+
-| Field            | Type                                                     | Null | Key | Default           | Extra             |
-+------------------+----------------------------------------------------------+------+-----+-------------------+-------------------+
-| id               | int                                                      | NO   | PRI | NULL              | auto_increment    |
-| title            | varchar(255)                                             | NO   |     | NULL              |                   |
-| user_id          | char(10)                                                 | YES  | MUL | NULL              |                   |
-| audience         | varchar(255)                                             | YES  |     | NULL              |                   |
-| summary          | text                                                     | YES  |     | NULL              |                   |
-| text             | text                                                     | YES  |     | NULL              |                   |
-| content          | text                                                     | YES  |     | NULL              |                   |
-| approval_status  | enum('pending','approved','rejected')                    | YES  | MUL | pending           |                   |
-| status           | enum('draft','pending','approved','rejected','archived') | YES  | MUL | pending           |                   |
-| approval_date    | datetime                                                 | YES  |     | NULL              |                   |
-| approved_by      | int                                                      | YES  |     | NULL              |                   |
-| rejection_reason | text                                                     | YES  |     | NULL              |                   |
-| step_data        | json                                                     | YES  |     | NULL              |                   |
-| metadata         | json                                                     | YES  |     | NULL              |                   |
-| view_count       | int                                                      | YES  |     | 0                 |                   |
-| like_count       | int                                                      | YES  |     | 0                 |                   |
-| comment_count    | int                                                      | YES  |     | 0                 |                   |
-| is_featured      | tinyint(1)                                               | YES  | MUL | 0                 |                   |
-| is_public        | tinyint(1)                                               | YES  | MUL | 1                 |                   |
-| tags             | varchar(500)                                             | YES  |     | NULL              |                   |
-| media_urls       | json                                                     | YES  |     | NULL              |                   |
-| media_url1       | varchar(255)                                             | YES  |     | NULL              |                   |
-| media_type1      | enum('image','video','audio','file')                     | YES  |     | NULL              |                   |
-| media_url2       | varchar(255)                                             | YES  |     | NULL              |                   |
-| media_type2      | enum('image','video','audio','file')                     | YES  |     | NULL              |                   |
-| media_url3       | varchar(255)                                             | YES  |     | NULL              |                   |
-| is_flagged       | tinyint(1)                                               | YES  |     | 0                 |                   |
-| media_type3      | enum('image','video','audio','file')                     | YES  |     | NULL              |                   |
-| createdAt        | timestamp                                                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt        | timestamp                                                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| prefixed_id      | varchar(20)                                              | YES  | UNI | NULL              |                   |
-| reviewed_by      | int                                                      | YES  |     | NULL              |                   |
-| reviewedAt       | timestamp                                                | YES  |     | NULL              |                   |
-| admin_notes      | text                                                     | YES  |     | NULL              |                   |
-+------------------+----------------------------------------------------------+------+-----+-------------------+-------------------+
-34 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe class_content_access ;
-+--------------+----------------------------------------+------+-----+-------------------+-------------------+
-| Field        | Type                                   | Null | Key | Default           | Extra             |
-+--------------+----------------------------------------+------+-----+-------------------+-------------------+
-| id           | int                                    | NO   | PRI | NULL              | auto_increment    |
-| content_id   | int                                    | NO   | MUL | NULL              |                   |
-| content_type | enum('chat','teaching','announcement') | NO   |     | NULL              |                   |
-| class_id     | varchar(12)                            | NO   | MUL | NULL              |                   |
-| access_level | enum('read','comment','contribute')    | YES  |     | read              |                   |
-| createdAt    | timestamp                              | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+--------------+----------------------------------------+------+-----+-------------------+-------------------+
-6 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe class_feedback;
-+---------------+--------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field         | Type                                             | Null | Key | Default           | Extra                                         |
-+---------------+--------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id            | int                                              | NO   | PRI | NULL              | auto_increment                                |
-| class_id      | varchar(12)                                      | NO   | MUL | NULL              |                                               |
-| user_id       | int                                              | NO   | MUL | NULL              |                                               |
-| session_id    | int                                              | YES  | MUL | NULL              |                                               |
-| rating        | int                                              | YES  | MUL | NULL              |                                               |
-| feedback_text | text                                             | YES  |     | NULL              |                                               |
-| feedback_type | enum('general','session','instructor','content') | YES  | MUL | general           |                                               |
-| is_anonymous  | tinyint(1)                                       | YES  |     | 0                 |                                               |
-| created_by    | int                                              | NO   |     | NULL              |                                               |
-| createdAt     | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt     | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+---------------+--------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-11 rows in set (0.024 sec)
-
-MySQL [ikoota_db]> describe class_member_counts;
-+-----------------+--------------------------------------------------+------+-----+-------------+-------+
-| Field           | Type                                             | Null | Key | Default     | Extra |
-+-----------------+--------------------------------------------------+------+-----+-------------+-------+
-| class_id        | varchar(12)                                      | NO   |     | NULL        |       |
-| class_name      | varchar(255)                                     | NO   |     | NULL        |       |
-| class_type      | enum('demographic','subject','public','special') | YES  |     | demographic |       |
-| is_public       | tinyint(1)                                       | YES  |     | 0           |       |
-| total_members   | bigint                                           | NO   |     | 0           |       |
-| moderators      | bigint                                           | NO   |     | 0           |       |
-| pending_members | bigint                                           | NO   |     | 0           |       |
-+-----------------+--------------------------------------------------+------+-----+-------------+-------+
-7 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe class_sessions;
-+------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field            | Type                                           | Null | Key | Default           | Extra                                         |
-+------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id               | int                                            | NO   | PRI | NULL              | auto_increment                                |
-| class_id         | varchar(12)                                    | NO   | MUL | NULL              |                                               |
-| session_title    | varchar(255)                                   | NO   |     | NULL              |                                               |
-| session_date     | datetime                                       | NO   | MUL | NULL              |                                               |
-| duration_minutes | int                                            | YES  |     | 60                |                                               |
-| session_type     | enum('lecture','workshop','discussion','exam') | YES  | MUL | lecture           |                                               |
-| is_mandatory     | tinyint(1)                                     | YES  |     | 1                 |                                               |
-| max_participants | int                                            | YES  |     | NULL              |                                               |
-| location         | varchar(255)                                   | YES  |     | NULL              |                                               |
-| online_link      | varchar(500)                                   | YES  |     | NULL              |                                               |
-| created_by       | int                                            | NO   | MUL | NULL              |                                               |
-| is_active        | tinyint(1)                                     | YES  |     | 1                 |                                               |
-| createdAt        | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt        | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-14 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe classes ;
-+-------------------------+-----------------------------------------------------+------+-----+-------------------+-------------------+
-| Field                   | Type                                                | Null | Key | Default           | Extra             |
-+-------------------------+-----------------------------------------------------+------+-----+-------------------+-------------------+
-| id                      | int                                                 | NO   | PRI | NULL              | auto_increment    |
-| class_id                | varchar(12)                                         | NO   | UNI | NULL              |                   |
-| class_name              | varchar(255)                                        | NO   |     | NULL              |                   |
-| public_name             | varchar(255)                                        | YES  |     | NULL              |                   |
-| description             | text                                                | YES  |     | NULL              |                   |
-| class_type              | enum('demographic','subject','public','special')    | YES  | MUL | demographic       |                   |
-| category                | varchar(100)                                        | YES  | MUL | NULL              |                   |
-| difficulty_level        | enum('beginner','intermediate','advanced','expert') | YES  | MUL | beginner          |                   |
-| is_public               | tinyint(1)                                          | YES  | MUL | 0                 |                   |
-| max_members             | int                                                 | YES  |     | 50                |                   |
-| estimated_duration      | int                                                 | YES  | MUL | NULL              |                   |
-| prerequisites           | text                                                | YES  |     | NULL              |                   |
-| learning_objectives     | text                                                | YES  |     | NULL              |                   |
-| tags                    | varchar(500)                                        | YES  |     | NULL              |                   |
-| privacy_level           | enum('public','members_only','admin_only')          | YES  |     | members_only      |                   |
-| created_by              | int                                                 | YES  | MUL | NULL              |                   |
-| is_active               | tinyint(1)                                          | YES  | MUL | 1                 |                   |
-| createdAt               | timestamp                                           | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt               | timestamp                                           | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| allow_self_join         | tinyint(1)                                          | YES  |     | 1                 |                   |
-| require_full_membership | tinyint(1)                                          | YES  |     | 0                 |                   |
-| auto_approve_members    | tinyint(1)                                          | YES  |     | 1                 |                   |
-| require_approval        | tinyint(1)                                          | YES  |     | 0                 |                   |
-| allow_preview           | tinyint(1)                                          | YES  |     | 1                 |                   |
-+-------------------------+-----------------------------------------------------+------+-----+-------------------+-------------------+
-24 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe comments ;
-+------------------+----------------------------------------------------------+------+-----+-------------------+-------------------+
-| Field            | Type                                                     | Null | Key | Default           | Extra             |
-+------------------+----------------------------------------------------------+------+-----+-------------------+-------------------+
-| id               | int                                                      | NO   | PRI | NULL              | auto_increment    |
-| user_id          | char(10)                                                 | YES  | MUL | NULL              |                   |
-| chat_id          | int                                                      | YES  | MUL | NULL              |                   |
-| teaching_id      | int                                                      | YES  | MUL | NULL              |                   |
-| comment          | text                                                     | NO   |     | NULL              |                   |
-| content          | text                                                     | YES  |     | NULL              |                   |
-| status           | enum('draft','pending','approved','rejected','archived') | YES  | MUL | approved          |                   |
-| approval_date    | datetime                                                 | YES  |     | NULL              |                   |
-| approved_by      | int                                                      | YES  |     | NULL              |                   |
-| rejection_reason | text                                                     | YES  |     | NULL              |                   |
-| parentcomment_id | int                                                      | YES  | MUL | NULL              |                   |
-| thread_level     | int                                                      | YES  |     | 0                 |                   |
-| like_count       | int                                                      | YES  |     | 0                 |                   |
-| reply_count      | int                                                      | YES  |     | 0                 |                   |
-| is_pinned        | tinyint(1)                                               | YES  |     | 0                 |                   |
-| media_urls       | json                                                     | YES  |     | NULL              |                   |
-| metadata         | json                                                     | YES  |     | NULL              |                   |
-| media_url1       | varchar(255)                                             | YES  |     | NULL              |                   |
-| media_type1      | enum('image','video','audio','file')                     | YES  |     | NULL              |                   |
-| media_url2       | varchar(255)                                             | YES  |     | NULL              |                   |
-| media_type2      | enum('image','video','audio','file')                     | YES  |     | NULL              |                   |
-| media_url3       | varchar(255)                                             | YES  |     | NULL              |                   |
-| media_type3      | enum('image','video','audio','file')                     | YES  |     | NULL              |                   |
-| createdAt        | timestamp                                                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt        | timestamp                                                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+------------------+----------------------------------------------------------+------+-----+-------------------+-------------------+
-25 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe content_audit_logs;
-+-------------+------------------------------------------------+------+-----+-------------------+-------------------+
-| Field       | Type                                           | Null | Key | Default           | Extra             |
-+-------------+------------------------------------------------+------+-----+-------------------+-------------------+
-| id          | int                                            | NO   | PRI | NULL              | auto_increment    |
-| admin_id    | int                                            | NO   | MUL | NULL              |                   |
-| action      | varchar(50)                                    | NO   | MUL | NULL              |                   |
-| target_type | enum('chat','teaching','comment','user','tag') | NO   | MUL | NULL              |                   |
-| target_id   | int                                            | YES  |     | NULL              |                   |
-| old_values  | json                                           | YES  |     | NULL              |                   |
-| new_values  | json                                           | YES  |     | NULL              |                   |
-| ip_address  | varchar(45)                                    | YES  |     | NULL              |                   |
-| user_agent  | text                                           | YES  |     | NULL              |                   |
-| createdAt   | datetime                                       | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+-------------+------------------------------------------------+------+-----+-------------------+-------------------+
-10 rows in set (0.022 sec)
-
-MySQL [ikoota_db]> describe content_likes ;
-+--------------+-----------------------------------+------+-----+-------------------+-------------------+
-| Field        | Type                              | Null | Key | Default           | Extra             |
-+--------------+-----------------------------------+------+-----+-------------------+-------------------+
-| id           | int                               | NO   | PRI | NULL              | auto_increment    |
-| user_id      | char(10)                          | NO   | MUL | NULL              |                   |
-| content_type | enum('chat','teaching','comment') | NO   | MUL | NULL              |                   |
-| content_id   | int                               | NO   |     | NULL              |                   |
-| createdAt    | datetime                          | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+--------------+-----------------------------------+------+-----+-------------------+-------------------+
-5 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe content_reports;
-+------------------+--------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| Field            | Type                                                                           | Null | Key | Default           | Extra             |
-+------------------+--------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| id               | int                                                                            | NO   | PRI | NULL              | auto_increment    |
-| reporter_id      | char(10)                                                                       | NO   | MUL | NULL              |                   |
-| content_type     | enum('chat','teaching','comment')                                              | NO   | MUL | NULL              |                   |
-| content_id       | int                                                                            | NO   |     | NULL              |                   |
-| reason           | enum('spam','inappropriate','copyright','harassment','misinformation','other') | NO   |     | NULL              |                   |
-| description      | text                                                                           | YES  |     | NULL              |                   |
-| status           | enum('pending','reviewed','resolved','dismissed')                              | YES  | MUL | pending           |                   |
-| reviewed_by      | int                                                                            | YES  |     | NULL              |                   |
-| reviewedAt       | datetime                                                                       | YES  |     | NULL              |                   |
-| resolution_notes | text                                                                           | YES  |     | NULL              |                   |
-| createdAt        | datetime                                                                       | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+------------------+--------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-11 rows in set (0.023 sec)
-
-MySQL [ikoota_db]> describe content_tags ;
-+--------------+-------------------------+------+-----+-------------------+-------------------+
-| Field        | Type                    | Null | Key | Default           | Extra             |
-+--------------+-------------------------+------+-----+-------------------+-------------------+
-| id           | int                     | NO   | PRI | NULL              | auto_increment    |
-| content_type | enum('chat','teaching') | NO   | MUL | NULL              |                   |
-| content_id   | int                     | NO   |     | NULL              |                   |
-| tag_id       | int                     | NO   | MUL | NULL              |                   |
-| createdAt    | datetime                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+--------------+-------------------------+------+-----+-------------------+-------------------+
-5 rows in set (0.022 sec)
-
-MySQL [ikoota_db]> describe content_views ;
-+--------------+-------------------------+------+-----+-------------------+-------------------+
-| Field        | Type                    | Null | Key | Default           | Extra             |
-+--------------+-------------------------+------+-----+-------------------+-------------------+
-| id           | int                     | NO   | PRI | NULL              | auto_increment    |
-| user_id      | char(10)                | YES  | MUL | NULL              |                   |
-| content_type | enum('chat','teaching') | NO   | MUL | NULL              |                   |
-| content_id   | int                     | NO   |     | NULL              |                   |
-| ip_address   | varchar(45)             | YES  |     | NULL              |                   |
-| user_agent   | text                    | YES  |     | NULL              |                   |
-| createdAt    | datetime                | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+--------------+-------------------------+------+-----+-------------------+-------------------+
-7 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe current_membership_status  ;
-+------------------+---------------------------------------------------------------------------------------------+------+-----+---------+-------+
-| Field            | Type                                                                                        | Null | Key | Default | Extra |
-+------------------+---------------------------------------------------------------------------------------------+------+-----+---------+-------+
-| id               | int                                                                                         | NO   |     | 0       |       |
-| username         | varchar(255)                                                                                | NO   |     | NULL    |       |
-| email            | varchar(255)                                                                                | NO   |     | NULL    |       |
-| membership_stage | enum('none','applicant','pre_member','member')                                              | YES  |     | none    |       |
-| is_member        | enum('applied','pending','suspended','granted','declined','pre_member','member','rejected') | YES  |     | applied |       |
-| survey_status    | enum('pending','approved','rejected','under_review','granted','declined')                   | YES  |     | pending |       |
-| full_status      | enum('pending','suspended','approved','declined')                                           | YES  |     | pending |       |
-+------------------+---------------------------------------------------------------------------------------------+------+-----+---------+-------+
-7 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe daily_reports;
-+-------------+-----------+------+-----+-------------------+-------------------+
-| Field       | Type      | Null | Key | Default           | Extra             |
-+-------------+-----------+------+-----+-------------------+-------------------+
-| id          | int       | NO   | PRI | NULL              | auto_increment    |
-| report_date | date      | NO   | UNI | NULL              |                   |
-| report_data | json      | NO   |     | NULL              |                   |
-| generatedAt | timestamp | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+-------------+-----------+------+-----+-------------------+-------------------+
-4 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe email_activity_logs;
-+------------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field            | Type                            | Null | Key | Default           | Extra                                         |
-+------------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id               | int                             | NO   | PRI | NULL              | auto_increment                                |
-| email_type       | enum('single','bulk')           | NO   | MUL | single            |                                               |
-| recipient        | varchar(255)                    | NO   | MUL | NULL              |                                               |
-| recipients_count | int                             | YES  |     | 1                 |                                               |
-| subject          | varchar(500)                    | YES  |     | NULL              |                                               |
-| template         | varchar(100)                    | YES  | MUL | NULL              |                                               |
-| status           | enum('sent','failed','pending') | YES  | MUL | pending           |                                               |
-| message_id       | varchar(255)                    | YES  |     | NULL              |                                               |
-| error_message    | text                            | YES  |     | NULL              |                                               |
-| successful_count | int                             | YES  |     | 0                 |                                               |
-| failed_count     | int                             | YES  |     | 0                 |                                               |
-| sender_id        | char(10)                        | YES  | MUL | NULL              |                                               |
-| createdAt        | timestamp                       | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt        | timestamp                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-| processedAt      | timestamp                       | YES  |     | NULL              |                                               |
-+------------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
-15 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe email_templates;
-+------------+--------------+------+-----+-------------------+-----------------------------------------------+
-| Field      | Type         | Null | Key | Default           | Extra                                         |
-+------------+--------------+------+-----+-------------------+-----------------------------------------------+
-| id         | int          | NO   | PRI | NULL              | auto_increment                                |
-| name       | varchar(100) | NO   | UNI | NULL              |                                               |
-| subject    | varchar(500) | NO   |     | NULL              |                                               |
-| body_text  | text         | YES  |     | NULL              |                                               |
-| body_html  | text         | YES  |     | NULL              |                                               |
-| variables  | json         | YES  |     | NULL              |                                               |
-| is_active  | tinyint(1)   | YES  | MUL | 1                 |                                               |
-| created_by | char(10)     | YES  | MUL | NULL              |                                               |
-| createdAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+------------+--------------+------+-----+-------------------+-----------------------------------------------+
-10 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe full_membership_applications ;
-+-------------------+---------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field             | Type                                              | Null | Key | Default           | Extra                                         |
-+-------------------+---------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id                | int                                               | NO   | PRI | NULL              | auto_increment                                |
-| user_id           | int                                               | NO   | UNI | NULL              |                                               |
-| membership_ticket | varchar(25)                                       | NO   | MUL | NULL              |                                               |
-| answers           | json                                              | NO   |     | NULL              |                                               |
-| status            | enum('pending','suspended','approved','declined') | YES  | MUL | pending           |                                               |
-| submittedAt       | timestamp                                         | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| reviewedAt        | timestamp                                         | YES  |     | NULL              |                                               |
-| reviewed_by       | int                                               | YES  | MUL | NULL              |                                               |
-| admin_notes       | text                                              | YES  |     | NULL              |                                               |
-| createdAt         | timestamp                                         | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt         | timestamp                                         | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+-------------------+---------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-11 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe id_generation_log;
-+--------------+----------------------+------+-----+-------------------+-------------------+
-| Field        | Type                 | Null | Key | Default           | Extra             |
-+--------------+----------------------+------+-----+-------------------+-------------------+
-| id           | int                  | NO   | PRI | NULL              | auto_increment    |
-| generated_id | char(10)             | NO   | MUL | NULL              |                   |
-| id_type      | enum('user','class') | NO   | MUL | NULL              |                   |
-| generated_by | char(10)             | YES  | MUL | NULL              |                   |
-| generatedAt  | timestamp            | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| purpose      | varchar(100)         | YES  |     | NULL              |                   |
-+--------------+----------------------+------+-----+-------------------+-------------------+
-6 rows in set (0.025 sec)
-
-MySQL [ikoota_db]> describe identity_masking_audit ;
-+--------------------+--------------+------+-----+-------------------+-------------------+
-| Field              | Type         | Null | Key | Default           | Extra             |
-+--------------------+--------------+------+-----+-------------------+-------------------+
-| id                 | int          | NO   | PRI | NULL              | auto_increment    |
-| user_id            | int          | NO   | MUL | NULL              |                   |
-| converse_id        | varchar(12)  | YES  | MUL | NULL              |                   |
-| masked_by_admin_id | varchar(12)  | YES  | MUL | NULL              |                   |
-| original_username  | varchar(255) | YES  |     | NULL              |                   |
-| createdAt          | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| reason             | text         | YES  |     | NULL              |                   |
-+--------------------+--------------+------+-----+-------------------+-------------------+
-7 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe initial_membership_applications;
-+-------------------+---------------------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field             | Type                                                                      | Null | Key | Default           | Extra                                         |
-+-------------------+---------------------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id                | int                                                                       | NO   | PRI | NULL              | auto_increment                                |
-| user_id           | int                                                                       | NO   | UNI | NULL              |                                               |
-| membership_ticket | varchar(20)                                                               | NO   |     | NULL              |                                               |
-| answers           | json                                                                      | NO   |     | NULL              |                                               |
-| status            | enum('pending','approved','rejected','under_review','granted','declined') | YES  | MUL | pending           |                                               |
-| submittedAt       | timestamp                                                                 | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| reviewedAt        | timestamp                                                                 | YES  |     | NULL              |                                               |
-| reviewed_by       | int                                                                       | YES  | MUL | NULL              |                                               |
-| admin_notes       | text                                                                      | YES  |     | NULL              |                                               |
-| createdAt         | timestamp                                                                 | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt         | timestamp                                                                 | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+-------------------+---------------------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-11 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe membership_access_log ;
-+-------------------+------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field             | Type                   | Null | Key | Default           | Extra                                         |
-+-------------------+------------------------+------+-----+-------------------+-----------------------------------------------+
-| id                | int                    | NO   | PRI | NULL              | auto_increment                                |
-| user_id           | int                    | NO   | MUL | NULL              |                                               |
-| membership_type   | enum('initial','full') | NO   | MUL | NULL              |                                               |
-| first_accessed_at | timestamp              | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| last_accessed_at  | timestamp              | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-| total_accesses    | int                    | YES  |     | 1                 |                                               |
-| ip_address        | varchar(45)            | YES  |     | NULL              |                                               |
-| user_agent        | text                   | YES  |     | NULL              |                                               |
-| createdAt         | timestamp              | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt         | timestamp              | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+-------------------+------------------------+------+-----+-------------------+-----------------------------------------------+
-10 rows in set (0.023 sec)
-
-MySQL [ikoota_db]> describe membership_review_history;
-+-------------------+-------------------------------------------------------------+------+-----+-------------------+-------------------+
-| Field             | Type                                                        | Null | Key | Default           | Extra             |
-+-------------------+-------------------------------------------------------------+------+-----+-------------------+-------------------+
-| id                | int                                                         | NO   | PRI | NULL              | auto_increment    |
-| user_id           | int                                                         | NO   | MUL | NULL              |                   |
-| application_type  | enum('initial_application','full_membership')               | NO   | MUL | NULL              |                   |
-| application_id    | int                                                         | YES  |     | NULL              |                   |
-| reviewer_id       | int                                                         | YES  | MUL | NULL              |                   |
-| previous_status   | enum('pending','suspended','approved','declined')           | YES  |     | NULL              |                   |
-| new_status        | enum('pending','suspended','approved','declined')           | YES  |     | NULL              |                   |
-| review_notes      | text                                                        | YES  |     | NULL              |                   |
-| action_taken      | enum('approve','decline','suspend','request_info','reopen') | NO   |     | NULL              |                   |
-| reviewedAt        | timestamp                                                   | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| notification_sent | tinyint(1)                                                  | YES  |     | 0                 |                   |
-+-------------------+-------------------------------------------------------------+------+-----+-------------------+-------------------+
-11 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe membership_stats ;
-+------------------------------+--------+------+-----+---------+-------+
-| Field                        | Type   | Null | Key | Default | Extra |
-+------------------------------+--------+------+-----+---------+-------+
-| pre_members_count            | bigint | NO   |     | 0       |       |
-| full_members_count           | bigint | NO   |     | 0       |       |
-| pending_full_applications    | bigint | NO   |     | 0       |       |
-| pending_initial_applications | bigint | NO   |     | 0       |       |
-| total_users                  | bigint | NO   |     | 0       |       |
-+------------------------------+--------+------+-----+---------+-------+
-5 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe mentors  ;
-+--------------------+-------------------------------+------+-----+-------------------+-------------------+
-| Field              | Type                          | Null | Key | Default           | Extra             |
-+--------------------+-------------------------------+------+-----+-------------------+-------------------+
-| id                 | int                           | NO   | PRI | NULL              | auto_increment    |
-| mentor_converse_id | varchar(12)                   | YES  | MUL | NULL              |                   |
-| mentee_converse_id | varchar(12)                   | YES  | MUL | NULL              |                   |
-| relationship_type  | enum('mentor','peer','admin') | YES  |     | mentor            |                   |
-| createdAt          | timestamp                     | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| is_active          | tinyint(1)                    | YES  |     | 1                 |                   |
-+--------------------+-------------------------------+------+-----+-------------------+-------------------+
-6 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe notification_history;
-+--------------+--------------+------+-----+-------------------+-------------------+
-| Field        | Type         | Null | Key | Default           | Extra             |
-+--------------+--------------+------+-----+-------------------+-------------------+
-| id           | int          | NO   | PRI | NULL              | auto_increment    |
-| template     | varchar(100) | NO   |     | NULL              |                   |
-| recipients   | json         | NO   |     | NULL              |                   |
-| sent_count   | int          | YES  |     | 0                 |                   |
-| failed_count | int          | YES  |     | 0                 |                   |
-| sentAt       | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+--------------+--------------+------+-----+-------------------+-------------------+
-6 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe notification_queue;
-+---------------+------------------------------------------+------+-----+-------------------+-------------------+
-| Field         | Type                                     | Null | Key | Default           | Extra             |
-+---------------+------------------------------------------+------+-----+-------------------+-------------------+
-| id            | int                                      | NO   | PRI | NULL              | auto_increment    |
-| recipients    | json                                     | NO   |     | NULL              |                   |
-| subject       | varchar(255)                             | NO   |     | NULL              |                   |
-| message       | text                                     | NO   |     | NULL              |                   |
-| type          | enum('email','sms','push')               | YES  |     | email             |                   |
-| status        | enum('queued','sending','sent','failed') | YES  |     | queued            |                   |
-| scheduled_for | timestamp                                | YES  |     | NULL              |                   |
-| sentAt        | timestamp                                | YES  |     | NULL              |                   |
-| error_message | text                                     | YES  |     | NULL              |                   |
-| created_by    | int                                      | YES  |     | NULL              |                   |
-| createdAt     | timestamp                                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+---------------+------------------------------------------+------+-----+-------------------+-------------------+
-11 rows in set (0.023 sec)
-
-MySQL [ikoota_db]> describe notification_templates;
-+---------------+-------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field         | Type                                            | Null | Key | Default           | Extra                                         |
-+---------------+-------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id            | int                                             | NO   | PRI | NULL              | auto_increment                                |
-| template_name | varchar(50)                                     | NO   | UNI | NULL              |                                               |
-| subject       | varchar(200)                                    | YES  |     | NULL              |                                               |
-| email_body    | text                                            | YES  |     | NULL              |                                               |
-| template_type | enum('approval','decline','admin_notification') | YES  |     | approval          |                                               |
-| is_active     | tinyint(1)                                      | YES  |     | 1                 |                                               |
-| createdAt     | timestamp                                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt     | timestamp                                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+---------------+-------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-8 rows in set (0.022 sec)
-
-
-
-MySQL [ikoota_db]> describe pending_surveys_view  ;
-+-----------------------+-------------------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| Field                 | Type                                                                                                  | Null | Key | Default           | Extra             |
-+-----------------------+-------------------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| id                    | int                                                                                                   | NO   |     | 0                 |                   |
-| user_id               | int                                                                                                   | NO   |     | NULL              |                   |
-| username              | varchar(255)                                                                                          | NO   |     | NULL              |                   |
-| email                 | varchar(255)                                                                                          | NO   |     | NULL              |                   |
-| survey_type           | enum('membership_application','general_survey','feedback_form','assessment','questionnaire','custom') | YES  |     | general_survey    |                   |
-| survey_category       | varchar(100)                                                                                          | YES  |     | general           |                   |
-| survey_title          | varchar(255)                                                                                          | YES  |     | NULL              |                   |
-| completion_percentage | decimal(5,2)                                                                                          | YES  |     | 0.00              |                   |
-| submitted_at          | timestamp                                                                                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| days_pending          | int                                                                                                   | YES  |     | NULL              |                   |
-| priority              | varchar(6)                                                                                            | NO   |     |                   |                   |
-+-----------------------+-------------------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-11 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe question_labels  ;
-+------------------+----------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field            | Type                                                           | Null | Key | Default           | Extra                                         |
-+------------------+----------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id               | int                                                            | NO   | PRI | NULL              | auto_increment                                |
-| field_name       | varchar(100)                                                   | NO   | UNI | NULL              |                                               |
-| label_text       | varchar(500)                                                   | NO   |     | NULL              |                                               |
-| application_type | enum('initial_application','full_membership','general_survey') | YES  | MUL | general_survey    |                                               |
-| display_order    | int                                                            | YES  |     | 0                 |                                               |
-| is_active        | tinyint(1)                                                     | YES  | MUL | 1                 |                                               |
-| createdAt        | timestamp                                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt        | timestamp                                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+------------------+----------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-8 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe reports    ;
-+-------------+---------------------------------------+------+-----+-------------------+-------------------+
-| Field       | Type                                  | Null | Key | Default           | Extra             |
-+-------------+---------------------------------------+------+-----+-------------------+-------------------+
-| id          | int                                   | NO   | PRI | NULL              | auto_increment    |
-| reporter_id | char(10)                              | NO   | MUL | NULL              |                   |
-| reported_id | char(10)                              | YES  | MUL | NULL              |                   |
-| reason      | text                                  | NO   |     | NULL              |                   |
-| status      | enum('pending','reviewed','resolved') | YES  |     | pending           |                   |
-| createdAt   | timestamp                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+-------------+---------------------------------------+------+-----+-------------------+-------------------+
-6 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe sms_activity_logs ;
-+------------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field            | Type                            | Null | Key | Default           | Extra                                         |
-+------------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id               | int                             | NO   | PRI | NULL              | auto_increment                                |
-| sms_type         | enum('single','bulk')           | NO   | MUL | single            |                                               |
-| recipient        | varchar(20)                     | NO   | MUL | NULL              |                                               |
-| recipients_count | int                             | YES  |     | 1                 |                                               |
-| message          | text                            | YES  |     | NULL              |                                               |
-| template         | varchar(100)                    | YES  | MUL | NULL              |                                               |
-| status           | enum('sent','failed','pending') | YES  | MUL | pending           |                                               |
-| sid              | varchar(100)                    | YES  |     | NULL              |                                               |
-| error_message    | text                            | YES  |     | NULL              |                                               |
-| successful_count | int                             | YES  |     | 0                 |                                               |
-| failed_count     | int                             | YES  |     | 0                 |                                               |
-| sender_id        | char(10)                        | YES  | MUL | NULL              |                                               |
-| createdAt        | timestamp                       | YES  | MUL | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt        | timestamp                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-| processedAt      | timestamp                       | YES  |     | NULL              |                                               |
-+------------------+---------------------------------+------+-----+-------------------+-----------------------------------------------+
-15 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe sms_templates ;
-+------------+--------------+------+-----+-------------------+-----------------------------------------------+
-| Field      | Type         | Null | Key | Default           | Extra                                         |
-+------------+--------------+------+-----+-------------------+-----------------------------------------------+
-| id         | int          | NO   | PRI | NULL              | auto_increment                                |
-| name       | varchar(100) | NO   | UNI | NULL              |                                               |
-| message    | text         | NO   |     | NULL              |                                               |
-| variables  | json         | YES  |     | NULL              |                                               |
-| is_active  | tinyint(1)   | YES  | MUL | 1                 |                                               |
-| created_by | char(10)     | YES  | MUL | NULL              |                                               |
-| createdAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+------------+--------------+------+-----+-------------------+-----------------------------------------------+
-8 rows in set (0.027 sec)
-
-MySQL [ikoota_db]> describe survey_analytics ;
-+---------------------------+--------------+------+-----+-------------------+-----------------------------------------------+
-| Field                     | Type         | Null | Key | Default           | Extra                                         |
-+---------------------------+--------------+------+-----+-------------------+-----------------------------------------------+
-| id                        | int          | NO   | PRI | NULL              | auto_increment                                |
-| date_key                  | date         | NO   | MUL | NULL              |                                               |
-| survey_type               | varchar(100) | YES  | MUL | general_survey    |                                               |
-| survey_category           | varchar(100) | YES  | MUL | general           |                                               |
-| total_submissions         | int          | YES  |     | 0                 |                                               |
-| completed_submissions     | int          | YES  |     | 0                 |                                               |
-| pending_submissions       | int          | YES  |     | 0                 |                                               |
-| approved_submissions      | int          | YES  |     | 0                 |                                               |
-| rejected_submissions      | int          | YES  |     | 0                 |                                               |
-| avg_completion_time       | decimal(8,2) | YES  |     | 0.00              |                                               |
-| avg_completion_percentage | decimal(5,2) | YES  |     | 0.00              |                                               |
-| unique_users              | int          | YES  |     | 0                 |                                               |
-| createdAt                 | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt                 | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+---------------------------+--------------+------+-----+-------------------+-----------------------------------------------+
-14 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe survey_categories;
-+----------------------+--------------+------+-----+-------------------+-----------------------------------------------+
-| Field                | Type         | Null | Key | Default           | Extra                                         |
-+----------------------+--------------+------+-----+-------------------+-----------------------------------------------+
-| id                   | int          | NO   | PRI | NULL              | auto_increment                                |
-| category_name        | varchar(100) | NO   | UNI | NULL              |                                               |
-| category_description | text         | YES  |     | NULL              |                                               |
-| icon                 | varchar(100) | YES  |     | NULL              |                                               |
-| color                | varchar(7)   | YES  |     | #3498db           |                                               |
-| display_order        | int          | YES  | MUL | 0                 |                                               |
-| is_active            | tinyint(1)   | YES  | MUL | 1                 |                                               |
-| created_by           | int          | YES  |     | NULL              |                                               |
-| createdAt            | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt            | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+----------------------+--------------+------+-----+-------------------+-----------------------------------------------+
-10 rows in set (0.024 sec)
-
-MySQL [ikoota_db]> describe survey_configurations;
-+--------------------+------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field              | Type                                     | Null | Key | Default           | Extra                                         |
-+--------------------+------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id                 | int                                      | NO   | PRI | NULL              | auto_increment                                |
-| config_key         | varchar(100)                             | NO   | UNI | NULL              |                                               |
-| config_value       | text                                     | YES  |     | NULL              |                                               |
-| config_type        | enum('string','number','boolean','json') | YES  |     | string            |                                               |
-| config_description | text                                     | YES  |     | NULL              |                                               |
-| is_active          | tinyint(1)                               | YES  | MUL | 1                 |                                               |
-| updated_by         | int                                      | YES  | MUL | NULL              |                                               |
-| createdAt          | timestamp                                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt          | timestamp                                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+--------------------+------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-9 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe survey_drafts ;
-+-----------------------+-------------------------------------------------------------------------------------------------------+------+-----+---------------------+-----------------------------------------------+
-| Field                 | Type                                                                                                  | Null | Key | Default             | Extra                                         |
-+-----------------------+-------------------------------------------------------------------------------------------------------+------+-----+---------------------+-----------------------------------------------+
-| id                    | int                                                                                                   | NO   | PRI | NULL                | auto_increment                                |
-| user_id               | int                                                                                                   | NO   | MUL | NULL                |                                               |
-| answers               | text                                                                                                  | YES  |     | NULL                |                                               |
-| application_type      | enum('initial_application','full_membership')                                                         | YES  | MUL | initial_application |                                               |
-| survey_type           | enum('membership_application','general_survey','feedback_form','assessment','questionnaire','custom') | YES  | MUL | general_survey      |                                               |
-| survey_title          | varchar(255)                                                                                          | YES  |     | NULL                |                                               |
-| survey_category       | varchar(100)                                                                                          | YES  | MUL | general             |                                               |
-| completion_percentage | decimal(5,2)                                                                                          | YES  |     | 0.00                |                                               |
-| auto_saved            | tinyint(1)                                                                                            | YES  | MUL | 0                   |                                               |
-| draft_name            | varchar(255)                                                                                          | YES  |     | NULL                |                                               |
-| expires_at            | timestamp                                                                                             | YES  | MUL | NULL                |                                               |
-| admin_notes           | text                                                                                                  | YES  |     | NULL                |                                               |
-| saved_by_admin_id     | int                                                                                                   | YES  | MUL | NULL                |                                               |
-| createdAt             | timestamp                                                                                             | YES  |     | CURRENT_TIMESTAMP   | DEFAULT_GENERATED                             |
-| updatedAt             | timestamp                                                                                             | YES  | MUL | CURRENT_TIMESTAMP   | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+-----------------------+-------------------------------------------------------------------------------------------------------+------+-----+---------------------+-----------------------------------------------+
-15 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe survey_questions;
-+------------------+------------------------------------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field            | Type                                                                                     | Null | Key | Default           | Extra                                         |
-+------------------+------------------------------------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id               | int                                                                                      | NO   | PRI | NULL              | auto_increment                                |
-| question         | text                                                                                     | NO   |     | NULL              |                                               |
-| question_type    | enum('text','textarea','select','checkbox','radio','number','date','email','url','file') | YES  |     | text              |                                               |
-| category         | varchar(100)                                                                             | YES  | MUL | general           |                                               |
-| validation_rules | json                                                                                     | YES  |     | NULL              |                                               |
-| options          | json                                                                                     | YES  |     | NULL              |                                               |
-| is_required      | tinyint(1)                                                                               | YES  |     | 0                 |                                               |
-| created_by       | int                                                                                      | YES  | MUL | NULL              |                                               |
-| updated_by       | int                                                                                      | YES  | MUL | NULL              |                                               |
-| deleted_by       | int                                                                                      | YES  | MUL | NULL              |                                               |
-| deletedAt        | timestamp                                                                                | YES  |     | NULL              |                                               |
-| createdAt        | timestamp                                                                                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt        | timestamp                                                                                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-| is_active        | tinyint(1)                                                                               | YES  | MUL | 1                 |                                               |
-| question_order   | int                                                                                      | YES  | MUL | 0                 |                                               |
-+------------------+------------------------------------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-15 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe survey_responses;
-+----------------+-----------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| Field          | Type                                                                              | Null | Key | Default           | Extra             |
-+----------------+-----------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| id             | int                                                                               | NO   | PRI | NULL              | auto_increment    |
-| survey_log_id  | int                                                                               | NO   | MUL | NULL              |                   |
-| question_id    | int                                                                               | YES  | MUL | NULL              |                   |
-| question_text  | text                                                                              | YES  |     | NULL              |                   |
-| answer_text    | text                                                                              | YES  |     | NULL              |                   |
-| answer_value   | varchar(500)                                                                      | YES  |     | NULL              |                   |
-| response_type  | enum('text','number','boolean','date','file','multiple_choice','multiple_select') | YES  | MUL | text              |                   |
-| response_order | int                                                                               | YES  | MUL | 0                 |                   |
-| createdAt      | timestamp                                                                         | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+----------------+-----------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-9 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe survey_stats_view ;
-+------------------+-------------------------------------------------------------------------------------------------------+------+-----+----------------+-------+
-| Field            | Type                                                                                                  | Null | Key | Default        | Extra |
-+------------------+-------------------------------------------------------------------------------------------------------+------+-----+----------------+-------+
-| survey_type      | enum('membership_application','general_survey','feedback_form','assessment','questionnaire','custom') | YES  |     | general_survey |       |
-| survey_category  | varchar(100)                                                                                          | YES  |     | general        |       |
-| approval_status  | enum('pending','approved','rejected','under_review','granted','declined')                             | YES  |     | pending        |       |
-| count            | bigint                                                                                                | NO   |     | 0              |       |
-| avg_completion   | decimal(9,6)                                                                                          | YES  |     | NULL           |       |
-| avg_time_minutes | decimal(14,4)                                                                                         | YES  |     | NULL           |       |
-| submission_date  | date                                                                                                  | YES  |     | NULL           |       |
-+------------------+-------------------------------------------------------------------------------------------------------+------+-----+----------------+-------+
-7 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe survey_templates;
-+----------------------+----------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field                | Type                                                           | Null | Key | Default           | Extra                                         |
-+----------------------+----------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id                   | int                                                            | NO   | PRI | NULL              | auto_increment                                |
-| template_name        | varchar(255)                                                   | NO   | MUL | NULL              |                                               |
-| template_version     | varchar(10)                                                    | YES  |     | 1.0               |                                               |
-| template_description | text                                                           | YES  |     | NULL              |                                               |
-| category             | varchar(100)                                                   | YES  | MUL | general           |                                               |
-| application_type     | enum('initial_application','full_membership','general_survey') | YES  | MUL | general_survey    |                                               |
-| questions            | json                                                           | NO   |     | NULL              |                                               |
-| settings             | json                                                           | YES  |     | NULL              |                                               |
-| is_public            | tinyint(1)                                                     | YES  | MUL | 0                 |                                               |
-| is_active            | tinyint(1)                                                     | YES  | MUL | 1                 |                                               |
-| created_by           | int                                                            | NO   | MUL | NULL              |                                               |
-| usage_count          | int                                                            | YES  | MUL | 0                 |                                               |
-| createdAt            | timestamp                                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt            | timestamp                                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+----------------------+----------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-14 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe surveylog  ;
-+--------------------------+-------------------------------------------------------------------------------------------------------+------+-----+---------------------+-----------------------------------------------+
-| Field                    | Type                                                                                                  | Null | Key | Default             | Extra                                         |
-+--------------------------+-------------------------------------------------------------------------------------------------------+------+-----+---------------------+-----------------------------------------------+
-| id                       | int                                                                                                   | NO   | PRI | NULL                | auto_increment                                |
-| user_id                  | int                                                                                                   | NO   | MUL | NULL                |                                               |
-| answers                  | text                                                                                                  | YES  |     | NULL                |                                               |
-| verified_by              | char(10)                                                                                              | NO   | MUL | NULL                |                                               |
-| rating_remarks           | varchar(255)                                                                                          | NO   |     | NULL                |                                               |
-| approval_status          | enum('pending','approved','rejected','under_review','granted','declined')                             | YES  | MUL | pending             |                                               |
-| createdAt                | timestamp                                                                                             | YES  |     | CURRENT_TIMESTAMP   | DEFAULT_GENERATED                             |
-| updatedAt                | timestamp                                                                                             | YES  |     | CURRENT_TIMESTAMP   | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-| processedAt              | timestamp                                                                                             | YES  |     | CURRENT_TIMESTAMP   | DEFAULT_GENERATED                             |
-| admin_notes              | text                                                                                                  | YES  |     | NULL                |                                               |
-| application_type         | enum('initial_application','full_membership')                                                         | YES  | MUL | initial_application |                                               |
-| survey_type              | enum('membership_application','general_survey','feedback_form','assessment','questionnaire','custom') | YES  | MUL | general_survey      |                                               |
-| survey_title             | varchar(255)                                                                                          | YES  |     | NULL                |                                               |
-| survey_category          | varchar(100)                                                                                          | YES  | MUL | general             |                                               |
-| completion_percentage    | decimal(5,2)                                                                                          | YES  | MUL | 0.00                |                                               |
-| time_spent_minutes       | int                                                                                                   | YES  |     | 0                   |                                               |
-| ip_address               | varchar(45)                                                                                           | YES  |     | NULL                |                                               |
-| user_agent               | text                                                                                                  | YES  |     | NULL                |                                               |
-| browser_info             | json                                                                                                  | YES  |     | NULL                |                                               |
-| submission_source        | enum('web','mobile','api','admin')                                                                    | YES  | MUL | web                 |                                               |
-| reviewedAt               | timestamp                                                                                             | YES  | MUL | NULL                |                                               |
-| reviewed_by              | int                                                                                                   | YES  | MUL | NULL                |                                               |
-| application_ticket       | varchar(255)                                                                                          | YES  |     | NULL                |                                               |
-| mentor_assigned          | varchar(12)                                                                                           | YES  | MUL | NULL                |                                               |
-| class_assigned           | varchar(12)                                                                                           | YES  | MUL | NULL                |                                               |
-| converse_id_generated    | varchar(12)                                                                                           | YES  |     | NULL                |                                               |
-| approval_decision_reason | text                                                                                                  | YES  |     | NULL                |                                               |
-| notification_sent        | tinyint(1)                                                                                            | YES  |     | 0                   |                                               |
-+--------------------------+-------------------------------------------------------------------------------------------------------+------+-----+---------------------+-----------------------------------------------+
-28 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe system_configuration;
-+-------------+--------------+------+-----+-------------------+-----------------------------------------------+
-| Field       | Type         | Null | Key | Default           | Extra                                         |
-+-------------+--------------+------+-----+-------------------+-----------------------------------------------+
-| id          | int          | NO   | PRI | NULL              | auto_increment                                |
-| config_key  | varchar(100) | NO   | UNI | NULL              |                                               |
-| config_data | json         | NO   |     | NULL              |                                               |
-| updated_by  | int          | YES  | MUL | NULL              |                                               |
-| createdAt   | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt   | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+-------------+--------------+------+-----+-------------------+-----------------------------------------------+
-6 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe tags  ;
-+-------------+-------------+------+-----+-------------------+-----------------------------------------------+
-| Field       | Type        | Null | Key | Default           | Extra                                         |
-+-------------+-------------+------+-----+-------------------+-----------------------------------------------+
-| id          | int         | NO   | PRI | NULL              | auto_increment                                |
-| name        | varchar(50) | NO   | UNI | NULL              |                                               |
-| slug        | varchar(50) | NO   | UNI | NULL              |                                               |
-| description | text        | YES  |     | NULL              |                                               |
-| color       | varchar(7)  | YES  |     | NULL              |                                               |
-| usage_count | int         | YES  | MUL | 0                 |                                               |
-| createdAt   | datetime    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt   | datetime    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+-------------+-------------+------+-----+-------------------+-----------------------------------------------+
-8 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe teachings ;
-+---------------------+----------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field               | Type                                                     | Null | Key | Default           | Extra                                         |
-+---------------------+----------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id                  | int                                                      | NO   | PRI | NULL              | auto_increment                                |
-| topic               | varchar(255)                                             | NO   |     | NULL              |                                               |
-| description         | text                                                     | YES  |     | NULL              |                                               |
-| lessonNumber        | varchar(255)                                             | NO   |     | NULL              |                                               |
-| subjectMatter       | varchar(255)                                             | YES  |     | NULL              |                                               |
-| audience            | varchar(255)                                             | YES  |     | NULL              |                                               |
-| content             | text                                                     | YES  |     | NULL              |                                               |
-| approval_status     | enum('pending','approved','rejected','deleted')          | YES  | MUL | pending           |                                               |
-| status              | enum('draft','pending','approved','rejected','archived') | YES  | MUL | pending           |                                               |
-| approval_date       | datetime                                                 | YES  |     | NULL              |                                               |
-| approved_by         | int                                                      | YES  |     | NULL              |                                               |
-| rejection_reason    | text                                                     | YES  |     | NULL              |                                               |
-| step_data           | json                                                     | YES  |     | NULL              |                                               |
-| metadata            | json                                                     | YES  |     | NULL              |                                               |
-| view_count          | int                                                      | YES  |     | 0                 |                                               |
-| like_count          | int                                                      | YES  |     | 0                 |                                               |
-| comment_count       | int                                                      | YES  |     | 0                 |                                               |
-| is_featured         | tinyint(1)                                               | YES  | MUL | 0                 |                                               |
-| is_public           | tinyint(1)                                               | YES  | MUL | 1                 |                                               |
-| difficulty_level    | enum('beginner','intermediate','advanced','expert')      | YES  | MUL | beginner          |                                               |
-| estimated_duration  | int                                                      | YES  |     | NULL              |                                               |
-| prerequisites       | text                                                     | YES  |     | NULL              |                                               |
-| learning_objectives | text                                                     | YES  |     | NULL              |                                               |
-| tags                | varchar(500)                                             | YES  |     | NULL              |                                               |
-| media_urls          | json                                                     | YES  |     | NULL              |                                               |
-| resources           | json                                                     | YES  |     | NULL              |                                               |
-| quiz_data           | json                                                     | YES  |     | NULL              |                                               |
-| media_url1          | varchar(255)                                             | YES  |     | NULL              |                                               |
-| media_type1         | enum('image','video','audio','file')                     | YES  |     | NULL              |                                               |
-| media_url2          | varchar(255)                                             | YES  |     | NULL              |                                               |
-| media_type2         | enum('image','video','audio','file')                     | YES  |     | NULL              |                                               |
-| media_url3          | varchar(255)                                             | YES  |     | NULL              |                                               |
-| media_type3         | enum('image','video','audio','file')                     | YES  |     | NULL              |                                               |
-| createdAt           | timestamp                                                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt           | timestamp                                                | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-| user_id             | int                                                      | NO   | MUL | NULL              |                                               |
-| prefixed_id         | varchar(20)                                              | YES  | UNI | NULL              |                                               |
-| reviewed_by         | int                                                      | YES  |     | NULL              |                                               |
-| reviewedAt          | timestamp                                                | YES  |     | NULL              |                                               |
-| admin_notes         | text                                                     | YES  |     | NULL              |                                               |
-+---------------------+----------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-40 rows in set (0.022 sec)
-
-MySQL [ikoota_db]> describe user_chats ;
-+----------------------+--------------------------------+------+-----+-------------------+-------------------+
-| Field                | Type                           | Null | Key | Default           | Extra             |
-+----------------------+--------------------------------+------+-----+-------------------+-------------------+
-| id                   | int                            | NO   | PRI | NULL              | auto_increment    |
-| user_id              | char(10)                       | NO   | MUL | NULL              |                   |
-| chat_id              | char(10)                       | NO   |     | NULL              |                   |
-| last_message         | varchar(255)                   | YES  |     | NULL              |                   |
-| is_seen              | tinyint(1)                     | YES  |     | 0                 |                   |
-| role                 | enum('admin','member','owner') | NO   |     | NULL              |                   |
-| is_muted             | tinyint(1)                     | YES  |     | 0                 |                   |
-| last_read_message_id | varchar(36)                    | YES  |     | NULL              |                   |
-| joinedAt             | datetime                       | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt            | timestamp                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+----------------------+--------------------------------+------+-----+-------------------+-------------------+
-10 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe user_class_memberships ;
-+-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field                 | Type                                           | Null | Key | Default           | Extra                                         |
-+-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id                    | int                                            | NO   | PRI | NULL              | auto_increment                                |
-| user_id               | int                                            | NO   | MUL | NULL              |                                               |
-| class_id              | varchar(12)                                    | NO   | MUL | NULL              |                                               |
-| membership_status     | enum('active','pending','suspended','expired') | YES  | MUL | active            |                                               |
-| role_in_class         | enum('member','moderator','assistant')         | YES  | MUL | member            |                                               |
-| joinedAt              | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| assigned_by           | int                                            | YES  | MUL | NULL              |                                               |
-| expiresAt             | timestamp                                      | YES  |     | NULL              |                                               |
-| can_see_class_name    | tinyint(1)                                     | YES  |     | 1                 |                                               |
-| receive_notifications | tinyint(1)                                     | YES  |     | 1                 |                                               |
-| createdAt             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-12 rows in set (0.025 sec)
-
-MySQL [ikoota_db]> describe user_communication_preferences;
-+-----------------------+-------------+------+-----+-------------------+-----------------------------------------------+
-| Field                 | Type        | Null | Key | Default           | Extra                                         |
-+-----------------------+-------------+------+-----+-------------------+-----------------------------------------------+
-| id                    | int         | NO   | PRI | NULL              | auto_increment                                |
-| user_id               | int         | NO   | UNI | NULL              |                                               |
-| email_notifications   | tinyint(1)  | YES  |     | 1                 |                                               |
-| sms_notifications     | tinyint(1)  | YES  |     | 0                 |                                               |
-| marketing_emails      | tinyint(1)  | YES  |     | 1                 |                                               |
-| marketing_sms         | tinyint(1)  | YES  |     | 0                 |                                               |
-| survey_notifications  | tinyint(1)  | YES  |     | 1                 |                                               |
-| content_notifications | tinyint(1)  | YES  |     | 1                 |                                               |
-| admin_notifications   | tinyint(1)  | YES  |     | 1                 |                                               |
-| preferred_language    | varchar(10) | YES  |     | en                |                                               |
-| timezone              | varchar(50) | YES  |     | UTC               |                                               |
-| createdAt             | timestamp   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt             | timestamp   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-| converse_id           | char(10)    | YES  | MUL | NULL              |                                               |
-+-----------------------+-------------+------+-----+-------------------+-----------------------------------------------+
-14 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe user_deletion_log;
-+------------+--------------+------+-----+-------------------+-------------------+
-| Field      | Type         | Null | Key | Default           | Extra             |
-+------------+--------------+------+-----+-------------------+-------------------+
-| id         | int          | NO   | PRI | NULL              | auto_increment    |
-| user_id    | int          | NO   |     | NULL              |                   |
-| username   | varchar(255) | NO   |     | NULL              |                   |
-| email      | varchar(255) | NO   |     | NULL              |                   |
-| reason     | text         | YES  |     | NULL              |                   |
-| deleted_by | int          | NO   |     | NULL              |                   |
-| deletedAt  | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+------------+--------------+------+-----+-------------------+-------------------+
-7 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe user_profiles  ;
-+--------------------+--------------+------+-----+-------------------+-------------------+
-| Field              | Type         | Null | Key | Default           | Extra             |
-+--------------------+--------------+------+-----+-------------------+-------------------+
-| id                 | int          | NO   | PRI | NULL              | auto_increment    |
-| user_id            | int          | NO   | UNI | NULL              |                   |
-| encrypted_username | text         | NO   |     | NULL              |                   |
-| encrypted_email    | text         | NO   |     | NULL              |                   |
-| encrypted_phone    | text         | YES  |     | NULL              |                   |
-| encryption_key     | varchar(255) | YES  |     | NULL              |                   |
-| createdAt          | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt          | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+--------------------+--------------+------+-----+-------------------+-------------------+
-8 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe user_survey_history_view ;
-+-----------------------+-------------------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| Field                 | Type                                                                                                  | Null | Key | Default           | Extra             |
-+-----------------------+-------------------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| user_id               | int                                                                                                   | NO   |     | 0                 |                   |
-| username              | varchar(255)                                                                                          | NO   |     | NULL              |                   |
-| email                 | varchar(255)                                                                                          | NO   |     | NULL              |                   |
-| survey_id             | int                                                                                                   | YES  |     | 0                 |                   |
-| survey_type           | enum('membership_application','general_survey','feedback_form','assessment','questionnaire','custom') | YES  |     | general_survey    |                   |
-| survey_category       | varchar(100)                                                                                          | YES  |     | general           |                   |
-| survey_title          | varchar(255)                                                                                          | YES  |     | NULL              |                   |
-| approval_status       | enum('pending','approved','rejected','under_review','granted','declined')                             | YES  |     | pending           |                   |
-| completion_percentage | decimal(5,2)                                                                                          | YES  |     | 0.00              |                   |
-| submitted_at          | timestamp                                                                                             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| reviewed_at           | timestamp                                                                                             | YES  |     | NULL              |                   |
-| processing_days       | int                                                                                                   | YES  |     | NULL              |                   |
-+-----------------------+-------------------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-12 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe users ;
-+---------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| Field                     | Type                                                                                        | Null | Key | Default           | Extra             |
-+---------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-| id                        | int                                                                                         | NO   | PRI | NULL              | auto_increment    |
-| username                  | varchar(255)                                                                                | NO   | MUL | NULL              |                   |
-| email                     | varchar(255)                                                                                | NO   | MUL | NULL              |                   |
-| phone                     | varchar(15)                                                                                 | YES  |     | NULL              |                   |
-| avatar                    | varchar(255)                                                                                | YES  |     | NULL              |                   |
-| password_hash             | varchar(255)                                                                                | NO   |     | NULL              |                   |
-| converse_id               | varchar(12)                                                                                 | YES  | UNI | NULL              |                   |
-| application_ticket        | varchar(20)                                                                                 | YES  | MUL | NULL              |                   |
-| mentor_id                 | char(10)                                                                                    | YES  | MUL | NULL              |                   |
-| primary_class_id          | varchar(12)                                                                                 | YES  | MUL | NULL              |                   |
-| is_member                 | enum('applied','pending','suspended','granted','declined','pre_member','member','rejected') | YES  | MUL | applied           |                   |
-| membership_stage          | enum('none','applicant','pre_member','member')                                              | YES  | MUL | none              |                   |
-| full_membership_ticket    | varchar(25)                                                                                 | YES  |     | NULL              |                   |
-| full_membership_status    | enum('not_applied','applied','pending','suspended','approved','declined')                   | YES  | MUL | not_applied       |                   |
-| fullMembershipAppliedAt   | timestamp                                                                                   | YES  | MUL | NULL              |                   |
-| fullMembershipReviewedAt  | timestamp                                                                                   | YES  |     | NULL              |                   |
-| role                      | enum('super_admin','admin','user')                                                          | YES  |     | user              |                   |
-| isblocked                 | json                                                                                        | YES  |     | NULL              |                   |
-| isbanned                  | tinyint(1)                                                                                  | YES  |     | 0                 |                   |
-| createdAt                 | timestamp                                                                                   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt                 | timestamp                                                                                   | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| resetToken                | varchar(255)                                                                                | YES  |     | NULL              |                   |
-| resetTokenExpiry          | bigint                                                                                      | YES  |     | NULL              |                   |
-| verification_method       | enum('email','phone')                                                                       | YES  |     | NULL              |                   |
-| verification_code         | varchar(10)                                                                                 | YES  |     | NULL              |                   |
-| is_verified               | tinyint(1)                                                                                  | YES  | MUL | 0                 |                   |
-| codeExpiry                | bigint                                                                                      | YES  |     | NULL              |                   |
-| converse_avatar           | varchar(255)                                                                                | YES  |     | NULL              |                   |
-| is_identity_masked        | tinyint(1)                                                                                  | YES  |     | 0                 |                   |
-| total_classes             | int                                                                                         | YES  |     | 0                 |                   |
-| application_status        | enum('not_submitted','submitted','under_review','approved','declined')                      | YES  | MUL | not_submitted     |                   |
-| applicationSubmittedAt    | timestamp                                                                                   | YES  | MUL | NULL              |                   |
-| applicationReviewedAt     | timestamp                                                                                   | YES  |     | NULL              |                   |
-| reviewed_by               | int                                                                                         | YES  | MUL | NULL              |                   |
-| decline_reason            | text                                                                                        | YES  |     | NULL              |                   |
-| decline_notification_sent | tinyint(1)                                                                                  | YES  |     | 0                 |                   |
-| lastLogin                 | timestamp                                                                                   | YES  |     | NULL              |                   |
-| ban_reason                | text                                                                                        | YES  |     | NULL              |                   |
-+---------------------------+---------------------------------------------------------------------------------------------+------+-----+-------------------+-------------------+
-38 rows in set (0.022 sec)
-
-MySQL [ikoota_db]> describe verification_codes ;
-+-----------+-----------------------+------+-----+-------------------+-------------------+
-| Field     | Type                  | Null | Key | Default           | Extra             |
-+-----------+-----------------------+------+-----+-------------------+-------------------+
-| id        | int                   | NO   | PRI | NULL              | auto_increment    |
-| email     | varchar(255)          | NO   | MUL | NULL              |                   |
-| phone     | varchar(15)           | YES  |     | NULL              |                   |
-| code      | varchar(10)           | NO   |     | NULL              |                   |
-| method    | enum('email','phone') | NO   |     | NULL              |                   |
-| expiresAt | timestamp             | NO   | MUL | NULL              |                   |
-| createdAt | timestamp             | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+-----------+-----------------------+------+-----+-------------------+-------------------+
-7 rows in set (0.020 sec)
-
-
-
-MySQL [ikoota_db]> describe bulk_operation_jobs;
-+----------------+--------------------------------------------------+------+-----+-------------------+-------------------+
-| Field          | Type                                             | Null | Key | Default           | Extra             |
-+----------------+--------------------------------------------------+------+-----+-------------------+-------------------+
-| id             | int                                              | NO   | PRI | NULL              | auto_increment    |
-| jobType        | varchar(50)                                      | NO   |     | NULL              |                   |
-| initiatedBy    | int                                              | NO   |     | NULL              |                   |
-| totalItems     | int                                              | NO   |     | NULL              |                   |
-| processedItems | int                                              | YES  |     | 0                 |                   |
-| failedItems    | int                                              | YES  |     | 0                 |                   |
-| status         | enum('queued','processing','completed','failed') | YES  |     | queued            |                   |
-| resultData     | json                                             | YES  |     | NULL              |                   |
-| createdAt      | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| completedAt    | timestamp                                        | YES  |     | NULL              |                   |
-+----------------+--------------------------------------------------+------+-----+-------------------+-------------------+
-10 rows in set (0.028 sec)
-
-MySQL [ikoota_db]> describe content_moderation_queue;
-+-----------------+----------------------------------------+------+-----+-------------------+-------------------+
-| Field           | Type                                   | Null | Key | Default           | Extra             |
-+-----------------+----------------------------------------+------+-----+-------------------+-------------------+
-| id              | int                                    | NO   | PRI | NULL              | auto_increment    |
-| contentType     | enum('chat','teaching','comment')      | NO   |     | NULL              |                   |
-| contentId       | int                                    | NO   |     | NULL              |                   |
-| priority        | enum('low','medium','high','critical') | YES  |     | medium            |                   |
-| assignedAdminId | int                                    | YES  |     | NULL              |                   |
-| status          | enum('pending','in_review','resolved') | YES  |     | pending           |                   |
-| createdAt       | timestamp                              | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| resolvedAt      | timestamp                              | YES  |     | NULL              |                   |
-+-----------------+----------------------------------------+------+-----+-------------------+-------------------+
-8 rows in set (0.021 sec)
-
-MySQL [ikoota_db]> describe admin_dashboard_cache;
-+-----------+--------------+------+-----+-------------------+-------------------+
-| Field     | Type         | Null | Key | Default           | Extra             |
-+-----------+--------------+------+-----+-------------------+-------------------+
-| id        | int          | NO   | PRI | NULL              | auto_increment    |
-| cacheKey  | varchar(100) | NO   | UNI | NULL              |                   |
-| cacheData | json         | NO   |     | NULL              |                   |
-| expiresAt | timestamp    | NO   |     | NULL              |                   |
-| createdAt | timestamp    | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+-----------+--------------+------+-----+-------------------+-------------------+
-5 rows in set (0.020 sec)
-
-MySQL [ikoota_db]> describe identity_masks;
-+-------------------+------------------------------------+------+-----+-------------------+-------------------+
-| Field             | Type                               | Null | Key | Default           | Extra             |
-+-------------------+------------------------------------+------+-----+-------------------+-------------------+
-| id                | int                                | NO   | PRI | NULL              | auto_increment    |
-| user_id           | int                                | NO   | MUL | NULL              |                   |
-| original_username | varchar(255)                       | NO   |     | NULL              |                   |
-| original_email    | varchar(255)                       | NO   |     | NULL              |                   |
-| masked_username   | varchar(255)                       | NO   |     | NULL              |                   |
-| masked_email      | varchar(255)                       | NO   |     | NULL              |                   |
-| masking_level     | enum('partial','full','temporary') | NO   |     | NULL              |                   |
-| reason            | text                               | NO   |     | NULL              |                   |
-| created_by        | int                                | NO   | MUL | NULL              |                   |
-| expiresAt         | timestamp                          | YES  | MUL | NULL              |                   |
-| is_active         | tinyint(1)                         | YES  | MUL | 1                 |                   |
-| unmasked_by       | int                                | YES  | MUL | NULL              |                   |
-| unmaskedAt        | timestamp                          | YES  |     | NULL              |                   |
-| unmask_reason     | text                               | YES  |     | NULL              |                   |
-| createdAt         | timestamp                          | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-+-------------------+------------------------------------+------+-----+-------------------+-------------------+
-15 rows in set (0.034 sec)
-
-MySQL [ikoota_db]>
-
-
-
-
-
-MySQL [ikoota_db]> show tables;
-ERROR 2006 (HY000): MySQL server has gone away
-No connection. Trying to reconnect...
-Connection id:    63283
-Current database: ikoota_db
-
-+-----------------------------------+
-| Tables_in_ikoota_db               |
-+-----------------------------------+
-| admin_dashboard_cache             |
-| admin_full_membership_overview    |
-| admin_initial_membership_overview |
-| announcements                     |
-| audit_logs                        |
-| bookmarks                         |
-| bulk_operation_jobs               |
-| chats                             |
-| class_content_access              |
-| class_content_access_backup       |
-| class_feedback                    |
-| class_member_counts               |
-| class_sessions                    |
-| classes                           |
-| classes_backup                    |
-| comments                          |
-| content_audit_logs                |
-| content_likes                     |
-| content_moderation_queue          |
-| content_reports                   |
-| content_tags                      |
-| content_views                     |
-| current_membership_status         |
-| daily_reports                     |
-| email_activity_logs               |
-| email_templates                   |
-| full_membership_applications      |
-| id_generation_log                 |
-| identity_masking_audit            |
-| initial_membership_applications   |
-| membership_access_log             |
-| membership_review_history         |
-| membership_stats                  |
-| mentors                           |
-| notification_history              |
-| notification_queue                |
-| notification_templates            |
-| pending_surveys_view              |
-| question_labels                   |
-| reports                           |
-| sms_activity_logs                 |
-| sms_templates                     |
-| survey_analytics                  |
-| survey_categories                 |
-| survey_configurations             |
-| survey_drafts                     |
-| survey_questions                  |
-| survey_responses                  |
-| survey_stats_view                 |
-| survey_templates                  |
-| surveylog                         |
-| system_configuration              |
-| tags                              |
-| teachings                         |
-| user_chats                        |
-| user_class_memberships            |
-| user_class_memberships_backup     |
-| user_communication_preferences    |
-| user_deletion_log                 |
-| user_profiles                     |
-| user_survey_history_view          |
-| users                             |
-| verification_codes                |
-+-----------------------------------+
-63 rows in set (1.827 sec)
-
-MySQL [ikoota_db]>
-
-
-
-
-
-
-
-
-
-MySQL [ikoota_db]> show tables;
-+-----------------------------------+
-| Tables_in_ikoota_db               |
-+-----------------------------------+
-| admin_action_logs                 |
-| admin_dashboard_cache             |
-| admin_full_membership_overview    |
-| admin_initial_membership_overview |
-| admin_pending_summary             |
-| announcements                     |
-| audit_logs                        |
-| bookmarks                         |
-| bulk_operation_jobs               |
-| chats                             |
-| class_content                     |
-| class_content_access              |
-| class_content_access_backup       |
-| class_feedback                    |
-| class_member_counts               |
-| class_sessions                    |
-| classes                           |
-| classes_backup                    |
-| comments                          |
-| content_audit_logs                |
-| content_likes                     |
-| content_moderation_queue          |
-| content_reports                   |
-| content_tags                      |
-| content_views                     |
-| current_membership_status         |
-| daily_reports                     |
-| email_activity_logs               |
-| email_templates                   |
-| full_membership_applications      |
-| id_generation_log                 |
-| identity_masking_audit            |
-| identity_masks                    |
-| initial_membership_applications   |
-| membership_access_log             |
-| membership_review_history         |
-| membership_stats                  |
-| mentors                           |
-| notifications                     |
-| pending_surveys_view              |
-| question_labels                   |
-| reports                           |
-| sms_activity_logs                 |
-| sms_templates                     |
-| survey_analytics                  |
-| survey_categories                 |
-| survey_configurations             |
-| survey_drafts                     |
-| survey_questions                  |
-| survey_responses                  |
-| survey_stats_view                 |
-| survey_templates                  |
-| surveylog                         |
-| system_configuration              |
-| tags                              |
-| teachings                         |
-| user_chats                        |
-| user_class_memberships            |
-| user_class_memberships_backup     |
-| user_communication_preferences    |
-| user_deletion_log                 |
-| user_management_overview          |
-| user_profiles                     |
-| user_survey_history_view          |
-| users                             |
-| verification_codes                |
-+-----------------------------------+
-66 rows in set (0.057 sec)
-
-
-
-
-
-
-
-
-MySQL [ikoota_db]> describe class_sessions;
-+------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field            | Type                                           | Null | Key | Default           | Extra                                         |
-+------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id               | int                                            | NO   | PRI | NULL              | auto_increment                                |
-| class_id         | varchar(12)                                    | NO   | MUL | NULL              |                                               |
-| session_title    | varchar(255)                                   | NO   |     | NULL              |                                               |
-| session_date     | datetime                                       | NO   | MUL | NULL              |                                               |
-| duration_minutes | int                                            | YES  |     | 60                |                                               |
-| session_type     | enum('lecture','workshop','discussion','exam') | YES  | MUL | lecture           |                                               |
-| is_mandatory     | tinyint(1)                                     | YES  |     | 1                 |                                               |
-| max_participants | int                                            | YES  |     | NULL              |                                               |
-| location         | varchar(255)                                   | YES  |     | NULL              |                                               |
-| online_link      | varchar(500)                                   | YES  |     | NULL              |                                               |
-| created_by       | int                                            | NO   | MUL | NULL              |                                               |
-| is_active        | tinyint(1)                                     | YES  |     | 1                 |                                               |
-| createdAt        | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt        | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-14 rows in set (0.274 sec)
-
-MySQL [ikoota_db]>
-
-
-MySQL [ikoota_db]> describe class_content;
-+---------------------+-----------------------------------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field               | Type                                                                                    | Null | Key | Default           | Extra                                         |
-+---------------------+-----------------------------------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id                  | int                                                                                     | NO   | PRI | NULL              | auto_increment                                |
-| class_id            | varchar(12)                                                                             | NO   | MUL | NULL              |                                               |
-| title               | varchar(255)                                                                            | NO   |     | NULL              |                                               |
-| content_type        | enum('lesson','assignment','announcement','resource','quiz','video','document','image') | YES  | MUL | lesson            |                                               |
-| content_text        | longtext                                                                                | YES  |     | NULL              |                                               |
-| media_url           | varchar(500)                                                                            | YES  |     | NULL              |                                               |
-| media_type          | varchar(50)                                                                             | YES  |     | NULL              |                                               |
-| file_size_bytes     | bigint                                                                                  | YES  |     | 0                 |                                               |
-| order_index         | int                                                                                     | YES  |     | 0                 |                                               |
-| is_required         | tinyint(1)                                                                              | YES  |     | 0                 |                                               |
-| estimated_duration  | int                                                                                     | YES  |     | NULL              |                                               |
-| points_value        | int                                                                                     | YES  |     | 0                 |                                               |
-| prerequisites       | text                                                                                    | YES  |     | NULL              |                                               |
-| learning_objectives | text                                                                                    | YES  |     | NULL              |                                               |
-| created_by          | int                                                                                     | NO   | MUL | NULL              |                                               |
-| is_active           | tinyint(1)                                                                              | YES  | MUL | 1                 |                                               |
-| is_published        | tinyint(1)                                                                              | YES  | MUL | 0                 |                                               |
-| publish_date        | datetime                                                                                | YES  |     | NULL              |                                               |
-| due_date            | datetime                                                                                | YES  |     | NULL              |                                               |
-| createdAt           | timestamp                                                                               | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt           | timestamp                                                                               | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+---------------------+-----------------------------------------------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-21 rows in set (0.067 sec)
-
-
-
-MySQL [ikoota_db]>  describe class_member_counts;
-+-----------------+--------------------------------------------------+------+-----+-------------+-------+
-| Field           | Type                                             | Null | Key | Default     | Extra |
-+-----------------+--------------------------------------------------+------+-----+-------------+-------+
-| class_id        | varchar(12)                                      | NO   |     | NULL        |       |
-| class_name      | varchar(255)                                     | NO   |     | NULL        |       |
-| class_type      | enum('demographic','subject','public','special') | YES  |     | demographic |       |
-| is_public       | tinyint(1)                                       | YES  |     | 0           |       |
-| total_members   | bigint                                           | NO   |     | 0           |       |
-| moderators      | bigint                                           | NO   |     | 0           |       |
-| pending_members | bigint                                           | NO   |     | 0           |       |
-+-----------------+--------------------------------------------------+------+-----+-------------+-------+
-7 rows in set (0.085 sec)
-
-MySQL [ikoota_db]>  describe class_sessions;
-+------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field            | Type                                           | Null | Key | Default           | Extra                                         |
-+------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id               | int                                            | NO   | PRI | NULL              | auto_increment                                |
-| class_id         | varchar(12)                                    | NO   | MUL | NULL              |                                               |
-| session_title    | varchar(255)                                   | NO   |     | NULL              |                                               |
-| session_date     | datetime                                       | NO   | MUL | NULL              |                                               |
-| duration_minutes | int                                            | YES  |     | 60                |                                               |
-| session_type     | enum('lecture','workshop','discussion','exam') | YES  | MUL | lecture           |                                               |
-| is_mandatory     | tinyint(1)                                     | YES  |     | 1                 |                                               |
-| max_participants | int                                            | YES  |     | NULL              |                                               |
-| location         | varchar(255)                                   | YES  |     | NULL              |                                               |
-| online_link      | varchar(500)                                   | YES  |     | NULL              |                                               |
-| created_by       | int                                            | NO   | MUL | NULL              |                                               |
-| is_active        | tinyint(1)                                     | YES  |     | 1                 |                                               |
-| createdAt        | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt        | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-14 rows in set (0.051 sec)
-
-MySQL [ikoota_db]> describe  classes;
-+-------------------------+-----------------------------------------------------+------+-----+-------------------+-------------------+
-| Field                   | Type                                                | Null | Key | Default           | Extra             |
-+-------------------------+-----------------------------------------------------+------+-----+-------------------+-------------------+
-| id                      | int                                                 | NO   | PRI | NULL              | auto_increment    |
-| class_id                | varchar(12)                                         | NO   | UNI | NULL              |                   |
-| class_name              | varchar(255)                                        | NO   |     | NULL              |                   |
-| public_name             | varchar(255)                                        | YES  |     | NULL              |                   |
-| description             | text                                                | YES  |     | NULL              |                   |
-| class_type              | enum('demographic','subject','public','special')    | YES  | MUL | demographic       |                   |
-| category                | varchar(100)                                        | YES  | MUL | NULL              |                   |
-| difficulty_level        | enum('beginner','intermediate','advanced','expert') | YES  | MUL | beginner          |                   |
-| is_public               | tinyint(1)                                          | YES  | MUL | 0                 |                   |
-| max_members             | int                                                 | YES  |     | 50                |                   |
-| estimated_duration      | int                                                 | YES  | MUL | NULL              |                   |
-| prerequisites           | text                                                | YES  |     | NULL              |                   |
-| learning_objectives     | text                                                | YES  |     | NULL              |                   |
-| tags                    | varchar(500)                                        | YES  |     | NULL              |                   |
-| privacy_level           | enum('public','members_only','admin_only')          | YES  |     | members_only      |                   |
-| created_by              | int                                                 | YES  | MUL | NULL              |                   |
-| is_active               | tinyint(1)                                          | YES  | MUL | 1                 |                   |
-| createdAt               | timestamp                                           | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updatedAt               | timestamp                                           | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| allow_self_join         | tinyint(1)                                          | YES  |     | 1                 |                   |
-| require_full_membership | tinyint(1)                                          | YES  |     | 0                 |                   |
-| auto_approve_members    | tinyint(1)                                          | YES  |     | 1                 |                   |
-| require_approval        | tinyint(1)                                          | YES  |     | 0                 |                   |
-| allow_preview           | tinyint(1)                                          | YES  |     | 1                 |                   |
-+-------------------------+-----------------------------------------------------+------+-----+-------------------+-------------------+
-24 rows in set (0.058 sec)
-
-MySQL [ikoota_db]> describe user_class_memberships ;
-+-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field                 | Type                                           | Null | Key | Default           | Extra                                         |
-+-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id                    | int                                            | NO   | PRI | NULL              | auto_increment                                |
-| user_id               | int                                            | NO   | MUL | NULL              |                                               |
-| class_id              | varchar(12)                                    | NO   | MUL | NULL              |                                               |
-| membership_status     | enum('active','pending','suspended','expired') | YES  | MUL | active            |                                               |
-| role_in_class         | enum('member','moderator','assistant')         | YES  | MUL | member            |                                               |
-| joinedAt              | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| assigned_by           | int                                            | YES  | MUL | NULL              |                                               |
-| expiresAt             | timestamp                                      | YES  |     | NULL              |                                               |
-| can_see_class_name    | tinyint(1)                                     | YES  |     | 1                 |                                               |
-| receive_notifications | tinyint(1)                                     | YES  |     | 1                 |                                               |
-| createdAt             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt             | timestamp                                      | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+-----------------------+------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-12 rows in set (0.055 sec)
-
-MySQL [ikoota_db]> describe class_feedback;
-+---------------+--------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| Field         | Type                                             | Null | Key | Default           | Extra                                         |
-+---------------+--------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-| id            | int                                              | NO   | PRI | NULL              | auto_increment                                |
-| class_id      | varchar(12)                                      | NO   | MUL | NULL              |                                               |
-| user_id       | int                                              | NO   | MUL | NULL              |                                               |
-| session_id    | int                                              | YES  | MUL | NULL              |                                               |
-| rating        | int                                              | YES  | MUL | NULL              |                                               |
-| feedback_text | text                                             | YES  |     | NULL              |                                               |
-| feedback_type | enum('general','session','instructor','content') | YES  | MUL | general           |                                               |
-| is_anonymous  | tinyint(1)                                       | YES  |     | 0                 |                                               |
-| created_by    | int                                              | NO   |     | NULL              |                                               |
-| createdAt     | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED                             |
-| updatedAt     | timestamp                                        | YES  |     | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-+---------------+--------------------------------------------------+------+-----+-------------------+-----------------------------------------------+
-11 rows in set (0.084 sec)
-
-
-
-
-
-
-NOTE
-
-the list of the class id(s) of all the classess that a user belongs to should be shown/listed at the users dashboard, and it should also show as a listing of the possible audience (to be chosen) when a user is making/creating any post or conversation. It is from this list of classes that user can create their audience (there should be previledge to post directly to those of immediate and approval to post to those above)
+// ikootaclient/src/components/user/UserDashboard.jsx - ENHANCED WITH CLASS SYSTEM
+// Features: Class enrollment, progress tracking, personalized recommendations, content access
+
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useUser } from '../auth/UserStatus';
+import { getUserAccess } from '../config/accessMatrix';
+import api from '../service/api'; 
+import './UserDashboard.css';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
+// ===============================================
+// ✅ ENHANCED API FUNCTIONS WITH CLASS ENDPOINTS
+// ===============================================
+
+const fetchUserDashboard = async () => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.get('/users/dashboard', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
+const fetchUserClasses = async () => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.get('/classes/my-classes', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
+const fetchUserProgress = async () => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.get('/classes/my-progress', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
+const fetchUserActivity = async () => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.get('/classes/my-activity', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
+const fetchRecommendations = async () => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.get('/classes/recommendations', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
+const fetchPublicClasses = async (filters = {}) => {
+  const params = new URLSearchParams({
+    limit: '6',
+    ...filters
+  });
+  const { data } = await api.get(`/classes?${params}`);
+  return data;
+};
+
+const joinClass = async (classId) => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.post(`/classes/${classId}/join`, {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
+const leaveClass = async (classId) => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.post(`/classes/${classId}/leave`, {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
+const markNotificationAsRead = async (notificationId) => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.put(`/communication/notifications/${notificationId}/read`, {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
+// ===============================================
+// ✅ ENHANCED COMPONENT SECTIONS
+// ===============================================
+
+const MembershipStatus = ({ status, onApplyClick }) => {
+  console.log('🔍 MembershipStatus received status:', status);
+  
+  if (!status) return (
+    <div className="membership-status loading">
+      <div className="loading-spinner"></div>
+      <p>Loading membership status...</p>
+    </div>
+  );
+
+  const getStatusColor = (statusType) => {
+    switch (statusType) {
+      case 'member':
+      case 'full_member':
+      case 'approved_member':
+      case 'approved_pre_member':
+      case 'approved':
+        return 'success';
+      case 'pre_member':
+        return 'info';
+      case 'ready_to_apply':
+      case 'not_submitted':
+        return 'primary';
+      case 'pending':
+      case 'under_review':
+        return 'warning';
+      case 'declined':
+      case 'rejected':
+        return 'danger';
+      default:
+        return 'default';
+    }
+  };
+
+  const getStatusIcon = (statusType) => {
+    switch (statusType) {
+      case 'member':
+      case 'full_member':
+      case 'approved_member':
+      case 'approved_pre_member':
+      case 'approved':
+        return '✅';
+      case 'pre_member':
+        return '👤';
+      case 'ready_to_apply':
+      case 'not_submitted':
+        return '📝';
+      case 'pending':
+      case 'under_review':
+        return '⏳';
+      case 'declined':
+      case 'rejected':
+        return '❌';
+      default:
+        return '📋';
+    }
+  };
+
+  const membershipStage = status.membership_stage || 'none';
+  const memberStatus = status.is_member || 'not_applied';
+  
+  let applicationStatus, applicationStatusDisplay, applicationDescription;
+  
+  if (status.application_status) {
+    applicationStatus = status.application_status;
+    applicationStatusDisplay = status.application_status_display || status.application_status;
+    applicationDescription = status.application_description || 'No description available';
+  } else {
+    applicationStatus = status.initial_application_status || 'not_submitted';
+    applicationStatusDisplay = applicationStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    applicationDescription = 'Application status information';
+  }
+  
+  console.log('🔍 MembershipStatus processing:', {
+    membershipStage,
+    memberStatus,
+    applicationStatus,
+    applicationStatusDisplay,
+    applicationDescription
+  });
+  
+  return (
+    <div className="membership-status">
+      <div className="status-header">
+        <h3>Membership Status</h3>
+        <div className={`status-badge ${getStatusColor(applicationStatus)}`}>
+          <span className="status-icon">{getStatusIcon(applicationStatus)}</span>
+          <span className="status-text">
+            {applicationStatus === 'ready_to_apply' ? 'NEW USER' :
+             applicationStatus === 'approved_pre_member' ? 'PRE-MEMBER' :
+             applicationStatus === 'approved_member' ? 'FULL MEMBER' :
+             applicationStatus === 'pending' ? 'UNDER REVIEW' :
+             applicationStatusDisplay.toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      <div className="status-details">
+        <div className="detail-item">
+          <strong>Current Status:</strong> 
+          <span className={`status-indicator ${getStatusColor(memberStatus)}`}>
+            {memberStatus === 'applied' && applicationStatus === 'ready_to_apply' ? 'Ready to Apply' :
+             memberStatus === 'applied' ? 'Application Submitted' : 
+             memberStatus === 'pre_member' ? 'Pre-Member' :
+             memberStatus === 'member' ? 'Full Member' :
+             memberStatus.replace(/_/g, ' ')}
+          </span>
+        </div>
+        
+        <div className="detail-item">
+          <strong>Application Status:</strong> 
+          <span className={`status-indicator ${getStatusColor(applicationStatus)}`}>
+            {applicationStatusDisplay}
+          </span>
+        </div>
+
+        {status.user_created && (
+          <div className="detail-item">
+            <strong>Member Since:</strong> 
+            <span>{new Date(status.user_created).toLocaleDateString()}</span>
+          </div>
+        )}
+
+        {(status.application_ticket || status.survey_ticket) && (
+          <div className="detail-item">
+            <strong>Application ID:</strong> 
+            <span className="application-ticket">
+              {status.application_ticket || status.survey_ticket}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="status-actions">
+        {applicationStatus === 'ready_to_apply' && (
+          <div className="ready-to-apply-message">
+            <div className="ready-icon">📝</div>
+            <h4>Ready to Apply</h4>
+            <p>{applicationDescription}</p>
+            <button 
+              className="apply-btn"
+              onClick={() => window.location.href = '/applicationsurvey'}
+            >
+              Start Application
+            </button>
+          </div>
+        )}
+
+        {applicationStatus === 'not_submitted' && memberStatus === 'applied' && (
+          <div className="not-submitted-message">
+            <div className="not-submitted-icon">📝</div>
+            <h4>Application Required</h4>
+            <p>Complete your membership application to join our community.</p>
+            <button 
+              className="apply-btn"
+              onClick={() => window.location.href = '/applicationsurvey'}
+            >
+              Submit Application
+            </button>
+          </div>
+        )}
+
+        {(applicationStatus === 'pending' || applicationStatus === 'under_review') && (
+          <div className="pending-message">
+            <div className="pending-icon">⏳</div>
+            <h4>Application Under Review</h4>
+            <p>{applicationDescription}</p>
+            {status.application_submittedAt && (
+              <small>
+                Submitted on {new Date(status.application_submittedAt).toLocaleDateString()}
+              </small>
+            )}
+          </div>
+        )}
+
+        {(membershipStage === 'member' || applicationStatus === 'approved_member') && (
+          <div className="member-benefits">
+            <div className="benefits-icon">🎉</div>
+            <h4>Full Member Benefits Active</h4>
+            <ul>
+              <li>✅ Access to Iko Chat</li>
+              <li>✅ Full platform access</li>
+              <li>✅ Class enrollment</li>
+              <li>✅ Priority support</li>
+            </ul>
+          </div>
+        )}
+
+        {(membershipStage === 'pre_member' || applicationStatus === 'approved_pre_member') && (
+          <div className="premember-benefits">
+            <div className="benefits-icon">👤</div>
+            <h4>Pre-Member Access</h4>
+            <ul>
+              <li>✅ Towncrier content access</li>
+              <li>✅ Limited class access</li>
+              <li>📝 Full membership application available</li>
+            </ul>
+            <button 
+              className="upgrade-btn"
+              onClick={() => window.location.href = '/full-membership'}
+            >
+              Apply for Full Membership
+            </button>
+          </div>
+        )}
+
+        {(applicationStatus === 'rejected' || applicationStatus === 'declined') && (
+          <div className="rejected-message">
+            <div className="rejected-icon">❌</div>
+            <h4>Application Not Approved</h4>
+            <p>{applicationDescription}</p>
+            {status.admin_notes && (
+              <div className="admin-feedback">
+                <strong>Feedback:</strong> {status.admin_notes}
+              </div>
+            )}
+            <button 
+              className="reapply-btn"
+              onClick={() => window.location.href = '/applicationsurvey'}
+            >
+              Reapply
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}; 
+
+// ✅ ENHANCED CLASS ENROLLMENT COMPONENT
+const ClassEnrollmentSection = ({ user }) => {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // Fetch user's classes
+  const { data: userClasses, isLoading: classesLoading } = useQuery({
+    queryKey: ['userClasses'],
+    queryFn: fetchUserClasses,
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000,
+    retry: 1
+  });
+
+  // Fetch recommendations
+  const { data: recommendations } = useQuery({
+    queryKey: ['classRecommendations'],
+    queryFn: fetchRecommendations,
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+    retry: 1
+  });
+
+  // Fetch public classes
+  const { data: publicClasses } = useQuery({
+    queryKey: ['publicClasses'],
+    queryFn: () => fetchPublicClasses({ limit: 4 }),
+    staleTime: 3 * 60 * 1000,
+    retry: 1
+  });
+
+  // Join class mutation
+  const joinClassMutation = useMutation({
+    mutationFn: joinClass,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['userClasses']);
+      queryClient.invalidateQueries(['classRecommendations']);
+      alert('Successfully joined class!');
+    },
+    onError: (error) => {
+      console.error('Failed to join class:', error);
+      alert(error.response?.data?.message || 'Failed to join class');
+    }
+  });
+
+  // Leave class mutation
+  const leaveClassMutation = useMutation({
+    mutationFn: leaveClass,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['userClasses']);
+      alert('Successfully left class!');
+    },
+    onError: (error) => {
+      console.error('Failed to leave class:', error);
+      alert(error.response?.data?.message || 'Failed to leave class');
+    }
+  });
+
+  const handleJoinClass = (classId) => {
+    if (window.confirm('Do you want to join this class?')) {
+      joinClassMutation.mutate(classId);
+    }
+  };
+
+  const handleLeaveClass = (classId) => {
+    if (window.confirm('Are you sure you want to leave this class?')) {
+      leaveClassMutation.mutate(classId);
+    }
+  };
+
+  const userClassesData = userClasses?.data || [];
+  const recommendedClasses = recommendations?.based_on_interests || recommendations?.popular_classes || [];
+  const publicClassesData = publicClasses?.data || [];
+
+  return (
+    <div className="class-enrollment-section">
+      <div className="section-header">
+        <h3>My Classes</h3>
+        <button 
+          onClick={() => navigate('/classes')}
+          className="btn-browse"
+        >
+          Browse All Classes
+        </button>
+      </div>
+
+      {classesLoading ? (
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p>Loading your classes...</p>
+        </div>
+      ) : userClassesData.length === 0 ? (
+        <div className="empty-classes">
+          <div className="empty-icon">🎓</div>
+          <h4>No Classes Yet</h4>
+          <p>You haven't joined any classes yet. Explore our available classes below!</p>
+        </div>
+      ) : (
+        <div className="user-classes-grid">
+          {userClassesData.slice(0, 4).map(cls => (
+            <div key={cls.class_id} className="class-card user">
+              <div className="class-header">
+                <h4>{cls.class_name}</h4>
+                <span className={`status-badge ${cls.is_active ? 'active' : 'inactive'}`}>
+                  {cls.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+              
+              <div className="class-info">
+                <p className="class-description">
+                  {cls.description?.substring(0, 100)}...
+                </p>
+                
+                <div className="class-meta">
+                  <span className="class-type">{cls.class_type}</span>
+                  <span className="member-count">{cls.total_members} members</span>
+                </div>
+              </div>
+
+              <div className="class-actions">
+                <button 
+                  onClick={() => navigate(`/classes/${encodeURIComponent(cls.class_id)}`)}
+                  className="btn-view"
+                >
+                  View Class
+                </button>
+                <button 
+                  onClick={() => handleLeaveClass(cls.class_id)}
+                  className="btn-leave"
+                  disabled={leaveClassMutation.isLoading}
+                >
+                  Leave
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Recommended Classes */}
+      {recommendedClasses.length > 0 && (
+        <div className="recommendations-section">
+          <h4>Recommended for You</h4>
+          <div className="recommended-classes">
+            {recommendedClasses.slice(0, 3).map(cls => (
+              <div key={cls.class_id} className="class-card recommended">
+                <div className="recommendation-badge">Recommended</div>
+                <h5>{cls.class_name}</h5>
+                <p>{cls.description?.substring(0, 80)}...</p>
+                <div className="class-meta">
+                  <span>{cls.class_type}</span>
+                  <span>{cls.total_members} members</span>
+                </div>
+                <button 
+                  onClick={() => handleJoinClass(cls.class_id)}
+                  className="btn-join"
+                  disabled={joinClassMutation.isLoading}
+                >
+                  Join Class
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Popular Public Classes */}
+      {publicClassesData.length > 0 && (
+        // <div className="public-classes-section">
+          <div className="public-classes">
+             <span>Popular Public Classes</span>
+            {publicClassesData.slice(0, 3).map(cls => (
+              <div key={cls.class_id} className="class-card public">
+                <div className="public-badge">Public</div>
+                <h5>{cls.class_name}</h5>
+                <p>{cls.description?.substring(0, 80)}...</p>
+                <div className="class-meta">
+                  <span>{cls.class_type}</span>
+                  <span>{cls.total_members} members</span>
+                </div>
+                <button 
+                  onClick={() => handleJoinClass(cls.class_id)}
+                  className="btn-join"
+                  disabled={joinClassMutation.isLoading}
+                >
+                  Join Class
+                </button>
+              </div>
+            ))}
+          </div>
+        // </div>
+      )}
+    </div>
+  );
+};
+
+// ✅ ENHANCED PROGRESS TRACKING COMPONENT
+const ProgressTrackingSection = ({ user }) => {
+  const { data: progressData, isLoading: progressLoading } = useQuery({
+    queryKey: ['userProgress'],
+    queryFn: fetchUserProgress,
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+    retry: 1
+  });
+
+  const { data: activityData } = useQuery({
+    queryKey: ['userActivity'],
+    queryFn: fetchUserActivity,
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000,
+    retry: 1
+  });
+
+  if (progressLoading) {
+    return (
+      <div className="progress-section loading">
+        <div className="loading-spinner"></div>
+        <p>Loading progress...</p>
+      </div>
+    );
+  }
+
+  const progress = progressData?.progress || {};
+  const activity = activityData?.activity || {};
+
+  return (
+    <div className="progress-tracking-section">
+      <div className="section-header">
+        <h3>My Progress</h3>
+      </div>
+
+      <div className="progress-stats">
+        <div className="progress-stat">
+          <div className="stat-icon">📚</div>
+          <div className="stat-content">
+            <h4>Classes Joined</h4>
+            <span className="stat-number">{progress.total_classes_joined || 0}</span>
+          </div>
+        </div>
+
+        <div className="progress-stat">
+          <div className="stat-icon">✅</div>
+          <div className="stat-content">
+            <h4>Active Classes</h4>
+            <span className="stat-number">{progress.active_classes || 0}</span>
+          </div>
+        </div>
+
+        <div className="progress-stat">
+          <div className="stat-icon">🎯</div>
+          <div className="stat-content">
+            <h4>Completion Rate</h4>
+            <span className="stat-number">{progress.completion_rate || 0}%</span>
+          </div>
+        </div>
+
+        <div className="progress-stat">
+          <div className="stat-icon">📈</div>
+          <div className="stat-content">
+            <h4>Attendance Rate</h4>
+            <span className="stat-number">{progress.attendance_rate || 0}%</span>
+          </div>
+        </div>
+      </div>
+
+      {activity.recent_participation && activity.recent_participation.length > 0 && (
+        <div className="recent-activity">
+          <h4>Recent Activity</h4>
+          <div className="activity-list">
+            {activity.recent_participation.slice(0, 5).map((item, index) => (
+              <div key={index} className="activity-item">
+                <div className="activity-icon">
+                  {item.type === 'join' ? '➕' :
+                   item.type === 'complete' ? '✅' :
+                   item.type === 'attend' ? '📅' : '📝'}
+                </div>
+                <div className="activity-content">
+                  <span className="activity-text">{item.description}</span>
+                  <span className="activity-time">{new Date(item.timestamp).toLocaleDateString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activity.upcoming_events && activity.upcoming_events.length > 0 && (
+        <div className="upcoming-events">
+          <h4>Upcoming Events</h4>
+          <div className="events-list">
+            {activity.upcoming_events.slice(0, 3).map((event, index) => (
+              <div key={index} className="event-item">
+                <div className="event-date">
+                  <span className="date">{new Date(event.date).getDate()}</span>
+                  <span className="month">{new Date(event.date).toLocaleDateString('en', { month: 'short' })}</span>
+                </div>
+                <div className="event-info">
+                  <h5>{event.title}</h5>
+                  <p>{event.class_name}</p>
+                  <span className="event-time">{event.time}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ✅ ENHANCED QUICK ACTIONS WITH CLASS FEATURES
+const QuickActions = ({ actions, user }) => {
+  const { getUserStatus } = useUser();
+  const userStatus = getUserStatus();
+  const userAccess = user ? getUserAccess(user) : null;
+
+  console.log('🔍 QuickActions - User Status:', userStatus);
+  console.log('🔍 QuickActions - User Access:', userAccess);
+
+  const getActionsForUser = () => {
+    const baseActions = [
+      {
+        text: 'View Profile',
+        link: '/profile',
+        type: 'primary',
+        icon: '👤',
+        size: 'small'
+      }
+    ];
+
+    // Class-related actions for all users
+    const classActions = [
+      {
+        text: 'Browse Classes',
+        link: '/classes',
+        type: 'info',
+        icon: '🎓',
+        size: 'small'
+      },
+      {
+        text: 'My Classes',
+        link: '/classes/my-classes',
+        type: 'secondary',
+        icon: '📚',
+        size: 'small'
+      }
+    ];
+
+    // Admin specific actions
+    if (userStatus === 'admin') {
+      return [
+        ...baseActions,
+        ...classActions,
+        {
+          text: 'Admin Panel',
+          link: '/admin',
+          type: 'admin',
+          icon: '🔧',
+          size: 'small'
+        },
+        {
+          text: 'Class Management',
+          link: '/admin/audienceclassmgr',
+          type: 'admin',
+          icon: '📋',
+          size: 'small'
+        },
+        {
+          text: 'User Management',
+          link: '/admin/usermanagement',
+          type: 'admin',
+          icon: '👥',
+          size: 'small'
+        },
+        {
+          text: 'Applications',
+          link: '/admin/authcontrols',
+          type: 'admin',
+          icon: '📝',
+          size: 'small'
+        },
+        {
+          text: 'Iko Chat',
+          link: '/iko',
+          type: 'info',
+          icon: '💬',
+          size: 'small'
+        },
+        {
+          text: 'Towncrier',
+          link: '/towncrier',
+          type: 'secondary',
+          icon: '📰',
+          size: 'small'
+        }
+      ];
+    }
+
+    // Full member actions
+    if (userStatus === 'full_member') {
+      return [
+        ...baseActions,
+        ...classActions,
+        {
+          text: 'Iko Chat',
+          link: '/iko',
+          type: 'info',
+          icon: '💬',
+          size: 'small'
+        },
+        {
+          text: 'Towncrier',
+          link: '/towncrier',
+          type: 'secondary',
+          icon: '📰',
+          size: 'small'
+        }
+      ];
+    }
+    
+    // Pre-member actions
+    if (userStatus === 'pre_member') {
+      return [
+        ...baseActions,
+        {
+          text: 'Public Classes',
+          link: '/classes?filter=public',
+          type: 'info',
+          icon: '🌐',
+          size: 'small'
+        },
+        {
+          text: 'Towncrier Content',
+          link: '/towncrier',
+          type: 'secondary',
+          icon: '📰',
+          size: 'small'
+        },
+        {
+          text: 'Apply for Full Membership',
+          link: '/full-membership-application',
+          type: 'success',
+          icon: '⬆️',
+          size: 'small'
+        }
+      ];
+    }
+    
+    // Pending verification actions
+    if (userStatus === 'pending_verification') {
+      return [
+        ...baseActions,
+        {
+          text: 'Public Classes',
+          link: '/classes?filter=public',
+          type: 'info',
+          icon: '🌐',
+          size: 'small'
+        },
+        {
+          text: 'Application Status',
+          link: '/pending-verification',
+          type: 'warning',
+          icon: '⏳',
+          size: 'small'
+        }
+      ];
+    }
+    
+    // Needs application actions
+    if (userStatus === 'needs_application') {
+      return [
+        ...baseActions,
+        {
+          text: 'Public Classes',
+          link: '/classes?filter=public',
+          type: 'info',
+          icon: '🌐',
+          size: 'small'
+        },
+        {
+          text: 'Complete Application',
+          link: '/applicationsurvey',
+          type: 'primary',
+          icon: '📝',
+          size: 'small'
+        }
+      ];
+    }
+    
+    return [...baseActions, ...classActions];
+  };
+
+  const defaultActions = [
+    {
+      text: 'Help Center',
+      link: '/help',
+      type: 'info',
+      icon: '❓',
+      size: 'small'
+    },
+    {
+      text: 'Settings',
+      link: '/settings',
+      type: 'default',
+      icon: '⚙️',
+      size: 'small'
+    },
+    {
+      text: 'Home',
+      link: '/',
+      type: 'secondary',
+      icon: '🏠',
+      size: 'small'
+    }
+  ];
+
+  const userSpecificActions = getActionsForUser();
+  const allActions = [...userSpecificActions, ...defaultActions, ...(actions || [])];
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
+    window.location.href = '/login';
+  };
+
+  return (
+    <div className="quick-actions">
+      <h3>Quick Actions</h3>
+      <div className="actions-grid compact">
+        {allActions.map((action, index) => (
+          <a 
+            key={index} 
+            href={action.link} 
+            className={`action-btn ${action.type} ${action.size || 'small'}`}
+            title={action.description || action.text}
+          >
+            <div className="action-icon">{action.icon}</div>
+            <span className="action-text">{action.text}</span>
+            {action.badge && (
+              <span className="action-badge">{action.badge}</span>
+            )}
+          </a>
+        ))}
+        
+        <button 
+          onClick={handleLogout}
+          className="action-btn danger small"
+          title="Sign out of your account"
+        >
+          <div className="action-icon">🚪</div>
+          <span className="action-text">Logout</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const RecentActivities = ({ activities }) => {
+  const getActivityIcon = (type) => {
+    switch (type) {
+      case 'application':
+        return '📝';
+      case 'approval':
+        return '✅';
+      case 'class_join':
+        return '🎓';
+      case 'class_complete':
+        return '🏆';
+      case 'course':
+        return '📚';
+      case 'message':
+        return '💬';
+      case 'login':
+        return '🔐';
+      case 'registration':
+        return '🎉';
+      default:
+        return '📋';
+    }
+  };
+
+  const getActivityColor = (status) => {
+    switch (status) {
+      case 'completed':
+      case 'approved':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'failed':
+      case 'declined':
+        return 'danger';
+      default:
+        return 'info';
+    }
+  };
+
+  const defaultActivities = [
+    {
+      type: 'registration',
+      title: 'Account Created',
+      description: 'Welcome to the Ikoota platform!',
+      date: new Date().toISOString(),
+      status: 'completed'
+    },
+    {
+      type: 'class_join',
+      title: 'Browse Classes',
+      description: 'Explore available classes to join',
+      date: new Date().toISOString(),
+      status: 'pending'
+    }
+  ];
+
+  const displayActivities = activities && activities.length > 0 ? activities : defaultActivities;
+
+  return (
+    <div className="recent-activities">
+      <h3>Recent Activities</h3>
+      <div className="activities-list">
+        {displayActivities.map((activity, index) => (
+          <div key={index} className="activity-item">
+            <div className="activity-icon">
+              {getActivityIcon(activity.type)}
+            </div>
+            <div className="activity-content">
+              <h4 className="activity-title">{activity.title}</h4>
+              <p className="activity-description">{activity.description}</p>
+              <div className="activity-meta">
+                <span className="activity-date">
+                  {new Date(activity.date).toLocaleDateString()}
+                </span>
+                <span className={`activity-status ${getActivityColor(activity.status)}`}>
+                  {activity.status}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const NotificationsSection = ({ notifications, onMarkAsRead }) => {
+  if (!notifications || notifications.length === 0) {
+    return (
+      <div className="notifications-section">
+        <h3>Notifications</h3>
+        <div className="empty-notifications">
+          <div className="empty-icon">🔔</div>
+          <p>No new notifications</p>
+          <small>You're all caught up!</small>
+        </div>
+      </div>
+    );
+  }
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'success':
+        return '✅';
+      case 'warning':
+        return '⚠️';
+      case 'error':
+        return '❌';
+      case 'info':
+        return 'ℹ️';
+      case 'class':
+        return '🎓';
+      default:
+        return '📢';
+    }
+  };
+
+  return (
+    <div className="notifications-section">
+      <h3>Notifications</h3>
+      <div className="notifications-list">
+        {notifications.map((notification, index) => (
+          <div 
+            key={notification.id || index} 
+            className={`notification ${notification.type} ${notification.read ? 'read' : 'unread'}`}
+          >
+            <div className="notification-icon">
+              {getNotificationIcon(notification.type)}
+            </div>
+            <div className="notification-content">
+              <p className="notification-message">{notification.message}</p>
+              <div className="notification-meta">
+                <span className="notification-date">
+                  {new Date(notification.date || Date.now()).toLocaleDateString()}
+                </span>
+                {!notification.read && onMarkAsRead && (
+                  <button 
+                    onClick={() => onMarkAsRead(notification.id)}
+                    className="mark-read-btn"
+                  >
+                    Mark as read
+                  </button>
+                )}
+              </div>
+            </div>
+            {!notification.read && <div className="unread-indicator"></div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const WelcomeSection = ({ user, dashboardData }) => {
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  return (
+    <div className="welcome-section">
+      <div className="welcome-content">
+        <h1 className="welcome-title">
+          {getGreeting()}, {user?.username || 'User'}! 👋
+        </h1>
+        <p className="welcome-subtitle">
+          {dashboardData?.membershipStatus?.membership_stage === 'member' 
+            ? "Welcome back to your member dashboard"
+            : "Here's your current status and available opportunities"
+          }
+        </p>
+      </div>
+      <div className="welcome-stats">
+        <div className="stat-item">
+          <span className="stat-number">{dashboardData?.stats?.classesJoined || 0}</span>
+          <span className="stat-label">Classes Joined</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-number">{dashboardData?.stats?.activitiesCompleted || 0}</span>
+          <span className="stat-label">Activities</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-number">{dashboardData?.stats?.daysActive || 1}</span>
+          <span className="stat-label">Days Active</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ===============================================
+// ✅ MAIN ENHANCED USER DASHBOARD COMPONENT
+// ===============================================
+
+const UserDashboard = () => {
+  const { user, isAuthenticated, getUserStatus } = useUser();
+  const queryClient = useQueryClient();
+
+  const { data: dashboardData, isLoading, error } = useQuery({
+    queryKey: ['userDashboard'],
+    queryFn: fetchUserDashboard,
+    enabled: !!user && isAuthenticated,
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
+    retry: 1
+  });
+
+  const markAsReadMutation = useMutation({
+    mutationFn: markNotificationAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['userDashboard']);
+    },
+    onError: (error) => {
+      console.error('Failed to mark notification as read:', error);
+    }
+  });
+
+  const handleMarkAsRead = (notificationId) => {
+    markAsReadMutation.mutate(notificationId);
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="dashboard-auth-error">
+        <div className="auth-error-container">
+          <div className="auth-error-icon">🔐</div>
+          <h3>Authentication Required</h3>
+          <p>Please log in to view your dashboard</p>
+          <a href="/login" className="login-btn">Go to Login</a>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="dashboard-loading">
+        <div className="loading-container">
+          <div className="loading-spinner large"></div>
+          <h3>Loading your dashboard...</h3>
+          <p>Please wait while we fetch your latest information</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-error">
+        <div className="error-container">
+          <div className="error-icon">⚠️</div>
+          <h3>Error loading dashboard</h3>
+          <p>{error.message}</p>
+          <button 
+            onClick={() => queryClient.invalidateQueries(['userDashboard'])}
+            className="retry-btn"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="user-dashboard enhanced">
+      <WelcomeSection user={user} dashboardData={dashboardData} />
+      
+      <div className="dashboard-grid enhanced">
+        <MembershipStatus 
+          status={dashboardData?.membershipStatus || user} 
+        />
+        
+        <QuickActions 
+          actions={dashboardData?.quickActions}
+          user={user}
+        />
+  
+        <RecentActivities 
+          activities={dashboardData?.recentActivities} 
+        />
+      </div>
+
+        <ProgressTrackingSection user={user} />
+        {/* <MediaGallerySection user={user} /> */}
+
+        <ClassEnrollmentSection user={user} />
+        
+      
+
+      {(dashboardData?.notifications?.length > 0) && (
+        <NotificationsSection 
+          notifications={dashboardData.notifications}
+          onMarkAsRead={handleMarkAsRead}
+        />
+      )}
+    </div>
+  );
+};
+
+export default UserDashboard;
+
+
+
+``` 
+
+/* ikootaclient/src/components/user/UserDashboard.css */
+
+.user-dashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+/* ==================================================
+   WELCOME SECTION
+   ================================================== */
+
+.welcome-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 40px;
+  border-radius: 16px;
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+
+.welcome-content h1 {
+  font-size: 2.5rem;
+  margin: 0 0 10px 0;
+  font-weight: 700;
+}
+
+.welcome-subtitle {
+  font-size: 1.2rem;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.welcome-stats {
+  display: flex;
+  gap: 30px;
+}
+
+.stat-item {
+  text-align: center;
+  background: rgba(255,255,255,0.1);
+  padding: 20px;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.stat-number {
+  display: block;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+/* ==================================================
+   DASHBOARD GRID
+   ================================================== */
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+/* ==================================================
+   MEMBERSHIP STATUS
+   ================================================== */
+
+.membership-status {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border: 1px solid #e1e5e9;
+}
+
+.status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.status-header h3 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.status-badge.info {
+  background: #cce7ff;
+  color: #0c5460;
+  border: 1px solid #b8daff;
+}
+
+.status-badge.primary {
+  background: #e2e3f1;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+}
+
+.status-badge.warning {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.status-badge.danger {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.status-badge.default {
+  background: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+}
+
+.status-details {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.detail-item strong {
+  color: #495057;
+  font-weight: 600;
+}
+
+.status-indicator {
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.status-indicator.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-indicator.info {
+  background: #cce7ff;
+  color: #0c5460;
+}
+
+.status-indicator.primary {
+  background: #e2e3f1;
+  color: #383d41;
+}
+
+.status-indicator.warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-indicator.danger {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.application-ticket {
+  font-family: 'Courier New', monospace;
+  background: #f8f9fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  border: 1px solid #dee2e6;
+}
+
+/* ==================================================
+   STATUS ACTIONS
+   ================================================== */
+
+.status-actions > div {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  margin-top: 15px;
+}
+
+.ready-to-apply-message,
+.not-submitted-message,
+.rejected-message {
+  border-color: #667eea;
+}
+
+.pending-message {
+  border-color: #f39c12;
+  background: #fff9c4;
+  border: 1px solid #ffeaa7;
+}
+
+.member-benefits,
+.approved-message {
+  border-color: #27ae60;
+}
+
+.premember-benefits {
+  border-color: #3498db;
+}
+
+.ready-icon,
+.not-submitted-icon,
+.pending-icon,
+.rejected-icon,
+.approved-icon,
+.benefits-icon {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.status-actions h4 {
+  margin: 10px 0;
+  color: #2c3e50;
+  font-size: 1.1rem;
+}
+
+.status-actions p {
+  margin: 10px 0;
+  color: #6c757d;
+  line-height: 1.5;
+}
+
+.status-actions ul {
+  list-style: none;
+  padding: 0;
+  margin: 15px 0;
+}
+
+.status-actions li {
+  padding: 4px 0;
+  color: #495057;
+}
+
+.apply-btn,
+.reapply-btn,
+.upgrade-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 15px;
+  transition: transform 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.apply-btn:hover,
+.reapply-btn:hover,
+.upgrade-btn:hover {
+  transform: translateY(-2px);
+}
+
+.upgrade-btn {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+}
+
+.admin-feedback {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  padding: 10px;
+  margin: 10px 0;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+/* ==================================================
+   QUICK ACTIONS
+   ================================================== */
+
+.quick-actions {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border: 1px solid #e1e5e9;
+}
+
+.quick-actions h3 {
+  margin: 0 0 25px 0;
+  color: #2c3e50;
+  font-size: 1.4rem;
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.actions-grid.compact {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 15px;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  border: 1px solid #e1e5e9;
+  position: relative;
+}
+
+.action-btn.small {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  min-height: 60px;
+  border-radius: 8px;
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.action-btn.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.action-btn.admin {
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  color: white;
+  border: none;
+}
+
+.action-btn.secondary {
+  background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+  color: white;
+  border: none;
+}
+
+.action-btn.success {
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+  color: white;
+  border: none;
+}
+
+.action-btn.info {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  border: none;
+}
+
+.action-btn.warning {
+  background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%);
+  color: white;
+  border: none;
+}
+
+.action-btn.default {
+  background: #f8f9fa;
+  color: #495057;
+  border: 1px solid #dee2e6;
+}
+
+.action-btn.danger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.action-icon {
+  font-size: 1.8rem;
+  margin-bottom: 8px;
+}
+
+.action-btn.small .action-icon {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
+.action-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.action-btn.small .action-text {
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.action-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #dc3545;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-classes-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  color: gray;
+}
+
+.progress-stats{
+display: flex;
+flex-direction: row;
+justify-content: space-between;
+}
+
+
+ .public-classes{
+  display:flex;
+  flex-direction: row;
+  /* flex-wrap: wrap; */
+  gap: 15px;
+  justify-content: center;
+  align-items: center;
+  width:100%;
+  color: black;
+  font-weight: bold;
+  margin: 0 auto;
+  padding: 10px;
+}
+/* ==================================================
+   RECENT ACTIVITIES
+   ================================================== */
+
+.recent-activities {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border: 1px solid #e1e5e9;
+  grid-column: span 2;
+}
+
+.recent-activities h3 {
+  margin: 0 0 25px 0;
+  color: #2c3e50;
+  font-size: 1.4rem;
+}
+
+.activities-list {
+  margin-top: 20px;
+}
+
+.activity-item {
+  display: flex;
+  gap: 15px;
+  padding: 15px;
+  border-radius: 12px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  margin-bottom: 10px;
+}
+
+.activity-icon {
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.activity-content {
+  flex: 1;
+}
+
+.activity-title {
+  margin: 0 0 5px 0;
+  color: #2c3e50;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.activity-description {
+  margin: 0 0 10px 0;
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.activity-meta {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.activity-date {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.activity-status {
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.activity-status.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.activity-status.warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.activity-status.danger {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.activity-status.info {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+/* ==================================================
+   NOTIFICATIONS
+   ================================================== */
+
+.notifications-section {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border: 1px solid #e1e5e9;
+  margin-top: 30px;
+}
+
+.notifications-section h3 {
+  margin: 0 0 25px 0;
+  color: #2c3e50;
+  font-size: 1.4rem;
+}
+
+.empty-notifications {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6c757d;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 15px;
+  opacity: 0.5;
+}
+
+.notifications-list {
+  margin-top: 15px;
+}
+
+.notification {
+  display: flex;
+  gap: 15px;
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.notification.unread {
+  background: #f8f9ff;
+  border-left: 4px solid #667eea;
+}
+
+.notification.read {
+  background: #f8f9fa;
+  opacity: 0.8;
+}
+
+.notification-icon {
+  font-size: 1.2rem;
+  width: 30px;
+  text-align: center;
+}
+
+.notification-content {
+  flex: 1;
+}
+
+.notification-message {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.notification-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.notification-date {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.mark-read-btn {
+  background: none;
+  border: none;
+  color: #667eea;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.mark-read-btn:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.unread-indicator {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 8px;
+  height: 8px;
+  background: #667eea;
+  border-radius: 50%;
+}
+
+/* ==================================================
+   LOADING STATES
+   ================================================== */
+
+.dashboard-loading,
+.dashboard-error,
+.dashboard-auth-error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 40px;
+}
+
+.loading-container,
+.error-container,
+.auth-error-container {
+  text-align: center;
+  background: white;
+  padding: 60px 40px;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  max-width: 400px;
+  width: 100%;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px auto;
+}
+
+.loading-spinner.large {
+  width: 60px;
+  height: 60px;
+  border-width: 6px;
+}
+
+.membership-status.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #6c757d;
+}
+
+.membership-status.loading .loading-spinner {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-icon,
+.auth-error-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  display: block;
+}
+
+.loading-container h3,
+.error-container h3,
+.auth-error-container h3 {
+  color: #2c3e50;
+  margin: 0 0 15px 0;
+  font-size: 1.5rem;
+}
+
+.loading-container p,
+.error-container p,
+.auth-error-container p {
+  color: #6c757d;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.retry-btn,
+.login-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: background-color 0.3s ease;
+}
+
+.retry-btn:hover,
+.login-btn:hover {
+  background: #5a6fd8;
+}
+
+small {
+  color: #6c757d;
+  font-size: 0.8rem;
+  display: block;
+  margin-top: 8px;
+}
+
+/* ==================================================
+   RESPONSIVE DESIGN
+   ================================================== */
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .recent-activities {
+    grid-column: span 1;
+  }
+  
+  .welcome-section {
+    flex-direction: column;
+    text-align: center;
+    gap: 20px;
+  }
+  
+  .welcome-stats {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .user-dashboard {
+    padding: 15px;
+  }
+  
+  .welcome-section {
+    padding: 30px 20px;
+  }
+  
+  .welcome-content h1 {
+    font-size: 2rem;
+  }
+  
+  .welcome-subtitle {
+    font-size: 1rem;
+  }
+  
+  .welcome-stats {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .stat-item {
+    padding: 15px;
+  }
+  
+  .membership-status,
+  .quick-actions,
+  .recent-activities,
+  .notifications-section {
+    padding: 20px;
+  }
+  
+  .actions-grid,
+  .actions-grid.compact {
+    grid-template-columns: 1fr;
+  }
+  
+  .activity-item {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .activity-meta {
+    justify-content: center;
+  }
+  
+  .status-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .detail-item {
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .user-dashboard {
+    padding: 10px;
+  }
+  
+  .welcome-section {
+    padding: 20px 15px;
+  }
+  
+  .welcome-content h1 {
+    font-size: 1.5rem;
+  }
+  
+  .dashboard-grid {
+    gap: 20px;
+  }
+  
+  .membership-status,
+  .quick-actions,
+  .recent-activities,
+  .notifications-section {
+    padding: 15px;
+  }
+  
+  .notification {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .notification-meta {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+/* ==================================================
+   DARK MODE SUPPORT (OPTIONAL)
+   ================================================== */
+
+@media (prefers-color-scheme: dark) {
+  .user-dashboard {
+    background-color: #1a1a1a;
+    color: #f8f9fa;
+  }
+  
+  .membership-status,
+  .quick-actions,
+  .recent-activities,
+  .notifications-section,
+  .loading-container,
+  .error-container,
+  .auth-error-container {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #f8f9fa;
+  }
+  
+  .status-header h3,
+  .quick-actions h3,
+  .recent-activities h3,
+  .notifications-section h3,
+  .activity-title {
+    color: #f8f9fa;
+  }
+  
+  .detail-item {
+    border-bottom-color: #4a5568;
+  }
+  
+  .activity-item {
+    background: #4a5568;
+    border-color: #5a6578;
+  }
+  
+  .action-btn.default {
+    background: #4a5568;
+    color: #f8f9fa;
+    border-color: #5a6578;
+  }
+  
+  .notification.unread {
+    background: #2a3441;
+  }
+  
+  .notification.read {
+    background: #3a4451;
+  }
+}
+
+/* ==================================================
+   UTILITY CLASSES
+   ================================================== */
+
+.text-center {
+  text-align: center;
+}
+
+.text-muted {
+  color: #6c757d;
+}
+
+.mt-20 {
+  margin-top: 20px;
+}
+
+.mb-20 {
+  margin-bottom: 20px;
+}
+
+.p-20 {
+  padding: 20px;
+}
+
+.border-radius-12 {
+  border-radius: 12px;
+}
+
+.shadow-sm {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.shadow-md {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.transition-all {
+  transition: all 0.3s ease;
+}
+
+
+
+
+
+NEW DOWN
+
+ikootaclient/src/components/user/UserDashboard.css
+/* Comprehensive User Dashboard Styles - Enhanced and Merged */
+
+.user-dashboard-container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  animation: fadeIn 0.8s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.user-dashboard-container.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+/* Dashboard Header */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding: 30px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  transition: all 0.3s ease;
+}
+
+.dashboard-header:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 50px rgba(0, 0, 0, 0.15);
+}
+
+.welcome-section h1 {
+  margin: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 36px;
+  font-weight: 800;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.welcome-section p {
+  margin: 12px 0 0 0;
+  color: #6c757d;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.dashboard-navigation {
+  display: flex;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 249, 255, 0.8) 100%);
+  padding: 12px;
+  border-radius: 15px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-navigation button {
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #5d6d7e;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.dashboard-navigation button:hover {
+  background: white;
+  color: #2c3e50;
+}
+
+.dashboard-navigation button.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+}
+
+/* Membership Status Card - Enhanced */
+.membership-status-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+  margin-bottom: 30px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.membership-status-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.membership-status-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 60px rgba(0, 0, 0, 0.15);
+}
+
+.membership-status {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+  margin-bottom: 30px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.membership-status::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.membership-status:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 60px rgba(0, 0, 0, 0.15);
+}
+
+.membership-status.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.status-header h3 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  color: white;
+}
+
+.status-badge.success {
+  background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+}
+
+.status-badge.info {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+}
+
+.status-badge.warning {
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+}
+
+.status-badge.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.status-badge.danger {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+}
+
+.status-badge.default {
+  background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+}
+
+.status-icon {
+  font-size: 18px;
+}
+
+.status-text {
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+/* Membership Progression */
+.membership-progression {
+  margin-bottom: 25px;
+}
+
+.progress-stages {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  padding: 20px 0;
+}
+
+.progress-stages::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, #ecf0f1 0%, #d6d8db 100%);
+  border-radius: 3px;
+  z-index: 1;
+}
+
+.progress-stages::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 0%;
+  height: 6px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 3px;
+  z-index: 1;
+  animation: progressFill 2s ease-in-out;
+  transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes progressFill {
+  0% { width: 0%; }
+  100% { width: var(--progress-width, 0%); }
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  z-index: 2;
+  background: white;
+  padding: 0 15px;
+  transition: all 0.3s ease;
+}
+
+.stage:hover {
+  transform: translateY(-2px);
+}
+
+.stage-icon {
+  font-size: 28px;
+  width: 70px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #ecf0f1;
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  border: 3px solid #ecf0f1;
+  position: relative;
+  overflow: hidden;
+}
+
+.stage-icon::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  transform: translate(-50%, -50%);
+}
+
+.stage.active .stage-icon {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  transform: scale(1.1);
+}
+
+.stage.completed .stage-icon {
+  background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+  color: white;
+}
+
+.stage-label {
+  font-weight: 600;
+  color: #7f8c8d;
+  font-size: 14px;
+}
+
+.stage.active .stage-label,
+.stage.completed .stage-label {
+  color: #2c3e50;
+}
+
+/* Status Actions */
+.status-actions {
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 10px;
+}
+
+.action-message {
+  text-align: center;
+}
+
+.action-message h4 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+  font-size: 18px;
+}
+
+.action-message p {
+  margin: 0 0 15px 0;
+  color: #5d6d7e;
+  line-height: 1.5;
+}
+
+.action-message ul {
+  list-style: none;
+  padding: 0;
+  margin: 15px 0;
+}
+
+.action-message li {
+  padding: 5px 0;
+  color: #5d6d7e;
+}
+
+.action-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s;
+  margin-top: 10px;
+}
+
+.action-btn.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.action-btn.success {
+  background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+  color: white;
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Dashboard Overview */
+.dashboard-overview {
+  margin-bottom: 25px;
+}
+
+.overview-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 15px;
+}
+
+.overview-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 25px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  transition: all 0.3s ease;
+  border: 1px solid #e1e5e9;
+  position: relative;
+  overflow: hidden;
+}
+
+.overview-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.6s ease;
+}
+
+.overview-card:hover::before {
+  left: 100%;
+}
+
+.overview-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.card-icon {
+  font-size: 36px;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  flex-shrink: 0;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.card-icon::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  animation: sparkle 3s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: rotate(0deg); }
+  50% { opacity: 1; transform: rotate(180deg); }
+}
+
+.overview-card:hover .card-icon {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.card-content {
+  flex: 1;
+}
+
+.card-content h3 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.identity-status {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.identity-status.masked {
+  color: #e74c3c;
+}
+
+.identity-status.revealed {
+  color: #27ae60;
+}
+
+.mentor-level {
+  font-weight: 600;
+  color: #8e44ad;
+  margin-bottom: 5px;
+}
+
+.class-stats {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 8px;
+}
+
+.class-stats span {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+/* Dashboard Grid Layout */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 30px;
+}
+
+.dashboard-main {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.dashboard-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Quick Actions */
+.quick-actions {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.quick-actions h3 {
+  margin: 0 0 20px 0;
+  color: #2c3e50;
+  font-size: 22px;
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 15px;
+}
+
+.action-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 2px solid transparent;
+}
+
+.action-card.primary {
+  background: linear-gradient(135deg, #667eea05 0%, #764ba205 100%);
+  border-color: rgba(102, 126, 234, 0.2);
+}
+
+.action-card.success {
+  background: linear-gradient(135deg, #27ae6005 0%, #22995405 100%);
+  border-color: rgba(39, 174, 96, 0.2);
+}
+
+.action-card.info {
+  background: linear-gradient(135deg, #3498db05 0%, #2980b905 100%);
+  border-color: rgba(52, 152, 219, 0.2);
+}
+
+.action-card.mentor {
+  background: linear-gradient(135deg, #8e44ad05 0%, #71368a05 100%);
+  border-color: rgba(142, 68, 173, 0.2);
+}
+
+.action-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
+}
+
+.action-card.primary:hover {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
+}
+
+.action-card.success:hover {
+  border-color: #27ae60;
+  background: linear-gradient(135deg, #27ae6010 0%, #22995410 100%);
+}
+
+.action-card.info:hover {
+  border-color: #3498db;
+  background: linear-gradient(135deg, #3498db10 0%, #2980b910 100%);
+}
+
+.action-card.mentor:hover {
+  border-color: #8e44ad;
+  background: linear-gradient(135deg, #8e44ad10 0%, #71368a10 100%);
+}
+
+.action-icon {
+  font-size: 24px;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.action-content h4 {
+  margin: 0 0 5px 0;
+  color: #2c3e50;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.action-content p {
+  margin: 0;
+  color: #7f8c8d;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Activity Feed */
+.activity-feed {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.activity-feed h3 {
+  margin: 0 0 20px 0;
+  color: #2c3e50;
+  font-size: 22px;
+}
+
+.activity-feed.empty {
+  text-align: center;
+  padding: 40px 25px;
+}
+
+.empty-state {
+  color: #7f8c8d;
+}
+
+.empty-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 15px;
+}
+
+.empty-state h4 {
+  margin: 0 0 10px 0;
+  color: #95a5a6;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border-left: 4px solid #ecf0f1;
+}
+
+.activity-item.chat {
+  border-left-color: #3498db;
+}
+
+.activity-item.teaching {
+  border-left-color: #e67e22;
+}
+
+.activity-item.class {
+  border-left-color: #27ae60;
+}
+
+.activity-item.mentorship {
+  border-left-color: #8e44ad;
+}
+
+.activity-item.membership {
+  border-left-color: #f39c12;
+}
+
+.activity-icon {
+  font-size: 20px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.activity-content h5 {
+  margin: 0 0 5px 0;
+  color: #2c3e50;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.activity-content p {
+  margin: 0 0 8px 0;
+  color: #5d6d7e;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.activity-content small {
+  color: #95a5a6;
+  font-size: 12px;
+}
+
+/* Notification Center */
+.notification-center {
+  background: white;
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.notification-center.empty {
+  text-align: center;
+}
+
+.notifications-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.notifications-header h3 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 18px;
+}
+
+.notification-count {
+  background: #e74c3c;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  position: relative;
+  transition: all 0.3s;
+}
+
+.notification-item.unread {
+  background: linear-gradient(135deg, #3498db05 0%, #2980b905 100%);
+  border-left: 3px solid #3498db;
+}
+
+.notification-item:hover {
+  background: #ecf0f1;
+}
+
+.notification-icon {
+  font-size: 16px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.notification-content h5 {
+  margin: 0 0 4px 0;
+  color: #2c3e50;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notification-content p {
+  margin: 0 0 4px 0;
+  color: #5d6d7e;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.notification-content small {
+  color: #95a5a6;
+  font-size: 11px;
+}
+
+.unread-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  background: #e74c3c;
+  border-radius: 50%;
+}
+
+.show-more-btn {
+  width: 100%;
+  padding: 10px;
+  background: #f8f9fa;
+  border: 1px solid #ecf0f1;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #7f8c8d;
+  font-weight: 600;
+  margin-top: 10px;
+  transition: all 0.3s;
+}
+
+.show-more-btn:hover {
+  background: #ecf0f1;
+  color: #5d6d7e;
+}
+
+/* Analytics Overview */
+.analytics-overview {
+  background: white;
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.analytics-overview h3 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+  font-size: 18px;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.analytics-card {
+  text-align: center;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 10px;
+}
+
+.metric-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 5px;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: #7f8c8d;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.metric-trend {
+  font-size: 16px;
+}
+
+.metric-period {
+  font-size: 11px;
+  color: #95a5a6;
+  font-style: italic;
+}
+
+/* Profile Tab Content */
+.profile-tab-content {
+  background: white;
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border: 1px solid #e1e5e9;
+}
+
+.profile-mode-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  width: fit-content;
+}
+
+.profile-mode-selector button {
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #7f8c8d;
+  transition: all 0.3s;
+}
+
+.profile-mode-selector button.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* Analytics Tab Content */
+.analytics-tab-content {
+  background: white;
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border: 1px solid #e1e5e9;
+}
+
+.analytics-detailed h2 {
+  margin: 0 0 30px 0;
+  color: #2c3e50;
+  font-size: 28px;
+}
+
+.analytics-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.analytics-section {
+  padding: 25px;
+  background: #f8f9fa;
+  border-radius: 12px;
+}
+
+.analytics-section h3 {
+  margin: 0 0 20px 0;
+  color: #2c3e50;
+  font-size: 20px;
+}
+
+.chart-placeholder {
+  height: 200px;
+  background: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #95a5a6;
+  font-size: 16px;
+  border: 2px dashed #ecf0f1;
+}
+
+/* Enhanced Loading State */
+.loading-spinner {
+  width: 60px;
+  height: 60px;
+  border: 6px solid rgba(102, 126, 234, 0.1);
+  border-top: 6px solid #667eea;
+  border-bottom: 6px solid #764ba2;
+  border-radius: 50%;
+  animation: modernSpin 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.loading-spinner::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  border: 2px solid transparent;
+  border-top: 2px solid rgba(118, 75, 162, 0.3);
+  border-radius: 50%;
+  animation: modernSpin 2s linear infinite reverse;
+}
+
+@keyframes modernSpin {
+  0% { 
+    transform: rotate(0deg) scale(1); 
+    filter: hue-rotate(0deg);
+  }
+  50% { 
+    transform: rotate(180deg) scale(1.1); 
+    filter: hue-rotate(180deg);
+  }
+  100% { 
+    transform: rotate(360deg) scale(1); 
+    filter: hue-rotate(360deg);
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Compact Dashboard Cards */
+.dashboard-card-compact {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.dashboard-card-compact:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  border-color: #667eea;
+}
+
+.compact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.compact-grid-small {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.stat-card-compact {
+  text-align: center;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  transition: all 0.3s ease;
+}
+
+.stat-card-compact:hover {
+  background: #e9ecef;
+  border-color: #667eea;
+}
+
+.stat-number-compact {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 4px;
+}
+
+.stat-label-compact {
+  font-size: 0.85rem;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Beautiful Button Styles */
+.btn-compact {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-compact:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.btn-compact.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-compact.secondary {
+  background: #f8f9fa;
+  color: #495057;
+  border: 1px solid #dee2e6;
+}
+
+.btn-compact.success {
+  background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+  color: white;
+}
+
+.btn-compact.info {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .overview-cards {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+  
+  .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .user-dashboard-container {
+    padding: 10px;
+  }
+  
+  .dashboard-header {
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+  }
+  
+  .dashboard-navigation {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .overview-cards {
+    grid-template-columns: 1fr;
+  }
+  
+  .actions-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .analytics-sections {
+    grid-template-columns: 1fr;
+  }
+  
+  .dashboard-main,
+  .dashboard-sidebar {
+    gap: 20px;
+  }
+  
+  .progress-stages {
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  
+  .progress-stages::before {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .overview-card {
+    flex-direction: column;
+    text-align: center;
+    padding: 20px;
+  }
+  
+  .action-card {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .welcome-section h1 {
+    font-size: 24px;
+  }
+  
+  .dashboard-header {
+    padding: 20px;
+  }
+  
+  .quick-actions,
+  .activity-feed,
+  .profile-tab-content,
+  .analytics-tab-content,
+  .membership-status-card,
+  .membership-status {
+    padding: 20px;
+  }
+  
+  .stage-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+  }
+  
+  .status-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+}

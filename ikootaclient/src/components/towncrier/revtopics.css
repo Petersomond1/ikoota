@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh; /* Full viewport height */
-  max-height: 700px; /* Limit height to force scrollbar */
+  max-height: 1200px; /* Limit height to force scrollbar */
   border-right: 2px solid #ddd;
   /* background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); */
   background: black; 

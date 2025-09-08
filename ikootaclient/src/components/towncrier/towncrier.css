@@ -61,7 +61,7 @@
   flex-wrap: wrap;
   gap: 8px;
   border-top: 1px solid rgba(255,255,255,0.1);
-  height: 40px; /* Fixed height */
+  height: 65px; /* Fixed height */
   flex-shrink: 0; /* Don't shrink */
 }
 
