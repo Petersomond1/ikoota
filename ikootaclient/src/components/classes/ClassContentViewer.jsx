@@ -129,6 +129,67 @@ const ClassContentViewer = () => {
     apiClassId,
     displayClassId
   });
+
+  // ✅ ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
+  // State management
+  const [activeTab, setActiveTab] = useState('announcements');
+  const [selectedContent, setSelectedContent] = useState(null);
+  const [showCreateContent, setShowCreateContent] = useState(false);
+  const [newContent, setNewContent] = useState({
+    type: 'announcement',
+    title: '',
+    content: '',
+    attachments: []
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [contentFilter, setContentFilter] = useState('all');
+  const [showParticipants, setShowParticipants] = useState(false);
+  
+  // Refs
+  const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  // ✅ DATA FETCHING - All useQuery hooks must be called before early returns
+  
+  // Fetch class details
+  const { data: classData, isLoading: classLoading, error: classError } = useQuery({
+    queryKey: ['classDetails', apiClassId],
+    queryFn: async () => {
+      const { data } = await api.get(`/classes/${apiClassId}/details`, {
+        withCredentials: true
+      });
+      return data?.data || data;
+    },
+    enabled: !!apiClassId,
+    staleTime: 5 * 60 * 1000
+  });
+
+  // Fetch class content
+  const { data: contentData, isLoading: contentLoading, error: contentError } = useQuery({
+    queryKey: ['classContent', apiClassId, activeTab],
+    queryFn: async () => {
+      const { data } = await api.get(`/classes/${apiClassId}/content`, {
+        params: { type: activeTab },
+        withCredentials: true
+      });
+      return data?.data || data;
+    },
+    enabled: !!apiClassId,
+    staleTime: 2 * 60 * 1000
+  });
+
+  // Fetch participants
+  const { data: participantsData, isLoading: participantsLoading } = useQuery({
+    queryKey: ['classParticipants', apiClassId],
+    queryFn: async () => {
+      const { data } = await api.get(`/classes/${apiClassId}/participants`, {
+        withCredentials: true
+      });
+      return data?.data || data;
+    },
+    enabled: !!apiClassId,
+    staleTime: 5 * 60 * 1000
+  });
   
   // Early return for invalid class IDs
   if (!classId || classId.trim() === '') {
@@ -162,83 +223,6 @@ const ClassContentViewer = () => {
       </div>
     );
   }
-
-  // State management
-  const [activeTab, setActiveTab] = useState('announcements');
-  const [selectedContent, setSelectedContent] = useState(null);
-  const [showCreateContent, setShowCreateContent] = useState(false);
-  const [newContent, setNewContent] = useState({
-    type: 'announcement',
-    title: '',
-    content: '',
-    attachments: []
-  });
-  const [searchQuery, setSearchQuery] = useState('');
-  const [contentFilter, setContentFilter] = useState('all');
-  const [showParticipants, setShowParticipants] = useState(false);
-  
-  // Refs
-  const messagesEndRef = useRef(null);
-  const fileInputRef = useRef(null);
-
-  // ✅ DATA FETCHING
-  
-  // Fetch class details
-  const { data: classData, isLoading: classLoading, error: classError } = useQuery({
-    queryKey: ['classDetails', apiClassId],
-    queryFn: async () => {
-      const encodedClassId = encodeURIComponent(apiClassId);
-      const { data } = await api.get(`/classes/${encodedClassId}`);
-      return data;
-    },
-    enabled: !!apiClassId && isAuthenticated,
-    staleTime: 2 * 60 * 1000,
-    retry: 1
-  });
-
-  // Fetch class content
-  const { data: contentData, isLoading: contentLoading, refetch: refetchContent } = useQuery({
-    queryKey: ['classContent', apiClassId, activeTab],
-    queryFn: async () => {
-      const encodedClassId = encodeURIComponent(apiClassId);
-      const params = new URLSearchParams({
-        type: activeTab !== 'all' ? activeTab : '',
-        limit: '50',
-        ...(searchQuery && { search: searchQuery })
-      });
-      const { data } = await api.get(`/classes/${encodedClassId}/content?${params}`);
-      return data;
-    },
-    enabled: !!apiClassId && isAuthenticated,
-    staleTime: 30 * 1000,
-    retry: 1
-  });
-
-  // Fetch class announcements
-  const { data: announcementsData } = useQuery({
-    queryKey: ['classAnnouncements', apiClassId],
-    queryFn: async () => {
-      const encodedClassId = encodeURIComponent(apiClassId);
-      const { data } = await api.get(`/classes/${encodedClassId}/announcements`);
-      return data;
-    },
-    enabled: !!apiClassId && isAuthenticated,
-    staleTime: 1 * 60 * 1000,
-    retry: 1
-  });
-
-  // Fetch class members
-  const { data: membersData, isLoading: membersLoading } = useQuery({
-    queryKey: ['classMembers', apiClassId],
-    queryFn: async () => {
-      const encodedClassId = encodeURIComponent(apiClassId);
-      const { data } = await api.get(`/classes/${encodedClassId}/members`);
-      return data;
-    },
-    enabled: !!apiClassId && isAuthenticated && showParticipants,
-    staleTime: 2 * 60 * 1000,
-    retry: 1
-  });
 
   // ✅ MUTATIONS
 
