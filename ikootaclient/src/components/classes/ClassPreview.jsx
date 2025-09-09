@@ -50,7 +50,7 @@ const ClassPreview = () => {
     const currentPath = window.location.pathname;
     console.log('🔍 ClassPreview: Current pathname:', currentPath);
     
-    const pathMatch = currentPath.match(/\/classes\/([^\/]+)/);
+    const pathMatch = currentPath.match(/\/classes\/([^/]+)/);
     console.log('🔍 ClassPreview: Path regex match:', pathMatch);
     
     if (pathMatch && pathMatch[1]) {

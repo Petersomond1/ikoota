@@ -285,6 +285,13 @@ const ClassContentViewer = () => {
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
   }, []);
+
+  // Additional effect for scrolling
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [contentData]);
   
   // Early return for invalid class IDs
   if (!classId || classId.trim() === '') {
@@ -362,13 +369,6 @@ const ClassContentViewer = () => {
   };
 
   // Scroll to bottom of messages
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [contentData]);
 
   // Process data safely with proper field mapping
   const classInfo = classData?.data || classData || {};

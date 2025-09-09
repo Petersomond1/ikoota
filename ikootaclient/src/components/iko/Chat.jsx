@@ -275,7 +275,7 @@ const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
     try {
       const files = await handleImageUpload();
       if (files.length > 0) {
-        const currentStep = `media${step}` || "media1";
+        const currentStep = step ? `media${step}` : "media1";
         setMediaFiles((prev) => ({
           ...prev,
           [currentStep]: files,
@@ -303,7 +303,7 @@ const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
     try {
       const photoFile = await takePhoto();
       if (photoFile) {
-        const currentStep = `media${step}` || "media1";
+        const currentStep = step ? `media${step}` : "media1";
         setMediaFiles((prev) => ({
           ...prev,
           [currentStep]: [photoFile],
@@ -324,7 +324,7 @@ const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
       try {
         const videoFile = await stopVideoRecording();
         if (videoFile) {
-          const currentStep = `media${step}` || "media1";
+          const currentStep = step ? `media${step}` : "media1";
           setMediaFiles((prev) => ({
             ...prev,
             [currentStep]: [videoFile],
@@ -349,7 +349,7 @@ const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
       try {
         const audioFile = await stopAudioRecording();
         if (audioFile) {
-          const currentStep = `media${step}` || "media1";
+          const currentStep = step ? `media${step}` : "media1";
           setMediaFiles((prev) => ({
             ...prev,
             [currentStep]: [audioFile],
