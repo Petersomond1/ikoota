@@ -4,12 +4,12 @@
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
   "memory": "1024",
-  "executionRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/ecsTaskExecutionRole",
-  "taskRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/ecsTaskRole",
+  "executionRoleArn": "arn:aws:iam::701333809618:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::701333809618:role/ecsTaskRole",
   "containerDefinitions": [
     {
       "name": "ikoota-api",
-      "image": "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ikoota-api:latest",
+      "image": "701333809618.dkr.ecr.us-east-1.amazonaws.com/ikoota-api:latest",
       "portMappings": [
         {
           "containerPort": 3000,
@@ -25,28 +25,38 @@
         {
           "name": "PORT",
           "value": "3000"
-        }
-      ],
-      "secrets": [
-        {
-          "name": "DB_HOST",
-          "valueFrom": "arn:aws:ssm:us-east-1:YOUR_ACCOUNT_ID:parameter/ikoota/db/host"
         },
         {
-          "name": "DB_PASSWORD", 
-          "valueFrom": "arn:aws:ssm:us-east-1:YOUR_ACCOUNT_ID:parameter/ikoota/db/password"
+          "name": "DB_HOST",
+          "value": "ikootadb.cvugpfnl4vcp.us-east-1.rds.amazonaws.com"
+        },
+        {
+          "name": "DB_USER",
+          "value": "Petersomond"
+        },
+        {
+          "name": "DB_NAME",
+          "value": "ikoota_db"
+        },
+        {
+          "name": "DB_PORT",
+          "value": "3306"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "value": "TESTfree12"
         },
         {
           "name": "JWT_SECRET",
-          "valueFrom": "arn:aws:ssm:us-east-1:YOUR_ACCOUNT_ID:parameter/ikoota/jwt/secret"
+          "value": "ikoota-super-secret-jwt-key-production"
         },
         {
-          "name": "AWS_ACCESS_KEY_ID",
-          "valueFrom": "arn:aws:ssm:us-east-1:YOUR_ACCOUNT_ID:parameter/ikoota/aws/access-key"
+          "name": "AWS_REGION",
+          "value": "us-east-1"
         },
         {
-          "name": "AWS_SECRET_ACCESS_KEY",
-          "valueFrom": "arn:aws:ssm:us-east-1:YOUR_ACCOUNT_ID:parameter/ikoota/aws/secret-key"
+          "name": "S3_BUCKET_NAME",
+          "value": "ikoota"
         }
       ],
       "logConfiguration": {

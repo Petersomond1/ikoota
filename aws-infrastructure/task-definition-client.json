@@ -4,11 +4,11 @@
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "256",
   "memory": "512",
-  "executionRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "executionRoleArn": "arn:aws:iam::701333809618:role/ecsTaskExecutionRole",
   "containerDefinitions": [
     {
       "name": "ikoota-client",
-      "image": "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ikoota-client:latest",
+      "image": "701333809618.dkr.ecr.us-east-1.amazonaws.com/ikoota-client:latest",
       "portMappings": [
         {
           "containerPort": 80,
