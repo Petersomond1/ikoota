@@ -65,7 +65,7 @@ const FullMembershipReviewControls = () => {
 
   // ✅ Run tests on component mount (development only)
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.log('🧪 Running admin endpoint tests...');
       testAdminEndpoints();
     }

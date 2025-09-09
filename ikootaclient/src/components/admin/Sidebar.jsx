@@ -1,6 +1,7 @@
 // ikootaclient/src/components/admin/Sidebar.jsx
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import PropTypes from 'prop-types';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../service/api';
 import './sidebar.css';
@@ -8,7 +9,6 @@ import './sidebar.css';
 //NEEDS REPAIR after add of pendingFullMembershipCount 
 
 const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) => {
-  const location = useLocation();
 
   // ✅ Fetch pending membership applications count
   const { data: pendingMembershipCount } = useQuery({
@@ -171,6 +171,13 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
       ))}
     </div>
   );
+};
+
+Sidebar.propTypes = {
+  selectedItem: PropTypes.string.isRequired,
+  setSelectedItem: PropTypes.func.isRequired,
+  isMobile: PropTypes.bool.isRequired,
+  closeMobileMenu: PropTypes.func.isRequired
 };
 
 export default Sidebar;

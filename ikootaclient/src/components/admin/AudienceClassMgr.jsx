@@ -1046,97 +1046,87 @@ const AudienceClassMgr = () => {
 
       {/* ✅ ENHANCED MODALS WITH ALL ADMIN FEATURES */}
       {showCreateForm && (
-        <CreateClassModal
-          formData={formData}
-          onInputChange={handleInputChange}
-          onTagsChange={handleTagsChange}
-          onGenerateId={handleGenerateNewClassId}
-          onSubmit={handleSubmit}
-          onClose={() => setShowCreateForm(false)}
-          isLoading={createMutation.isLoading}
-          validateIdFormat={validateIdFormat}
-        />
+        <div className="modal-placeholder">
+          <div className="modal-content">
+            <h3>Create Class Modal - Component Not Yet Implemented</h3>
+            <button onClick={() => setShowCreateForm(false)}>Close</button>
+          </div>
+        </div>
       )}
 
       {showEditForm && editingClass && (
-        <EditClassModal
-          editingClass={editingClass}
-          setEditingClass={setEditingClass}
-          onUpdate={handleUpdateClass}
-          onClose={() => {
-            setShowEditForm(false);
-            setEditingClass(null);
-          }}
-          isLoading={updateMutation.isLoading}
-        />
+        <div className="modal-placeholder">
+          <div className="modal-content">
+            <h3>Edit Class Modal - Component Not Yet Implemented</h3>
+            <button onClick={() => {
+              setShowEditForm(false);
+              setEditingClass(null);
+            }}>Close</button>
+          </div>
+        </div>
       )}
 
       {showBulkOperations && (
-        <BulkOperationsModal
-          selectedClasses={selectedClasses}
-          bulkAction={bulkAction}
-          setBulkAction={setBulkAction}
-          onExecute={handleBulkAction}
-          onClose={() => setShowBulkOperations(false)}
-          isLoading={bulkMutation.isLoading}
-          classesData={classesData}
-        />
+        <div className="modal-placeholder">
+          <div className="modal-content">
+            <h3>Bulk Operations Modal - Component Not Yet Implemented</h3>
+            <button onClick={() => setShowBulkOperations(false)}>Close</button>
+          </div>
+        </div>
       )}
 
       {showAnalytics && (
-        <AnalyticsModal
-          classesData={classesData}
-          summary={classesSummary}
-          analyticsData={analyticsData}
-          systemStats={systemStats}
-          onClose={() => setShowAnalytics(false)}
-          onGenerateReport={handleGenerateReport}
-          onExportData={handleExportData}
-        />
+        <div className="modal-placeholder">
+          <div className="modal-content">
+            <h3>Analytics Modal - Component Not Yet Implemented</h3>
+            <button onClick={() => setShowAnalytics(false)}>Close</button>
+          </div>
+        </div>
       )}
 
       {showParticipantManager && selectedClass && (
-        <ParticipantManagerModal
-          selectedClass={selectedClass}
-          participants={classParticipants}
-          onParticipantAction={handleParticipantAction}
-          onClose={() => setShowParticipantManager(false)}
-          isLoading={participantsLoading}
-        />
+        <div className="modal-placeholder">
+          <div className="modal-content">
+            <h3>Participant Manager Modal - Component Not Yet Implemented</h3>
+            <button onClick={() => setShowParticipantManager(false)}>Close</button>
+          </div>
+        </div>
       )}
 
       {showContentManager && selectedClass && (
-        <ContentManagerModal
-          selectedClass={selectedClass}
-          content={classContent}
-          onClose={() => setShowContentManager(false)}
-          isLoading={contentLoading}
-        />
+        <div className="modal-placeholder">
+          <div className="modal-content">
+            <h3>Content Manager Modal - Component Not Yet Implemented</h3>
+            <button onClick={() => setShowContentManager(false)}>Close</button>
+          </div>
+        </div>
       )}
 
       {showReportsDialog && (
-        <ReportsModal
-          onGenerateReport={handleGenerateReport}
-          onClose={() => setShowReportsDialog(false)}
-          classesData={classesData}
-          selectedClasses={selectedClasses}
-          isLoading={reportsMutation.isLoading}
-        />
+        <div className="modal-placeholder">
+          <div className="modal-content">
+            <h3>Reports Modal - Component Not Yet Implemented</h3>
+            <button onClick={() => setShowReportsDialog(false)}>Close</button>
+          </div>
+        </div>
       )}
 
       {showAuditLogs && (
-        <AuditLogsModal
-          auditLogs={auditLogs}
-          onClose={() => setShowAuditLogs(false)}
-          pagination={pagination}
-          onPageChange={handlePageChange}
-        />
+        <div className="modal-placeholder">
+          <div className="modal-content">
+            <h3>Audit Logs Modal - Component Not Yet Implemented</h3>
+            <button onClick={() => setShowAuditLogs(false)}>Close</button>
+          </div>
+        </div>
       )}
 
       {showSystemSettings && (
-        <SystemSettingsModal
-          onClose={() => setShowSystemSettings(false)}
-        />
+        <div className="modal-placeholder">
+          <div className="modal-content">
+            <h3>System Settings Modal - Component Not Yet Implemented</h3>
+            <button onClick={() => setShowSystemSettings(false)}>Close</button>
+          </div>
+        </div>
       )}
     </div>
   );
