@@ -190,41 +190,8 @@ const ClassContentViewer = () => {
     enabled: !!apiClassId,
     staleTime: 5 * 60 * 1000
   });
-  
-  // Early return for invalid class IDs
-  if (!classId || classId.trim() === '') {
-    return (
-      <div className="class-content-viewer error">
-        <div className="error-container">
-          <div className="error-icon">⚠️</div>
-          <h3>Error Loading Class</h3>
-          <p>No class ID provided.</p>
-          <button onClick={() => navigate('/classes')} className="btn-back">
-            Back to Classes
-          </button>
-        </div>
-      </div>
-    );
-  }
 
-  // Check for URL fragment issue and show helpful error
-  if (classIdInfo && !classIdInfo.isValid && classId.length <= 3) {
-    return (
-      <div className="class-content-viewer error">
-        <div className="error-container">
-          <div className="error-icon">⚠️</div>
-          <h3>Invalid Class ID Format</h3>
-          <p>The class ID "{classId}" appears incomplete. Expected format: OTU#XXXXXX</p>
-          <p>This may be due to a URL parsing issue. Please navigate to this class from the class list.</p>
-          <button onClick={() => navigate('/classes')} className="btn-back">
-            Back to Classes
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ✅ MUTATIONS
+  // ✅ MUTATIONS - Must be called before early returns
 
   // Submit feedback mutation
   const feedbackMutation = useMutation({
@@ -258,38 +225,99 @@ const ClassContentViewer = () => {
     }
   });
 
-  // Join class mutation
-  const joinClassMutation = useMutation({
-    mutationFn: async () => {
+  // Create content mutation
+  const createContentMutation = useMutation({
+    mutationFn: async (contentData) => {
       const encodedClassId = encodeURIComponent(apiClassId);
-      return await api.post(`/classes/${encodedClassId}/join`);
+      return await api.post(`/classes/${encodedClassId}/content`, contentData);
     },
     onSuccess: () => {
-      alert('Successfully joined class!');
-      queryClient.invalidateQueries(['classDetails']);
-      queryClient.invalidateQueries(['classMembers']);
+      alert('Content created successfully!');
+      queryClient.invalidateQueries(['classContent']);
+      setShowCreateContent(false);
+      setNewContent({
+        type: 'announcement',
+        title: '',
+        content: '',
+        attachments: []
+      });
     },
     onError: (error) => {
-      console.error('Failed to join class:', error);
-      alert(error.response?.data?.message || 'Failed to join class');
+      console.error('Failed to create content:', error);
+      alert('Failed to create content. Please try again.');
     }
   });
 
-  // Leave class mutation
-  const leaveClassMutation = useMutation({
-    mutationFn: async () => {
+  // Delete content mutation
+  const deleteContentMutation = useMutation({
+    mutationFn: async (contentId) => {
       const encodedClassId = encodeURIComponent(apiClassId);
-      return await api.post(`/classes/${encodedClassId}/leave`);
+      return await api.delete(`/classes/${encodedClassId}/content/${contentId}`);
     },
     onSuccess: () => {
-      alert('Successfully left class!');
-      navigate('/classes/my-classes');
+      alert('Content deleted successfully!');
+      queryClient.invalidateQueries(['classContent']);
     },
     onError: (error) => {
-      console.error('Failed to leave class:', error);
-      alert(error.response?.data?.message || 'Failed to leave class');
+      console.error('Failed to delete content:', error);
+      alert('Failed to delete content. Please try again.');
     }
   });
+
+  // ✅ EFFECTS - Must be called before early returns
+  
+  // Auto-scroll to latest messages
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [contentData]);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.ctrlKey && e.key === 'n') {
+        e.preventDefault();
+        setShowCreateContent(true);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, []);
+  
+  // Early return for invalid class IDs
+  if (!classId || classId.trim() === '') {
+    return (
+      <div className="class-content-viewer error">
+        <div className="error-container">
+          <div className="error-icon">⚠️</div>
+          <h3>Error Loading Class</h3>
+          <p>No class ID provided.</p>
+          <button onClick={() => navigate('/classes')} className="btn-back">
+            Back to Classes
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Check for URL fragment issue and show helpful error
+  if (classIdInfo && !classIdInfo.isValid && classId.length <= 3) {
+    return (
+      <div className="class-content-viewer error">
+        <div className="error-container">
+          <div className="error-icon">⚠️</div>
+          <h3>Invalid Class ID Format</h3>
+          <p>The class ID "{classId}" appears incomplete. Expected format: OTU#XXXXXX</p>
+          <p>This may be due to a URL parsing issue. Please navigate to this class from the class list.</p>
+          <button onClick={() => navigate('/classes')} className="btn-back">
+            Back to Classes
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ✅ HANDLERS
 

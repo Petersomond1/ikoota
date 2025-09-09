@@ -12,6 +12,7 @@ import './ClassPreview.css';
 const ClassPreview = () => {
   console.log('🚀 ClassPreview Component Loading - Updated Version v2.0');
   const { classId } = useParams();
+  const paramsResult = useParams(); // Store useParams result to avoid calling it multiple times
   const navigate = useNavigate();
   const { user, isAuthenticated } = useUser();
   
@@ -21,7 +22,7 @@ const ClassPreview = () => {
     windowLocationHref: window.location.href,
     windowLocationPathname: window.location.pathname,
     windowLocationHash: window.location.hash,
-    useParamsResult: useParams()
+    useParamsResult: paramsResult
   });
   
   // State for preview modes
@@ -202,7 +203,7 @@ const ClassPreview = () => {
       currentUrl: window.location.href,
       pathname: window.location.pathname,
       hash: window.location.hash,
-      useParamsResult: useParams()
+      useParamsResult: paramsResult
     });
     
     return (
