@@ -134,10 +134,10 @@ jobs:
         sleep 60
         
         # Check API health
-        curl -f https://staging-api.ikoota.com/api/health || exit 1
+        curl -f http://api.staging.ikoota.com:8080/api/health || exit 1
         
         # Check Client health  
-        curl -f https://staging.ikoota.com/ || exit 1
+        curl -f http://staging.ikoota.com/ || exit 1
 
   deploy-production:
     name: Deploy to Production
