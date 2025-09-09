@@ -19,11 +19,19 @@ RUN npm run build
 # Production stage with nginx
 FROM nginx:alpine
 
+# Build argument for environment
+ARG ENVIRONMENT=staging
+
 # Copy built app from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy appropriate nginx configuration based on environment
+COPY nginx*.conf /tmp/
+RUN if [ "$ENVIRONMENT" = "production" ]; then \
+      cp /tmp/nginx.prod.conf /etc/nginx/conf.d/default.conf; \
+    else \
+      cp /tmp/nginx.conf /etc/nginx/conf.d/default.conf; \
+    fi
 
 # Expose port 80
 EXPOSE 80
