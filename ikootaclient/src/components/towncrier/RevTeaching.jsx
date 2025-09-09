@@ -1,7 +1,7 @@
 //ikootaclient\src\components\towncrier\RevTeaching.jsx
 import React from "react";
 import ReactPlayer from "react-player";
-import "./revteaching.css";
+import "./revTeaching.css";
 // ✅ NEW: AI Features Panel
 import AIFeaturesPanel from '../shared/AIFeaturesPanel';
 

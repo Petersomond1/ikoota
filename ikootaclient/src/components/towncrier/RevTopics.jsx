@@ -4,7 +4,7 @@ import SearchControls from '../search/SearchControls';
 import { useSmartSearch } from '../../hooks/useSearchContent';
 import './revtopics.css';
 import './towncrier.css'; // Shared styles
-import './revteaching.css'; // Shared styles
+import './revTeaching.css'; // Shared styles
 import '../search/searchcontrols.css'; // Shared styles
 import api from '../service/api';
 

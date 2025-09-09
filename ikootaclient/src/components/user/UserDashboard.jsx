@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '../auth/UserStatus';
 import { getUserAccess } from '../config/accessMatrix';
 import api from '../service/api'; 
-import './UserDashboard.css';
+import './userDashboard.css';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Userinfo from '../iko/Userinfo';

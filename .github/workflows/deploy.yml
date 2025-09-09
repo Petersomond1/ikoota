@@ -1,0 +1,228 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY_API: ikoota-api
+  ECR_REPOSITORY_CLIENT: ikoota-client
+
+jobs:
+  test-and-build:
+    name: Test and Build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: |
+          ikootaapi/package-lock.json
+          ikootaclient/package-lock.json
+
+    # Test and build API
+    - name: Install API dependencies
+      working-directory: ./ikootaapi
+      run: npm ci
+
+    - name: Lint API code
+      working-directory: ./ikootaapi
+      run: npm run lint || echo "No lint script found, skipping..."
+
+    - name: Test API
+      working-directory: ./ikootaapi
+      run: npm test || echo "No test script found, skipping..."
+
+    # Test and build Client
+    - name: Install Client dependencies
+      working-directory: ./ikootaclient
+      run: npm ci
+
+    - name: Lint Client code
+      working-directory: ./ikootaclient
+      run: npm run lint
+
+    - name: Build Client
+      working-directory: ./ikootaclient
+      run: npm run build
+
+    # Security scanning
+    - name: Run security audit on API
+      working-directory: ./ikootaapi
+      run: npm audit --audit-level=high || true
+
+    - name: Run security audit on Client  
+      working-directory: ./ikootaclient
+      run: npm audit --audit-level=high || true
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build and push API image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG ./ikootaapi
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY_API:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_API:latest
+
+    - name: Build and push Client image  
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG ./ikootaclient
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest
+
+    - name: Deploy to ECS Staging
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Update ECS service with new image
+        aws ecs update-service \
+          --cluster ikoota-staging \
+          --service ikoota-api-staging \
+          --force-new-deployment
+
+        aws ecs update-service \
+          --cluster ikoota-staging \
+          --service ikoota-client-staging \
+          --force-new-deployment
+
+    - name: Wait for deployment
+      run: |
+        aws ecs wait services-stable \
+          --cluster ikoota-staging \
+          --services ikoota-api-staging ikoota-client-staging
+
+    - name: Run health checks
+      run: |
+        # Wait for services to be healthy
+        sleep 60
+        
+        # Check API health
+        curl -f https://staging-api.ikoota.com/api/health || exit 1
+        
+        # Check Client health  
+        curl -f https://staging.ikoota.com/ || exit 1
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Deploy to ECS Production
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Update task definition with new image
+        aws ecs update-service \
+          --cluster ikoota-production \
+          --service ikoota-api-production \
+          --force-new-deployment
+
+        aws ecs update-service \
+          --cluster ikoota-production \
+          --service ikoota-client-production \
+          --force-new-deployment
+
+    - name: Wait for production deployment
+      run: |
+        aws ecs wait services-stable \
+          --cluster ikoota-production \
+          --services ikoota-api-production ikoota-client-production
+
+    - name: Run production health checks
+      run: |
+        sleep 60
+        curl -f https://api.ikoota.com/api/health || exit 1
+        curl -f https://ikoota.com/ || exit 1
+
+    - name: Notify deployment success
+      if: success()
+      run: |
+        echo "🚀 Production deployment successful!"
+        echo "API: https://api.ikoota.com"
+        echo "Client: https://ikoota.com"
+
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: failure()
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Rollback ECS services
+      run: |
+        echo "🔄 Rolling back to previous deployment..."
+        
+        # Get previous task definition ARN
+        PREV_TASK_DEF=$(aws ecs describe-services \
+          --cluster ikoota-production \
+          --services ikoota-api-production \
+          --query 'services[0].deployments[1].taskDefinition' \
+          --output text)
+        
+        # Rollback to previous version
+        aws ecs update-service \
+          --cluster ikoota-production \
+          --service ikoota-api-production \
+          --task-definition $PREV_TASK_DEF

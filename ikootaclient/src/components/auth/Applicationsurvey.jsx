@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from './UserStatus';
-import './applicationSurvey.css';
+import './applicationsurvey.css';
 import api from '../service/api';
 import { useDynamicLabels } from '../../hooks/useDynamicLabels';
 

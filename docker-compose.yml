@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # Redis (for caching and sessions)
+  redis:
+    image: redis:7-alpine
+    container_name: ikoota_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ikoota-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 3s
+      retries: 5
+
+  # Backend API
+  ikootaapi:
+    build:
+      context: ./ikootaapi
+      dockerfile: Dockerfile
+    container_name: ikoota_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      REDIS_URL: redis://redis:6379
+      # Add your other environment variables
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./ikootaapi:/app
+      - /app/node_modules
+      - ./uploads:/app/uploads
+    networks:
+      - ikoota-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend React App
+  ikootaclient:
+    build:
+      context: ./ikootaclient
+      dockerfile: Dockerfile
+    container_name: ikoota_client
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    networks:
+      - ikoota-network
+    depends_on:
+      - ikootaapi
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  ikoota-network:
+    driver: bridge

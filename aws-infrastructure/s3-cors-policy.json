@@ -1,0 +1,26 @@
+{
+  "CORSRules": [
+    {
+      "AllowedHeaders": [
+        "*"
+      ],
+      "AllowedMethods": [
+        "GET",
+        "POST", 
+        "PUT",
+        "DELETE"
+      ],
+      "AllowedOrigins": [
+        "http://localhost:3000",
+        "http://localhost:80",
+        "https://ikoota.com",
+        "https://www.ikoota.com"
+      ],
+      "ExposeHeaders": [
+        "ETag",
+        "x-amz-meta-custom-header"
+      ],
+      "MaxAgeSeconds": 3000
+    }
+  ]
+}
