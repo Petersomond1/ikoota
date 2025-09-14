@@ -22,25 +22,23 @@ export const useUser = () => {
   return context;
 };
 
-// ✅ COMPLETE: Status determination function
+// ✅ COMPLETE: Status determination function - Updated for new field names
 const determineUserStatus = ({ 
   role, 
-  memberStatus, 
   membershipStage, 
   userId, 
-  approvalStatus,
-  fullMembershipApplicationStatus,
-  fullMembershipAppliedAt 
+  initialApplicationStatus,
+  fullMembershipApplStatus
 }) => {
   console.log('🔍 Status determination with standardized levels:', { 
-    role, memberStatus, membershipStage, userId, approvalStatus, fullMembershipApplicationStatus 
+    role, membershipStage, userId, initialApplicationStatus, fullMembershipApplStatus 
   });
 
   // Normalize empty strings
-  const normalizedMemberStatus = memberStatus === '' ? null : memberStatus;
   const normalizedMembershipStage = membershipStage === '' ? null : membershipStage;
   const normalizedRole = role === '' ? 'user' : role;
-  const normalizedApplicationStatus = fullMembershipApplicationStatus === '' ? 'not_applied' : fullMembershipApplicationStatus;
+  const normalizedFullMembershipStatus = fullMembershipApplStatus === '' ? 'not_applied' : fullMembershipApplStatus;
+  const normalizedInitialStatus = initialApplicationStatus === '' ? 'not_applied' : initialApplicationStatus;
 
   // ✅ Admin check
   if (normalizedRole === 'admin' || normalizedRole === 'super_admin') {
@@ -57,8 +55,8 @@ const determineUserStatus = ({
     };
   }
 
-  // ✅ FULL MEMBER CHECK
-  if (normalizedMemberStatus === 'member' && normalizedMembershipStage === 'member') {
+  // ✅ FULL MEMBER CHECK - Simplified using membership_stage as primary
+  if (normalizedMembershipStage === 'member') {
     console.log('💎 Full member detected');
     return {
       isMember: true,
@@ -72,16 +70,11 @@ const determineUserStatus = ({
     };
   }
 
-  // ✅ PRE-MEMBER WITH APPLICATION LOGIC
-  if (normalizedMemberStatus === 'pre_member' || 
-      normalizedMembershipStage === 'pre_member' ||
-      (normalizedMemberStatus === 'granted' && normalizedMembershipStage === 'pre_member') ||
-      ((normalizedMemberStatus === 'applied' || normalizedMemberStatus === null) && 
-       (approvalStatus === 'granted' || approvalStatus === 'approved'))) {
-    
+  // ✅ PRE-MEMBER WITH APPLICATION LOGIC - Simplified using membership_stage
+  if (normalizedMembershipStage === 'pre_member') {
     console.log('👤 Pre-member detected, checking membership application status...');
     
-    switch (normalizedApplicationStatus) {
+    switch (normalizedFullMembershipStatus) {
       case 'pending':
         return {
           isMember: false,
@@ -133,13 +126,13 @@ const determineUserStatus = ({
     }
   }
 
-  // ✅ Applied/Pending check
-  if (normalizedMemberStatus === 'applied' || normalizedMemberStatus === 'pending' || normalizedMemberStatus === null) {
+  // ✅ APPLICANT check - Using membership_stage
+  if (normalizedMembershipStage === 'applicant') {
     return {
       isMember: false,
       isPendingMember: true,
       userType: 'applicant',
-      status: 'pending_verification',
+      status: 'applicant',
       canApplyForMembership: false,
       membershipApplicationStatus: 'not_eligible',
       canAccessTowncrier: false,
@@ -147,28 +140,14 @@ const determineUserStatus = ({
     };
   }
   
-  // Denied/Suspended check
-  if (normalizedMemberStatus === 'denied' || normalizedMemberStatus === 'suspended' || normalizedMemberStatus === 'declined') {
-    return {
-      isMember: false,
-      isPendingMember: false,
-      userType: 'denied',
-      status: 'denied',
-      canApplyForMembership: false,
-      membershipApplicationStatus: 'not_eligible',
-      canAccessTowncrier: false,
-      canAccessIko: false
-    };
-  }
-
-  // Default fallback
+  // Default fallback - Guest users
   return {
     isMember: false,
     isPendingMember: false,
-    userType: 'authenticated',
-    status: 'authenticated',
+    userType: 'guest',
+    status: 'guest',
     canApplyForMembership: false,
-    membershipApplicationStatus: 'unknown',
+    membershipApplicationStatus: 'not_eligible',
     canAccessTowncrier: false,
     canAccessIko: false
   };
@@ -221,28 +200,25 @@ export const UserProvider = ({ children }) => {
         username: tokenData.username,
         email: tokenData.email,
         membership_stage: tokenData.membership_stage,
-        is_member: tokenData.is_member,
         role: tokenData.role,
-        // Use data from membership status response
+        // Use data from membership status response with compatibility fallback
         survey_completed: membershipStatusResponse.survey_completed,
-        approval_status: membershipStatusResponse.approval_status,
+        initialApplicationStatus: membershipStatusResponse.initial_application_status || membershipStatusResponse.application_status || 'not_applied',
         needs_survey: membershipStatusResponse.needs_survey,
-        // Additional membership data
-        membershipApplicationStatus: membershipStatusResponse.latest_application?.approval_status || 'not_applied',
+        // Full membership application data with compatibility
+        fullMembershipApplStatus: membershipStatusResponse.full_membership_appl_status || membershipStatusResponse.full_membership_status || 'not_applied',
         membershipAppliedAt: membershipStatusResponse.submittedAt,
         membershipReviewedAt: membershipStatusResponse.reviewedAt,
         membershipTicket: membershipStatusResponse.latest_application?.application_ticket,
-        membershipAdminNotes: membershipStatusResponse.latest_application?.admin_notes
+        membershipAdminNotes: membershipStatusResponse.latest_application?.notes || membershipStatusResponse.latest_application?.admin_notes
       };
 
       const statusResult = determineUserStatus({
         role: combinedUserData.role,
-        memberStatus: combinedUserData.is_member,
         membershipStage: combinedUserData.membership_stage,
         userId: combinedUserData.user_id,
-        approvalStatus: combinedUserData.approval_status,
-        fullMembershipApplicationStatus: combinedUserData.membershipApplicationStatus,
-        fullMembershipAppliedAt: combinedUserData.membershipAppliedAt
+        initialApplicationStatus: combinedUserData.initialApplicationStatus,
+        fullMembershipApplStatus: combinedUserData.fullMembershipApplStatus
       });
 
       let finalStatus = statusResult.status;
@@ -272,11 +248,10 @@ export const UserProvider = ({ children }) => {
       if (tokenData) {
         const fallbackStatus = determineUserStatus({
           role: tokenData.role,
-          memberStatus: tokenData.is_member,
           membershipStage: tokenData.membership_stage,
           userId: tokenData.user_id,
-          approvalStatus: null,
-          fullMembershipApplicationStatus: 'not_applied'
+          initialApplicationStatus: 'not_applied',
+          fullMembershipApplStatus: 'not_applied'
         });
         
         updateUserState({
@@ -347,11 +322,10 @@ export const UserProvider = ({ children }) => {
 
     const initialStatus = determineUserStatus({
       role: tokenData.role,
-      memberStatus: tokenData.is_member,
       membershipStage: tokenData.membership_stage,
       userId: tokenData.user_id,
-      approvalStatus: null,
-      fullMembershipApplicationStatus: 'not_applied'
+      initialApplicationStatus: 'not_applied',
+      fullMembershipApplStatus: 'not_applied'
     });
 
     updateUserState({
@@ -386,11 +360,10 @@ export const UserProvider = ({ children }) => {
     
     const fallbackStatus = determineUserStatus({
       role: user.role,
-      memberStatus: user.is_member,
       membershipStage: user.membership_stage,
       userId: user.user_id,
-      approvalStatus: user.approval_status,
-      fullMembershipApplicationStatus: user.membershipApplicationStatus || 'not_applied'
+      initialApplicationStatus: user.initialApplicationStatus || 'not_applied',
+      fullMembershipApplStatus: user.fullMembershipApplStatus || 'not_applied'
     });
     
     return fallbackStatus.status;
@@ -501,7 +474,8 @@ const UserStatus = () => {
   const getStatusDisplay = () => {
     if (!membershipStatus || !user) return getDefaultStatus();
     
-    const { user_status, membership_stage, approval_status } = membershipStatus;
+    const { user_status, membership_stage, status, approval_status } = membershipStatus;
+    const actualStatus = status || approval_status;
     
     if (user.role === 'admin' || user.role === 'super_admin') {
       return {
@@ -542,7 +516,7 @@ const UserStatus = () => {
     }
     
     if (membership_stage === 'applicant') {
-      if (approval_status === 'pending') {
+      if (actualStatus === 'pending') {
         return {
           status: 'Application Under Review',
           color: 'text-yellow-600',
@@ -553,7 +527,7 @@ const UserStatus = () => {
         };
       }
       
-      if (approval_status === 'declined' || user_status === 'rejected') {
+      if (actualStatus === 'declined' || user_status === 'rejected') {
         return {
           status: 'Application Declined',
           color: 'text-red-600',
@@ -606,7 +580,7 @@ const UserStatus = () => {
         icon: '📰'
       });
       
-      if (membershipStatus.fullMembershipApplicationStatus !== 'pending') {
+      if (membershipStatus.full_membership_appl_status !== 'pending' && membershipStatus.fullMembershipApplStatus !== 'pending') {
         actions.push({
           label: 'Apply for Full Membership',
           href: '/full-membership',

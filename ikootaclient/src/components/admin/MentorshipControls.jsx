@@ -550,7 +550,7 @@ const MentorshipControls = () => {
                 {(Array.isArray(mentorshipStats?.recent_assignments) ? mentorshipStats.recent_assignments : []).map((assignment, index) => (
                   <div key={index} className="assignment-item">
                     <div className="assignment-time">
-                      {new Date(assignment.assigned_at).toLocaleString()}
+                      {new Date(assignment.assignedAt).toLocaleString()}
                     </div>
                     <div className="assignment-details">
                       <span className="mentee">{assignment.mentee_name}</span>

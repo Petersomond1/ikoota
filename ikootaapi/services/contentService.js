@@ -28,7 +28,7 @@ export class ContentService {
         LEFT JOIN teaching_likes l ON t.id = l.teaching_id
         WHERE t.is_published = true ${accessFilter}
         GROUP BY t.id, u.username, u.membership_stage
-        ORDER BY t.created_at DESC
+        ORDER BY t.createdAt DESC
       `;
 
       const values = accessFilter ? [userId, userId] : [userId];
@@ -56,7 +56,7 @@ export class ContentService {
       }
 
       const result = await db.query(`
-        INSERT INTO teachings (user_id, topic, description, content, audience, subject_matter, is_published, created_at)
+        INSERT INTO teachings (user_id, topic, description, content, audience, subject_matter, is_published, createdAt)
         VALUES ($1, $2, $3, $4, $5, $6, true, CURRENT_TIMESTAMP)
         RETURNING *
       `, [userId, topic, description, content, audience, subjectMatter]);
@@ -80,7 +80,7 @@ export class ContentService {
         LEFT JOIN teaching_likes l ON t.id = l.teaching_id
         WHERE t.user_id = $1
         GROUP BY t.id
-        ORDER BY t.created_at DESC
+        ORDER BY t.createdAt DESC
       `, [userId]);
 
       return result.rows;
@@ -106,7 +106,7 @@ export class ContentService {
         WHERE t.audience IN ('public') 
         AND t.is_published = true
         GROUP BY t.id, u.username
-        ORDER BY t.created_at DESC
+        ORDER BY t.createdAt DESC
         LIMIT 20
       `);
 
@@ -133,7 +133,7 @@ export class ContentService {
         WHERE t.audience IN ('member') 
         AND t.is_published = true
         GROUP BY t.id, u.username
-        ORDER BY t.created_at DESC
+        ORDER BY t.createdAt DESC
         LIMIT 50
       `);
 

@@ -110,14 +110,30 @@ export const getCurrentMembershipStatus = async (req, res) => {
     try {
       const user = await getUserById(userId);
       
-      // Get latest application info
+      // Get latest application info with JOINs to response tables
       const [applications] = await db.query(`
-        SELECT approval_status, createdAt, reviewedAt, admin_notes, application_type
-        FROM surveylog 
-        WHERE user_id = ? 
-        ORDER BY createdAt DESC 
+        SELECT 
+          sl.new_status as approval_status, 
+          sl.createdAt, 
+          sl.reviewedAt, 
+          CASE 
+            WHEN sl.new_survey_type = 'initial_application' THEN ima.admin_notes
+            WHEN sl.new_survey_type = 'full_membership' THEN fma.admin_notes
+            ELSE sr.admin_notes
+          END as admin_notes,
+          sl.new_survey_type as survey_type
+        FROM surveylog sl
+        LEFT JOIN initial_membership_applications ima ON sl.response_table_id = ima.id AND sl.new_survey_type = 'initial_application'
+        LEFT JOIN full_membership_applications fma ON sl.response_table_id = fma.id AND sl.new_survey_type = 'full_membership'
+        LEFT JOIN survey_responses sr ON sl.response_table_id = sr.id AND sl.new_survey_type = 'survey'
+        WHERE (
+          (sl.new_survey_type = 'initial_application' AND ima.user_id = ?)
+          OR (sl.new_survey_type = 'full_membership' AND fma.user_id = ?)
+          OR (sl.new_survey_type = 'survey' AND sr.user_id = ?)
+        )
+        ORDER BY sl.createdAt DESC 
         LIMIT 1
-      `, [userId]);
+      `, [userId, userId, userId]);
 
       const latestApplication = applications.length > 0 ? applications[0] : null;
 
@@ -134,9 +150,9 @@ export const getCurrentMembershipStatus = async (req, res) => {
 
       res.json({
         success: true,
-        user_status: user.is_member || 'pending',
         membership_stage: user.membership_stage || 'none',
-        application_status: user.application_status || 'not_submitted',
+        initial_application_status: user.initial_application_status || 'not_applied',
+        full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
         needs_survey: false,
         survey_completed: latestApplication ? true : false,
         approval_status: latestApplication?.approval_status || 'not_submitted',
@@ -149,7 +165,7 @@ export const getCurrentMembershipStatus = async (req, res) => {
           can_access_towncrier: ['pre_member', 'member'].includes(user.membership_stage),
           can_access_iko: user.membership_stage === 'member',
           can_apply_full_membership: user.membership_stage === 'pre_member' && 
-                                    (!user.full_membership_status || user.full_membership_status === 'declined')
+                                    (!user.full_membership_appl_status || user.full_membership_appl_status === 'declined')
         },
         latest_application: latestApplication,
         latest_full_membership_application: latestFullApp
@@ -159,9 +175,9 @@ export const getCurrentMembershipStatus = async (req, res) => {
       // Fallback to auth user data if database query fails
       res.json({
         success: true,
-        user_status: req.user.is_member || 'pending',
         membership_stage: req.user.membership_stage || 'none',
-        application_status: req.user.application_status || 'not_submitted',
+        initial_application_status: req.user.initial_application_status || 'not_applied',
+        full_membership_appl_status: req.user.full_membership_appl_status || 'not_applied',
         needs_survey: false,
         survey_completed: true,
         approval_status: 'pending',
@@ -212,10 +228,30 @@ export const getUserDashboard = async (req, res) => {
       const [dashboardData] = await db.query(`
         SELECT 
           u.*,
-          (SELECT COUNT(*) FROM surveylog WHERE user_id = u.id) as total_applications,
-          (SELECT approval_status FROM surveylog WHERE user_id = u.id ORDER BY createdAt DESC LIMIT 1) as latest_application_status,
-          (SELECT createdAt FROM surveylog WHERE user_id = u.id ORDER BY createdAt DESC LIMIT 1) as latest_application_date,
-          (SELECT status FROM full_membership_applications WHERE user_id = u.id ORDER BY submittedAt DESC LIMIT 1) as latest_full_membership_status,
+          (
+            SELECT COUNT(*) FROM surveylog sl
+            LEFT JOIN initial_membership_applications ima ON sl.response_table_id = ima.id AND sl.new_survey_type = 'initial_application'
+            LEFT JOIN full_membership_applications fma ON sl.response_table_id = fma.id AND sl.new_survey_type = 'full_membership'
+            LEFT JOIN survey_responses sr ON sl.response_table_id = sr.id AND sl.new_survey_type = 'survey'
+            WHERE ima.user_id = u.id OR fma.user_id = u.id OR sr.user_id = u.id
+          ) as total_applications,
+          (
+            SELECT sl.new_status FROM surveylog sl
+            LEFT JOIN initial_membership_applications ima ON sl.response_table_id = ima.id AND sl.new_survey_type = 'initial_application'
+            LEFT JOIN full_membership_applications fma ON sl.response_table_id = fma.id AND sl.new_survey_type = 'full_membership'
+            LEFT JOIN survey_responses sr ON sl.response_table_id = sr.id AND sl.new_survey_type = 'survey'
+            WHERE ima.user_id = u.id OR fma.user_id = u.id OR sr.user_id = u.id
+            ORDER BY sl.createdAt DESC LIMIT 1
+          ) as latest_initial_application_status,
+          (
+            SELECT sl.createdAt FROM surveylog sl
+            LEFT JOIN initial_membership_applications ima ON sl.response_table_id = ima.id AND sl.new_survey_type = 'initial_application'
+            LEFT JOIN full_membership_applications fma ON sl.response_table_id = fma.id AND sl.new_survey_type = 'full_membership'
+            LEFT JOIN survey_responses sr ON sl.response_table_id = sr.id AND sl.new_survey_type = 'survey'
+            WHERE ima.user_id = u.id OR fma.user_id = u.id OR sr.user_id = u.id
+            ORDER BY sl.createdAt DESC LIMIT 1
+          ) as latest_application_date,
+          (SELECT status FROM full_membership_applications WHERE user_id = u.id ORDER BY submittedAt DESC LIMIT 1) as latest_full_membership_appl_status,
           (SELECT access_count FROM full_membership_access WHERE user_id = u.id) as content_access_count
         FROM users u
         WHERE u.id = ?
@@ -231,8 +267,9 @@ export const getUserDashboard = async (req, res) => {
         id: userId,
         username: req.user.username || 'User',
         email: req.user.email || '',
-        is_member: req.user.is_member || 'pending',
         membership_stage: req.user.membership_stage || 'none',
+        initial_application_status: req.user.initial_application_status || 'not_applied',
+        full_membership_appl_status: req.user.full_membership_appl_status || 'not_applied',
         role: req.user.role || 'user',
         createdAt: new Date()
       };
@@ -244,7 +281,7 @@ export const getUserDashboard = async (req, res) => {
     let applicationDescription = 'Application not yet submitted';
     let nextSteps = ['Submit your initial application to begin the membership process'];
     
-    if (user.is_member === 'pre_member' || user.membership_stage === 'pre_member') {
+    if (user.membership_stage === 'pre_member') {
       applicationStatus = 'approved_pre_member';
       statusDisplay = 'Pre-Member';
       applicationDescription = 'Approved - Pre-Member Access to Towncrier';
@@ -253,7 +290,7 @@ export const getUserDashboard = async (req, res) => {
         'Engage with the community',
         'Consider applying for full membership'
       ];
-    } else if (user.is_member === 'member' && user.membership_stage === 'member') {
+    } else if (user.membership_stage === 'member') {
       applicationStatus = 'approved_member';
       statusDisplay = 'Full Member';
       applicationDescription = 'Approved - Full Member Access to Iko Chat';
@@ -262,7 +299,7 @@ export const getUserDashboard = async (req, res) => {
         'Participate in advanced discussions',
         'Contribute to the community'
       ];
-    } else if (user.latest_application_status === 'pending') {
+    } else if (user.latest_initial_application_status === 'pending') {
       applicationStatus = 'pending_review';
       statusDisplay = 'Under Review';
       applicationDescription = 'Your application is being reviewed by our team';
@@ -271,7 +308,7 @@ export const getUserDashboard = async (req, res) => {
         'Check back for updates',
         'Prepare for possible follow-up questions'
       ];
-    } else if (user.latest_application_status === 'declined') {
+    } else if (user.latest_initial_application_status === 'declined') {
       applicationStatus = 'declined';
       statusDisplay = 'Application Declined';
       applicationDescription = 'Your application was not approved at this time';
@@ -322,10 +359,10 @@ export const getUserDashboard = async (req, res) => {
         title: 'Application Submitted',
         description: 'Your membership application is under review',
         date: user.latest_application_date,
-        status: user.latest_application_status === 'approved' ? 'completed' : 
-               user.latest_application_status === 'declined' ? 'failed' : 'pending',
-        icon: user.latest_application_status === 'approved' ? '✅' : 
-              user.latest_application_status === 'declined' ? '❌' : '📋'
+        status: user.latest_initial_application_status === 'approved' ? 'completed' : 
+               user.latest_initial_application_status === 'declined' ? 'failed' : 'pending',
+        icon: user.latest_initial_application_status === 'approved' ? '✅' : 
+              user.latest_initial_application_status === 'declined' ? '❌' : '📋'
       });
     }
 
@@ -359,7 +396,7 @@ export const getUserDashboard = async (req, res) => {
       }
     ];
 
-    if (user.membership_stage === 'pre_member' && !user.latest_full_membership_status) {
+    if (user.membership_stage === 'pre_member' && !user.latest_full_membership_appl_status) {
       notifications.push({
         type: 'info',
         message: 'You are eligible to apply for full membership!',
@@ -382,15 +419,16 @@ export const getUserDashboard = async (req, res) => {
           contentAccessCount: user.content_access_count || 0
         },
         membership: {
-          status: user.is_member,
           stage: user.membership_stage,
+          initial_application_status: user.initial_application_status,
+          full_membership_appl_status: user.full_membership_appl_status,
           displayStatus: statusDisplay
         },
         application: {
           status: applicationStatus,
           statusDisplay: statusDisplay,
           description: applicationDescription,
-          latestStatus: user.latest_application_status,
+          latestStatus: user.latest_initial_application_status,
           latestDate: user.latest_application_date
         },
         nextSteps,
@@ -587,7 +625,8 @@ export const getApplicationStatus = async (req, res) => {
         email: user.email,
         converse_id: user.converse_id,
         role: user.role,
-        is_member: user.is_member,
+        initial_application_status: user.initial_application_status,
+        full_membership_appl_status: user.full_membership_appl_status,
         membership_stage: user.membership_stage,
         is_identity_masked: user.is_identity_masked
       },
@@ -675,7 +714,8 @@ export const checkApplicationStatus = async (req, res) => {
         email: user.email,
         converse_id: user.converse_id,
         role: user.role,
-        is_member: user.is_member,
+        initial_application_status: user.initial_application_status,
+        full_membership_appl_status: user.full_membership_appl_status,
         membership_stage: user.membership_stage,
         is_identity_masked: user.is_identity_masked
       },
@@ -716,20 +756,35 @@ export const getApplicationHistory = async (req, res) => {
   try {
     const userId = req.user.id || req.user.user_id;
     
-    // Get application history from database
+    // Get application history from database with JOINs to response tables
     const [applications] = await db.query(`
       SELECT 
-        id,
-        application_type,
-        approval_status,
-        createdAt as submitted_at,
-        reviewedAt,
-        admin_notes,
-        application_ticket
-      FROM surveylog 
-      WHERE user_id = ? 
-      ORDER BY createdAt DESC
-    `, [userId]);
+        sl.new_survey_id as id,
+        sl.new_survey_type as survey_type,
+        sl.new_status as approval_status,
+        sl.createdAt as submitted_at,
+        sl.reviewedAt,
+        CASE 
+          WHEN sl.new_survey_type = 'initial_application' THEN ima.admin_notes
+          WHEN sl.new_survey_type = 'full_membership' THEN fma.admin_notes
+          ELSE sr.admin_notes
+        END as admin_notes,
+        CASE 
+          WHEN sl.new_survey_type = 'initial_application' THEN ima.application_ticket
+          WHEN sl.new_survey_type = 'full_membership' THEN fma.membership_ticket
+          ELSE NULL
+        END as application_ticket
+      FROM surveylog sl
+      LEFT JOIN initial_membership_applications ima ON sl.response_table_id = ima.id AND sl.new_survey_type = 'initial_application'
+      LEFT JOIN full_membership_applications fma ON sl.response_table_id = fma.id AND sl.new_survey_type = 'full_membership'
+      LEFT JOIN survey_responses sr ON sl.response_table_id = sr.id AND sl.new_survey_type = 'survey'
+      WHERE (
+        (sl.new_survey_type = 'initial_application' AND ima.user_id = ?)
+        OR (sl.new_survey_type = 'full_membership' AND fma.user_id = ?)
+        OR (sl.new_survey_type = 'survey' AND sr.user_id = ?)
+      )
+      ORDER BY sl.createdAt DESC
+    `, [userId, userId, userId]);
 
     // Get review history
     const [reviews] = await db.query(`
@@ -966,8 +1021,8 @@ export const getFullMembershipStatus = async (req, res) => {
     return successResponse(res, {
       currentStatus: {
         membership_stage: user.membership_stage,
-        is_member: user.is_member,
-        full_membership_status: user.full_membership_status
+        initial_application_status: user.initial_application_status,
+        full_membership_appl_status: user.full_membership_appl_status,
       },
       fullMembershipApplication: currentApplication,
       eligibility: {
@@ -1102,7 +1157,8 @@ export const getUserPermissions = async (req, res) => {
         username: user.username,
         email: user.email,
         membership_stage: user.membership_stage,
-        is_member: user.is_member,
+        initial_application_status: user.initial_application_status,
+        full_membership_appl_status: user.full_membership_appl_status,
         role: user.role
       },
       permissions
@@ -1456,14 +1512,30 @@ export const getMembershipStatusByIdController = async (userId) => {
     
     const user = await getUserById(userId);
     
-    // Get latest application info
+    // Get latest application info with JOINs to response tables
     const [applications] = await db.query(`
-      SELECT approval_status, createdAt, reviewedAt, admin_notes, application_type
-      FROM surveylog 
-      WHERE user_id = ? 
-      ORDER BY createdAt DESC 
+      SELECT 
+        sl.new_status as approval_status, 
+        sl.createdAt, 
+        sl.reviewedAt, 
+        CASE 
+          WHEN sl.new_survey_type = 'initial_application' THEN ima.admin_notes
+          WHEN sl.new_survey_type = 'full_membership' THEN fma.admin_notes
+          ELSE sr.admin_notes
+        END as admin_notes,
+        sl.new_survey_type as survey_type
+      FROM surveylog sl
+      LEFT JOIN initial_membership_applications ima ON sl.response_table_id = ima.id AND sl.new_survey_type = 'initial_application'
+      LEFT JOIN full_membership_applications fma ON sl.response_table_id = fma.id AND sl.new_survey_type = 'full_membership'
+      LEFT JOIN survey_responses sr ON sl.response_table_id = sr.id AND sl.new_survey_type = 'survey'
+      WHERE (
+        (sl.new_survey_type = 'initial_application' AND ima.user_id = ?)
+        OR (sl.new_survey_type = 'full_membership' AND fma.user_id = ?)
+        OR (sl.new_survey_type = 'survey' AND sr.user_id = ?)
+      )
+      ORDER BY sl.createdAt DESC 
       LIMIT 1
-    `, [userId]);
+    `, [userId, userId, userId]);
 
     const latestApplication = applications.length > 0 ? applications[0] : null;
 
@@ -1482,9 +1554,9 @@ export const getMembershipStatusByIdController = async (userId) => {
       user_id: user.id,
       username: user.username,
       email: user.email,
-      user_status: user.is_member || 'pending',
       membership_stage: user.membership_stage || 'none',
-      application_status: user.application_status || 'not_submitted',
+      initial_application_status: user.initial_application_status || 'not_applied',
+      full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
       needs_survey: false,
       survey_completed: latestApplication ? true : false,
       approval_status: latestApplication?.approval_status || 'not_submitted',
@@ -1496,7 +1568,7 @@ export const getMembershipStatusByIdController = async (userId) => {
         can_access_towncrier: ['pre_member', 'member'].includes(user.membership_stage),
         can_access_iko: user.membership_stage === 'member',
         can_apply_full_membership: user.membership_stage === 'pre_member' && 
-                                  (!user.full_membership_status || user.full_membership_status === 'declined')
+                                  (!user.full_membership_appl_status || user.full_membership_appl_status === 'declined')
       },
       latest_application: latestApplication,
       latest_full_membership_application: latestFullApp
@@ -1557,8 +1629,8 @@ export const getFullMembershipStatusByIdController = async (userId) => {
       username: user.username,
       email: user.email,
       membership_stage: user.membership_stage,
-      is_member: user.is_member,
-      full_membership_status: user.full_membership_status || 'not_applied',
+      initial_application_status: user.initial_application_status || 'not_applied',
+      full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
       
       eligibility: {
         isEligible,
@@ -1673,7 +1745,7 @@ export const withdrawApplicationController = async (userId, reason, applicationT
       // Update user status
       await db.query(`
         UPDATE users 
-        SET application_status = 'withdrawn',
+        SET initial_application_status = 'withdrawn',
             updatedAt = NOW()
         WHERE id = ?
       `, [userId]);
@@ -1707,7 +1779,7 @@ export const withdrawApplicationController = async (userId, reason, applicationT
       // Update user status
       await db.query(`
         UPDATE users 
-        SET full_membership_status = 'withdrawn',
+        SET full_membership_appl_status = 'withdrawn',
             updatedAt = NOW()
         WHERE id = ?
       `, [userId]);

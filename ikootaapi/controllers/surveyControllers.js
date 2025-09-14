@@ -214,7 +214,7 @@ export const getSurveyDrafts = async (req, res) => {
       id: draft.id,
       application_type: draft.application_type,
       answers: draft.answers,
-      created_at: draft.createdAt,
+      createdAt: draft.createdAt,
       updatedAt: draft.updatedAt,
       admin_notes: draft.admin_notes,
       is_admin_saved: !!draft.saved_by_admin_id,
@@ -438,9 +438,9 @@ export const getSurveyHistory = async (req, res) => {
 
     // Format history with additional context
     const formattedHistory = history.map(entry => ({
-      id: entry.id,
-      application_type: entry.application_type,
-      status: entry.approval_status,
+      id: entry.new_survey_id,
+      survey_type: entry.new_survey_type,
+      status: entry.new_status,
       submitted_at: entry.createdAt,
       reviewed_at: entry.reviewedAt,
       admin_notes: entry.admin_notes,
@@ -448,14 +448,14 @@ export const getSurveyHistory = async (req, res) => {
       processing_days: entry.reviewedAt ? 
         Math.floor((new Date(entry.reviewedAt) - new Date(entry.createdAt)) / (1000 * 60 * 60 * 24)) : 
         Math.floor((new Date() - new Date(entry.createdAt)) / (1000 * 60 * 60 * 24)),
-      is_current: entry.approval_status === 'pending'
+      is_current: entry.new_status === 'pending'
     }));
 
-    // Group by application type
+    // Group by survey type
     const groupedHistory = {
-      initial_applications: formattedHistory.filter(h => h.application_type === 'initial_application'),
-      full_membership_applications: formattedHistory.filter(h => h.application_type === 'full_membership'),
-      other_applications: formattedHistory.filter(h => !['initial_application', 'full_membership'].includes(h.application_type))
+      initial_applications: formattedHistory.filter(h => h.survey_type === 'initial_application'),
+      full_membership_applications: formattedHistory.filter(h => h.survey_type === 'full_membership'),
+      other_applications: formattedHistory.filter(h => !['initial_application', 'full_membership'].includes(h.survey_type))
     };
 
     res.json({
@@ -508,10 +508,16 @@ export const updateSurveyResponse = async (req, res) => {
 
     // Verify survey belongs to user and is editable
     const [surveyCheck] = await db.query(`
-      SELECT id, approval_status, application_type 
-      FROM surveylog 
-      WHERE id = ? AND CAST(user_id AS UNSIGNED) = ? AND approval_status = 'pending'
-    `, [surveyId, userId]);
+      SELECT sl.new_survey_id, sl.new_status, sl.new_survey_type 
+      FROM surveylog sl
+      WHERE sl.new_survey_id = ? AND sl.response_table_id IN (
+        SELECT id FROM initial_membership_applications WHERE user_id = ?
+        UNION
+        SELECT id FROM full_membership_applications WHERE user_id = ?
+        UNION  
+        SELECT id FROM survey_responses WHERE user_id = ?
+      ) AND sl.new_status = 'pending'
+    `, [surveyId, userId, userId, userId]);
 
     if (!surveyCheck.length) {
       return res.status(404).json({
@@ -528,7 +534,7 @@ export const updateSurveyResponse = async (req, res) => {
       message: 'Survey response updated successfully',
       survey: {
         id: surveyId,
-        application_type: surveyCheck[0].application_type,
+        survey_type: surveyCheck[0].new_survey_type,
         status: 'pending',
         updatedAt: new Date().toISOString()
       },

@@ -10,7 +10,7 @@ const Pendverifyinfo = () => {
 
   // ✅ Get actual survey completion status from API data
   const surveyCompleted = user?.survey_completed || membershipStatus?.survey_completed;
-  const approvalStatus = user?.approval_status || membershipStatus?.approval_status;
+  const approvalStatus = user?.status || user?.approval_status || membershipStatus?.status || membershipStatus?.approval_status;
   const needsSurvey = user?.needs_survey || membershipStatus?.needs_survey;
   const currentUserStatus = getUserStatus();
 
@@ -19,7 +19,7 @@ const Pendverifyinfo = () => {
     surveyCompleted,
     needsSurvey,
     approvalStatus,
-    userMemberStatus: user?.is_member,
+    userMembershipStage: user?.membership_stage,
     membershipStage: user?.membership_stage
   });
 

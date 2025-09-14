@@ -230,7 +230,8 @@ export const getFullMembershipStatus = async (req, res) => {
         canApply: status.overall_status.membership_stage === 'pre_member' && 
                  (!fullApp.status || ['not_applied', 'declined'].includes(fullApp.status)),
         currentStage: status.overall_status.membership_stage,
-        currentStatus: status.overall_status.is_member
+        initialApplicationStatus: status.overall_status.initial_application_status,
+        fullMembershipStatus: status.overall_status.full_membership_appl_status
       }
     }, 'Full membership status retrieved');
     
@@ -305,7 +306,8 @@ export const getUserSummary = async (req, res) => {
       },
       membership: {
         current_stage: status.overall_status.membership_stage,
-        is_member: status.overall_status.is_member,
+        initial_application_status: status.overall_status.initial_application_status,
+        full_membership_appl_status: status.overall_status.full_membership_appl_status,
         can_progress: status.overall_status.can_progress
       },
       applications: {
@@ -342,29 +344,29 @@ export const getApplicationAnalytics = async (req, res) => {
     
     console.log('📊 Getting application analytics:', { timeframe, groupBy });
     
-    // Get basic analytics from database
+    // Get basic analytics from database using new schema
     const [analyticsData] = await db.query(`
       SELECT 
         DATE(sl.createdAt) as date,
-        sl.application_type,
+        sl.new_survey_type as survey_type,
         COUNT(*) as total_submitted,
-        COUNT(CASE WHEN sl.approval_status = 'approved' THEN 1 END) as approved,
-        COUNT(CASE WHEN sl.approval_status = 'declined' THEN 1 END) as declined,
-        COUNT(CASE WHEN sl.approval_status = 'pending' THEN 1 END) as pending,
+        COUNT(CASE WHEN sl.new_status = 'approved' THEN 1 END) as approved,
+        COUNT(CASE WHEN sl.new_status = 'declined' THEN 1 END) as declined,
+        COUNT(CASE WHEN sl.new_status = 'pending' THEN 1 END) as pending,
         AVG(CASE WHEN sl.reviewedAt IS NOT NULL THEN DATEDIFF(sl.reviewedAt, sl.createdAt) END) as avg_processing_days
       FROM surveylog sl
       WHERE sl.createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
-      GROUP BY DATE(sl.createdAt), sl.application_type
-      ORDER BY date DESC, sl.application_type
+      GROUP BY DATE(sl.createdAt), sl.new_survey_type
+      ORDER BY date DESC, sl.new_survey_type
     `, [timeframe === '7d' ? 7 : timeframe === '90d' ? 90 : 30]);
     
-    // Get summary statistics
+    // Get summary statistics using new schema
     const [summaryStats] = await db.query(`
       SELECT 
         COUNT(*) as total_applications,
-        COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_total,
-        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_total,
-        COUNT(CASE WHEN approval_status = 'declined' THEN 1 END) as declined_total,
+        COUNT(CASE WHEN new_status = 'pending' THEN 1 END) as pending_total,
+        COUNT(CASE WHEN new_status = 'approved' THEN 1 END) as approved_total,
+        COUNT(CASE WHEN new_status = 'declined' THEN 1 END) as declined_total,
         AVG(CASE WHEN reviewedAt IS NOT NULL THEN DATEDIFF(reviewedAt, createdAt) END) as overall_avg_processing
       FROM surveylog
       WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)

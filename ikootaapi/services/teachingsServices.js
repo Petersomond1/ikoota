@@ -70,14 +70,16 @@ export const getAllTeachings = async (filters = {}) => {
     const finalSortOrder = sort_order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
     let query = `
-      SELECT *, prefixed_id, 
+      SELECT t.*, t.prefixed_id, 
              'teaching' as content_type,
-             topic as content_title,
-             createdAt as content_createdAt,
-             updatedAt as content_updatedAt
-      FROM teachings 
-      ${whereClause}
-      ORDER BY ${finalSortBy} ${finalSortOrder}
+             t.topic as content_title,
+             t.createdAt as content_createdAt,
+             t.updatedAt as content_updatedAt,
+             u.converse_id as converse_id
+      FROM teachings t
+      LEFT JOIN users u ON t.user_id = u.id
+      ${whereClause.replace(/\b(createdAt|updatedAt|topic|lessonNumber|approval_status|status|is_public|is_featured)\b/g, 't.$1')}
+      ORDER BY t.${finalSortBy} ${finalSortOrder}
     `;
 
     // Add pagination if specified
@@ -112,14 +114,16 @@ export const getTeachingsByUserId = async (user_id) => {
     }
 
     const query = `
-      SELECT *, prefixed_id,
+      SELECT t.*, t.prefixed_id,
              'teaching' as content_type,
-             topic as content_title,
-             createdAt as content_createdAt,
-             updatedAt as content_updatedAt
-      FROM teachings 
-      WHERE user_id = ? 
-      ORDER BY updatedAt DESC, createdAt DESC
+             t.topic as content_title,
+             t.createdAt as content_createdAt,
+             t.updatedAt as content_updatedAt,
+             u.converse_id as converse_id
+      FROM teachings t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.user_id = ? 
+      ORDER BY t.updatedAt DESC, t.createdAt DESC
     `;
 
     const rows = await db.query(query, [numericUserId]);

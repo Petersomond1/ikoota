@@ -397,7 +397,7 @@ app.get('/api/user/userstatus/survey/check-status', authenticate, async (req, re
       success: true,
       needs_survey: !hasApplication,
       survey_completed: hasApplication,
-      application_status: applicationStatus,
+      initial_application_status: applicationStatus,
       user_id: userId,
       message: 'Survey status retrieved from database (legacy endpoint)',
       note: 'Consider using /api/membership/status for membership applications',

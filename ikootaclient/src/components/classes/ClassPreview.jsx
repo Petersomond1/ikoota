@@ -277,7 +277,8 @@ const ClassPreview = () => {
   const stats = statsData?.data || {};
   const recentContent = previewContent?.data?.data || [];
 
-  const isClassMember = classInfo.is_member;
+  // Check if user is a member of this specific class - no longer using is_member field
+  const isClassMember = false; // This should be determined by API or member list check
   const canEnterClassroom = isClassMember || classInfo.is_public;
 
   return (
@@ -476,7 +477,7 @@ const ClassPreview = () => {
                       <h4>{item.title}</h4>
                       <p>{item.content?.substring(0, 150)}...</p>
                       <span className="update-date">
-                        {new Date(item.created_at).toLocaleDateString()}
+                        {new Date(item.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                   </div>

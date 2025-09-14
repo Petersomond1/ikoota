@@ -199,9 +199,14 @@ const checkSubmissionStatus = async () => {
     
     console.log('✅ Submission status response:', response.data);
     
-    if (response.data.hasApplication || 
-        response.data.status === 'pending' || 
-        response.data.status === 'approved') {
+    // Handle both old and new field names for compatibility
+    const hasApplication = response.data.hasApplication || response.data.hasSubmitted;
+    const status = response.data.status || response.data.approval_status;
+    
+    if (hasApplication || 
+        status === 'pending' || 
+        status === 'approved' ||
+        status === 'completed') {
       setHasSubmitted(true);
       // Clear saved data if already submitted
       clearSavedData();
@@ -255,7 +260,14 @@ const checkSubmissionStatus = async () => {
         userId: user.id,
         userEmail: user.email,
         username: user.username,
-        applicationType: 'full_membership'
+        // Compatibility fields - include both old and new names
+        survey_type: 'full_membership', // New field name
+        applicationType: 'full_membership', // Middle compatibility field
+        application_type: 'full_membership', // Legacy field name
+        status: 'pending', // New field name
+        approval_status: 'pending', // Legacy field name
+        notes: '', // New field name
+        admin_notes: '' // Legacy field name
       });
 
       if (response.status === 200 || response.status === 201) {

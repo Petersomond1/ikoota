@@ -332,7 +332,7 @@ class EnhancedConverseIdService {
         await fs.writeFile(vaultPath, JSON.stringify({
             vault_id: vaultId,
             user_id: userId,
-            created_at: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
             data: vaultData
         }));
         
@@ -556,7 +556,7 @@ class EnhancedConverseIdService {
         await connection.query(`
             INSERT INTO identity_masking_audit (
                 user_id, operation_type, converse_id, 
-                performed_by, reason, details, created_at
+                performed_by, reason, details, createdAt
             ) VALUES (?, ?, ?, ?, ?, ?, NOW())
         `, [
             operation.user_id,
@@ -583,10 +583,10 @@ class EnhancedConverseIdService {
                 converse_id,
                 avatar_config,
                 membership_stage,
-                is_member,
+                membership_stage,
                 class_id,
                 mentor_id,
-                created_at
+                createdAt
             FROM users
             WHERE converse_id = ? AND is_identity_masked = 1
         `, [converseId]);
@@ -607,10 +607,10 @@ class EnhancedConverseIdService {
                 pattern: avatarConfig.pattern
             },
             membership_level: user.membership_stage,
-            is_member: user.is_member,
+            is_member: user.membership_stage === 'member',
             class_affiliation: user.class_id,
             mentor_status: !!user.mentor_id,
-            member_since: user.created_at
+            member_since: user.createdAt
         };
     }
 
@@ -663,7 +663,7 @@ class EnhancedConverseIdService {
                 operation_type,
                 COUNT(*) as count
             FROM identity_masking_audit
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             GROUP BY operation_type
         `);
         

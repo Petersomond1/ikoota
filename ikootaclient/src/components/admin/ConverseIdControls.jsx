@@ -479,7 +479,7 @@ const ConverseIdControls = () => {
                 <tbody>
                   {auditTrail?.map(entry => (
                     <tr key={entry.id}>
-                      <td>{new Date(entry.created_at).toLocaleString()}</td>
+                      <td>{new Date(entry.createdAt).toLocaleString()}</td>
                       <td>
                         <span className={`action-badge ${entry.action_type}`}>
                           {entry.action_type}

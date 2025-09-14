@@ -57,8 +57,9 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
           content_type: 'teaching',
           content_title: teaching.topic || teaching.title || 'Untitled Teaching',
           prefixed_id: teaching.prefixed_id || `t${teaching.id || index}`,
-          display_date: teaching.updatedAt || teaching.createdAt || new Date().toISOString(),
-          author: teaching.author || teaching.user_id || teaching.created_by || 'Admin',
+          display_date: teaching.updatedAt || teaching.updated_at || teaching.createdAt || teaching.created_at || new Date().toISOString(),
+          author: teaching.converse_id || teaching._original?.raw_data?.converse_id || 'Unknown',
+          converse_id: teaching.converse_id || teaching._original?.raw_data?.converse_id || 'Unknown',
           topic: teaching.topic || teaching.title || 'Untitled',
           description: teaching.description || 'No description available',
           subjectMatter: teaching.subjectMatter || teaching.subject || 'Not specified',
@@ -68,6 +69,7 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
         enhancedTeachings.sort((a, b) => new Date(b.display_date) - new Date(a.display_date));
         
         console.log('Processed teachings:', enhancedTeachings.length, 'items');
+        console.log('Enhanced teaching sample:', enhancedTeachings[0]);
         setTeachings(enhancedTeachings);
         setFilteredTeachings(enhancedTeachings);
       } catch (error) {
@@ -235,6 +237,17 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
           filteredTeachings.map((teaching, index) => {
             const selected = isSelected(teaching);
             
+            // Debug log for display data
+            if (index === 0) {
+              console.log('🎯 Display teaching data:', {
+                converse_id: teaching.converse_id,
+                author: teaching.author,
+                createdAt: teaching.createdAt,
+                display_date: teaching.display_date,
+                _original: teaching._original?.raw_data?.converse_id
+              });
+            }
+            
             return (
               <div 
                 key={teaching.prefixed_id || `teaching-${teaching.id || index}`} 
@@ -255,13 +268,14 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
                   <div className="topic-meta">
                     <p>📋 Subject: {teaching.subjectMatter || teaching.subject || 'Not specified'}</p>
                     <p>👥 Audience: {teaching.audience || 'General'}</p>
-                    <p>✍️ By: {teaching.author}</p>
+                    {/* <p>✍️ By: {teaching.author}</p> */}
+                     <p>✍️ By: {teaching.converse_id || teaching.author}</p>
                   </div>
                   
                   <div className="topic-dates">
-                    <p>📅 Created: {formatDate(teaching.createdAt)}</p>
+                    <p>📅 Created: {formatDate(teaching.createdAt || teaching.created_at || teaching.display_date)}</p>
                     {teaching.updatedAt && teaching.updatedAt !== teaching.createdAt && (
-                      <p>🔄 Updated: {formatDate(teaching.updatedAt)}</p>
+                      <p>🔄 Updated: {formatDate(teaching.updatedAt || teaching.updated_at)}</p>
                     )}
                   </div>
                 </div>

@@ -1258,7 +1258,7 @@ export const acceptClassMentorship = async (userId, classId, acceptanceData) => 
       class_id: classId,
       relationship_type: mentorship_type || 'mentor',
       status: 'active',
-      created_at: new Date(),
+      createdAt: new Date(),
       message: 'Mentorship relationship established successfully',
       notes
     };
@@ -1399,7 +1399,7 @@ export const getClassStats = async (classId, userId = null) => {
       total_assignments: contentStats.total_assignments || 0,
       total_announcements: contentStats.total_announcements || 0,
       completion_rate: completionRate,
-      is_member: false // Will be updated below if userId provided
+      is_member: false // Derived from membership_stage
     };
 
     // If user ID provided, check if they're a member
@@ -1412,7 +1412,7 @@ export const getClassStats = async (classId, userId = null) => {
       const [memberResults] = await db.query(memberCheckQuery, [classId, userId]);
       
       if (memberResults.length > 0) {
-        finalStats.is_member = true;
+        finalStats.is_member = (userInfo.membership_stage === 'member');
         finalStats.user_role = memberResults[0].role_in_class;
       }
     }

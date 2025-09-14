@@ -47,9 +47,7 @@ const checkFullMembershipEligibility = async (userId) => {
       throw new CustomError(`Not eligible: Current stage is ${user.membership_stage}, must be pre_member`, 403);
     }
     
-    if (user.is_member !== 'pre_member') {
-      throw new CustomError(`Not eligible: Current status is ${user.is_member}, must be pre_member`, 403);
-    }
+    // Eligibility already checked via membership_stage
     
     return user;
   } catch (error) {
@@ -118,7 +116,7 @@ export const getFullMembershipStatusById = async (req, res) => {
         eligibility: {
           canApply: user.membership_stage === 'pre_member',
           currentStage: user.membership_stage,
-          currentStatus: user.is_member
+          currentStatus: user.membership_stage
         },
         appliedAt: null,
         reviewedAt: null,
@@ -222,8 +220,8 @@ export const getFullMembershipStatus = async (req, res) => {
     return successResponse(res, {
       currentStatus: {
         membership_stage: user.membership_stage,
-        is_member: user.is_member,
-        full_membership_application_status: currentApp?.status || 'not_submitted'
+        is_member: user.membership_stage === 'member',
+        initial_application_status: currentApp?.status || 'not_applied'
       },
       fullMembershipApplication: currentApp,
       eligibility: {
@@ -332,7 +330,7 @@ export const submitFullMembershipApplication = async (req, res) => {
       console.log('🔄 Updating user status...');
       await connection.query(`
         UPDATE users 
-        SET full_membership_status = 'pending',
+        SET full_membership_appl_status = 'pending',
             full_membership_appliedAt = NOW(),
             full_membership_ticket = ?,
             updatedAt = NOW()
@@ -677,7 +675,7 @@ export const withdrawFullMembershipApplication = async (req, res) => {
       // Update user status
       await connection.query(`
         UPDATE users 
-        SET full_membership_status = 'withdrawn', updatedAt = NOW()
+        SET full_membership_appl_status = 'withdrawn', updatedAt = NOW()
         WHERE id = ?
       `, [userId]);
       

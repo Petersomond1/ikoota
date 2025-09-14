@@ -287,7 +287,8 @@ const TowncrierControls = () => {
                     <p><strong>Lesson #:</strong> {teaching.lessonNumber || getContentIdentifier(teaching)}</p>
                     <p><strong>Subject:</strong> {truncateText(teaching.subjectMatter, 30)}</p>
                     <p><strong>Audience:</strong> {teaching.audience || 'General'}</p>
-                    <p><strong>By:</strong> {teaching.user_id || 'Admin'}</p>
+                    {/* <p><strong>By:</strong> {teaching.user_id || 'Admin'}</p> */}
+                    <p><strong>By:</strong> {teaching.converse_id || 'Unknown'}</p>
                   </div>
                   
                   <div className="teaching-dates">

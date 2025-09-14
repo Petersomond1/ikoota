@@ -16,7 +16,19 @@ import api from './api';
 const submitFullMembershipApplication = async (applicationData) => {
   console.log('🔍 Submitting full membership application:', applicationData);
   
-  const res = await api.post('/membership/full-membership/submit-full-membership', applicationData, { 
+  // Add compatibility fields to the application data
+  const compatibleData = {
+    ...applicationData,
+    // Compatibility fields - include both old and new names
+    survey_type: applicationData.survey_type || 'full_membership', // New field name
+    application_type: applicationData.application_type || 'full_membership', // Legacy field name
+    status: applicationData.status || 'pending', // New field name
+    approval_status: applicationData.approval_status || 'pending', // Legacy field name
+    notes: applicationData.notes || '', // New field name
+    admin_notes: applicationData.admin_notes || '' // Legacy field name
+  };
+  
+  const res = await api.post('/membership/full-membership/submit-full-membership', compatibleData, { 
     withCredentials: true 
   });
   
@@ -88,8 +100,12 @@ const reviewFullMembershipApplication = async ({ applicationId, status, adminNot
   }
   
   const res = await api.put(`/membership/admin/applications/${applicationId}/review`, {
-    status,
-    adminNotes
+    // Compatibility fields - include both old and new names
+    status, // New field name
+    approval_status: status, // Legacy field name
+    notes: adminNotes || '', // New field name
+    adminNotes: adminNotes || '', // Middle compatibility field
+    admin_notes: adminNotes || '' // Legacy field name
   }, { 
     withCredentials: true 
   });

@@ -21,6 +21,9 @@ import { getBasicProfile } from '../controllers/userStatusControllers.js';
 // Import your existing middleware
 import { authenticate } from '../middleware/auth.js';
 
+// Import database connection
+import db from '../config/db.js';
+
 const router = express.Router();
 
 // ===============================================
@@ -57,6 +60,40 @@ router.get('/', authenticate, getAuthenticatedUser);
 //Userinfo.jsx, AuthContext.js,
 // New route to get user profile info
 router.get('/users/profile', authenticate, getBasicProfile);
+
+// Route to get converse_id by user_id for privacy display
+router.get('/users/:userId/converse-id', authenticate, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Query to get converse_id for the specified user_id
+    const [user] = await db.query(
+      'SELECT converse_id FROM users WHERE id = ?',
+      [userId]
+    );
+    
+    if (user && user.converse_id) {
+      res.json({
+        success: true,
+        converse_id: user.converse_id,
+        user_id: userId
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: 'User not found or converse_id not available',
+        user_id: userId
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching converse_id:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
 
 
 
@@ -171,7 +208,7 @@ if (process.env.NODE_ENV === 'development') {
           email: 'test@example.com',
           role: 'user',
           membership_stage: 'pre_member',
-          is_member: 'pre_member'
+          is_member: testUser.membership_stage === 'member'
         };
       }
       
@@ -181,7 +218,7 @@ if (process.env.NODE_ENV === 'development') {
         email: testUser.email,
         role: testUser.role,
         membership_stage: testUser.membership_stage,
-        is_member: testUser.is_member
+        is_member: testUser.membership_stage === 'member'
       }, process.env.JWT_SECRET || 'your-secret-key-here', { expiresIn: '7d' });
       
       console.log('🧪 Test token generated from database user');
@@ -195,7 +232,7 @@ if (process.env.NODE_ENV === 'development') {
           email: testUser.email,
           role: testUser.role,
           membership_stage: testUser.membership_stage,
-          is_member: testUser.is_member
+          is_member: testUser.membership_stage === 'member'
         },
         message: 'Test token generated from real database user',
         tokenInfo: {

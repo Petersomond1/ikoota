@@ -96,7 +96,7 @@ export const testAuth = (req, res) => {
         username: req.user?.username,
         role: req.user?.role,
         membership_stage: req.user?.membership_stage,
-        is_member: req.user?.is_member,
+        is_member: req.user?.membership_stage === 'member',
         email: req.user?.email
       },
       token_info: {
@@ -448,8 +448,8 @@ export const getBasicProfile = async (req, res) => {
         },
         membership: {
           membershipStage: userData.membership_stage,
-          isMember: userData.is_member,
-          fullMembershipStatus: userData.full_membership_status,
+          isMember: userData.membership_stage === 'member',
+          fullMembershipStatus: userData.full_membership_appl_status,
           mentorId: userData.mentor_id,
           mentorName: userData.mentor?.name,
           mentorEmail: userData.mentor?.email,

@@ -63,7 +63,7 @@ export class AuthController {
       email: user.email,
       role: user.role || 'user',
       membership_stage: user.membership_stage || 'none',
-      is_member: user.is_member || 'applied'
+      is_member: user.membership_stage === 'member'
     };
 
     const token = jwt.sign(
@@ -84,7 +84,7 @@ export class AuthController {
         email: user.email,
         role: user.role,
         membership_stage: user.membership_stage,
-        is_member: user.is_member
+        is_member: user.membership_stage === 'member'
       }
     });
 
@@ -137,7 +137,7 @@ export class AuthController {
           email: newUser.email,
           role: newUser.role,
           membership_stage: newUser.membership_stage,
-          is_member: newUser.is_member,
+          is_member: newUser.membership_stage === 'member',
           created_at: newUser.createdAt
         }
       });

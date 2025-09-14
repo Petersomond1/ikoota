@@ -315,12 +315,11 @@ const existingUsers = extractDbRows(existingUsersResult);
                 verification_method,
                 is_verified,
                 role,
-                is_member,
                 membership_stage,
-                full_membership_status,
-                application_status,
+                initial_application_status,
+                full_membership_appl_status,
                 createdAt
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'user', 'applied', 'none', 'not_applied', 'not_submitted', NOW())
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'user', 'none', 'not_applied', 'not_applied', NOW())
         `, [
             username, 
             email, 
@@ -384,7 +383,7 @@ const existingUsers = extractDbRows(existingUsersResult);
             username,
             email,
             membership_stage: 'none',
-            is_member: 'applied',
+            initial_application_status: 'not_applied',
             role: 'user',
             converse_id: converseId,
             application_ticket: applicationTicket,
@@ -429,7 +428,7 @@ const existingUsers = extractDbRows(existingUsersResult);
                 username,
                 email,
                 membership_stage: 'none',
-                is_member: 'applied',
+                initial_application_status: 'not_applied',
                 application_ticket: applicationTicket,
                 converse_id: converseId,
                 role: 'user'
@@ -442,7 +441,7 @@ const existingUsers = extractDbRows(existingUsersResult);
                     username,
                     email,
                     membership_stage: 'none',
-                    is_member: 'applied',
+                    initial_application_status: 'not_applied',
                     application_ticket: applicationTicket,
                     converse_id: converseId,
                     role: 'user'
@@ -508,14 +507,13 @@ export const enhancedLogin = async (req, res) => {
                 email,
                 password_hash,
                 role,
-                is_member,
                 membership_stage,
+                initial_application_status,
+                full_membership_appl_status,
                 is_verified,
                 isbanned,
                 application_ticket,
                 converse_id,
-                full_membership_status,
-                application_status,
                 createdAt
             FROM users 
             WHERE email = ?
@@ -546,8 +544,8 @@ export const enhancedLogin = async (req, res) => {
             id: user.id,
             email: user.email,
             role: user.role,
-            is_member: user.is_member,
-            membership_stage: user.membership_stage
+            membership_stage: user.membership_stage,
+            initial_application_status: user.initial_application_status
         });
         
         // Security checks
@@ -590,12 +588,11 @@ export const enhancedLogin = async (req, res) => {
             username: user.username, 
             email: user.email,
             membership_stage: user.membership_stage || 'none',
-            is_member: user.is_member || 'applied',
+            initial_application_status: user.initial_application_status || 'not_applied',
+            full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
             role: user.role || 'user',
             converse_id: user.converse_id,
             application_ticket: user.application_ticket,
-            full_membership_status: user.full_membership_status,
-            application_status: user.application_status,
             iat: Math.floor(Date.now() / 1000)
         };
         
@@ -611,28 +608,30 @@ export const enhancedLogin = async (req, res) => {
         let redirectTo = '/dashboard'; // Default fallback
         
         const role = user.role?.toLowerCase();
-        const memberStatus = user.is_member?.toLowerCase();
         const membershipStage = user.membership_stage?.toLowerCase();
+        const initialAppStatus = user.initial_application_status?.toLowerCase();
         
         console.log('🔍 Determining redirect for user:', {
             role,
-            memberStatus,
-            membershipStage
+            membershipStage,
+            initialAppStatus
         });
         
         if (role === 'admin' || role === 'super_admin') {
             redirectTo = '/admin';
             console.log('👑 Admin user - redirecting to admin panel');
-        } else if ((memberStatus === 'member' && membershipStage === 'member') || 
-                   (memberStatus === 'active' && membershipStage === 'member')) {
+        } else if (membershipStage === 'member') {
             redirectTo = '/iko';
             console.log('💎 Full member - redirecting to Iko Chat');
-        } else if (memberStatus === 'pre_member' || membershipStage === 'pre_member') {
+        } else if (membershipStage === 'pre_member') {
             redirectTo = '/towncrier';
             console.log('👤 Pre-member - redirecting to Towncrier');
-        } else if (membershipStage === 'applicant' || memberStatus === 'applied') {
+        } else if (membershipStage === 'applicant' || initialAppStatus === 'submitted' || initialAppStatus === 'under_review') {
             redirectTo = '/applicationsurvey';
             console.log('📝 Applicant - redirecting to application survey');
+        } else if (membershipStage === 'none' && initialAppStatus === 'not_applied') {
+            redirectTo = '/applicationsurvey';
+            console.log('🆕 New user - redirecting to application survey');
         }
         
         console.log('🎯 Final redirect destination:', redirectTo);
@@ -655,12 +654,11 @@ export const enhancedLogin = async (req, res) => {
                 username: user.username,
                 email: user.email,
                 membership_stage: user.membership_stage || 'none',
-                is_member: user.is_member || 'applied',
+                initial_application_status: user.initial_application_status || 'not_applied',
+                full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
                 role: user.role || 'user',
                 converse_id: user.converse_id,
-                application_ticket: user.application_ticket,
-                full_membership_status: user.full_membership_status,
-                application_status: user.application_status
+                application_ticket: user.application_ticket
             },
             // Also include nested data format for compatibility
             data: {
@@ -670,12 +668,11 @@ export const enhancedLogin = async (req, res) => {
                     username: user.username,
                     email: user.email,
                     membership_stage: user.membership_stage || 'none',
-                    is_member: user.is_member || 'applied',
+                    initial_application_status: user.initial_application_status || 'not_applied',
+                    full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
                     role: user.role || 'user',
                     converse_id: user.converse_id,
-                    application_ticket: user.application_ticket,
-                    full_membership_status: user.full_membership_status,
-                    application_status: user.application_status
+                    application_ticket: user.application_ticket
                 }
             },
             redirectTo,
@@ -952,7 +949,7 @@ const users = extractDbRows(usersResult);
         // Update user verification status
         await db.query(`
             UPDATE users 
-            SET is_verified = 1, is_member = 'pending', updatedAt = NOW()
+            SET is_verified = 1, membership_stage = 'applicant', initial_application_status = 'submitted', updatedAt = NOW()
             WHERE email = ?
         `, [token]);
         
@@ -1000,7 +997,8 @@ export const getAuthenticatedUser = async (req, res) => {
                 email: req.user.email,
                 role: req.user.role,
                 membership_stage: req.user.membership_stage,
-                is_member: req.user.is_member,
+                initial_application_status: req.user.initial_application_status,
+                full_membership_appl_status: req.user.full_membership_appl_status,
                 converse_id: req.user.converse_id,
                 application_ticket: req.user.application_ticket
             },
@@ -1011,7 +1009,8 @@ export const getAuthenticatedUser = async (req, res) => {
                 email: req.user.email,
                 role: req.user.role,
                 membership_stage: req.user.membership_stage,
-                is_member: req.user.is_member,
+                initial_application_status: req.user.initial_application_status,
+                full_membership_appl_status: req.user.full_membership_appl_status,
                 converse_id: req.user.converse_id,
                 application_ticket: req.user.application_ticket
             },
@@ -1063,8 +1062,8 @@ export const registerUser = async (req, res, next) => {
         
         // Insert user
         const result = await db.query(`
-            INSERT INTO users (username, email, password_hash, phone, application_ticket, converse_id, role, is_member, membership_stage, is_verified) 
-            VALUES (?, ?, ?, ?, ?, ?, 'user', 'applied', 'none', 0)
+            INSERT INTO users (username, email, password_hash, phone, application_ticket, converse_id, role, membership_stage, initial_application_status, is_verified) 
+            VALUES (?, ?, ?, ?, ?, ?, 'user', 'none', 'not_applied', 0)
         `, [username, email, passwordHash, phone, applicationTicket, converseId]);
         
         const userId = result.insertId;
@@ -1074,8 +1073,9 @@ export const registerUser = async (req, res, next) => {
             user_id: userId, 
             email, 
             username,
-            is_member: 'applied',
             membership_stage: 'none',
+            initial_application_status: 'not_applied',
+            full_membership_appl_status: 'not_applied',
             role: 'user',
             converse_id: converseId
         };
@@ -1119,7 +1119,7 @@ export const loginUser = async (req, res, next) => {
         
         // Get user
        const usersResult = await db.query(`
-    SELECT id, username, email, password_hash, role, is_member, membership_stage, isbanned
+    SELECT id, username, email, password_hash, role, membership_stage, initial_application_status, full_membership_appl_status, isbanned
     FROM users WHERE email = ?
 `, [email]);
 const users = extractDbRows(usersResult);
@@ -1145,8 +1145,9 @@ const users = extractDbRows(usersResult);
             email: user.email,
             username: user.username,
             role: user.role,
-            is_member: user.is_member,
-            membership_stage: user.membership_stage
+            membership_stage: user.membership_stage,
+            initial_application_status: user.initial_application_status,
+            full_membership_appl_status: user.full_membership_appl_status
         };
         
         const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -1162,8 +1163,9 @@ const users = extractDbRows(usersResult);
                 username: user.username,
                 email: user.email,
                 role: user.role,
-                is_member: user.is_member,
-                membership_stage: user.membership_stage
+                membership_stage: user.membership_stage,
+                initial_application_status: user.initial_application_status,
+                full_membership_appl_status: user.full_membership_appl_status
             }
         });
         

@@ -377,8 +377,7 @@ const ClassContentViewer = () => {
   const members = membersData?.data?.data || membersData?.data || [];
 
   // Check if user is a member (updated to match database structure)
-  const isClassMember = classInfo.is_member || 
-                       members.some(m => m.user_id === user?.id || m.id === user?.id);
+  const isClassMember = members.some(m => m.user_id === user?.id || m.id === user?.id);
   
   const canCreateContent = user?.role === 'admin' || user?.role === 'super_admin' || 
                           members.find(m => (m.user_id === user?.id || m.id === user?.id) && 
@@ -543,7 +542,7 @@ const ClassContentViewer = () => {
                     <h4>{announcement.title}</h4>
                     <p>{announcement.content}</p>
                     <span className="announcement-date">
-                      {new Date(announcement.created_at).toLocaleDateString()}
+                      {new Date(announcement.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
@@ -697,7 +696,7 @@ const ClassContentViewer = () => {
                           <div className="content-details">
                             <span className="content-author">{item.author || 'Unknown'}</span>
                             <span className="content-date">
-                              {new Date(item.created_at || item.createdAt).toLocaleString()}
+                              {new Date(item.createdAt || item.createdAt).toLocaleString()}
                             </span>
                             <span className="content-type-label">
                               {item.content_type || item.type}
@@ -842,8 +841,8 @@ const ClassContentViewer = () => {
                       
                       {/* Show approval status for admin users */}
                       {(user?.role === 'admin' || user?.role === 'super_admin') && (
-                        <span className={`approval-status ${item.approval_status || item.status}`}>
-                          {item.approval_status || item.status}
+                        <span className={`approval-status ${item.status || item.approval_status}`}>
+                          {item.status || item.approval_status}
                         </span>
                       )}
                     </div>
@@ -908,9 +907,9 @@ const ClassContentViewer = () => {
                 <div className="content-meta-full">
                   <span>Type: {selectedContent.content_type || selectedContent.type}</span>
                   <span>Author: {selectedContent.author}</span>
-                  <span>Posted: {new Date(selectedContent.created_at || selectedContent.createdAt).toLocaleString()}</span>
-                  {selectedContent.approval_status && (
-                    <span>Status: {selectedContent.approval_status}</span>
+                  <span>Posted: {new Date(selectedContent.createdAt || selectedContent.createdAt).toLocaleString()}</span>
+                  {(selectedContent.status || selectedContent.approval_status) && (
+                    <span>Status: {selectedContent.status || selectedContent.approval_status}</span>
                   )}
                 </div>
                 <div className="content-full-text">

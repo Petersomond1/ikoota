@@ -850,7 +850,7 @@ export const getClassParticipantsForAdmin = async (classId, options = {}) => {
         u.phone,
         u.avatar,
         u.membership_stage,
-        u.is_member,
+        u.membership_stage,
         u.role as user_role,
         ucm.role_in_class,
         ucm.membership_status,
@@ -923,7 +923,7 @@ export const addParticipantToClass = async (classId, participantData, adminUserI
       user_ids, // For bulk add
       role_in_class = 'member',
       receive_notifications = true,
-      expires_at,
+     expiresAt,
       can_see_class_name = true,
       assignment_reason
     } = participantData;
@@ -948,7 +948,7 @@ export const addParticipantToClass = async (classId, participantData, adminUserI
           const result = await addSingleParticipant(classId, userId, {
             role_in_class,
             receive_notifications,
-            expires_at,
+           expiresAt,
             can_see_class_name,
             assignment_reason,
             assigned_by: adminUserId
@@ -972,7 +972,7 @@ export const addParticipantToClass = async (classId, participantData, adminUserI
       return await addSingleParticipant(classId, user_id, {
         role_in_class,
         receive_notifications,
-        expires_at,
+       expiresAt,
         can_see_class_name,
         assignment_reason,
         assigned_by: adminUserId
@@ -995,7 +995,7 @@ const addSingleParticipant = async (classId, userId, options) => {
   const {
     role_in_class = 'member',
     receive_notifications = true,
-    expires_at,
+   expiresAt,
     can_see_class_name = true,
     assignment_reason,
     assigned_by
@@ -1029,7 +1029,7 @@ const addSingleParticipant = async (classId, userId, options) => {
     VALUES (?, ?, ?, 'active', ?, ?, ?, ?, NOW(), NOW(), NOW())
   `, [
     userId, classId, role_in_class, Boolean(receive_notifications),
-    Boolean(can_see_class_name), expires_at || null, assigned_by
+    Boolean(can_see_class_name),expiresAt || null, assigned_by
   ]);
 
   console.log(`✅ Admin ${assigned_by} added user ${userId} to class ${classId} as ${role_in_class}`);

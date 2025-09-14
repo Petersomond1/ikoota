@@ -128,24 +128,28 @@ export const useUserStatus = () => {
     if (!userStatus || !surveyStatus) return false;
     
     // Only redirect regular users (not admins) who need to complete survey
+    // Use membership_stage instead of is_member
     return (
       userStatus.role === 'user' && 
+      userStatus.membership_stage !== 'member' &&
       (surveyStatus.needs_survey || !surveyStatus.survey_completed)
     );
   };
 
-  // ✅ NEW: Helper function to get appropriate redirect path
+  // ✅ NEW: Helper function to get appropriate redirect path - Updated for new fields
   const getRedirectPath = () => {
     if (shouldRedirectToSurvey()) {
       return '/applicationsurvey';
     }
     
-    // Use existing logic for other redirects
+    // Use membership_stage as primary field for redirects
     if (userStatus?.role === 'admin' || userStatus?.role === 'super_admin') {
       return '/admin';
-    } else if (userStatus?.is_member === 'granted') {
+    } else if (userStatus?.membership_stage === 'member') {
       return '/iko';
-    } else if (userStatus?.is_member === 'applied' || userStatus?.is_member === 'pending') {
+    } else if (userStatus?.membership_stage === 'pre_member') {
+      return '/towncrier';
+    } else if (userStatus?.membership_stage === 'applicant') {
       return '/pending-verification';
     } else {
       return '/towncrier';

@@ -194,7 +194,7 @@ const ClassMentorshipView = ({ classId, showInDashboard = false }) => {
               </div>
               <div className="mentorship-details">
                 <p><strong>Mentor:</strong> {userAsMentee.mentor_display_name || userAsMentee.mentor_converse_id}</p>
-                <p><strong>Since:</strong> {new Date(userAsMentee.created_at || userAsMentee.createdAt).toLocaleDateString()}</p>
+                <p><strong>Since:</strong> {new Date(userAsMentee.createdAt || userAsMentee.createdAt).toLocaleDateString()}</p>
                 <p><strong>Status:</strong> 
                   <span className={`status-badge ${userAsMentee.is_active ? 'active' : 'inactive'}`}>
                     {userAsMentee.is_active ? '🟢 Active' : '⚫ Inactive'}
@@ -230,7 +230,7 @@ const ClassMentorshipView = ({ classId, showInDashboard = false }) => {
                     <div className="mentee-info">
                       <span className="mentee-name">{pair.mentee_display_name || pair.mentee_converse_id}</span>
                       <span className="mentee-since">
-                        Since {new Date(pair.created_at || pair.createdAt).toLocaleDateString()}
+                        Since {new Date(pair.createdAt || pair.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                     <div className={`mentee-status ${pair.is_active ? 'active' : 'inactive'}`}>
@@ -291,7 +291,7 @@ const ClassMentorshipView = ({ classId, showInDashboard = false }) => {
                       <span className="pair-type">{pair.relationship_type || 'mentor'}</span>
                     </div>
                     <div className="pair-date">
-                      {new Date(pair.created_at || pair.createdAt).toLocaleDateString()}
+                      {new Date(pair.createdAt || pair.createdAt).toLocaleDateString()}
                     </div>
                   </div>
 
@@ -397,7 +397,7 @@ const ClassMentorshipView = ({ classId, showInDashboard = false }) => {
                         {selectedMentorshipPair.is_active ? '🟢 Active' : '⚫ Inactive'}
                       </span>
                     </p>
-                    <p><strong>Started:</strong> {new Date(selectedMentorshipPair.created_at).toLocaleString()}</p>
+                    <p><strong>Started:</strong> {new Date(selectedMentorshipPair.createdAt).toLocaleString()}</p>
                     <p><strong>Class:</strong> {classId}</p>
                   </div>
                 </div>

@@ -27,7 +27,7 @@ export const getUserProfileService = async (userId, options = {}) => {
     const [users] = await db.query(`
       SELECT 
         u.id, u.username, u.email, u.phone, u.role,
-        u.membership_stage, u.is_member, u.full_membership_status,
+        u.membership_stage, u.full_membership_appl_status,
         u.converse_id, u.mentor_id, u.primary_class_id,
         u.total_classes, u.is_identity_masked,
         u.createdAt, u.updatedAt, u.lastLogin,
@@ -57,8 +57,7 @@ export const getUserProfileService = async (userId, options = {}) => {
           phone: user.phone,
           role: user.role,
           membership_stage: user.membership_stage,
-          is_member: user.is_member,
-          full_membership_status: user.full_membership_status,
+          full_membership_appl_status: user.full_membership_appl_status,
           converse_id: user.converse_id,
           mentor_id: user.mentor_id,
           mentor_name: user.mentor_name,
@@ -83,8 +82,7 @@ export const getUserProfileService = async (userId, options = {}) => {
       phone: user.phone,
       role: user.role,
       membership_stage: user.membership_stage,
-      is_member: user.is_member,
-      full_membership_status: user.full_membership_status,
+      full_membership_appl_status: user.full_membership_appl_status,
       converse_id: user.converse_id,
       mentor: {
         id: user.mentor_id,
@@ -99,8 +97,8 @@ export const getUserProfileService = async (userId, options = {}) => {
         total_classes: user.total_classes || 0
       },
       timestamps: {
-        created_at: user.createdAt,
-        updated_at: user.updatedAt,
+        createdAt: user.createdAt,
+       updatedAt: user.updatedAt,
         last_login: user.lastLogin
       },
       status: {
@@ -366,7 +364,7 @@ export const updatePasswordService = async (userId, currentPassword, newPassword
     return {
       success: true,
       message: 'Password updated successfully',
-      updated_at: new Date().toISOString()
+     updatedAt: new Date().toISOString()
     };
     
   } catch (error) {
@@ -415,10 +413,10 @@ export const getUserNotificationsService = async (userId, options = {}) => {
     const [notifications] = await db.query(`
       SELECT 
         id, notification_type, title, message, data,
-        is_read, created_at, updated_at, expires_at
+        is_read, createdAt,updatedAt,expiresAt
       FROM notifications 
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT ${parseInt(limit)} OFFSET ${offset}
     `, queryParams);
     
@@ -441,9 +439,9 @@ export const getUserNotificationsService = async (userId, options = {}) => {
         message: notif.message,
         data: notif.data ? JSON.parse(notif.data) : null,
         is_read: !!notif.is_read,
-        created_at: notif.created_at,
-        updated_at: notif.updated_at,
-        expires_at: notif.expires_at
+        createdAt: notif.createdAt,
+       updatedAt: notif.updated_at,
+       expiresAt: notif.expires_at
       })),
       pagination: {
         page: parseInt(page),
@@ -483,7 +481,7 @@ export const markNotificationReadService = async (userId, notificationId, option
       // Mark all notifications as read for user
       const [result] = await db.query(`
         UPDATE notifications 
-        SET is_read = true, updated_at = NOW()
+        SET is_read = true,updatedAt = NOW()
         WHERE user_id = ? AND is_read = false
       `, [userId]);
       
@@ -498,7 +496,7 @@ export const markNotificationReadService = async (userId, notificationId, option
       // Mark specific notification as read
       const [result] = await db.query(`
         UPDATE notifications 
-        SET is_read = true, updated_at = NOW()
+        SET is_read = true,updatedAt = NOW()
         WHERE id = ? AND user_id = ?
       `, [notificationId, userId]);
       
@@ -542,7 +540,7 @@ export const getUserActivityService = async (userId, options = {}) => {
         (SELECT COUNT(*) FROM user_activities WHERE user_id = ? AND activity_type = 'login') as login_count,
         (SELECT COUNT(*) FROM user_activities WHERE user_id = ? AND activity_type = 'content_created') as content_created_count,
         (SELECT COUNT(*) FROM user_activities WHERE user_id = ? AND activity_type = 'comment_posted') as comment_count,
-        (SELECT MAX(created_at) FROM user_activities WHERE user_id = ?) as last_activity
+        (SELECT MAX(createdAt) FROM user_activities WHERE user_id = ?) as last_activity
     `, [userId, userId, userId, userId]);
     
     const activityStats = (Array.isArray(stats) && stats[0]) ? stats[0] : {
@@ -563,10 +561,10 @@ export const getUserActivityService = async (userId, options = {}) => {
     
     const [activities] = await db.query(`
       SELECT 
-        id, activity_type, activity_data, created_at, ip_address
+        id, activity_type, activity_data, createdAt, ip_address
       FROM user_activities 
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY createdAt DESC
       LIMIT ${parseInt(limit)} OFFSET ${offset}
     `, queryParams);
     
@@ -585,7 +583,7 @@ export const getUserActivityService = async (userId, options = {}) => {
         id: activity.id,
         type: activity.activity_type,
         data: activity.activity_data ? JSON.parse(activity.activity_data) : null,
-        timestamp: activity.created_at,
+        timestamp: activity.createdAt,
         ip_address: activity.ip_address
       })),
       pagination: {
@@ -633,10 +631,10 @@ export const getUserContentHistoryService = async (userId, options = {}) => {
       const [teachings] = await db.query(`
         SELECT 
           id, title as content_title, 'teaching' as content_type,
-          status, created_at, updated_at, is_published
+          status, createdAt,updatedAt, is_published
         FROM teachings 
         WHERE user_id = ?
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
         LIMIT ${parseInt(limit)} OFFSET ${offset}
       `, [userId]);
       
@@ -652,10 +650,10 @@ export const getUserContentHistoryService = async (userId, options = {}) => {
       const [chats] = await db.query(`
         SELECT 
           id, title as content_title, 'chat' as content_type,
-          status, created_at, updated_at, is_public
+          status, createdAt,updatedAt, is_public
         FROM chats 
         WHERE user_id = ?
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
         LIMIT ${parseInt(limit)} OFFSET ${offset}
       `, [userId]);
       
@@ -671,10 +669,10 @@ export const getUserContentHistoryService = async (userId, options = {}) => {
       const [comments] = await db.query(`
         SELECT 
           id, SUBSTRING(content, 1, 50) as content_title, 'comment' as content_type,
-          status, created_at, updated_at, is_approved
+          status, createdAt,updatedAt, is_approved
         FROM comments 
         WHERE user_id = ?
-        ORDER BY created_at DESC
+        ORDER BY createdAt DESC
         LIMIT ${parseInt(limit)} OFFSET ${offset}
       `, [userId]);
       
@@ -686,7 +684,7 @@ export const getUserContentHistoryService = async (userId, options = {}) => {
     }
     
     // Sort all content by creation date
-    contentHistory.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    contentHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
     // Apply pagination to combined results
     const paginatedContent = contentHistory.slice(0, parseInt(limit));
@@ -699,8 +697,8 @@ export const getUserContentHistoryService = async (userId, options = {}) => {
         type: content.content_type,
         status: content.status,
         is_published: content.is_published || content.is_public || content.is_approved || false,
-        created_at: content.created_at,
-        updated_at: content.updated_at
+        createdAt: content.createdAt,
+       updatedAt: content.updatedAt
       })),
       summary: {
         total_content: contentHistory.length,

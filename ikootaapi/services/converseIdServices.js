@@ -73,7 +73,7 @@ class ConverseIdServices {
             const userRows = await db.query(`
                 SELECT u.id, u.username, u.email, u.phone, u.avatar, u.converse_id, 
                        u.mentor_id, u.class_id, u.is_identity_masked, u.membership_stage,
-                       u.is_member, u.createdAt,
+                       u.membership_stage, u.createdAt,
                        up.encrypted_username, up.encrypted_email, up.encrypted_phone
                 FROM users u
                 LEFT JOIN user_profiles up ON u.id = up.user_id
@@ -105,7 +105,7 @@ class ConverseIdServices {
             return {
                 hasMaskedIdentity: Boolean(user.is_identity_masked),
                 membershipStage: user.membership_stage,
-                isMember: user.is_member,
+                isMember: user.membership_stage === 'member',
                 hasAssignedMentor: Boolean(user.mentor_id),
                 hasAssignedClass: Boolean(user.class_id),
                 // Always show real identity to user themselves
@@ -301,7 +301,7 @@ class ConverseIdServices {
                 FROM users u
                 JOIN user_class_memberships ucm ON u.id = ucm.user_id
                 WHERE ucm.class_id = ? AND u.is_identity_masked = 1 
-                AND u.is_member = 'granted' AND ucm.membership_status = 'active'
+                AND u.membership_stage = 'member' AND ucm.membership_status = 'active'
                 ORDER BY ucm.joinedAt DESC
             `, [classId]);
             
@@ -328,7 +328,7 @@ class ConverseIdServices {
                        c.class_name, c.public_name as class_public_name
                 FROM users u
                 LEFT JOIN classes c ON u.class_id = c.class_id
-                WHERE u.converse_id = ? AND u.is_identity_masked = 1 AND u.is_member = 'granted'
+                WHERE u.converse_id = ? AND u.is_identity_masked = 1 AND u.membership_stage = 'member'
             `, [converseId]);
             
             if (!profileRows.length) {
@@ -367,7 +367,7 @@ class ConverseIdServices {
                        c.public_name as class_name
                 FROM users u
                 LEFT JOIN classes c ON u.class_id = c.class_id
-                WHERE u.is_identity_masked = 1 AND u.is_member = 'granted'
+                WHERE u.is_identity_masked = 1 AND u.membership_stage = 'member'
                 AND (u.converse_id LIKE ? OR CONCAT('User_', u.converse_id) LIKE ?)
             `;
             

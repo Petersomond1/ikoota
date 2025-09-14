@@ -24,13 +24,12 @@ const Userinfo = () => {
     if (user && Object.keys(user).length > 0) {
       console.log('Using user data from context');
       const userDataFromContext = {
-        username: user.username || user.name || user.user_name || 'pet',
-        avatar: user.avatar || user.profile_image || user.profile_picture || null,
+        converseid: user.converse_id || user.converseid || 'Unknown',
+        converse_avatar: user.converse_avatar || user.avatar || user.profile_image || user.profile_picture || null,
         classid: user.class_id || user.classid || user.audience || user.class_name || 'N/A',
         Membership_status: user.membership_status || user.membership_stage || user.Membership_status || 'Member',
         role: user.role || user.user_role || (user.is_admin || isAdmin ? 'Super Admin' : 'Member'),
         email: user.email || null,
-        converseid: user.converse_id || user.converseid || null,
         is_admin: user.is_admin || user.isAdmin || isAdmin || false
       };
       console.log('Setting user info from context:', userDataFromContext);
@@ -51,13 +50,12 @@ const Userinfo = () => {
         // If no user from context, use token data as fallback
         if (!user || Object.keys(user).length === 0) {
           const tokenUserData = {
-            username: decoded.username || decoded.name || decoded.user_name || 'N/A',
-            avatar: null,
+            converseid: decoded.converse_id || decoded.converseid || 'Unknown',
+            converse_avatar: decoded.converse_avatar || null,
             classid: decoded.class_id || decoded.classid || decoded.audience || 'N/A',
             Membership_status: decoded.membership_status || decoded.membership_stage || 'Member',
             role: decoded.role || decoded.user_role || (decoded.is_admin ? 'Super Admin' : 'Member'),
             email: decoded.email || null,
-            converseid: decoded.converse_id || decoded.converseid || null,
             is_admin: decoded.is_admin || decoded.isAdmin || false
           };
           console.log('No context user, using token data:', tokenUserData);
@@ -102,13 +100,12 @@ const Userinfo = () => {
         
         if (userData && Object.keys(userData).length > 0) {
           const apiUserData = {
-            username: userData.username || userData.name || userData.user_name || userInfo?.username || 'pet',
-            avatar: userData.avatar || userData.profile_image || userData.profile_picture || null,
+            converseid: userData.converse_id || userData.converseid || userInfo?.converseid || 'Unknown',
+            converse_avatar: userData.converse_avatar || userData.avatar || userData.profile_image || userData.profile_picture || null,
             classid: userData.class_id || userData.classid || userData.audience || userData.class_name || userInfo?.classid || 'N/A',
             Membership_status: userData.membership_status || userData.membership_stage || userData.Membership_status || userInfo?.Membership_status || 'Member',
             role: userData.role || userData.user_role || (userData.is_admin || isAdmin ? 'Super Admin' : 'Member'),
             email: userData.email || userInfo?.email || null,
-            converseid: userData.converseid || userData.converse_id || userInfo?.converseid || null,
             is_admin: userData.is_admin || userData.isAdmin || isAdmin || false
           };
           console.log('Updated user info from API:', apiUserData);
@@ -188,13 +185,13 @@ const Userinfo = () => {
       <div className='userinfo'>
         {/* <div className="user"> */}
           <img className='avatar'
-            src={userInfo?.avatar || "./avatar.png"} 
+            src={userInfo?.converse_avatar || "./avatar.png"} 
             alt="User Avatar" 
             onError={(e) => { e.target.src = "./avatar.png"; }}
           />
            
             <span className="status-badge">
-              👤 {userInfo?.username || 'Loading...'}
+              👤 {userInfo?.converseid || 'Unknown'}
               </span>
             <span className="user-info">
              ✅ {userInfo?.Membership_status || 'Member'}

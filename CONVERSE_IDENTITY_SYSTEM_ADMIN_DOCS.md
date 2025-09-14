@@ -248,7 +248,7 @@ When law enforcement or legal orders require identity revelation:
 
 ```sql
 INSERT INTO emergency_unmask_requests (
-    request_id, target_user_id, requested_by, reason, urgency_level, expires_at
+    request_id, target_user_id, requested_by, reason, urgency_level,expiresAt
 ) VALUES (
     'LEGAL_2024_001', 123, 1, 'Court Order #2024-001 - Investigation XYZ', 'critical', 
     DATE_ADD(NOW(), INTERVAL 24 HOUR)

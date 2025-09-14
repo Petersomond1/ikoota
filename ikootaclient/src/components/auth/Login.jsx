@@ -198,12 +198,10 @@ const Login = () => {
     
     try {
       const role = userData.role?.toLowerCase();
-      const memberStatus = userData.is_member?.toLowerCase();
       const membershipStage = userData.membership_stage?.toLowerCase();
       
       console.log('🔍 User routing analysis:', {
         role,
-        memberStatus, 
         membershipStage,
         userId: userData.id
       });
@@ -262,7 +260,6 @@ const Login = () => {
       console.log('🔍 Checking if user needs application survey...');
       
       // Skip survey check for known member statuses
-      const memberStatus = userData.is_member?.toLowerCase();
       const membershipStage = userData.membership_stage?.toLowerCase();
       
       // Users who definitely don't need survey
@@ -301,7 +298,6 @@ const Login = () => {
       console.warn('⚠️ Survey status check failed:', error);
       
       // Conservative fallback: only require survey for clearly new users
-      const memberStatus = userData.is_member?.toLowerCase();
       const membershipStage = userData.membership_stage?.toLowerCase();
       
       const isNewUser = memberStatus === 'applied' && 

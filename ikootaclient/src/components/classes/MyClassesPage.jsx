@@ -257,7 +257,7 @@ const MyClassesPage = () => {
                     </div>
                     <div className="meta-item">
                       <span className="meta-icon">📅</span>
-                      <span>Joined {new Date(classItem.joined_at || classItem.createdAt).toLocaleDateString()}</span>
+                      <span>Joined {new Date(classItem.joinedAt || classItem.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>
 

@@ -157,7 +157,6 @@ export const updateUserProfile = async (userId, updates) => {
     // Map to your actual column names
     const fieldMapping = {
       'role': 'role',
-      'is_member': 'is_member',
       'is_identity_masked': 'is_identity_masked',
       'converse_id': 'converse_id',
       'membership_stage': 'membership_stage',

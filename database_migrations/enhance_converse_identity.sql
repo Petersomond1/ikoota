@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS emergency_unmask_requests (
     reviewed_by INT,
     reviewed_at TIMESTAMP NULL,
     review_notes TEXT,
-    expires_at TIMESTAMP NOT NULL,
+   expiresAt TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_request_id (request_id),
     INDEX idx_status (status),

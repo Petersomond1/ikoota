@@ -279,7 +279,7 @@ class MentorIdServices {
                 FROM users u
                 JOIN mentors m ON u.converse_id = m.mentee_converse_id
                 WHERE m.mentor_converse_id = ? AND m.is_active = 1
-                AND u.is_identity_masked = 1 AND u.is_member = 'granted'
+                AND u.is_identity_masked = 1 AND u.membership_stage = 'member'
                 ORDER BY m.createdAt DESC
             `, [mentorConverseId]);
             
@@ -545,7 +545,7 @@ class MentorIdServices {
                 LEFT JOIN mentors m ON u.converse_id = m.mentor_converse_id 
                                     AND m.mentee_converse_id IS NOT NULL 
                                     AND m.is_active = 1
-                WHERE u.is_identity_masked = 1 AND u.is_member = 'granted'
+                WHERE u.is_identity_masked = 1 AND u.membership_stage = 'member'
                 GROUP BY u.id, u.converse_id, u.converse_avatar, u.class_id, u.createdAt
                 ORDER BY current_mentees ASC, u.createdAt DESC
             `);
@@ -576,7 +576,7 @@ class MentorIdServices {
                        CONCAT('User_', u.converse_id) as display_name,
                        u.converse_avatar, u.class_id, u.createdAt as member_since
                 FROM users u
-                WHERE u.is_identity_masked = 1 AND u.is_member = 'granted'
+                WHERE u.is_identity_masked = 1 AND u.membership_stage = 'member'
                 AND (u.mentor_id IS NULL OR u.mentor_id = '')
                 AND NOT EXISTS (
                     SELECT 1 FROM mentors m 
@@ -655,7 +655,7 @@ class MentorIdServices {
             const unassignedRows = await db.query(`
                 SELECT COUNT(*) as unassigned_members
                 FROM users u
-                WHERE u.is_identity_masked = 1 AND u.is_member = 'granted'
+                WHERE u.is_identity_masked = 1 AND u.membership_stage = 'member'
                 AND (u.mentor_id IS NULL OR u.mentor_id = '')
             `);
             

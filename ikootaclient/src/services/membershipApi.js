@@ -86,7 +86,14 @@ export const membershipApi = {
   submitInitialApplication: async (answers, applicationTicket) => {
     return await api.post('/apply/initial', {
       answers,
-      applicationTicket
+      applicationTicket,
+      // Compatibility fields - include both old and new names
+      survey_type: 'initial_application', // New field name
+      application_type: 'initial_application', // Legacy field name
+      status: 'pending', // New field name
+      approval_status: 'pending', // Legacy field name
+      notes: '', // New field name
+      admin_notes: '' // Legacy field name
     });
   },
 
@@ -121,7 +128,14 @@ export const membershipApi = {
   submitFullMembershipApplication: async (answers, membershipTicket) => {
     return await api.post('/apply/full', {
       answers,
-      membershipTicket
+      membershipTicket,
+      // Compatibility fields - include both old and new names
+      survey_type: 'full_membership', // New field name
+      application_type: 'full_membership', // Legacy field name
+      status: 'pending', // New field name
+      approval_status: 'pending', // Legacy field name
+      notes: '', // New field name
+      admin_notes: '' // Legacy field name
     });
   },
 
@@ -249,12 +263,28 @@ export const membershipApi = {
 
     // Approve application
     approveApplication: async (applicationId, data) => {
-      return await api.post(`/admin/approve-application/${applicationId}`, data);
+      const compatibleData = {
+        ...data,
+        // Compatibility fields - include both old and new names
+        status: data.status || 'approved', // New field name
+        approval_status: data.approval_status || 'approved', // Legacy field name
+        notes: data.notes || data.admin_notes || '', // New field name
+        admin_notes: data.admin_notes || data.notes || '' // Legacy field name
+      };
+      return await api.post(`/admin/approve-application/${applicationId}`, compatibleData);
     },
 
     // Decline application
     declineApplication: async (applicationId, data) => {
-      return await api.post(`/admin/decline-application/${applicationId}`, data);
+      const compatibleData = {
+        ...data,
+        // Compatibility fields - include both old and new names
+        status: data.status || 'rejected', // New field name
+        approval_status: data.approval_status || 'rejected', // Legacy field name
+        notes: data.notes || data.admin_notes || '', // New field name
+        admin_notes: data.admin_notes || data.notes || '' // Legacy field name
+      };
+      return await api.post(`/admin/decline-application/${applicationId}`, compatibleData);
     },
 
     // Review application (unified)
@@ -363,7 +393,7 @@ export const generateApplicationTicket = (username, email, type = 'INITIAL') => 
 export const canAccessContent = (membershipStatus, contentType) => {
   if (!membershipStatus) return false;
   
-  const { membership_stage, is_member } = membershipStatus;
+  const { membership_stage } = membershipStatus;
   
   const accessRules = {
     'towncrier': ['pre_member', 'member'],

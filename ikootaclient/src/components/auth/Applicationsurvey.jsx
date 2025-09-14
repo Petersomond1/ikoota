@@ -156,7 +156,12 @@ const ApplicationSurvey = () => {
       
       // ✅ CRITICAL FIX: DO NOT REDIRECT IF SURVEY NOT COMPLETED
       // Let the user stay on the survey page to complete it
-      if (response.data.survey_completed) {
+      // Handle both old and new field names for compatibility
+      const surveyCompleted = response.data.survey_completed || response.data.completed || 
+                             (response.data.status === 'completed') || 
+                             (response.data.approval_status === 'approved');
+      
+      if (surveyCompleted) {
         console.log('✅ Survey already completed, redirecting to status page');
         clearSavedData();
         navigate('/application-status');
@@ -371,8 +376,15 @@ const ApplicationSurvey = () => {
     const response = await api.post('/survey/submit-applicationsurvey', {
       answers,
       applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`,
-      username: user.username, // ADD THIS LINE
-      userId: user.id || user.user_id // ADD THIS LINE TOO
+      username: user.username,
+      userId: user.id || user.user_id,
+      // Compatibility fields - include both old and new names
+      survey_type: 'initial_application', // New field name
+      application_type: 'initial_application', // Legacy field name  
+      status: 'pending', // New field name
+      approval_status: 'pending', // Legacy field name
+      notes: '', // New field name
+      admin_notes: '' // Legacy field name
     });
 
     const data = response.data;

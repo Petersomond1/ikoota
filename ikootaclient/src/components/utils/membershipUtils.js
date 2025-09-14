@@ -5,7 +5,7 @@ import { getUserAccess } from './accessMatrix';
 // ✅ STANDARDIZED: Membership application route function
 export const getMembershipApplicationRoute = (userData) => {
   const access = getUserAccess(userData);
-  const status = userData?.membershipApplicationStatus || userData?.full_membership_status;
+  const status = userData?.membershipApplicationStatus || userData?.full_membership_appl_status;
   
   switch (status) {
     case 'not_applied':
@@ -71,13 +71,13 @@ export const canAccessRoute = (userData, route) => {
         return access.canApplyForMembership || access.canReapplyForMembership;
       case 'pending':
         return userData?.membershipApplicationStatus === 'pending' || 
-               userData?.full_membership_status === 'pending';
+               userData?.full_membership_appl_status === 'pending';
       case 'approved':
         return userData?.membershipApplicationStatus === 'approved' || 
-               userData?.full_membership_status === 'approved';
+               userData?.full_membership_appl_status === 'approved';
       case 'declined':
         return userData?.membershipApplicationStatus === 'declined' || 
-               userData?.full_membership_status === 'declined';
+               userData?.full_membership_appl_status === 'declined';
       case 'status':
         return access.userType !== 'guest';
       default:
@@ -105,7 +105,6 @@ export const getUserStatusString = (userData) => {
   if (!userData) return 'guest';
   
   const role = userData.role?.toLowerCase();
-  const memberStatus = userData.is_member?.toLowerCase();
   const membershipStage = userData.membership_stage?.toLowerCase();
   const status = userData.status || userData.finalStatus;
 
@@ -113,8 +112,7 @@ export const getUserStatusString = (userData) => {
   if (role === 'admin' || role === 'super_admin') return 'admin';
   
   // ✅ STANDARDIZED: Member (full member)
-  if (status === 'member' || 
-      (memberStatus === 'member' && membershipStage === 'member')) {
+  if (status === 'member' || membershipStage === 'member') {
     return 'member';
   }
   
@@ -198,7 +196,7 @@ export const requireMembershipLevel = (userData, requiredLevel) => {
 
 // ✅ STANDARDIZED: Application status helpers
 export const getApplicationStatusDisplay = (userData) => {
-  const status = userData?.full_membership_status || userData?.membershipApplicationStatus;
+  const status = userData?.full_membership_appl_status || userData?.membershipApplicationStatus;
   
   const statusConfig = {
     'not_applied': {

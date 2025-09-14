@@ -30,7 +30,7 @@ export const requireMember = async (req, res, next) => {
     }
 
     // Check for member level access
-    if (req.user.membership_stage === 'member' && req.user.is_member === 'member') {
+    if (req.user.membership_stage === 'member') {
       return next();
     }
 
@@ -39,7 +39,7 @@ export const requireMember = async (req, res, next) => {
       message: 'Full member status required for this resource',
       userStatus: {
         membership_stage: req.user.membership_stage,
-        is_member: req.user.is_member,
+        is_member: req.user.membership_stage === 'member',
         required: 'member'
       }
     });
@@ -81,7 +81,7 @@ export const requirePreMemberOrHigher = async (req, res, next) => {
       message: 'Pre-member status or higher required',
       userStatus: {
         membership_stage: req.user.membership_stage,
-        is_member: req.user.is_member,
+        is_member: req.user.membership_stage === 'member',
         required: 'pre_member or higher'
       }
     });
@@ -114,8 +114,33 @@ export const canApplyForMembership = async (req, res, next) => {
     const [userCheck] = await db.query(`
       SELECT 
         membership_stage, 
-        is_member, 
-        full_membership_status,
+        -- New optimized status fields (with compatibility fallback)
+        COALESCE(initial_application_status, 
+          CASE 
+            WHEN initial_application_status = 'not_applied' THEN 'not_applied'
+            WHEN initial_application_status = 'submitted' THEN 'submitted'
+            WHEN initial_application_status = 'under_review' THEN 'under_review'
+            WHEN initial_application_status = 'approved' THEN 'approved'
+            WHEN initial_application_status = 'declined' THEN 'declined'
+            ELSE 'not_applied'
+          END
+        ) as initial_application_status,
+        COALESCE(full_membership_appl_status,
+          CASE 
+            WHEN full_membership_appl_status = 'not_applied' THEN 'not_applied'
+            WHEN full_membership_appl_status = 'applied' THEN 'submitted'
+            WHEN full_membership_appl_status = 'pending' THEN 'under_review'
+            WHEN full_membership_appl_status = 'suspended' THEN 'suspended'
+            WHEN full_membership_appl_status = 'approved' THEN 'approved'
+            WHEN full_membership_appl_status = 'declined' THEN 'declined'
+            ELSE 'not_applied'
+          END
+        ) as full_membership_appl_status,
+        -- Derive is_member from membership_stage (no longer stored separately)
+        CASE 
+          WHEN membership_stage = 'member' THEN 1
+          ELSE 0
+        END as is_member,
         role
       FROM users 
       WHERE id = ?
@@ -139,16 +164,16 @@ export const canApplyForMembership = async (req, res, next) => {
     // Check if user is pre_member and can apply
     if (user.membership_stage === 'pre_member') {
       // Check if they don't already have a pending application
-      if (user.full_membership_status === 'pending') {
+      if (user.full_membership_appl_status === 'under_review') {
         return res.status(400).json({
           success: false,
           message: 'You already have a pending membership application',
-          currentStatus: user.full_membership_status
+          currentStatus: user.full_membership_appl_status
         });
       }
 
       // They can apply if not applied, or if previously declined
-      if (['not_applied', 'declined'].includes(user.full_membership_status)) {
+      if (['not_applied', 'declined'].includes(user.full_membership_appl_status)) {
         req.userMembershipInfo = user;
         return next();
       }
@@ -160,7 +185,7 @@ export const canApplyForMembership = async (req, res, next) => {
       userStatus: {
         membership_stage: user.membership_stage,
         is_member: user.is_member,
-        full_membership_status: user.full_membership_status
+        full_membership_appl_status: user.full_membership_appl_status
       },
       eligibility: {
         required: 'pre_member status',
@@ -620,16 +645,41 @@ export const addMembershipContext = async (req, res, next) => {
     const [membershipInfo] = await db.query(`
       SELECT 
         u.membership_stage,
-        u.is_member,
-        u.full_membership_status,
+        -- New optimized status fields (with compatibility fallback)
+        COALESCE(u.initial_application_status, 
+          CASE 
+            WHEN u.application_status = 'not_submitted' THEN 'not_applied'
+            WHEN u.application_status = 'submitted' THEN 'submitted'
+            WHEN u.application_status = 'under_review' THEN 'under_review'
+            WHEN u.application_status = 'approved' THEN 'approved'
+            WHEN u.application_status = 'declined' THEN 'declined'
+            ELSE 'not_applied'
+          END
+        ) as initial_application_status,
+        COALESCE(u.full_membership_appl_status,
+          CASE 
+            WHEN u.full_membership_appl_status = 'not_applied' THEN 'not_applied'
+            WHEN u.full_membership_appl_status = 'applied' THEN 'submitted'
+            WHEN u.full_membership_appl_status = 'pending' THEN 'under_review'
+            WHEN u.full_membership_appl_status = 'suspended' THEN 'suspended'
+            WHEN u.full_membership_appl_status = 'approved' THEN 'approved'
+            WHEN u.full_membership_appl_status = 'declined' THEN 'declined'
+            ELSE 'not_applied'
+          END
+        ) as full_membership_appl_status,
+        -- Derive is_member from membership_stage (no longer stored separately)
+        CASE 
+          WHEN u.membership_stage = 'member' THEN 1
+          ELSE 0
+        END as is_member,
         u.role,
-        COUNT(CASE WHEN sl.approval_status = 'pending' THEN 1 END) as pending_applications,
+        COUNT(CASE WHEN sl.new_status = 'pending' THEN 1 END) as pending_applications,
         COUNT(CASE WHEN fma.status = 'pending' THEN 1 END) as pending_full_applications
       FROM users u
-      LEFT JOIN surveylog sl ON u.id = sl.user_id AND sl.approval_status = 'pending'
+      LEFT JOIN surveylog sl ON u.id = sl.user_id AND sl.new_status = 'pending'
       LEFT JOIN full_membership_applications fma ON u.id = fma.user_id AND fma.status = 'pending'
       WHERE u.id = ?
-      GROUP BY u.id, u.membership_stage, u.is_member, u.full_membership_status, u.role
+      GROUP BY u.id, u.membership_stage, u.full_membership_appl_status, u.role
     `, [req.user.id]);
 
     if (membershipInfo.length > 0) {
@@ -660,7 +710,25 @@ export const validateMembershipEligibility = (requiredAction) => {
 
       const userId = req.user.id;
       const [user] = await db.query(`
-        SELECT membership_stage, is_member, role, full_membership_status
+        SELECT membership_stage, 
+        -- Derive is_member from membership_stage (no longer stored separately)
+        CASE 
+          WHEN membership_stage = 'member' THEN 1
+          ELSE 0
+        END as is_member,
+        role, 
+        -- New optimized status fields (with compatibility fallback)
+        COALESCE(full_membership_appl_status,
+          CASE 
+            WHEN full_membership_appl_status = 'not_applied' THEN 'not_applied'
+            WHEN full_membership_appl_status = 'applied' THEN 'submitted'
+            WHEN full_membership_appl_status = 'pending' THEN 'under_review'
+            WHEN full_membership_appl_status = 'suspended' THEN 'suspended'
+            WHEN full_membership_appl_status = 'approved' THEN 'approved'
+            WHEN full_membership_appl_status = 'declined' THEN 'declined'
+            ELSE 'not_applied'
+          END
+        ) as full_membership_appl_status
         FROM users WHERE id = ?
       `, [userId]);
 
@@ -679,15 +747,15 @@ export const validateMembershipEligibility = (requiredAction) => {
         case 'submit_initial_application':
           isEligible = !userInfo.membership_stage || 
                       userInfo.membership_stage === 'none' || 
-                      (userInfo.membership_stage === 'applicant' && userInfo.is_member === 'rejected');
+                      (userInfo.membership_stage === 'applicant' && userInfo.initial_application_status === 'declined');
           reason = isEligible ? 'Eligible to submit initial application' : 
                   'User has already progressed beyond initial application stage';
           break;
 
         case 'submit_full_membership':
           isEligible = userInfo.membership_stage === 'pre_member' && 
-                      (!userInfo.full_membership_status || 
-                       ['not_applied', 'declined'].includes(userInfo.full_membership_status));
+                      (!userInfo.full_membership_appl_status || 
+                       ['not_applied', 'declined'].includes(userInfo.full_membership_appl_status));
           reason = isEligible ? 'Eligible to submit full membership application' : 
                   'User not eligible for full membership application';
           break;
@@ -719,7 +787,7 @@ export const validateMembershipEligibility = (requiredAction) => {
           userStatus: {
             membership_stage: userInfo.membership_stage,
             is_member: userInfo.is_member,
-            full_membership_status: userInfo.full_membership_status
+            full_membership_appl_status: userInfo.full_membership_appl_status
           }
         });
       }

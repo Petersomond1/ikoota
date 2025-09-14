@@ -15,7 +15,7 @@ export const mockClassDetails = {
     max_members: 50,
     privacy_level: "members_only",              // enum: public, members_only, admin_only
     created_by: 1,                              // User ID of creator
-    is_member: true,                            // Current user membership status
+    user_is_class_member: true,                 // Current user class membership status
     total_members: 25,
     moderators: 2,
     pending_members: 3,
@@ -346,7 +346,7 @@ export const mockClassMembers = {
       avatar_url: "https://i.pravatar.cc/150?img=1",
       converse_avatar: "https://i.pravatar.cc/150?img=1", // From users table
       is_active: true,
-      is_member: true,
+      user_is_class_member: true,
       membership_stage: "member",                 // From users table
       joinedAt: "2024-01-15T10:00:00Z",          // From user_class_memberships
       joined_at: "2024-01-15T10:00:00Z",         // Alias
@@ -371,7 +371,7 @@ export const mockClassMembers = {
       membership_status: "active",
       avatar_url: "https://i.pravatar.cc/150?img=2",
       is_active: true,
-      is_member: true,
+      user_is_class_member: true,
       membership_stage: "member",
       joinedAt: "2024-08-01T14:30:00Z",
       joined_at: "2024-08-01T14:30:00Z",
@@ -393,7 +393,7 @@ export const mockClassMembers = {
       membership_status: "active",
       avatar_url: "https://i.pravatar.cc/150?img=3",
       is_active: false,
-      is_member: true,
+      user_is_class_member: true,
       membership_stage: "member", 
       joinedAt: "2024-08-02T11:15:00Z",
       joined_at: "2024-08-02T11:15:00Z",
@@ -415,7 +415,7 @@ export const mockClassMembers = {
       membership_status: "active",
       avatar_url: "https://i.pravatar.cc/150?img=4",
       is_active: true,
-      is_member: true,
+      user_is_class_member: true,
       membership_stage: "member",
       joinedAt: "2024-07-28T16:00:00Z",
       joined_at: "2024-07-28T16:00:00Z",
@@ -438,7 +438,7 @@ export const mockClassMembers = {
       avatar_url: null,
       converse_avatar: null,
       is_active: true,
-      is_member: true,
+      user_is_class_member: true,
       membership_stage: "pre_member",
       joinedAt: "2024-08-03T09:45:00Z",
       joined_at: "2024-08-03T09:45:00Z",
@@ -460,7 +460,7 @@ export const mockClassMembers = {
       membership_status: "suspended",
       avatar_url: "https://i.pravatar.cc/150?img=6",
       is_active: false,
-      is_member: true,
+      user_is_class_member: true,
       membership_stage: "member",
       joinedAt: "2024-08-01T13:20:00Z",
       joined_at: "2024-08-01T13:20:00Z", 
@@ -489,7 +489,7 @@ export const mockEmptyClass = {
     max_members: 30,
     privacy_level: "public",
     created_by: 1,
-    is_member: false,
+    user_is_class_member: false,
     total_members: 0,
     moderators: 0,
     pending_members: 0,
@@ -521,7 +521,7 @@ export const mockPrivateClass = {
     max_members: 10,
     privacy_level: "admin_only",
     created_by: 1,
-    is_member: false,
+    user_is_class_member: false,
     total_members: 5,
     moderators: 1,
     pending_members: 2,

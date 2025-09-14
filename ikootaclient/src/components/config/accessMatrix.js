@@ -43,11 +43,10 @@ const ACCESS_MATRIX = {
     }
   },
 
-  // ✅ MEMBER - Full access (highest non-admin level)
+  // ✅ MEMBER - Full access (highest non-admin level) - Simplified conditions
   member: {
     conditions: {
       membership_stage: 'member',
-      is_member: 'member',
       status: 'member'
     },
     routes: ['/', '/iko', '/towncrier', '/dashboard', '/profile'],
@@ -70,11 +69,11 @@ const ACCESS_MATRIX = {
     }
   },
 
-  // ✅ PRE-MEMBER with Pending Membership Application
+  // ✅ PRE-MEMBER with Pending Membership Application - Updated field name
   pre_member_pending_upgrade: {
     conditions: {
       status: 'pre_member_pending_upgrade',
-      membershipApplicationStatus: 'pending'
+      fullMembershipApplStatus: 'pending'
     },
     routes: ['/', '/towncrier', '/dashboard', '/full-membership/status', '/full-membership/pending'],
     api_endpoints: [
@@ -96,11 +95,11 @@ const ACCESS_MATRIX = {
     statusMessage: 'Your membership application is under review'
   },
 
-  // ✅ PRE-MEMBER with Declined Application (can reapply)
+  // ✅ PRE-MEMBER with Declined Application (can reapply) - Updated field name
   pre_member_can_reapply: {
     conditions: {
       status: 'pre_member_can_reapply',
-      membershipApplicationStatus: 'declined'
+      fullMembershipApplStatus: 'declined'
     },
     routes: ['/', '/towncrier', '/dashboard', '/full-membership/info', '/full-membership/apply', '/full-membership/declined'],
     api_endpoints: [
@@ -123,12 +122,12 @@ const ACCESS_MATRIX = {
     statusMessage: 'You can reapply for full membership'
   },
 
-  // ✅ PRE-MEMBER - Eligible for membership application
+  // ✅ PRE-MEMBER - Eligible for membership application - Updated field name
   pre_member: {
     conditions: {
       membership_stage: 'pre_member',
       status: 'pre_member',
-      membershipApplicationStatus: ['not_applied', null, undefined]
+      fullMembershipApplStatus: ['not_applied', null, undefined]
     },
     routes: ['/', '/towncrier', '/dashboard', '/full-membership/info', '/full-membership/apply'],
     api_endpoints: [
@@ -174,10 +173,10 @@ const ACCESS_MATRIX = {
     }
   },
 
-  // Applied/Pending users (initial application)
+  // Applied/Pending users (initial application) - Updated to use membership_stage
   applied: {
     conditions: {
-      is_member: ['applied', 'pending']
+      membership_stage: 'applicant'
     },
     routes: ['/', '/towncrier', '/application-status', '/pending-verification', '/dashboard'],
     api_endpoints: [
@@ -227,9 +226,9 @@ const checkUserAccess = (user, requestedRoute = null, requestedEndpoint = null) 
   console.log('🔍 Checking user access with standardized levels for:', {
     role: user.role,
     membership_stage: user.membership_stage,
-    is_member: user.is_member,
     status: user.status,
-    membershipApplicationStatus: user.membershipApplicationStatus
+    initialApplicationStatus: user.initialApplicationStatus,
+    fullMembershipApplStatus: user.fullMembershipApplStatus
   });
 
   const role = user.role?.toLowerCase();
@@ -309,12 +308,12 @@ const getUserAccess = (userData) => {
     canAccessAdmin: access.routes.some(route => route.startsWith('/admin')),
     canAccessTowncrier: access.routes.includes('/towncrier'),
     
-    // ✅ STANDARDIZED: Membership properties
+    // ✅ STANDARDIZED: Membership properties - Updated field names
     canApplyForMembership: access.canAccess?.membershipApplication === true && 
-                          userData.membershipApplicationStatus === 'not_applied',
+                          userData.fullMembershipApplStatus === 'not_applied',
     canReapplyForMembership: access.canAccess?.membershipApplication === true && 
-                            userData.membershipApplicationStatus === 'declined',
-    membershipApplicationStatus: userData.membershipApplicationStatus || 'not_applied',
+                            userData.fullMembershipApplStatus === 'declined',
+    membershipApplicationStatus: userData.fullMembershipApplStatus || 'not_applied',
     membershipTicket: userData.membershipTicket,
     
     allowedRoutes: access.routes,
@@ -322,10 +321,10 @@ const getUserAccess = (userData) => {
   };
 };
 
-// ✅ STANDARDIZED: Membership application route function
+// ✅ STANDARDIZED: Membership application route function - Updated field name
 export const getMembershipApplicationRoute = (userData) => {
   const access = getUserAccess(userData);
-  const status = userData?.membershipApplicationStatus;
+  const status = userData?.fullMembershipApplStatus;
   
   switch (status) {
     case 'not_applied':
@@ -389,11 +388,11 @@ export const canAccessRoute = (userData, route) => {
       case 'apply':
         return access.canApplyForMembership || access.canReapplyForMembership;
       case 'pending':
-        return userData?.membershipApplicationStatus === 'pending';
+        return userData?.fullMembershipApplStatus === 'pending';
       case 'approved':
-        return userData?.membershipApplicationStatus === 'approved';
+        return userData?.fullMembershipApplStatus === 'approved';
       case 'declined':
-        return userData?.membershipApplicationStatus === 'declined';
+        return userData?.fullMembershipApplStatus === 'declined';
       case 'status':
         return access.userType !== 'guest';
       default:
@@ -416,21 +415,19 @@ export const canAccessRoute = (userData, route) => {
   }
 };
 
-// ✅ STANDARDIZED: User status with clear levels (updated for member vs full_member)
+// ✅ STANDARDIZED: User status with clear levels - Removed is_member dependency
 export const getUserStatusString = (userData) => {
   if (!userData) return 'guest';
   
   const role = userData.role?.toLowerCase();
-  const memberStatus = userData.is_member?.toLowerCase();
   const membershipStage = userData.membership_stage?.toLowerCase();
   const status = userData.status || userData.finalStatus;
 
   // Admin users
   if (role === 'admin' || role === 'super_admin') return 'admin';
   
-  // ✅ STANDARDIZED: Member (no more "full_member")
-  if (status === 'member' || 
-      (memberStatus === 'member' && membershipStage === 'member')) {
+  // ✅ STANDARDIZED: Use membership_stage as primary
+  if (status === 'member' || membershipStage === 'member') {
     return 'member';
   }
   
@@ -438,19 +435,14 @@ export const getUserStatusString = (userData) => {
   if (status === 'pre_member_pending_upgrade') return 'pre_member_pending_upgrade';
   if (status === 'pre_member_can_reapply') return 'pre_member_can_reapply';
   
-  if (status === 'pre_member' || 
-      memberStatus === 'approved' && membershipStage === 'pre' ||
-      membershipStage === 'pre_member') {
+  if (status === 'pre_member' || membershipStage === 'pre_member') {
     return 'pre_member';
   }
   
-  // Pending/Applied
-  if (memberStatus === 'applied' || memberStatus === 'pending') return 'pending_verification';
+  // Applicant
+  if (membershipStage === 'applicant') return 'applicant';
   
-  // Denied
-  if (memberStatus === 'declined' || memberStatus === 'denied') return 'denied';
-  
-  return 'authenticated';
+  return 'guest';
 };
 
 // ✅ PRESERVED: Dashboard route function

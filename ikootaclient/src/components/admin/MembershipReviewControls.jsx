@@ -446,17 +446,23 @@ const MembershipReviewControls = () => {
     }
     
     return applicationsData.filter(app => {
-      // Status filter
-      if (filterStatus !== 'all' && app.status !== filterStatus && app.approval_status !== filterStatus) {
+      // Status filter - check both new and old field names for compatibility
+      if (filterStatus !== 'all' && 
+          app.status !== filterStatus && 
+          app.approval_status !== filterStatus) {
         return false;
       }
       
       // Type filter
       if (filterType !== 'all') {
-        if (filterType === 'initial' && app.application_type !== 'initial_application') {
+        if (filterType === 'initial' && 
+            app.survey_type !== 'initial_application' && 
+            app.application_type !== 'initial_application') {
           return false;
         }
-        if (filterType === 'full_membership' && app.application_type !== 'full_membership') {
+        if (filterType === 'full_membership' && 
+            app.survey_type !== 'full_membership' && 
+            app.application_type !== 'full_membership') {
           return false;
         }
       }
@@ -832,7 +838,7 @@ const ApplicationCard = ({
                 borderRadius: '3px',
                 fontSize: '0.8em'
               }}>
-                {application.application_type?.replace('_', ' ').toUpperCase() || 'UNKNOWN'}
+                {(application.survey_type || application.application_type)?.replace('_', ' ').toUpperCase() || 'UNKNOWN'}
               </span>
             </p>
             {application.application_ticket && (
@@ -872,8 +878,8 @@ const ApplicationCard = ({
         </div>
         
         <div className="application-status">
-          <span className={`status-badge ${application.approval_status || application.status || 'pending'}`}>
-            {(application.approval_status || application.status || 'pending').toUpperCase()}
+          <span className={`status-badge ${application.status || application.approval_status || 'pending'}`}>
+            {(application.status || application.approval_status || 'pending').toUpperCase()}
           </span>
         </div>
       </div>
@@ -892,8 +898,8 @@ const ApplicationCard = ({
           {showDetails ? 'Hide Details' : 'Show Details'}
         </button>
         
-        {((application.approval_status === 'pending' || application.status === 'pending') || 
-          (!application.approval_status && !application.status)) && (
+        {((application.status === 'pending' || application.approval_status === 'pending') || 
+          (!application.status && !application.approval_status)) && (
           <div className="review-actions">
             <button 
               onClick={() => onReview(application.id, 'approved', reviewNotes)}
@@ -926,10 +932,10 @@ const ApplicationCard = ({
             />
           </div>
           
-          {application.admin_notes && (
+          {(application.admin_notes || application.notes) && (
             <div className="existing-notes">
               <strong>Previous Admin Notes:</strong>
-              <p>{application.admin_notes}</p>
+              <p>{application.admin_notes || application.notes}</p>
             </div>
           )}
           

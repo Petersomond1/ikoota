@@ -74,8 +74,8 @@ export const getSystemHealth = async () => {
     const [metrics] = await db.query(`
       SELECT 
         (SELECT COUNT(*) FROM users WHERE role = 'user' OR role IS NULL) as total_users,
-        (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'pending') as pending_applications,
-        (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'pending' AND createdAt < DATE_SUB(NOW(), INTERVAL 7 DAY)) as overdue_applications,
+        (SELECT COUNT(*) FROM surveylog WHERE new_status = 'pending') as pending_applications,
+        (SELECT COUNT(*) FROM surveylog WHERE new_status = 'pending' AND createdAt < DATE_SUB(NOW(), INTERVAL 7 DAY)) as overdue_applications,
         (SELECT COUNT(*) FROM users WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as new_users_24h,
         (SELECT COALESCE(AVG(DATEDIFF(reviewedAt, createdAt)), 0) FROM surveylog WHERE reviewedAt IS NOT NULL AND reviewedAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)) as avg_review_time_days
     `);
@@ -133,12 +133,12 @@ export const getAllApplications = async (filters) => {
     let queryParams = [];
     
     if (status !== 'all') {
-      whereConditions.push('sl.approval_status = ?');
+      whereConditions.push('sl.new_status = ?');
       queryParams.push(status);
     }
     
     if (type !== 'all') {
-      whereConditions.push('sl.application_type = ?');
+      whereConditions.push('sl.new_survey_type = ?');
       queryParams.push(type);
     }
     
@@ -160,7 +160,7 @@ export const getAllApplications = async (filters) => {
     const whereClause = whereConditions.join(' AND ');
     
     // Validate sortBy to prevent SQL injection
-    const allowedSortFields = ['createdAt', 'approval_status', 'application_type', 'reviewedAt'];
+    const allowedSortFields = ['createdAt', 'new_status', 'new_survey_type', 'reviewedAt'];
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
     const safeSortOrder = ['ASC', 'DESC'].includes(sortOrder?.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
     
@@ -171,18 +171,22 @@ export const getAllApplications = async (filters) => {
         sl.user_id,
         sl.answers,
         sl.createdAt as submitted_at,
-        sl.approval_status,
+        sl.new_status,
         sl.admin_notes,
         sl.reviewed_by,
         sl.reviewedAt,
         sl.application_ticket,
-        sl.application_type,
+        sl.new_survey_type,
         u.username,
         u.email,
         u.phone,
         u.createdAt as user_registered,
         u.membership_stage,
-        u.is_member,
+        -- Derive is_member from membership_stage (no longer stored separately)
+        CASE 
+          WHEN u.membership_stage = 'member' THEN 1
+          ELSE 0
+        END as is_member,
         reviewer.username as reviewer_name,
         DATEDIFF(NOW(), sl.createdAt) as days_pending
       FROM surveylog sl
@@ -229,7 +233,7 @@ export const getAllApplications = async (filters) => {
     const formattedApplications = safeApplications.map(app => ({
       application_id: app.application_id,
       application_ticket: app.application_ticket,
-      application_type: app.application_type,
+      application_type: app.new_survey_type,
       user: {
         id: app.user_id,
         username: app.username,
@@ -238,7 +242,7 @@ export const getAllApplications = async (filters) => {
         registered_at: app.user_registered,
         current_status: {
           membership_stage: app.membership_stage,
-          is_member: app.is_member
+          is_member: app.membership_stage === 'member'
         }
       },
       application: {
@@ -294,7 +298,11 @@ export const getApplicationById = async (applicationId) => {
         u.email,
         u.phone,
         u.membership_stage,
-        u.is_member,
+        -- Derive is_member from membership_stage (no longer stored separately)
+        CASE 
+          WHEN u.membership_stage = 'member' THEN 1
+          ELSE 0
+        END as is_member,
         reviewer.username as reviewer_name
       FROM surveylog sl
       JOIN users u ON sl.user_id = u.id
@@ -316,10 +324,10 @@ export const getApplicationById = async (applicationId) => {
         email: app.email,
         phone: app.phone,
         membership_stage: app.membership_stage,
-        is_member: app.is_member
+        is_member: app.membership_stage === 'member'
       },
       application: {
-        type: app.application_type,
+        type: app.new_survey_type,
         ticket: app.application_ticket,
         submitted_at: app.createdAt,
         status: app.approval_status,
@@ -378,18 +386,16 @@ export const reviewApplication = async (applicationId, reviewData, reviewer) => 
     // Update application
     await connection.query(`
       UPDATE surveylog 
-      SET approval_status = ?, admin_notes = ?, reviewedAt = NOW(), reviewed_by = ?
+      SET new_status = ?, admin_notes = ?, reviewedAt = NOW(), reviewed_by = ?
       WHERE id = ?
     `, [finalStatus, adminNotes || reason, reviewer.id, applicationId]);
 
     // Update user status
     let newStage = application.membership_stage;
-    let memberStatus = application.is_member;
     
-    if (application.application_type === 'initial_application') {
+    if (application.new_survey_type === 'initial_application') {
       if (finalStatus === 'approved') {
         newStage = 'pre_member';
-        memberStatus = 'pre_member';
         
         // Generate converse ID for new pre-members if not exists
         if (!application.converse_id) {
@@ -404,15 +410,15 @@ export const reviewApplication = async (applicationId, reviewData, reviewer) => 
         }
       } else {
         newStage = 'applicant';
-        memberStatus = 'rejected';
       }
     }
 
+    // Update initial application status and membership stage
     await connection.query(`
       UPDATE users 
-      SET membership_stage = ?, is_member = ?, applicationReviewedAt = NOW(), mentor_id = ?
+      SET membership_stage = ?, initial_application_status = ?, applicationReviewedAt = NOW(), mentor_id = ?
       WHERE id = ?
-    `, [newStage, memberStatus, mentorId || null, userId]);
+    `, [newStage, finalStatus, mentorId || null, userId]);
 
     // Log review safely
     await logAuditSafe(reviewer.id, 'application_reviewed', {
@@ -510,7 +516,7 @@ export const bulkReviewApplications = async (bulkData, reviewer) => {
           SELECT sl.*, u.username, u.email, u.membership_stage
           FROM surveylog sl
           JOIN users u ON sl.user_id = u.id
-          WHERE sl.id = ? AND sl.approval_status = 'pending'
+          WHERE sl.id = ? AND sl.new_status = 'pending'
         `, [appId]);
 
         if (apps.length === 0) {
@@ -527,29 +533,26 @@ export const bulkReviewApplications = async (bulkData, reviewer) => {
         // Update application
         await connection.query(`
           UPDATE surveylog 
-          SET approval_status = ?, admin_notes = ?, reviewedAt = NOW(), reviewed_by = ?
+          SET new_status = ?, admin_notes = ?, reviewedAt = NOW(), reviewed_by = ?
           WHERE id = ?
         `, [finalStatus, adminNotes || reason, reviewer.id, appId]);
 
         // Update user status
         let newStage = app.membership_stage;
-        let memberStatus = app.is_member;
         
-        if (app.application_type === 'initial_application') {
+        if (app.new_survey_type === 'initial_application') {
           if (finalStatus === 'approved') {
             newStage = 'pre_member';
-            memberStatus = 'pre_member';
           } else {
             newStage = 'applicant';
-            memberStatus = 'rejected';
           }
         }
 
         await connection.query(`
           UPDATE users 
-          SET membership_stage = ?, is_member = ?, applicationReviewedAt = NOW()
+          SET membership_stage = ?, initial_application_status = ?, applicationReviewedAt = NOW()
           WHERE id = ?
-        `, [newStage, memberStatus, app.user_id]);
+        `, [newStage, finalStatus, app.user_id]);
 
         results.processed.push({
           applicationId: appId,
@@ -620,12 +623,12 @@ export const getApplicationStats = async (period = '30d', groupBy = 'day', inclu
     const [stats] = await db.query(`
       SELECT 
         COUNT(*) as total_applications,
-        COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_count,
-        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_count,
-        COUNT(CASE WHEN approval_status IN ('declined', 'rejected') THEN 1 END) as declined_count,
+        COUNT(CASE WHEN new_status = 'pending' THEN 1 END) as pending_count,
+        COUNT(CASE WHEN new_status = 'approved' THEN 1 END) as approved_count,
+        COUNT(CASE WHEN new_status IN ('declined', 'rejected') THEN 1 END) as declined_count,
         COALESCE(AVG(CASE WHEN reviewedAt IS NOT NULL THEN DATEDIFF(reviewedAt, createdAt) END), 0) as avg_processing_days,
-        COUNT(CASE WHEN application_type = 'initial_application' THEN 1 END) as initial_applications,
-        COUNT(CASE WHEN application_type = 'full_membership' THEN 1 END) as full_membership_applications
+        COUNT(CASE WHEN new_survey_type = 'initial_application' THEN 1 END) as initial_applications,
+        COUNT(CASE WHEN new_survey_type = 'full_membership' THEN 1 END) as full_membership_applications
       FROM surveylog
       WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
     `, [days]);
@@ -655,9 +658,9 @@ export const getApplicationStats = async (period = '30d', groupBy = 'day', inclu
         SELECT 
           ${timeGrouping} as period,
           COUNT(*) as total,
-          COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved,
-          COUNT(CASE WHEN approval_status = 'declined' THEN 1 END) as declined,
-          COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending
+          COUNT(CASE WHEN new_status = 'approved' THEN 1 END) as approved,
+          COUNT(CASE WHEN new_status = 'declined' THEN 1 END) as declined,
+          COUNT(CASE WHEN new_status = 'pending' THEN 1 END) as pending
         FROM surveylog
         WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
         GROUP BY period
@@ -690,11 +693,11 @@ export const getFullMembershipStats = async (period = '30d', includeDetails = fa
       SELECT 
         (SELECT COUNT(*) FROM users WHERE membership_stage = 'member') as total_full_members,
         (SELECT COUNT(*) FROM users WHERE membership_stage = 'pre_member') as total_pre_members,
-        (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'pending' AND application_type = 'full_membership') as pending_full_applications,
-        (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'approved' AND application_type = 'full_membership' AND reviewedAt >= DATE_SUB(NOW(), INTERVAL ? DAY)) as approved_full_applications,
-        (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'declined' AND application_type = 'full_membership' AND reviewedAt >= DATE_SUB(NOW(), INTERVAL ? DAY)) as declined_full_applications,
-        (SELECT COUNT(*) FROM surveylog WHERE application_type = 'full_membership') as total_full_applications,
-        (SELECT COALESCE(AVG(DATEDIFF(reviewedAt, createdAt)), 0) FROM surveylog WHERE reviewedAt IS NOT NULL AND application_type = 'full_membership') as avg_full_processing_days
+        (SELECT COUNT(*) FROM surveylog WHERE new_status = 'pending' AND new_survey_type = 'full_membership') as pending_full_applications,
+        (SELECT COUNT(*) FROM surveylog WHERE new_status = 'approved' AND new_survey_type = 'full_membership' AND reviewedAt >= DATE_SUB(NOW(), INTERVAL ? DAY)) as approved_full_applications,
+        (SELECT COUNT(*) FROM surveylog WHERE new_status = 'declined' AND new_survey_type = 'full_membership' AND reviewedAt >= DATE_SUB(NOW(), INTERVAL ? DAY)) as declined_full_applications,
+        (SELECT COUNT(*) FROM surveylog WHERE new_survey_type = 'full_membership') as total_full_applications,
+        (SELECT COALESCE(AVG(DATEDIFF(reviewedAt, createdAt)), 0) FROM surveylog WHERE reviewedAt IS NOT NULL AND new_survey_type = 'full_membership') as avg_full_processing_days
     `, [days, days]);
 
     const result = {
@@ -783,8 +786,8 @@ export const getMembershipAnalytics = async (analyticsOptions) => {
       const [timeSeries] = await db.query(`
         SELECT 
           DATE(createdAt) as date,
-          COUNT(CASE WHEN application_type = 'initial_application' THEN 1 END) as registrations,
-          COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approvals
+          COUNT(CASE WHEN new_survey_type = 'initial_application' THEN 1 END) as registrations,
+          COUNT(CASE WHEN new_status = 'approved' THEN 1 END) as approvals
         FROM surveylog
         WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
         GROUP BY DATE(createdAt)
@@ -812,7 +815,7 @@ export const getMembershipOverview = async (includeRecentActivity = true) => {
         COUNT(CASE WHEN membership_stage = 'applicant' THEN 1 END) as applicants,
         COUNT(CASE WHEN membership_stage = 'pre_member' THEN 1 END) as pre_members,
         COUNT(CASE WHEN membership_stage = 'member' THEN 1 END) as full_members,
-        (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'pending') as pending_applications,
+        (SELECT COUNT(*) FROM surveylog WHERE new_status = 'pending') as pending_applications,
         COUNT(CASE WHEN u.createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 END) as new_users_24h,
         COUNT(CASE WHEN u.createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as new_users_7d
       FROM users u
@@ -890,7 +893,7 @@ export const searchUsers = async (searchCriteria) => {
     }
 
     if (applicationStatus) {
-      whereConditions.push('latest_app.approval_status = ?');
+      whereConditions.push('latest_app.new_status = ?');
       queryParams.push(applicationStatus);
     }
 
@@ -923,22 +926,26 @@ export const searchUsers = async (searchCriteria) => {
         u.email,
         u.phone,
         u.membership_stage,
-        u.is_member,
+        -- Derive is_member from membership_stage (no longer stored separately)
+        CASE 
+          WHEN u.membership_stage = 'member' THEN 1
+          ELSE 0
+        END as is_member,
         u.role,
         u.createdAt,
         u.lastLogin,
         u.converse_id,
         
         -- Latest application info
-        latest_app.approval_status as latest_application_status,
-        latest_app.application_type as latest_application_type,
+        latest_app.new_status as latest_application_status,
+        latest_app.new_survey_type as latest_application_type,
         latest_app.createdAt as latest_application_date,
         latest_app.reviewedAt as latest_review_date,
         reviewer.username as reviewed_by,
         
         -- Flags
         CASE WHEN u.lastLogin < DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END as is_inactive,
-        CASE WHEN latest_app.approval_status = 'pending' AND latest_app.createdAt < DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END as has_overdue_application
+        CASE WHEN latest_app.new_status = 'pending' AND latest_app.createdAt < DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END as has_overdue_application
         
       FROM users u
       LEFT JOIN (
@@ -967,7 +974,7 @@ export const searchUsers = async (searchCriteria) => {
       SELECT COUNT(DISTINCT u.id) as total
       FROM users u
       LEFT JOIN (
-        SELECT DISTINCT user_id, approval_status, application_type, createdAt
+        SELECT DISTINCT user_id, new_status, new_survey_type, createdAt
         FROM surveylog sl1
         WHERE sl1.createdAt = (
           SELECT MAX(sl2.createdAt) 
@@ -1068,7 +1075,7 @@ export const getAvailableMentors = async (includeWorkload = false) => {
       for (let mentor of formattedMentors) {
         const [workload] = await db.query(`
           SELECT 
-            COUNT(CASE WHEN sl.approval_status = 'pending' THEN 1 END) as pending_reviews,
+            COUNT(CASE WHEN sl.new_status = 'pending' THEN 1 END) as pending_reviews,
             COUNT(CASE WHEN sl.reviewedAt >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 END) as reviews_this_week
           FROM surveylog sl
           WHERE sl.reviewed_by = ?
@@ -1108,14 +1115,18 @@ export const exportMembershipData = async (exportOptions, exporter) => {
     
     if (exportType === 'applications') {
       query = includePersonalData ? 
-        `SELECT sl.id, sl.user_id, u.username, u.email, sl.application_type, sl.approval_status, sl.createdAt, sl.reviewedAt 
+        `SELECT sl.id, sl.user_id, u.username, u.email, sl.new_survey_type, sl.new_status, sl.createdAt, sl.reviewedAt 
          FROM surveylog sl JOIN users u ON sl.user_id = u.id` :
-        `SELECT sl.id, sl.user_id, u.username, sl.application_type, sl.approval_status, sl.createdAt, sl.reviewedAt 
+        `SELECT sl.id, sl.user_id, u.username, sl.new_survey_type, sl.new_status, sl.createdAt, sl.reviewedAt 
          FROM surveylog sl JOIN users u ON sl.user_id = u.id`;
     } else {
       query = includePersonalData ? 
-        `SELECT id, username, email, membership_stage, is_member, createdAt FROM users WHERE role = 'user' OR role IS NULL` :
-        `SELECT id, username, membership_stage, is_member, createdAt FROM users WHERE role = 'user' OR role IS NULL`;
+        `SELECT id, username, email, membership_stage, 
+         CASE WHEN membership_stage = 'member' THEN 1 ELSE 0 END as is_member, 
+         createdAt FROM users WHERE role = 'user' OR role IS NULL` :
+        `SELECT id, username, membership_stage, 
+         CASE WHEN membership_stage = 'member' THEN 1 ELSE 0 END as is_member, 
+         createdAt FROM users WHERE role = 'user' OR role IS NULL`;
     }
     
     // Add date filters if provided

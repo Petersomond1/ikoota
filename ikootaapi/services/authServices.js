@@ -132,9 +132,9 @@ export const registerUserService = async (userData) => {
         const insertResult = await db.query(`
             INSERT INTO users (
                 username, email, password_hash, phone, application_ticket, converse_id,
-                verification_method, is_verified, role, is_member, membership_stage,
-                full_membership_status, application_status, createdAt, updatedAt
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'user', 'applied', 'none', 'not_applied', 'not_submitted', NOW(), NOW())
+                verification_method, is_verified, role, membership_stage,
+                full_membership_appl_status, initial_initial_application_status, createdAt, updatedAt
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'user', 'none', 'not_applied', 'not_applied', NOW(), NOW())
         `, [username, email, passwordHash, phone || null, applicationTicket, converseId, verificationMethod]);
         
         const userId = insertResult.insertId;
@@ -200,9 +200,9 @@ export const loginUserService = async (email, password) => {
         // Get user from database with all necessary fields
         const users = await db.query(`
             SELECT 
-                id, username, email, password_hash, role, is_member, membership_stage,
+                id, username, email, password_hash, role, membership_stage,
                 is_verified, isbanned, application_ticket, converse_id, 
-                full_membership_status, application_status, phone, createdAt, updatedAt
+                full_membership_appl_status, initial_application_status, phone, createdAt, updatedAt
             FROM users 
             WHERE email = ?
         `, [email]);
@@ -248,11 +248,10 @@ export const loginUserService = async (email, password) => {
             email: user.email,
             username: user.username,
             role: user.role,
-            is_member: user.is_member,
             membership_stage: user.membership_stage,
             is_verified: user.is_verified,
-            full_membership_status: user.full_membership_status,
-            application_status: user.application_status,
+            full_membership_appl_status: user.full_membership_appl_status,
+            initial_initial_application_status: user.initial_initial_application_status,
             converse_id: user.converse_id,
             application_ticket: user.application_ticket
         };
@@ -273,11 +272,10 @@ export const loginUserService = async (email, password) => {
                 username: user.username,
                 email: user.email,
                 role: user.role,
-                is_member: user.is_member,
                 membership_stage: user.membership_stage,
                 is_verified: user.is_verified,
-                full_membership_status: user.full_membership_status,
-                application_status: user.application_status,
+                full_membership_appl_status: user.full_membership_appl_status,
+                initial_initial_application_status: user.initial_initial_application_status,
                 converse_id: user.converse_id,
                 application_ticket: user.application_ticket
             }
@@ -535,9 +533,9 @@ export const getUserByIdService = async (userId) => {
         
         const users = await db.query(`
             SELECT 
-                id, username, email, role, is_member, membership_stage,
+                id, username, email, role, membership_stage,
                 is_verified, isbanned, application_ticket, converse_id,
-                full_membership_status, application_status, phone, 
+                full_membership_appl_status, initial_application_status, phone, 
                 createdAt, updatedAt
             FROM users 
             WHERE id = ?
@@ -710,10 +708,10 @@ export const getAuthStatsService = async () => {
                 SUM(CASE WHEN membership_stage = 'applicant' THEN 1 ELSE 0 END) as stage_applicant,
                 SUM(CASE WHEN membership_stage = 'pre_member' THEN 1 ELSE 0 END) as stage_pre_member,
                 SUM(CASE WHEN membership_stage = 'member' THEN 1 ELSE 0 END) as stage_member,
-                SUM(CASE WHEN is_member = 'applied' THEN 1 ELSE 0 END) as status_applied,
-                SUM(CASE WHEN is_member = 'pending' THEN 1 ELSE 0 END) as status_pending,
-                SUM(CASE WHEN is_member = 'pre_member' THEN 1 ELSE 0 END) as status_pre_member,
-                SUM(CASE WHEN is_member = 'member' THEN 1 ELSE 0 END) as status_member
+                SUM(CASE WHEN initial_initial_application_status = 'submitted' THEN 1 ELSE 0 END) as status_applied,
+                SUM(CASE WHEN full_membership_appl_status = 'pending' OR initial_initial_application_status = 'pending' THEN 1 ELSE 0 END) as status_pending,
+                SUM(CASE WHEN membership_stage = 'pre_member' THEN 1 ELSE 0 END) as status_pre_member,
+                SUM(CASE WHEN membership_stage = 'member' THEN 1 ELSE 0 END) as status_member
             FROM users
         `);
         

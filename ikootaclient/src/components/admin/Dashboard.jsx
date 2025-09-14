@@ -70,8 +70,8 @@ const fetchPendingCount = async () => {
     const { data } = await api.get('/membership/admin/applications?status=pending');
     const responseData = data?.data || data;
     return {
-      pending_initial: responseData?.applications?.filter(app => app.application_type === 'initial_application')?.length || 0,
-      pending_full: responseData?.applications?.filter(app => app.application_type === 'full_membership')?.length || 0,
+      pending_initial: responseData?.applications?.filter(app => (app.survey_type || app.application_type) === 'initial_application')?.length || 0,
+      pending_full: responseData?.applications?.filter(app => (app.survey_type || app.application_type) === 'full_membership')?.length || 0,
       total_pending: responseData?.pagination?.total_items || 0
     };
   } catch (error) {

@@ -555,7 +555,7 @@ export const getPendingTasksController = async (req, res) => {
         type: 'application_review',
         priority: 'high',
         description: 'Review pending applications',
-        created_at: new Date().toISOString()
+        createdAt: new Date().toISOString()
       }
     ];
     
@@ -608,7 +608,7 @@ export const getSystemAlertsController = async (req, res) => {
         type: 'pending_applications',
         severity: 'warning',
         message: 'High number of pending applications',
-        created_at: new Date().toISOString()
+        createdAt: new Date().toISOString()
       }
     ];
     

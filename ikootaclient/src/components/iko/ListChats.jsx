@@ -42,7 +42,7 @@ const getUserIDDisplayAsync = async (item) => {
   
   // Method 4: API FALLBACK - Query users table by user_id to get converse_id
   const userId = item?.user_id || item?.created_by || item?.author_id;
-  if (userId && typeof userId === 'number') {
+  if (userId && (typeof userId === 'number' || typeof userId === 'string')) {
     console.log('Making API call to fetch converse_id for user_id:', userId);
     
     // Check cache first
@@ -215,7 +215,7 @@ const ListChats = ({ setActiveItem, activeChat, deactivateListComments }) => {
             // Handle other fields with fallbacks
             audience: item.audience === 'undefined' ? 'General' : (item.audience || 'General'),
             lessonNumber: item.lessonNumber || item.lesson_number || item.id,
-            approval_status: item.approval_status || 'pending',
+            approval_status: item.status || item.approval_status || 'pending',
             
             // Ensure subjectMatter doesn't start with 'undefined'
             subjectMatter: item.subjectMatter?.startsWith('undefined') ? 

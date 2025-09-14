@@ -105,7 +105,7 @@ export const validateAdminUpdate = [
   body('membership_stage')
     .optional()
     .isIn(['visitor', 'applicant', 'pre_member', 'member', 'admin', 'super_admin']),
-  body('is_member')
+  body(' ')
     .optional()
     .isIn(['visitor', 'applicant', 'pre_member', 'member', 'admin', 'super_admin']),
   body('role')

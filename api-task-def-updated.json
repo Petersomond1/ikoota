@@ -1,0 +1,125 @@
+{
+  "family": "ikoota-api",
+  "taskRoleArn": "arn:aws:iam::701333809618:role/ecsTaskRole",
+  "executionRoleArn": "arn:aws:iam::701333809618:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "512",
+  "memory": "1024",
+  "containerDefinitions": [
+    {
+      "name": "ikoota-api",
+      "image": "701333809618.dkr.ecr.us-east-1.amazonaws.com/ikoota-api:latest",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "hostPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "AWS_REGION",
+          "value": "us-east-1"
+        },
+        {
+          "name": "PORT",
+          "value": "3000"
+        },
+        {
+          "name": "DB_PORT",
+          "value": "3306"
+        },
+        {
+          "name": "JWT_SECRET",
+          "value": "ikoota-super-secret-jwt-key-production"
+        },
+        {
+          "name": "DB_USER",
+          "value": "Petersomond"
+        },
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "DB_NAME",
+          "value": "ikoota_db"
+        },
+        {
+          "name": "S3_BUCKET_NAME",
+          "value": "ikoota"
+        },
+        {
+          "name": "DB_HOST",
+          "value": "ikootadb.cvugpfnl4vcp.us-east-1.rds.amazonaws.com"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "value": "TESTfree12"
+        },
+        {
+          "name": "IDENTITY_ENCRYPTION_KEY",
+          "value": "0eaee3e7f18d0bd90dd63ef061051231130639a8c6763c626f042e935ed92651"
+        },
+        {
+          "name": "VAULT_ENCRYPTION_KEY",
+          "value": "9876543210fedcba098765432109876543210987654321abcdefghijklmnop012"
+        },
+        {
+          "name": "FRONTEND_URL",
+          "value": "https://staging.ikoota.com"
+        },
+        {
+          "name": "PUBLIC_CLIENT_URL",
+          "value": "https://staging.ikoota.com"
+        },
+        {
+          "name": "SUPPORT_EMAIL",
+          "value": "support@ikoota.com"
+        },
+        {
+          "name": "ADMIN_EMAIL",
+          "value": "admin@ikoota.com"
+        },
+        {
+          "name": "MAIL_SERVICE",
+          "value": "gmail"
+        },
+        {
+          "name": "MAIL_USER",
+          "value": "petersomond@gmail.com"
+        },
+        {
+          "name": "MAIL_PASS",
+          "value": "ngko aavp rkip kvoe"
+        },
+        {
+          "name": "MAIL_FROM_NAME",
+          "value": "Ikoota Platform"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ikoota-api",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:3000/api/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

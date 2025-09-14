@@ -912,7 +912,7 @@ export const getSystemStatisticsService = async () => {
                 SUM(CASE WHEN membership_stage = 'pre_member' THEN 1 ELSE 0 END) as stage_pre_member,
                 SUM(CASE WHEN membership_stage = 'member' THEN 1 ELSE 0 END) as stage_member,
                 (SELECT COUNT(*) FROM full_membership_applications WHERE status = 'pending') as pending_full_applications,
-                (SELECT COUNT(*) FROM surveylog WHERE approval_status = 'pending') as pending_surveys
+                (SELECT COUNT(*) FROM surveylog WHERE new_status = 'pending') as pending_surveys
             FROM users
         `);
 

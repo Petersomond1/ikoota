@@ -213,7 +213,7 @@ class MentorshipServices {
                 SET direct_slots_filled = direct_slots_filled + 1,
                     last_assignment_date = CURRENT_DATE,
                     monthly_assignments = monthly_assignments + 1,
-                    updated_at = NOW()
+                    updatedAt = NOW()
                 WHERE mentor_converse_id = ?
             `, [mentorConverseId]);
 
@@ -225,7 +225,7 @@ class MentorshipServices {
                         COALESCE(direct_members, JSON_ARRAY()), 
                         '$', ?
                     ),
-                    updated_at = NOW()
+                    updatedAt = NOW()
                 WHERE family_identifier = ?
             `, [menteeConverseId, mentor.family_identifier]);
 
@@ -380,7 +380,7 @@ class MentorshipServices {
             // Deactivate old relationship
             await connection.query(`
                 UPDATE mentorship_hierarchy
-                SET is_active = 0, updated_at = NOW()
+                SET is_active = 0, updatedAt = NOW()
                 WHERE mentee_converse_id = ? AND is_active = 1
             `, [menteeConverseId]);
 
@@ -405,7 +405,7 @@ class MentorshipServices {
             await connection.query(`
                 UPDATE mentor_capacity_tracking
                 SET direct_slots_filled = direct_slots_filled - 1,
-                    updated_at = NOW()
+                    updatedAt = NOW()
                 WHERE mentor_converse_id = ?
             `, [oldMentorConverseId]);
 
@@ -415,7 +415,7 @@ class MentorshipServices {
                 SET direct_slots_filled = direct_slots_filled + 1,
                     last_assignment_date = CURRENT_DATE,
                     monthly_assignments = monthly_assignments + 1,
-                    updated_at = NOW()
+                    updatedAt = NOW()
                 WHERE mentor_converse_id = ?
             `, [newMentorConverseId]);
 
@@ -427,7 +427,7 @@ class MentorshipServices {
                         direct_members, 
                         REPLACE(JSON_SEARCH(direct_members, 'one', ?), '"', '')
                     ),
-                    updated_at = NOW()
+                    updatedAt = NOW()
                 WHERE family_identifier = ?
             `, [menteeConverseId, oldRelationship.family_group_id]);
 
@@ -439,7 +439,7 @@ class MentorshipServices {
                         COALESCE(direct_members, JSON_ARRAY()), 
                         '$', ?
                     ),
-                    updated_at = NOW()
+                    updatedAt = NOW()
                 WHERE family_identifier = ?
             `, [menteeConverseId, newMentor.family_identifier]);
 
@@ -562,7 +562,7 @@ class MentorshipServices {
             // Deactivate relationship
             await connection.query(`
                 UPDATE mentorship_hierarchy
-                SET is_active = 0, updated_at = NOW()
+                SET is_active = 0, updatedAt = NOW()
                 WHERE mentee_converse_id = ? AND is_active = 1
             `, [menteeConverseId]);
 
@@ -570,7 +570,7 @@ class MentorshipServices {
             await connection.query(`
                 UPDATE mentor_capacity_tracking
                 SET direct_slots_filled = direct_slots_filled - 1,
-                    updated_at = NOW()
+                    updatedAt = NOW()
                 WHERE mentor_converse_id = ?
             `, [mentorConverseId]);
 
@@ -582,7 +582,7 @@ class MentorshipServices {
                         direct_members, 
                         REPLACE(JSON_SEARCH(direct_members, 'one', ?), '"', '')
                     ),
-                    updated_at = NOW()
+                    updatedAt = NOW()
                 WHERE family_identifier = ?
             `, [menteeConverseId, relationship.family_group_id]);
 

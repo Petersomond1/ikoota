@@ -690,8 +690,8 @@ const AuthControls = () => {
                 borderRadius: '8px',
                 padding: '15px',
                 marginBottom: '15px',
-                backgroundColor: survey.approval_status === 'approved' ? '#f0f8f0' : 
-                               survey.approval_status === 'declined' ? '#fff0f0' : '#fff'
+                backgroundColor: (survey.status || survey.approval_status) === 'approved' ? '#f0f8f0' : 
+                               (survey.status || survey.approval_status) === 'declined' ? '#fff0f0' : '#fff'
               }}>
                 {/* ✅ Survey header with user info */}
                 <div className="survey-header" style={{ 
@@ -725,14 +725,14 @@ const AuthControls = () => {
                       borderRadius: '15px',
                       fontSize: '0.8em',
                       fontWeight: 'bold',
-                      backgroundColor: survey.approval_status === 'approved' ? '#d4edda' : 
-                                     survey.approval_status === 'declined' ? '#f8d7da' : 
-                                     survey.approval_status === 'granted' ? '#d4edda' : '#fff3cd',
-                      color: survey.approval_status === 'approved' ? '#155724' : 
-                             survey.approval_status === 'declined' ? '#721c24' : 
-                             survey.approval_status === 'granted' ? '#155724' : '#856404'
+                      backgroundColor: (survey.status || survey.approval_status) === 'approved' ? '#d4edda' : 
+                                     (survey.status || survey.approval_status) === 'declined' ? '#f8d7da' : 
+                                     (survey.status || survey.approval_status) === 'granted' ? '#d4edda' : '#fff3cd',
+                      color: (survey.status || survey.approval_status) === 'approved' ? '#155724' : 
+                             (survey.status || survey.approval_status) === 'declined' ? '#721c24' : 
+                             (survey.status || survey.approval_status) === 'granted' ? '#155724' : '#856404'
                     }}>
-                      {survey.approval_status?.toUpperCase() || 'PENDING'}
+                      {(survey.status || survey.approval_status)?.toUpperCase() || 'PENDING'}
                     </span>
                   </div>
                 </div>
@@ -746,7 +746,7 @@ const AuthControls = () => {
                 }}>
                   <div><strong>User ID:</strong> {survey.user_id}</div>
                   <div><strong>Email:</strong> {survey.user_email || 'N/A'}</div>
-                  <div><strong>Application Type:</strong> {survey.application_type || 'initial_application'}</div>
+                  <div><strong>Application Type:</strong> {survey.survey_type || survey.application_type || 'initial_application'}</div>
                   <div><strong>Membership Stage:</strong> {survey.membership_stage || 'N/A'}</div>
                 </div>
 
@@ -764,14 +764,14 @@ const AuthControls = () => {
                 </div>
 
                 {/* Admin Notes */}
-                {survey.admin_notes && (
+                {(survey.admin_notes || survey.notes) && (
                   <div style={{ 
                     backgroundColor: '#e8f4fd', 
                     padding: '10px', 
                     borderRadius: '5px',
                     marginBottom: '15px'
                   }}>
-                    <strong>Admin Notes:</strong> {survey.admin_notes}
+                    <strong>Admin Notes:</strong> {survey.admin_notes || survey.notes}
                   </div>
                 )}
 
@@ -786,39 +786,39 @@ const AuthControls = () => {
                 }}>
                   <button
                     onClick={() => handleApproveOrDecline(survey.id, survey.user_id, 'approved')}
-                    disabled={updatingApproval || survey.approval_status === 'approved' || survey.approval_status === 'granted'}
+                    disabled={updatingApproval || (survey.status || survey.approval_status) === 'approved' || (survey.status || survey.approval_status) === 'granted'}
                     style={{
                       padding: '8px 16px',
-                      backgroundColor: (survey.approval_status === 'approved' || survey.approval_status === 'granted') ? '#95a5a6' : '#28a745',
+                      backgroundColor: ((survey.status || survey.approval_status) === 'approved' || (survey.status || survey.approval_status) === 'granted') ? '#95a5a6' : '#28a745',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
-                      cursor: (survey.approval_status === 'approved' || survey.approval_status === 'granted') ? 'not-allowed' : 'pointer'
+                      cursor: ((survey.status || survey.approval_status) === 'approved' || (survey.status || survey.approval_status) === 'granted') ? 'not-allowed' : 'pointer'
                     }}
                   >
-                    {(survey.approval_status === 'approved' || survey.approval_status === 'granted') ? '✅ Already Approved' : 
+                    {((survey.status || survey.approval_status) === 'approved' || (survey.status || survey.approval_status) === 'granted') ? '✅ Already Approved' : 
                      updatingApproval ? 'Processing...' : '✅ Approve'}
                   </button>
                   
                   <button
                     onClick={() => handleApproveOrDecline(survey.id, survey.user_id, 'declined')}
-                    disabled={updatingApproval || survey.approval_status === 'declined'}
+                    disabled={updatingApproval || (survey.status || survey.approval_status) === 'declined'}
                     style={{
                       padding: '8px 16px',
-                      backgroundColor: survey.approval_status === 'declined' ? '#95a5a6' : '#dc3545',
+                      backgroundColor: (survey.status || survey.approval_status) === 'declined' ? '#95a5a6' : '#dc3545',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
-                      cursor: survey.approval_status === 'declined' ? 'not-allowed' : 'pointer'
+                      cursor: (survey.status || survey.approval_status) === 'declined' ? 'not-allowed' : 'pointer'
                     }}
                   >
-                    {survey.approval_status === 'declined' ? '❌ Already Declined' : 
+                    {(survey.status || survey.approval_status) === 'declined' ? '❌ Already Declined' : 
                      updatingApproval ? 'Processing...' : '❌ Decline'}
                   </button>
                   
                   {survey.user_email && (
                     <button
-                      onClick={() => handleSendFeedback(survey.user_email, survey.approval_status)}
+                      onClick={() => handleSendFeedback(survey.user_email, survey.status || survey.approval_status)}
                       style={{
                         padding: '8px 16px',
                         backgroundColor: '#007bff',

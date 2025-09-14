@@ -152,9 +152,10 @@ const ProtectedRoute = ({
           expectedStatuses: allowedForPreMember,
           userObject: {
             role: user.role,
-            is_member: user.is_member,
             membership_stage: user.membership_stage,
-            approval_status: user.approval_status
+            initial_application_status: user.initial_application_status || user.application_status,
+            full_membership_appl_status: user.full_membership_appl_status || user.full_membership_status,
+            approval_status: user.status || user.approval_status
           }
         });
         return <Navigate to="/towncrier" replace />;

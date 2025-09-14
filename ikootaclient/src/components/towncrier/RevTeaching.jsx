@@ -190,14 +190,15 @@ const RevTeaching = ({ teaching, allTeachings = [], onSelectNext }) => {
               <p><strong>Topic:</strong> {teaching.topic || 'No topic provided'}</p>
             <p><strong>Description:</strong> {teaching.description || 'No description available'}</p>
             <p><strong>Subject Matter:</strong> {teaching.subjectMatter || 'Not specified'}</p>
-          <p><strong>By converse_id:</strong> {teaching.converse_id || 'Unknown'}</p>
+          {/* <p><strong>By converse_id:</strong> {teaching.converse_id || teaching._original?.raw_data?.converse_id || 'Unknown'}</p> */}
            </div>
            <div>
              <p><strong>Lesson #:</strong> {teaching.lessonNumber || getContentIdentifier(teaching)}</p>
             <p><strong>Audience:</strong> {teaching.audience || 'General'}</p>
-            <p><strong>By:</strong> {teaching.author || teaching.user_id || 'Admin'}</p>
-            <p><strong>Created:</strong> {formatDate(teaching.createdAt)}</p>
-            <p><strong>Updated:</strong> {formatDate(teaching.updatedAt)}</p>
+            {/* <p><strong>By:</strong> {teaching.author || teaching.user_id || 'Admin'}</p> */}
+            <p><strong>By:</strong> {teaching.converse_id || teaching._original?.raw_data?.converse_id || 'Unknown'}</p>
+           <p><strong>Created:</strong> {formatDate(teaching.createdAt || teaching.created_at)}</p>
+            <p><strong>Updated:</strong> {formatDate(teaching.updatedAt || teaching.updated_at)}</p>
           </div>
           </div>
 

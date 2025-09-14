@@ -854,7 +854,7 @@ export const reviewIdentityRevelationRequest = async (req, res) => {
                 await db.query(`
                     INSERT INTO temporary_identity_access (
                         access_token, request_id, mentor_converse_id, 
-                        mentee_data, expires_at
+                        mentee_data,expiresAt
                     ) VALUES (?, ?, ?, ?, ?)
                 `, [
                     accessToken, requestId, revelationRequest.mentor_converse_id,

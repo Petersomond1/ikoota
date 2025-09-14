@@ -80,8 +80,8 @@ class IdentityAdminServices {
 
             // 1. Get user's current data
             const userRows = await connection.query(
-                'SELECT id, username, email, phone, avatar FROM users WHERE id = ? AND is_member = "applied"',
-                [userId]
+                'SELECT id, username, email, phone, avatar FROM users WHERE id = ? AND membership_stage = ?',
+                [userId, 'applicant']
             );
 
             if (!userRows.length) {
@@ -121,7 +121,7 @@ class IdentityAdminServices {
                     mentor_id = ?,
                     primary_class_id = ?,
                     converse_avatar = ?,
-                    is_member = 'granted',
+                    membership_stage = 'member',
                     membership_stage = 'member',
                     is_identity_masked = 1,
                     username = ?,
@@ -623,7 +623,7 @@ class IdentityAdminServices {
             const unassignedRows = await db.query(`
                 SELECT COUNT(*) as count
                 FROM users u
-                WHERE u.is_identity_masked = 1 AND u.is_member = 'granted'
+                WHERE u.is_identity_masked = 1 AND u.membership_stage = 'member'
                 AND (u.mentor_id IS NULL OR u.mentor_id = '')
             `);
             
@@ -695,7 +695,7 @@ class IdentityAdminServices {
                        COUNT(CASE WHEN u.is_identity_masked = 1 THEN 1 END) as masked_members,
                        COUNT(DISTINCT u.mentor_id) as unique_mentors
                 FROM classes c
-                LEFT JOIN users u ON c.class_id = u.class_id AND u.is_member = 'granted'
+                LEFT JOIN users u ON c.class_id = u.class_id AND u.membership_stage = 'member'
                 WHERE c.is_active = 1
                 GROUP BY c.class_id, c.class_name, c.public_name
                 ORDER BY total_members DESC
@@ -712,7 +712,7 @@ class IdentityAdminServices {
                 
                 SELECT COUNT(*) as count, 'unassigned_members' as action_type
                 FROM users
-                WHERE is_identity_masked = 1 AND is_member = 'granted'
+                WHERE is_identity_masked = 1 AND membership_stage = 'member'
                 AND (mentor_id IS NULL OR mentor_id = '')
             `);
             
@@ -744,7 +744,7 @@ class IdentityAdminServices {
                 LEFT JOIN mentors m ON u.converse_id = m.mentor_converse_id 
                                     AND m.mentee_converse_id IS NOT NULL 
                                     AND m.is_active = 1
-                WHERE u.is_identity_masked = 1 AND u.is_member = 'granted'
+                WHERE u.is_identity_masked = 1 AND u.membership_stage = 'member'
                 GROUP BY u.id, u.converse_id, u.class_id
                 HAVING current_mentees < 5
                 ORDER BY current_mentees ASC, u.createdAt ASC
@@ -754,7 +754,7 @@ class IdentityAdminServices {
             const unassignedRows = await db.query(`
                 SELECT u.id, u.converse_id, u.class_id
                 FROM users u
-                WHERE u.is_identity_masked = 1 AND u.is_member = 'granted'
+                WHERE u.is_identity_masked = 1 AND u.membership_stage = 'member'
                 AND (u.mentor_id IS NULL OR u.mentor_id = '')
                 ORDER BY u.createdAt ASC
             `);

@@ -45,10 +45,9 @@ export const getUserDashboard = async (req, res) => {
         u.id,
         u.username,
         u.email,
-        u.is_member,
         u.membership_stage,
         u.role,
-        u.application_status,
+        u.initial_application_status,
         u.applicationSubmittedAt,
         u.application_ticket as user_ticket,
         u.createdAt,
@@ -63,13 +62,25 @@ export const getUserDashboard = async (req, res) => {
         s.admin_notes,
         reviewer.username as reviewed_by_name
       FROM users u
-      LEFT JOIN surveylog s ON u.id = s.user_id 
-        AND s.application_type = 'initial_application'
-        AND s.id = (
-          SELECT MAX(id) FROM surveylog 
-          WHERE user_id = u.id 
-          AND application_type = 'initial_application'
-        )
+      LEFT JOIN (
+        SELECT 
+          sl.new_survey_id,
+          sl.new_status as approval_status,
+          sl.createdAt,
+          sl.reviewedAt,
+          sl.reviewed_by,
+          ima.user_id,
+          ima.admin_notes,
+          ima.application_ticket
+        FROM surveylog sl
+        JOIN initial_membership_applications ima ON sl.response_table_id = ima.id
+        WHERE sl.new_survey_type = 'initial_application'
+          AND sl.new_survey_id = (
+            SELECT MAX(sl2.new_survey_id) FROM surveylog sl2
+            JOIN initial_membership_applications ima2 ON sl2.response_table_id = ima2.id
+            WHERE ima2.user_id = u.id AND sl2.new_survey_type = 'initial_application'
+          )
+      ) s ON u.id = s.user_id
       LEFT JOIN users reviewer ON s.reviewed_by = reviewer.id
       WHERE u.id = ?
     `, [userId]);
@@ -92,10 +103,10 @@ export const getUserDashboard = async (req, res) => {
     }
     
     // Normalize member status for admin users
-    let memberStatus = user.is_member;
+    let memberStatus = user.membership_stage;
     if (!memberStatus && ['admin', 'super_admin'].includes(userRole)) {
       memberStatus = 'active';
-      await db.query('UPDATE users SET is_member = ? WHERE id = ?', ['active', userId]);
+      // User status managed via membership_stage
     }
     
     // Enhanced application status logic
@@ -104,16 +115,16 @@ export const getUserDashboard = async (req, res) => {
     let applicationDescription = 'Complete your membership application to join our community.';
     
     // Determine actual status based on data
-    if (user.is_member === 'pre_member' || user.membership_stage === 'pre_member') {
+    if (user.membership_stage === 'pre_member') {
       applicationStatus = 'approved_pre_member';
       statusDisplay = 'Pre-Member';
       applicationDescription = 'Approved - You have access to Towncrier content!';
-    } else if (user.is_member === 'member' && user.membership_stage === 'member') {
+    } else if (user.membership_stage === 'member') {
       applicationStatus = 'approved_member';
       statusDisplay = 'Full Member';
       applicationDescription = 'Approved - You have full member access!';
     } else if (user.survey_submittedAt || user.applicationSubmittedAt) {
-      const actualStatus = user.survey_approval_status || user.application_status;
+      const actualStatus = user.survey_approval_status || user.initial_application_status;
       
       switch (actualStatus) {
         case 'approved':
@@ -138,7 +149,7 @@ export const getUserDashboard = async (req, res) => {
           applicationDescription = 'Your application is submitted and awaiting review.';
           break;
       }
-    } else if (user.is_member === 'applied' && user.membership_stage === 'none') {
+    } else if (user.membership_stage === 'applicant') {
       applicationStatus = 'ready_to_apply';
       statusDisplay = 'Ready to Apply';
       applicationDescription = 'Complete your membership application to join our community.';
@@ -294,12 +305,22 @@ export const checkApplicationStatus = async (req, res) => {
     // Get user data
     const user = await getUserById(numericUserId);
     
-    // Check survey completion
+    // Check survey completion using new schema
     const surveyResult = await db.query(`
-      SELECT * FROM surveylog 
-      WHERE user_id = ? 
-      AND application_type = 'initial_application'
-      ORDER BY createdAt DESC 
+      SELECT 
+        sl.new_survey_id as id,
+        sl.new_status as approval_status,
+        sl.createdAt,
+        sl.reviewedAt,
+        ima.answers,
+        ima.admin_notes,
+        ima.application_ticket,
+        ima.user_id
+      FROM surveylog sl
+      JOIN initial_membership_applications ima ON sl.response_table_id = ima.id
+      WHERE ima.user_id = ? 
+      AND sl.new_survey_type = 'initial_application'
+      ORDER BY sl.createdAt DESC 
       LIMIT 1
     `, [numericUserId]);
     
@@ -320,7 +341,7 @@ export const checkApplicationStatus = async (req, res) => {
         email: user.email,
         converse_id: user.converse_id,
         role: user.role,
-        is_member: user.is_member,
+        is_member: user.membership_stage === 'member',
         membership_stage: user.membership_stage,
         is_identity_masked: user.is_identity_masked
       },
@@ -355,9 +376,8 @@ export const getCurrentMembershipStatus = async (req, res) => {
         u.id,
         u.username,
         u.email,
-        u.is_member,
         u.membership_stage,
-        u.application_status,
+        u.initial_application_status,
         u.applicationSubmittedAt,
         u.applicationReviewedAt,
         u.converse_id,
@@ -367,12 +387,21 @@ export const getCurrentMembershipStatus = async (req, res) => {
         s.approval_status,
         s.reviewedAt as survey_reviewedAt
       FROM users u
-      LEFT JOIN surveylog s ON u.id = s.user_id 
-        AND s.application_type = 'initial_application'
-        AND s.id = (
-          SELECT MAX(id) FROM surveylog 
-          WHERE user_id = u.id AND application_type = 'initial_application'
-        )
+      LEFT JOIN (
+        SELECT 
+          sl.new_survey_id,
+          sl.new_status as approval_status,
+          sl.reviewedAt,
+          ima.user_id
+        FROM surveylog sl
+        JOIN initial_membership_applications ima ON sl.response_table_id = ima.id
+        WHERE sl.new_survey_type = 'initial_application'
+          AND sl.new_survey_id = (
+            SELECT MAX(sl2.new_survey_id) FROM surveylog sl2
+            JOIN initial_membership_applications ima2 ON sl2.response_table_id = ima2.id
+            WHERE ima2.user_id = u.id AND sl2.new_survey_type = 'initial_application'
+          )
+      ) s ON u.id = s.user_id
       WHERE u.id = ?
     `, [userId]);
     
@@ -387,18 +416,18 @@ export const getCurrentMembershipStatus = async (req, res) => {
     
     // Determine if user needs to complete survey
     const needsSurvey = (
-      user.is_member === 'applied' && 
+      user.membership_stage === 'applicant' && 
       user.membership_stage === 'none' && 
-      user.application_status === 'not_submitted'
+      user.initial_application_status === 'not_applied'
     );
     
-    const surveyCompleted = user.application_status !== 'not_submitted';
+    const surveyCompleted = user.initial_application_status !== 'not_applied';
     
     res.json({
       success: true,
-      user_status: user.is_member,
+      user_status: user.membership_stage,
       membership_stage: user.membership_stage,
-      application_status: user.application_status,
+      initial_application_status: user.initial_application_status,
       needs_survey: needsSurvey,
       survey_completed: surveyCompleted,
       approval_status: user.approval_status,
@@ -470,23 +499,34 @@ export const submitInitialApplication = async (req, res) => {
     
     console.log('📋 Processing', answers.length, 'answers for user:', username);
     
-    // Insert application into database
-    const result = await db.query(`
-      INSERT INTO surveylog (
+    // Insert application into new schema
+    // First insert into initial_membership_applications
+    const [appResult] = await db.query(`
+      INSERT INTO initial_membership_applications (
         user_id, 
         answers, 
-        application_type, 
-        approval_status, 
         application_ticket,
-        createdAt
-      ) VALUES (?, ?, 'initial_application', 'pending', ?, NOW())
+        status,
+        submittedAt
+      ) VALUES (?, ?, ?, 'pending', NOW())
     `, [userId, JSON.stringify(answers), applicationTicket]);
+
+    // Then insert into surveylog for tracking
+    const result = await db.query(`
+      INSERT INTO surveylog (
+        new_survey_id, 
+        new_survey_type, 
+        new_status, 
+        response_table_id,
+        createdAt
+      ) VALUES (?, 'initial_application', 'pending', ?, NOW())
+    `, [appResult.insertId, appResult.insertId]);
     
     // Update user's application status
     await db.query(`
       UPDATE users 
       SET 
-        application_status = 'submitted',
+        initial_application_status = 'submitted',
         applicationSubmittedAt = NOW(),
         application_ticket = ?,
         updatedAt = NOW()
@@ -547,12 +587,15 @@ export const updateApplicationAnswers = async (req, res) => {
       throw new CustomError('Valid answers array is required', 400);
     }
     
-    // Check if application exists and is still pending
+    // Check if application exists and is still pending using new schema
     const applications = await executeQuery(`
-      SELECT id, approval_status 
-      FROM surveylog 
-      WHERE CAST(user_id AS UNSIGNED) = ? AND application_type = ?
-      ORDER BY createdAt DESC LIMIT 1
+      SELECT 
+        sl.new_survey_id as id, 
+        sl.new_status as approval_status 
+      FROM surveylog sl
+      JOIN initial_membership_applications ima ON sl.response_table_id = ima.id
+      WHERE ima.user_id = ? AND sl.new_survey_type = ?
+      ORDER BY sl.createdAt DESC LIMIT 1
     `, [userId, applicationType]);
     
     if (!applications.length) {
@@ -565,12 +608,24 @@ export const updateApplicationAnswers = async (req, res) => {
       throw new CustomError('Cannot update application that has already been reviewed', 400);
     }
     
-    // Update application answers
-    await executeQuery(`
-      UPDATE surveylog 
-      SET answers = ?, updatedAt = NOW()
-      WHERE id = ?
-    `, [JSON.stringify(answers), application.id]);
+    // Update application answers in the appropriate response table
+    if (applicationType === 'initial_application') {
+      await executeQuery(`
+        UPDATE initial_membership_applications 
+        SET answers = ?, updatedAt = NOW()
+        WHERE id = (
+          SELECT response_table_id FROM surveylog WHERE new_survey_id = ?
+        )
+      `, [JSON.stringify(answers), application.id]);
+    } else if (applicationType === 'full_membership') {
+      await executeQuery(`
+        UPDATE full_membership_applications 
+        SET answers = ?, updatedAt = NOW()
+        WHERE id = (
+          SELECT response_table_id FROM surveylog WHERE new_survey_id = ?
+        )
+      `, [JSON.stringify(answers), application.id]);
+    }
     
     return successResponse(res, {
       applicationId: application.id,
@@ -592,12 +647,15 @@ export const withdrawApplication = async (req, res) => {
     const { applicationType = 'initial_application', reason } = req.body;
     const userId = req.user.id || req.user.user_id;
         
-    // Check if application exists and is pending
+    // Check if application exists and is pending using new schema
     const applications = await executeQuery(`
-      SELECT id, approval_status 
-      FROM surveylog 
-      WHERE CAST(user_id AS UNSIGNED) = ? AND application_type = ?
-      ORDER BY createdAt DESC LIMIT 1
+      SELECT 
+        sl.new_survey_id as id, 
+        sl.new_status as approval_status 
+      FROM surveylog sl
+      JOIN initial_membership_applications ima ON sl.response_table_id = ima.id
+      WHERE ima.user_id = ? AND sl.new_survey_type = ?
+      ORDER BY sl.createdAt DESC LIMIT 1
     `, [userId, applicationType]);
         
     if (!applications.length) {
@@ -615,18 +673,29 @@ export const withdrawApplication = async (req, res) => {
     await connection.beginTransaction();
     
     try {
-      // Update application status to withdrawn
+      // Update application status to withdrawn in both tables
       await connection.query(`
         UPDATE surveylog 
-        SET approval_status = 'withdrawn', admin_notes = ?, reviewedAt = NOW()
-        WHERE id = ?
-      `, [reason || 'Withdrawn by user', application.id]);
+        SET new_status = 'withdrawn', reviewedAt = NOW()
+        WHERE new_survey_id = ?
+      `, [application.id]);
+      
+      // Update the response table with admin notes
+      if (applicationType === 'initial_application') {
+        await connection.query(`
+          UPDATE initial_membership_applications 
+          SET admin_notes = ?, updatedAt = NOW()
+          WHERE id = (
+            SELECT response_table_id FROM surveylog WHERE new_survey_id = ?
+          )
+        `, [reason || 'Withdrawn by user', application.id]);
+      }
             
       // If withdrawing initial application, reset user status
       if (applicationType === 'initial_application') {
         await connection.query(`
           UPDATE users 
-          SET membership_stage = 'none', is_member = 'pending', application_status = 'withdrawn'
+          SET membership_stage = 'none', initial_application_status = 'withdrawn'
           WHERE id = ?
         `, [userId]);
       }
@@ -663,21 +732,36 @@ export const getApplicationHistory = async (req, res) => {
   try {
     const userId = req.user.id || req.user.user_id;
     
-    // Get application history
+    // Get application history using new schema
     const [history] = await db.query(`
       SELECT 
-        sl.application_type,
-        sl.approval_status,
+        sl.new_survey_type as survey_type,
+        sl.new_status as approval_status,
         sl.createdAt as submittedAt,
         sl.reviewedAt,
-        sl.admin_notes,
+        CASE 
+          WHEN sl.new_survey_type = 'initial_application' THEN ima.admin_notes
+          WHEN sl.new_survey_type = 'full_membership' THEN fma.admin_notes
+          ELSE sr.admin_notes
+        END as admin_notes,
         reviewer.username as reviewed_by,
-        sl.application_ticket as ticket
+        CASE 
+          WHEN sl.new_survey_type = 'initial_application' THEN ima.application_ticket
+          WHEN sl.new_survey_type = 'full_membership' THEN fma.membership_ticket
+          ELSE NULL
+        END as ticket
       FROM surveylog sl
+      LEFT JOIN initial_membership_applications ima ON sl.response_table_id = ima.id AND sl.new_survey_type = 'initial_application'
+      LEFT JOIN full_membership_applications fma ON sl.response_table_id = fma.id AND sl.new_survey_type = 'full_membership'
+      LEFT JOIN survey_responses sr ON sl.response_table_id = sr.id AND sl.new_survey_type = 'survey'
       LEFT JOIN users reviewer ON sl.reviewed_by = reviewer.id
-      WHERE CAST(sl.user_id AS UNSIGNED) = ?
+      WHERE (
+        (sl.new_survey_type = 'initial_application' AND ima.user_id = ?)
+        OR (sl.new_survey_type = 'full_membership' AND fma.user_id = ?)
+        OR (sl.new_survey_type = 'survey' AND sr.user_id = ?)
+      )
       ORDER BY sl.createdAt DESC
-    `, [userId]);
+    `, [userId, userId, userId]);
 
     // Get review history if available
     const [reviews] = await db.query(`
@@ -718,7 +802,7 @@ export const getUserPermissions = async (req, res) => {
     const permissions = {
       canAccessTowncrier: ['pre_member', 'member'].includes(user.membership_stage) || ['admin', 'super_admin'].includes(user.role),
       canAccessIko: user.membership_stage === 'member' || ['admin', 'super_admin'].includes(user.role),
-      canSubmitInitialApplication: !user.membership_stage || user.membership_stage === 'none' || (user.membership_stage === 'applicant' && user.is_member === 'rejected'),
+      canSubmitInitialApplication: !user.membership_stage || user.membership_stage === 'none' || user.membership_stage === 'applicant',
       canSubmitFullMembershipApplication: user.membership_stage === 'pre_member',
       canAccessAdmin: ['admin', 'super_admin'].includes(user.role),
       canManageUsers: user.role === 'super_admin',
@@ -731,7 +815,7 @@ export const getUserPermissions = async (req, res) => {
         username: user.username,
         email: user.email,
         membership_stage: user.membership_stage,
-        is_member: user.is_member,
+        is_member: user.membership_stage === 'member',
         role: user.role
       },
       permissions
@@ -835,13 +919,18 @@ export const updateInitialApplication = async (req, res) => {
     
     console.log('📋 Updating application with', answers.length, 'answers for user:', userId);
     
-    // Check if user has an existing initial application that can be updated
+    // Check if user has an existing initial application that can be updated using new schema
     const existingApplicationResult = await db.query(`
-      SELECT id, approval_status, application_ticket, user_id
-      FROM surveylog 
-      WHERE user_id = ? 
-      AND application_type = 'initial_application'
-      ORDER BY createdAt DESC 
+      SELECT 
+        sl.new_survey_id as id, 
+        sl.new_status as approval_status, 
+        ima.application_ticket, 
+        ima.user_id
+      FROM surveylog sl
+      JOIN initial_membership_applications ima ON sl.response_table_id = ima.id
+      WHERE ima.user_id = ? 
+      AND sl.new_survey_type = 'initial_application'
+      ORDER BY sl.createdAt DESC 
       LIMIT 1
     `, [userId]);
     
@@ -882,14 +971,15 @@ export const updateInitialApplication = async (req, res) => {
     await connection.beginTransaction();
     
     try {
-      // Update the existing application in surveylog
+      // Update the existing application in initial_membership_applications
       const updateResult = await connection.query(`
-        UPDATE surveylog 
+        UPDATE initial_membership_applications ima
+        JOIN surveylog sl ON ima.id = sl.response_table_id
         SET 
-          answers = ?,
-          application_ticket = ?,
-          updatedAt = NOW()
-        WHERE id = ? AND user_id = ?
+          ima.answers = ?,
+          ima.application_ticket = ?,
+          ima.updatedAt = NOW()
+        WHERE sl.new_survey_id = ? AND ima.user_id = ?
       `, [JSON.stringify(answers), finalApplicationTicket, existingApplication.id, userId]);
       
       if (updateResult.affectedRows === 0) {
@@ -911,15 +1001,21 @@ export const updateInitialApplication = async (req, res) => {
       
       console.log('✅ Application updated successfully');
       
-      // Get updated application data for response
+      // Get updated application data for response using new schema
       const updatedApplicationResult = await db.query(`
         SELECT 
-          sl.*,
+          sl.new_survey_id as id,
+          sl.new_survey_type,
+          sl.new_status,
+          sl.createdAt,
+          sl.updatedAt,
+          ima.*,
           u.username,
           u.email
         FROM surveylog sl
-        JOIN users u ON sl.user_id = u.id
-        WHERE sl.id = ?
+        JOIN initial_membership_applications ima ON sl.response_table_id = ima.id
+        JOIN users u ON ima.user_id = u.id
+        WHERE sl.new_survey_id = ?
       `, [existingApplication.id]);
       
       let updatedApplication = null;
@@ -1094,17 +1190,26 @@ export const verifyApplicationStatusConsistency = async (req, res) => {
       SELECT 
         u.id,
         u.username,
-        u.application_status as user_app_status,
+        u.initial_application_status as user_app_status,
         u.applicationSubmittedAt,
         s.approval_status as survey_status,
         s.reviewed_by,
         s.reviewedAt,
         s.createdAt as survey_created
       FROM users u
-      LEFT JOIN surveylog s ON u.id = s.user_id 
-        AND s.application_type = 'initial_application'
+      LEFT JOIN (
+        SELECT 
+          sl.new_status as approval_status,
+          sl.reviewed_by,
+          sl.reviewedAt,
+          sl.createdAt,
+          ima.user_id
+        FROM surveylog sl
+        JOIN initial_membership_applications ima ON sl.response_table_id = ima.id
+        WHERE sl.new_survey_type = 'initial_application'
+      ) s ON u.id = s.user_id
       WHERE u.id = ?
-      ORDER BY s.id DESC
+      ORDER BY s.createdAt DESC
     `, [userId]);
     
     res.json({

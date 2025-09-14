@@ -29,7 +29,8 @@ const fetchContentReports = async (filters = {}) => {
 const resolveReport = async ({ reportId, resolution, adminNotes, actionTaken }) => {
   const { data } = await api.put(`/users/admin/reports/${reportId}/resolve`, {
     resolution,
-    admin_notes: adminNotes,
+    notes: adminNotes, // Updated field name
+    admin_notes: adminNotes, // Keep both for compatibility
     action_taken: actionTaken
   });
   return data;
@@ -304,10 +305,10 @@ const Reports = () => {
                       <span>{new Date(report.createdAt).toLocaleString()}</span>
                     </div>
                     
-                    {report.admin_notes && (
+                    {(report.admin_notes || report.notes) && (
                       <div className="detail-item admin-notes">
                         <strong>Admin Notes:</strong>
-                        <p>{report.admin_notes}</p>
+                        <p>{report.admin_notes || report.notes}</p>
                       </div>
                     )}
                     

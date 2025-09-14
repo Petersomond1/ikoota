@@ -27,7 +27,6 @@ const Towncrier = () => {
       canAccessIko: canAccessIko(),
       canApplyForMembership: canApplyForMembership(),
       userMembershipStage: user?.membership_stage,
-      userIsMember: user?.is_member,
       userRole: user?.role,
       userStatus: user?.status,
       userFinalStatus: user?.finalStatus
@@ -47,8 +46,8 @@ const Towncrier = () => {
         content_type: 'teaching',
         content_title: teaching.topic || teaching.title || 'Untitled Teaching',
         prefixed_id: teaching.prefixed_id || `t${teaching.id}`,
-        display_date: teaching.updatedAt || teaching.createdAt || new Date().toISOString(),
-        author: teaching.author || teaching.user_id || teaching.created_by || 'Admin'
+        display_date: teaching.updatedAt || teaching.updated_at || teaching.createdAt || teaching.created_at || new Date().toISOString(),
+        author: teaching.converse_id || teaching._original?.raw_data?.converse_id || 'Unknown'
       }));
       
       enhanced.sort((a, b) => {
@@ -88,8 +87,8 @@ const Towncrier = () => {
         content_type: 'teaching',
         content_title: teaching.topic || teaching.title || 'Untitled Teaching',
         prefixed_id: teaching.prefixed_id || `t${teaching.id}`,
-        display_date: teaching.updatedAt || teaching.createdAt || new Date().toISOString(),
-        author: teaching.author || teaching.user_id || teaching.created_by || 'Admin'
+        display_date: teaching.updatedAt || teaching.updated_at || teaching.createdAt || teaching.created_at || new Date().toISOString(),
+        author: teaching.converse_id || teaching._original?.raw_data?.converse_id || 'Unknown'
       };
       
       setSelectedTeaching(enhancedTeaching);
@@ -118,7 +117,7 @@ const Towncrier = () => {
       canAccessIko: canAccessIko(),
       user: {
         membership_stage: user?.membership_stage,
-        is_member: user?.is_member
+        membership_stage_alt: user?.membership_stage
       }
     });
 
@@ -178,7 +177,6 @@ const Towncrier = () => {
       canApplyForMembership: canApplyForMembership(),
       user: {
         membership_stage: user?.membership_stage,
-        is_member: user?.is_member,
         membershipApplicationStatus: user?.membershipApplicationStatus
       }
     });
@@ -236,7 +234,7 @@ const Towncrier = () => {
       isPending: isPending(),
       userRole: user?.role,
       userMembershipStage: user?.membership_stage,
-      userIsMemberField: user?.is_member,
+      userMembershipStageField: user?.membership_stage,
       userStatusField: user?.status,
       userFinalStatus: user?.finalStatus
     };
@@ -350,14 +348,14 @@ const Towncrier = () => {
           }}>The Towncrier </span>
           <div style={{ display: 'flex', flexDirection: 'column', fontSize: '12px', fontFamily: 'Arial, sans-serif', color: 'black', marginLeft: '20px', lineHeight: '1.2' }}>
           <span>-A Clarion Call-out to Real Men;</span>
-          <span>-{user?.username || user?.email || 'User'}! Join us for it's time to Rebuild & Re-institute the world's Altar & Temples of the Land of the Gods, </span>
+          <span>-Saint! Join us for it's time to Rebuild & Re-institute the world's Altar & Temples of the Land of the Gods, </span>
           <span>-Together, we'll again reconnect to the Spirits of the Gods & restart the almost lost, awaited civilization for eternity.</span>
           </div>
           
           {isAuthenticated && (
             <div className="user-status">
               <span className="user-info">
-                👤 {user?.username || user?.email || 'User'} 
+                👤 Saint 
                 <span className={`status-badge ${userStatus.status}`} style={{color: userStatus.color}}>
                   {userStatus.label}
                 </span>

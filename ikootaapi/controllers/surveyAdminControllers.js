@@ -45,11 +45,19 @@ export const getSurveyQuestions = async (req, res) => {
     const [usageStats] = await db.query(`
       SELECT 
         sq.id as question_id,
-        COUNT(DISTINCT sl.id) as usage_count,
-        COUNT(CASE WHEN sl.approval_status = 'approved' THEN 1 END) as approved_responses,
+        COUNT(DISTINCT sl.new_survey_id) as usage_count,
+        COUNT(CASE WHEN sl.new_status = 'approved' THEN 1 END) as approved_responses,
         MAX(sl.createdAt) as last_used
       FROM survey_questions sq
-      LEFT JOIN surveylog sl ON JSON_CONTAINS(sl.answers, CONCAT('"', sq.question, '"'))
+      LEFT JOIN surveylog sl ON (
+        sl.response_table_id IN (
+          SELECT id FROM initial_membership_applications WHERE JSON_CONTAINS(answers, CONCAT('"', sq.question, '"'))
+          UNION
+          SELECT id FROM full_membership_applications WHERE JSON_CONTAINS(answers, CONCAT('"', sq.question, '"'))
+          UNION
+          SELECT id FROM survey_responses WHERE JSON_CONTAINS(answers, CONCAT('"', sq.question, '"'))
+        )
+      )
       GROUP BY sq.id
     `);
 
@@ -167,7 +175,7 @@ export const createSurveyQuestion = async (req, res) => {
         is_active: true
       },
       created_by: req.user.username,
-      created_at: new Date().toISOString()
+      createdAt: new Date().toISOString()
     });
 
   } catch (error) {
@@ -304,9 +312,14 @@ export const deleteSurveyQuestion = async (req, res) => {
     // Check if question is in use
     const [usageCheck] = await db.query(`
       SELECT COUNT(*) as usage_count 
-      FROM surveylog 
-      WHERE JSON_CONTAINS(answers, CONCAT('"', ?, '"'))
-    `, [question.question]);
+      FROM (
+        SELECT id FROM initial_membership_applications WHERE JSON_CONTAINS(answers, CONCAT('"', ?, '"'))
+        UNION
+        SELECT id FROM full_membership_applications WHERE JSON_CONTAINS(answers, CONCAT('"', ?, '"'))
+        UNION
+        SELECT id FROM survey_responses WHERE JSON_CONTAINS(answers, CONCAT('"', ?, '"'))
+      ) as combined_responses
+    `, [question.question, question.question, question.question]);
 
     const inUse = usageCheck[0].usage_count > 0;
 
@@ -501,7 +514,7 @@ export const createSurveyQuestionLabel = async (req, res) => {
         label_text: label_text
       },
       created_by: req.user.username,
-      created_at: new Date().toISOString()
+      createdAt: new Date().toISOString()
     });
 
   } catch (error) {
@@ -532,7 +545,7 @@ export const getPendingSurveys = async (req, res) => {
 
     const filters = { approval_status: 'pending' };
     if (application_type !== 'all') {
-      filters.application_type = application_type;
+      filters.new_survey_type = application_type;
     }
 
     const pagination = { page: parseInt(page), limit: parseInt(limit) };
@@ -542,9 +555,9 @@ export const getPendingSurveys = async (req, res) => {
     console.log('🔍 fetchAllSurveyLogs result:', { count: result.count, dataLength: result.data?.length });
 
     // Enhance with survey-specific metadata
-    const enhancedSurveys = result.data.map(survey => ({
+    const enhancedSurveys = (result.data || []).map(survey => ({
       ...survey,
-      submission_quality: assessSubmissionQuality(survey.answers),
+      submission_quality: assessSubmissionQuality(survey.answers || survey.questions_answers || '{}'),
       review_priority: calculateSurveyReviewPriority(survey),
       days_pending: Math.floor((Date.now() - new Date(survey.createdAt)) / (1000 * 60 * 60 * 24))
     }));
@@ -597,8 +610,8 @@ export const getSurveyLogs = async (req, res) => {
 
     // Build filters
     const filters = {};
-    if (status !== 'all') filters.approval_status = status;
-    if (type !== 'all') filters.application_type = type;
+    if (status !== 'all') filters.new_status = status;
+    if (type !== 'all') filters.new_survey_type = type;
     if (search) filters.search = search;
     if (startDate) filters.startDate = startDate;
     if (endDate) filters.endDate = endDate;
@@ -626,9 +639,9 @@ export const getSurveyLogs = async (req, res) => {
       const queryResult = await db.query(`
         SELECT 
           COUNT(*) as total_logs,
-          COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_count,
-          COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_count,
-          COUNT(CASE WHEN approval_status = 'declined' THEN 1 END) as declined_count,
+          COUNT(CASE WHEN new_status = 'pending' THEN 1 END) as pending_count,
+          COUNT(CASE WHEN new_status = 'approved' THEN 1 END) as approved_count,
+          COUNT(CASE WHEN new_status = 'declined' THEN 1 END) as declined_count,
           AVG(CASE WHEN reviewedAt IS NOT NULL THEN DATEDIFF(reviewedAt, createdAt) END) as avg_review_days,
           COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 END) as submissions_24h
         FROM surveylog
@@ -707,12 +720,34 @@ export const approveSurvey = async (req, res) => {
 
     for (const id of idsToApprove) {
       try {
-        // Get survey details
+        // Get survey details with JOINs to response tables
         const [surveyData] = await db.query(`
-          SELECT sl.*, u.username, u.email 
+          SELECT 
+            sl.new_survey_id,
+            sl.new_survey_type,
+            sl.new_status,
+            sl.response_table_id,
+            sl.createdAt,
+            sl.reviewedAt,
+            CASE 
+              WHEN sl.new_survey_type = 'initial_application' THEN ima.user_id
+              WHEN sl.new_survey_type = 'full_membership' THEN fma.user_id
+              ELSE sr.user_id
+            END as user_id,
+            u.username, 
+            u.email
           FROM surveylog sl
-          JOIN users u ON CAST(sl.user_id AS UNSIGNED) = u.id
-          WHERE sl.id = ? AND sl.approval_status = 'pending'
+          LEFT JOIN initial_membership_applications ima ON sl.response_table_id = ima.id AND sl.new_survey_type = 'initial_application'
+          LEFT JOIN full_membership_applications fma ON sl.response_table_id = fma.id AND sl.new_survey_type = 'full_membership'
+          LEFT JOIN survey_responses sr ON sl.response_table_id = sr.id AND sl.new_survey_type = 'survey'
+          LEFT JOIN users u ON (
+            CASE 
+              WHEN sl.new_survey_type = 'initial_application' THEN ima.user_id
+              WHEN sl.new_survey_type = 'full_membership' THEN fma.user_id
+              ELSE sr.user_id
+            END = u.id
+          )
+          WHERE sl.new_survey_id = ? AND sl.new_status = 'pending'
         `, [id]);
 
         if (!surveyData.length) {
@@ -824,12 +859,34 @@ export const rejectSurvey = async (req, res) => {
 
     for (const id of idsToReject) {
       try {
-        // Get survey details
+        // Get survey details with JOINs to response tables
         const [surveyData] = await db.query(`
-          SELECT sl.*, u.username, u.email 
+          SELECT 
+            sl.new_survey_id,
+            sl.new_survey_type,
+            sl.new_status,
+            sl.response_table_id,
+            sl.createdAt,
+            sl.reviewedAt,
+            CASE 
+              WHEN sl.new_survey_type = 'initial_application' THEN ima.user_id
+              WHEN sl.new_survey_type = 'full_membership' THEN fma.user_id
+              ELSE sr.user_id
+            END as user_id,
+            u.username, 
+            u.email
           FROM surveylog sl
-          JOIN users u ON CAST(sl.user_id AS UNSIGNED) = u.id
-          WHERE sl.id = ? AND sl.approval_status = 'pending'
+          LEFT JOIN initial_membership_applications ima ON sl.response_table_id = ima.id AND sl.new_survey_type = 'initial_application'
+          LEFT JOIN full_membership_applications fma ON sl.response_table_id = fma.id AND sl.new_survey_type = 'full_membership'
+          LEFT JOIN survey_responses sr ON sl.response_table_id = sr.id AND sl.new_survey_type = 'survey'
+          LEFT JOIN users u ON (
+            CASE 
+              WHEN sl.new_survey_type = 'initial_application' THEN ima.user_id
+              WHEN sl.new_survey_type = 'full_membership' THEN fma.user_id
+              ELSE sr.user_id
+            END = u.id
+          )
+          WHERE sl.new_survey_id = ? AND sl.new_status = 'pending'
         `, [id]);
 
         if (!surveyData.length) {
@@ -980,17 +1037,17 @@ export const getSurveyStats = async (req, res) => {
     const [stats] = await db.query(`
       SELECT 
         COUNT(*) as total_surveys,
-        COUNT(CASE WHEN approval_status = 'pending' THEN 1 END) as pending_surveys,
-        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approved_surveys,
-        COUNT(CASE WHEN approval_status = 'declined' THEN 1 END) as declined_surveys,
+        COUNT(CASE WHEN new_status = 'pending' THEN 1 END) as pending_surveys,
+        COUNT(CASE WHEN new_status = 'approved' THEN 1 END) as approved_surveys,
+        COUNT(CASE WHEN new_status = 'declined' THEN 1 END) as declined_surveys,
         
-        -- Application type breakdown
-        COUNT(CASE WHEN application_type = 'initial_application' THEN 1 END) as initial_applications,
-        COUNT(CASE WHEN application_type = 'full_membership' THEN 1 END) as full_membership_applications,
+        -- Survey type breakdown
+        COUNT(CASE WHEN new_survey_type = 'initial_application' THEN 1 END) as initial_applications,
+        COUNT(CASE WHEN new_survey_type = 'full_membership' THEN 1 END) as full_membership_applications,
         
         -- Quality metrics
         AVG(CASE WHEN reviewedAt IS NOT NULL THEN DATEDIFF(reviewedAt, createdAt) END) as avg_review_days,
-        COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) / COUNT(*) * 100 as approval_rate,
+        COUNT(CASE WHEN new_status = 'approved' THEN 1 END) / COUNT(*) * 100 as approval_rate,
         
         -- Time-based metrics
         COUNT(CASE WHEN createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 END) as submissions_24h,
@@ -1000,21 +1057,48 @@ export const getSurveyStats = async (req, res) => {
       WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
     `, [days]);
 
-    // Get response quality distribution
+    // Get response quality distribution from response tables
     const [qualityStats] = await db.query(`
       SELECT 
-        CASE 
-          WHEN JSON_LENGTH(answers) >= 10 THEN 'high'
-          WHEN JSON_LENGTH(answers) >= 5 THEN 'medium'
-          ELSE 'low'
-        END as quality_level,
+        quality_level,
         COUNT(*) as count,
-        AVG(CASE WHEN approval_status = 'approved' THEN 1 ELSE 0 END) * 100 as approval_rate
-      FROM surveylog
-      WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
-        AND answers IS NOT NULL
+        AVG(CASE WHEN new_status = 'approved' THEN 1 ELSE 0 END) * 100 as approval_rate
+      FROM (
+        SELECT 
+          CASE 
+            WHEN JSON_LENGTH(ima.answers) >= 10 THEN 'high'
+            WHEN JSON_LENGTH(ima.answers) >= 5 THEN 'medium'
+            ELSE 'low'
+          END as quality_level,
+          sl.new_status
+        FROM surveylog sl
+        JOIN initial_membership_applications ima ON sl.response_table_id = ima.id AND sl.new_survey_type = 'initial_application'
+        WHERE sl.createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        UNION ALL
+        SELECT 
+          CASE 
+            WHEN JSON_LENGTH(fma.answers) >= 10 THEN 'high'
+            WHEN JSON_LENGTH(fma.answers) >= 5 THEN 'medium'
+            ELSE 'low'
+          END as quality_level,
+          sl.new_status
+        FROM surveylog sl
+        JOIN full_membership_applications fma ON sl.response_table_id = fma.id AND sl.new_survey_type = 'full_membership'
+        WHERE sl.createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        UNION ALL
+        SELECT 
+          CASE 
+            WHEN JSON_LENGTH(sr.questions_answers) >= 10 THEN 'high'
+            WHEN JSON_LENGTH(sr.questions_answers) >= 5 THEN 'medium'
+            ELSE 'low'
+          END as quality_level,
+          sl.new_status
+        FROM surveylog sl
+        JOIN survey_responses sr ON sl.response_table_id = sr.id AND sl.new_survey_type = 'general_survey'
+        WHERE sl.createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
+      ) as combined_quality
       GROUP BY quality_level
-    `, [days]);
+    `, [days, days, days]);
 
     // Get detailed breakdown if requested
     let detailedBreakdown = null;
@@ -1022,15 +1106,15 @@ export const getSurveyStats = async (req, res) => {
       const [breakdown] = await db.query(`
         SELECT 
           DATE(createdAt) as date,
-          application_type,
+          new_survey_type as survey_type,
           COUNT(*) as submissions,
-          COUNT(CASE WHEN approval_status = 'approved' THEN 1 END) as approvals,
-          COUNT(CASE WHEN approval_status = 'declined' THEN 1 END) as rejections,
+          COUNT(CASE WHEN new_status = 'approved' THEN 1 END) as approvals,
+          COUNT(CASE WHEN new_status = 'declined' THEN 1 END) as rejections,
           AVG(CASE WHEN reviewedAt IS NOT NULL THEN DATEDIFF(reviewedAt, createdAt) END) as avg_processing_days
         FROM surveylog
         WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
-        GROUP BY DATE(createdAt), application_type
-        ORDER BY date DESC, application_type
+        GROUP BY DATE(createdAt), new_survey_type
+        ORDER BY date DESC, new_survey_type
       `, [days]);
       
       detailedBreakdown = breakdown;
@@ -1423,7 +1507,7 @@ const assessSubmissionQuality = (answers) => {
  */
 const calculateSurveyReviewPriority = (survey) => {
   const daysPending = Math.floor((Date.now() - new Date(survey.createdAt)) / (1000 * 60 * 60 * 24));
-  const quality = assessSubmissionQuality(survey.answers);
+  const quality = assessSubmissionQuality(survey.answers || survey.questions_answers || '{}');
   
   if (daysPending > 14 || (daysPending > 7 && quality === 'high')) return 'high';
   if (daysPending > 7 || (daysPending > 3 && quality === 'high')) return 'medium';

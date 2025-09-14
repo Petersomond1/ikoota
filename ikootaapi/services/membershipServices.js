@@ -19,23 +19,49 @@ export const getUserMembershipStatus = async (userId) => {
   try {
     const result = await db.query(`
       SELECT 
-        u.id, u.username, u.email, u.membership_stage, u.is_member,
-        u.application_status, u.full_membership_status,
+        u.id, u.username, u.email, u.membership_stage,
+        -- New optimized status fields (with compatibility fallback)
+        COALESCE(u.initial_application_status, 
+          CASE 
+            WHEN u.initial_application_status = 'not_applied' THEN 'not_applied'
+            WHEN u.initial_application_status = 'submitted' THEN 'submitted'
+            WHEN u.initial_application_status = 'under_review' THEN 'under_review'
+            WHEN u.initial_application_status = 'approved' THEN 'approved'
+            WHEN u.initial_application_status = 'declined' THEN 'declined'
+            ELSE 'not_applied'
+          END
+        ) as initial_application_status,
+        COALESCE(u.full_membership_appl_status,
+          CASE 
+            WHEN u.full_membership_appl_status = 'not_applied' THEN 'not_applied'
+            WHEN u.full_membership_appl_status = 'applied' THEN 'submitted'
+            WHEN u.full_membership_appl_status = 'pending' THEN 'under_review'
+            WHEN u.full_membership_appl_status = 'suspended' THEN 'suspended'
+            WHEN u.full_membership_appl_status = 'approved' THEN 'approved'
+            WHEN u.full_membership_appl_status = 'declined' THEN 'declined'
+            ELSE 'not_applied'
+          END
+        ) as full_membership_appl_status,
+        -- Derive is_member from membership_stage (no longer stored separately)
+        CASE 
+          WHEN u.membership_stage = 'member' THEN 1
+          ELSE 0
+        END as is_member,
         u.converse_id, u.application_ticket, u.full_membership_ticket,
         u.applicationSubmittedAt, u.applicationReviewedAt,
         u.fullMembershipAppliedAt, u.fullMembershipReviewedAt,
         u.mentor_id, u.primary_class_id, u.total_classes,
-        sl.approval_status as survey_status,
-        sl.application_type as survey_type,
+        sl.new_status as survey_status,
+        sl.new_survey_type as survey_type,
         fma.status as full_application_status,
         fma.submittedAt as full_application_submitted,
         fma.reviewedAt as full_application_reviewed
       FROM users u
       LEFT JOIN surveylog sl ON u.id = sl.user_id 
-        AND sl.application_type = 'initial_application'
+        AND sl.new_survey_type = 'initial_application'
         AND sl.id = (
           SELECT MAX(id) FROM surveylog sl2 
-          WHERE sl2.user_id = u.id AND sl2.application_type = 'initial_application'
+          WHERE sl2.user_id = u.id AND sl2.new_survey_type = 'initial_application'
         )
       LEFT JOIN full_membership_applications fma ON u.id = fma.user_id
       WHERE u.id = ? AND u.role = 'user'
@@ -57,9 +83,9 @@ export const getUserMembershipStatus = async (userId) => {
       
       // Current Status
       membership_stage: user.membership_stage || 'none',
-      is_member: user.is_member || 'applied',
-      application_status: user.application_status || 'not_submitted',
-      full_membership_status: user.full_membership_status || 'not_applied',
+      is_member: user.membership_stage === 'member',
+      initial_application_status: user.initial_application_status || 'not_applied',
+      full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
       
       // Identifiers
       converse_id: user.converse_id,
@@ -171,8 +197,19 @@ export const submitInitialApplication = async (userId, answers, applicationTicke
 
     // Validate user can apply
     const userCheck = await connection.query(`
-      SELECT id, username, email, membership_stage, application_status 
-      FROM users WHERE id = ?
+      SELECT id, username, email, membership_stage,
+      -- New optimized status fields (with compatibility fallback)
+      COALESCE(u.initial_application_status, 
+        CASE 
+          WHEN u.application_status = 'not_submitted' THEN 'not_applied'
+          WHEN u.application_status = 'submitted' THEN 'submitted'
+          WHEN u.application_status = 'under_review' THEN 'under_review'
+          WHEN u.application_status = 'approved' THEN 'approved'
+          WHEN u.application_status = 'declined' THEN 'declined'
+          ELSE 'not_applied'
+        END
+      ) as initial_application_status
+      FROM users u WHERE u.id = ?
     `, [userId]);
 
     if (!userCheck.length) {
@@ -189,8 +226,8 @@ export const submitInitialApplication = async (userId, answers, applicationTicke
     // Check for existing pending application
     const existingApp = await connection.query(`
       SELECT id FROM surveylog 
-      WHERE user_id = ? AND application_type = 'initial_application' 
-      AND approval_status = 'pending'
+      WHERE user_id = ? AND new_survey_type = 'initial_application' 
+      AND new_status = 'pending'
     `, [userId]);
 
     if (existingApp.length) {
@@ -203,8 +240,8 @@ export const submitInitialApplication = async (userId, answers, applicationTicke
     // Insert survey log entry
     const surveyResult = await connection.query(`
       INSERT INTO surveylog (
-        user_id, answers, application_type, application_ticket,
-        approval_status, createdAt, processedAt
+        user_id, answers, new_survey_type, application_ticket,
+        new_status, createdAt, processedAt
       ) VALUES (?, ?, 'initial_application', ?, 'pending', NOW(), NOW())
     `, [userId, JSON.stringify(answers), finalTicket]);
 
@@ -212,7 +249,7 @@ export const submitInitialApplication = async (userId, answers, applicationTicke
     await connection.query(`
       UPDATE users SET 
         membership_stage = 'applicant',
-        application_status = 'submitted',
+        initial_application_status = 'submitted',
         application_ticket = ?,
         applicationSubmittedAt = NOW(),
         updatedAt = NOW()
@@ -272,8 +309,20 @@ export const submitFullMembershipApplication = async (userId, answers, membershi
 
     // Validate user eligibility
     const userCheck = await connection.query(`
-      SELECT id, username, email, membership_stage, full_membership_status 
-      FROM users WHERE id = ?
+      SELECT id, username, email, membership_stage,
+      -- New optimized status fields (with compatibility fallback)
+      COALESCE(u.full_membership_appl_status,
+        CASE 
+          WHEN u.full_membership_appl_status = 'not_applied' THEN 'not_applied'
+          WHEN u.full_membership_appl_status = 'applied' THEN 'submitted'
+          WHEN u.full_membership_appl_status = 'pending' THEN 'under_review'
+          WHEN u.full_membership_appl_status = 'suspended' THEN 'suspended'
+          WHEN u.full_membership_appl_status = 'approved' THEN 'approved'
+          WHEN u.full_membership_appl_status = 'declined' THEN 'declined'
+          ELSE 'not_applied'
+        END
+      ) as full_membership_appl_status
+      FROM users u WHERE u.id = ?
     `, [userId]);
 
     if (!userCheck.length) {
@@ -288,11 +337,11 @@ export const submitFullMembershipApplication = async (userId, answers, membershi
     }
 
     // Check if can apply
-    if (user.full_membership_status === 'pending') {
+    if (user.full_membership_appl_status === 'under_review') {
       throw new Error('User already has a pending full membership application');
     }
 
-    if (user.full_membership_status === 'approved') {
+    if (user.full_membership_appl_status === 'approved') {
       throw new Error('User already has approved full membership');
     }
 
@@ -308,7 +357,7 @@ export const submitFullMembershipApplication = async (userId, answers, membershi
       // Update existing application
       await connection.query(`
         UPDATE full_membership_applications SET
-          answers = ?, membership_ticket = ?, status = 'pending',
+          answers = ?, membership_ticket = ?, status = 'under_review',
           submittedAt = NOW(), updatedAt = NOW()
         WHERE user_id = ?
       `, [JSON.stringify(answers), finalTicket, userId]);
@@ -317,14 +366,14 @@ export const submitFullMembershipApplication = async (userId, answers, membershi
       await connection.query(`
         INSERT INTO full_membership_applications (
           user_id, membership_ticket, answers, status, submittedAt, createdAt
-        ) VALUES (?, ?, ?, 'pending', NOW(), NOW())
+        ) VALUES (?, ?, ?, 'under_review', NOW(), NOW())
       `, [userId, finalTicket, JSON.stringify(answers)]);
     }
 
     // Update user status
     await connection.query(`
       UPDATE users SET 
-        full_membership_status = 'pending',
+        full_membership_appl_status = 'under_review',
         full_membership_ticket = ?,
         fullMembershipAppliedAt = NOW(),
         updatedAt = NOW()
@@ -338,7 +387,7 @@ export const submitFullMembershipApplication = async (userId, answers, membershi
     return {
       success: true,
       membership_ticket: finalTicket,
-      status: 'pending',
+      status: 'under_review',
       message: 'Full membership application submitted successfully'
     };
 
@@ -365,7 +414,11 @@ export const getMembershipAnalytics = async (userId) => {
     const userStats = await db.query(`
       SELECT 
         u.membership_stage,
-        u.is_member,
+        -- Derive is_member from membership_stage (no longer stored separately)
+        CASE 
+          WHEN u.membership_stage = 'member' THEN 1
+          ELSE 0
+        END as is_member,
         u.total_classes,
         u.createdAt as account_created,
         u.applicationSubmittedAt,
@@ -399,7 +452,7 @@ export const getMembershipAnalytics = async (userId) => {
     return {
       user_stats: {
         membership_stage: stats.membership_stage,
-        is_member: stats.is_member,
+        is_member: stats.membership_stage === 'member',
         total_classes: stats.total_classes || 0,
         total_activities: stats.total_activities || 0,
         content_accesses: stats.content_accesses || 0,
@@ -432,7 +485,13 @@ export const getMembershipProfile = async (userId) => {
     const result = await db.query(`
       SELECT 
         u.id, u.username, u.email, u.phone, u.avatar,
-        u.membership_stage, u.is_member, u.converse_id,
+        u.membership_stage, 
+        -- Derive is_member from membership_stage (no longer stored separately)
+        CASE 
+          WHEN u.membership_stage = 'member' THEN 1
+          ELSE 0
+        END as is_member,
+        u.converse_id,
         u.mentor_id, u.primary_class_id, u.total_classes,
         u.createdAt, u.lastLogin,
         m.username as mentor_name,
@@ -460,7 +519,7 @@ export const getMembershipProfile = async (userId) => {
       },
       membership_info: {
         stage: user.membership_stage,
-        status: user.is_member,
+        status: user.membership_stage === 'member',
         total_classes: user.total_classes || 0,
         memberSince: user.createdAt,
         lastLogin: user.lastLogin
@@ -723,7 +782,13 @@ export const getMembershipStats = async (userId) => {
   try {
     const userStats = await db.query(`
       SELECT 
-        u.membership_stage, u.is_member, u.total_classes,
+        u.membership_stage, 
+        -- Derive is_member from membership_stage (no longer stored separately)
+        CASE 
+          WHEN u.membership_stage = 'member' THEN 1
+          ELSE 0
+        END as is_member,
+        u.total_classes,
         u.createdAt, u.applicationSubmittedAt, u.fullMembershipAppliedAt,
         COUNT(DISTINCT al.id) as total_activities,
         COUNT(DISTINCT cca.id) as content_accesses,
@@ -747,7 +812,7 @@ export const getMembershipStats = async (userId) => {
     return {
       membership: {
         stage: stats.membership_stage,
-        status: stats.is_member,
+        status: stats.membership_stage === 'member',
         progress_percentage: membershipProgress
       },
       activity: {
@@ -921,7 +986,7 @@ const calculateStatusProgression = (user) => {
  */
 const canApplyForFullMembership = (user) => {
   return user.membership_stage === 'pre_member' && 
-         ['not_applied', 'declined'].includes(user.full_membership_status || 'not_applied');
+         ['not_applied', 'declined'].includes(user.full_membership_appl_status || 'not_applied');
 };
 
 /**
@@ -992,7 +1057,7 @@ const calculateAccountCompleteness = (status) => {
   
   // Application submitted
   total += 30;
-  if (status.application_status !== 'not_submitted') completeness += 30;
+  if (status.initial_application_status !== 'not_applied') completeness += 30;
   
   // Has converse ID
   total += 20;
@@ -1004,7 +1069,7 @@ const calculateAccountCompleteness = (status) => {
   
   // Full membership if applicable
   total += 15;
-  if (status.membership_stage === 'member' || status.full_membership_status === 'approved') {
+  if (status.membership_stage === 'member' || status.full_membership_appl_status === 'approved') {
     completeness += 15;
   } else if (status.membership_stage === 'pre_member') {
     completeness += 7; // Partial credit
@@ -1327,8 +1392,8 @@ export const withdrawApplication = async (userId, reason, applicationType) => {
       // Find pending initial application
       const [pendingApp] = await connection.query(`
         SELECT id FROM surveylog 
-        WHERE user_id = ? AND application_type = 'initial_application' 
-        AND approval_status = 'pending'
+        WHERE user_id = ? AND new_survey_type = 'initial_application' 
+        AND new_status IN ('pending', 'under_review')
         ORDER BY createdAt DESC LIMIT 1
       `, [userId]);
       
@@ -1341,7 +1406,7 @@ export const withdrawApplication = async (userId, reason, applicationType) => {
       // Update application status
       await connection.query(`
         UPDATE surveylog 
-        SET approval_status = 'withdrawn',
+        SET new_status = 'withdrawn',
             admin_notes = CONCAT(COALESCE(admin_notes, ''), '\n[WITHDRAWN BY USER] ', ?),
             reviewedAt = NOW()
         WHERE id = ?
@@ -1350,7 +1415,7 @@ export const withdrawApplication = async (userId, reason, applicationType) => {
       // Update user status
       await connection.query(`
         UPDATE users 
-        SET application_status = 'withdrawn', updatedAt = NOW()
+        SET initial_application_status = 'withdrawn', updatedAt = NOW()
         WHERE id = ?
       `, [userId]);
       
@@ -1360,7 +1425,7 @@ export const withdrawApplication = async (userId, reason, applicationType) => {
       // Find pending full membership application
       const [pendingFullApp] = await connection.query(`
         SELECT id FROM full_membership_applications 
-        WHERE user_id = ? AND status = 'pending'
+        WHERE user_id = ? AND status = 'under_review'
         ORDER BY submittedAt DESC LIMIT 1
       `, [userId]);
       
@@ -1382,7 +1447,7 @@ export const withdrawApplication = async (userId, reason, applicationType) => {
       // Update user status
       await connection.query(`
         UPDATE users 
-        SET full_membership_status = 'withdrawn', updatedAt = NOW()
+        SET full_membership_appl_status = 'withdrawn', updatedAt = NOW()
         WHERE id = ?
       `, [userId]);
       

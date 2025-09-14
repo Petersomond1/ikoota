@@ -287,11 +287,11 @@ class userAdminServices {
       const users = await query(`
         SELECT 
           u.id, u.username, u.email, u.phone, u.role, 
-          u.membership_stage, u.is_member, u.full_membership_status,
+          u.membership_stage, u.full_membership_appl_status,
           u.converse_id, u.mentor_id, u.primary_class_id,
           u.createdAt, u.updatedAt, u.lastLogin,
           u.isblocked, u.isbanned, u.ban_reason, u.is_identity_masked,
-          u.is_verified, u.application_status, u.total_classes, u.canPost, u.canMentor,
+          u.is_verified, u.initial_application_status, u.total_classes, u.canPost, u.canMentor,
           m.username as mentor_name,
           c.class_name as primary_class_name,
           (SELECT COUNT(*) FROM initial_membership_applications WHERE user_id = u.id) as initial_applications,
@@ -462,7 +462,7 @@ class userAdminServices {
       // Build dynamic update query
       const allowedFields = [
         'username', 'email', 'phone', 'role', 'membership_stage', 
-        'is_member', 'full_membership_status', 'mentor_id', 
+        'full_membership_appl_status', 'mentor_id', 
         'primary_class_id', 'isbanned', 'ban_reason', 'is_identity_masked', 
         'total_classes', 'canPost', 'canMentor'
       ];
@@ -825,15 +825,15 @@ class userAdminServices {
         if (applicationType === 'initial_application') {
           await query(`
             UPDATE users 
-            SET membership_stage = 'pre_member', is_member = 'pre_member', 
-                application_status = 'approved', applicationReviewedAt = NOW()
+            SET membership_stage = 'pre_member', 
+                initial_application_status = 'approved', applicationReviewedAt = NOW()
             WHERE id = ?
           `, [user_id]);
         } else if (applicationType === 'full_membership') {
           await query(`
             UPDATE users 
-            SET membership_stage = 'member', is_member = 'member', 
-                full_membership_status = 'approved', fullMembershipReviewedAt = NOW()
+            SET membership_stage = 'member', 
+                full_membership_appl_status = 'approved', fullMembershipReviewedAt = NOW()
             WHERE id = ?
           `, [user_id]);
         }
@@ -1044,8 +1044,8 @@ class userAdminServices {
         try {
           await query(`
             UPDATE users 
-            SET membership_stage = 'pre_member', is_member = 'pre_member',
-                application_status = 'approved', applicationReviewedAt = NOW()
+            SET membership_stage = 'pre_member',
+                initial_application_status = 'approved', applicationReviewedAt = NOW()
             WHERE id = ? AND isDeleted != 1
           `, [userId]);
 
@@ -1467,7 +1467,7 @@ class userAdminServices {
       const users = await query(`
         SELECT 
           u.id, u.username, u.email, u.phone, u.role, 
-          u.membership_stage, u.is_member, u.converse_id,
+          u.membership_stage, u.converse_id,
           u.createdAt, u.updatedAt, u.lastLogin,
           u.is_verified, u.canPost, u.canMentor,
           (SELECT COUNT(*) FROM initial_membership_applications WHERE user_id = u.id) as initial_applications,

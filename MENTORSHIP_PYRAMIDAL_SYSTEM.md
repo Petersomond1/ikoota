@@ -182,7 +182,7 @@ class MenteeUnmaskProtocol {
 
       await this.grantTemporaryAccess({
         request_id: requestId,
-        expires_at: expiryDate,
+       expiresAt: expiryDate,
         access_level: 'read_only',
         restrictions: ['no_screenshots', 'no_export', 'watermarked_view']
       });
@@ -468,7 +468,7 @@ class MenteeIdentityAccess {
     const accessToken = await this.createTemporaryAccess({
       mentor_id: mentorId,
       mentee_id: menteeId,
-      expires_at: new Date(Date.now() + duration * 24 * 60 * 60 * 1000),
+     expiresAt: new Date(Date.now() + duration * 24 * 60 * 60 * 1000),
       access_level: 'read_only',
       restrictions: [
         'no_download',

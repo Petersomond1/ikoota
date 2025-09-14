@@ -59,16 +59,18 @@ export const getAllChats = async (filters = {}) => {
     const finalSortOrder = sort_order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
     const query = `
-      SELECT *, 
-             prefixed_id, 
+      SELECT c.*, 
+             c.prefixed_id, 
              'chat' as content_type,
-             title as content_title,
-             createdAt as content_createdAt,
-             updatedAt as content_updatedAt,
-             text as content_text
-      FROM chats 
-      ${whereClause}
-      ORDER BY ${finalSortBy} ${finalSortOrder}
+             c.title as content_title,
+             c.createdAt as content_createdAt,
+             c.updatedAt as content_updatedAt,
+             c.text as content_text,
+             u.converse_id as converse_id
+      FROM chats c
+      LEFT JOIN users u ON c.user_id = u.id
+      ${whereClause.replace(/\b(createdAt|updatedAt|title|approval_status|status|is_public|is_featured)\b/g, 'c.$1')}
+      ORDER BY c.${finalSortBy} ${finalSortOrder}
     `;
 
     console.log('🔍 getAllChats query:', query);
@@ -90,16 +92,18 @@ export const getChatsByUserId = async (user_id) => {
     }
 
     const query = `
-      SELECT *, 
-             prefixed_id,
+      SELECT c.*, 
+             c.prefixed_id,
              'chat' as content_type,
-             title as content_title,
-             createdAt as content_createdAt,
-             updatedAt as content_updatedAt,
-             text as content_text
-      FROM chats 
-      WHERE user_id = ? 
-      ORDER BY updatedAt DESC, createdAt DESC
+             c.title as content_title,
+             c.createdAt as content_createdAt,
+             c.updatedAt as content_updatedAt,
+             c.text as content_text,
+             u.converse_id as converse_id
+      FROM chats c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.user_id = ? 
+      ORDER BY c.updatedAt DESC, c.createdAt DESC
     `;
 
     const rows = await db.query(query, [user_id]);

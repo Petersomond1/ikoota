@@ -50,7 +50,7 @@ async function createIdentityTables() {
                 voice_modifier VARCHAR(50),
                 video_filter_config JSON,
                 audio_preset_config JSON,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                 INDEX idx_vault_id (vault_id)
@@ -72,11 +72,11 @@ async function createIdentityTables() {
                 details JSON,
                 ip_address VARCHAR(45),
                 user_agent TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_user_id (user_id),
                 INDEX idx_operation_type (operation_type),
                 INDEX idx_performed_by (performed_by),
-                INDEX idx_created_at (created_at),
+                INDEX idx_created_at (createdAt),
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
         `);
@@ -94,7 +94,7 @@ async function createIdentityTables() {
                 custom_features JSON,
                 animation_settings JSON,
                 is_active TINYINT(1) DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                 INDEX idx_avatar_type (avatar_type)
@@ -115,7 +115,7 @@ async function createIdentityTables() {
                 effects_chain JSON,
                 voice_synthesis_config JSON,
                 is_active TINYINT(1) DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
@@ -158,7 +158,7 @@ async function createIdentityTables() {
                 sharing_preferences JSON,
                 notification_settings JSON,
                 emergency_contact_encrypted JSON,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
@@ -179,7 +179,7 @@ async function createIdentityTables() {
                 approved_by_admin_id INT,
                 approval_reason TEXT,
                 expiry_date DATETIME,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 INDEX idx_request_id (request_id),
                 INDEX idx_target_user (target_user_id),

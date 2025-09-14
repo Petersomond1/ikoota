@@ -13,6 +13,47 @@ import { useUploadCommentFiles } from "../../hooks/useUploadCommentFiles";
 import useCommentMutation from "../../hooks/useCommentMutation";
 import { useMediaCapture } from "../../hooks/useMediaCapture";
 // ✅ NEW: AI Features Import
+
+// Helper function to get creator information with converse_id
+const getCreatorInfo = async (content) => {
+  try {
+    if (!content) return "Unknown";
+    
+    // Priority order for getting creator's converse_id
+    const possibleCreatorIds = [
+      content.converse_id,
+      content.creator_converse_id,
+      content.author_converse_id,
+      content._original?.raw_data?.converse_id,
+      content.author,
+      content.user_converse_id
+    ];
+    
+    // Return the first valid converse_id found
+    for (const id of possibleCreatorIds) {
+      if (id && typeof id === 'string' && id.startsWith('OTO#')) {
+        return id;
+      }
+    }
+    
+    // If we have a user_id, try to fetch the converse_id from API
+    if (content.user_id) {
+      try {
+        const response = await api.get(`/auth/users/${content.user_id}/converse-id`);
+        if (response.data?.converse_id) {
+          return response.data.converse_id;
+        }
+      } catch (apiError) {
+        console.warn('Could not fetch converse_id from API:', apiError);
+      }
+    }
+    
+    return "Unknown";
+  } catch (error) {
+    console.error("Error getting creator info:", error);
+    return "Unknown";
+  }
+};
 import { useContentSummarization } from "../../hooks/useSummarization";
 import { useContentRecommendations } from "../../hooks/useRecommendations";
 
@@ -752,8 +793,8 @@ const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
     const contentInfo = `ℹ️ Content Information\n\nContent Type: ${
       activeContent?.content_type || activeContent?.type || "Unknown"
     }\nContent ID: ${getContentIdentifier(activeContent)}\nCreated: ${
-      activeContent?.createdAt
-        ? new Date(activeContent.createdAt).toLocaleDateString()
+      (activeContent?.createdAt || activeContent?.created_at)
+        ? new Date(activeContent.createdAt || activeContent.created_at).toLocaleDateString()
         : "Unknown"
     }\n\nDetailed analytics and information panel coming soon!`;
     alert(contentInfo);
@@ -916,20 +957,14 @@ const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
               style={{ display: "flex", flexDirection: "column", gap: "10px" }}
             >
               <p>Audience: {activeContent?.audience || "General"}</p>
-              <p>
-                Created By: <CreatorDisplay content={activeContent} />
-              </p>
               <span>
-                Created By:{" "}
-                {activeContent?.converse_id ||
-                  activeItem?.converse_id ||
-                  "No converse_id"}
+                Created By: <CreatorDisplay content={activeContent} />
               </span>
 
               <p>
                 Posted:{" "}
-                {activeContent?.createdAt
-                  ? new Date(activeContent.createdAt).toLocaleString()
+                {(activeContent?.createdAt || activeContent?.created_at)
+                  ? new Date(activeContent.createdAt || activeContent.created_at).toLocaleString()
                   : "Unknown date"}
               </p>
             </div>
@@ -946,8 +981,8 @@ const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
           </p>
           <span>
             Updated:{" "}
-            {activeContent?.updatedAt
-              ? new Date(activeContent.updatedAt).toLocaleString()
+            {(activeContent?.updatedAt || activeContent?.updated_at)
+              ? new Date(activeContent.updatedAt || activeContent.updated_at).toLocaleString()
               : "Unknown date"}
           </span>
         </div>
@@ -1323,8 +1358,8 @@ const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
                   ? activeComment.user_id
                   : "Unknown"}{" "}
                 | Posted:{" "}
-                {activeComment.createdAt
-                  ? new Date(activeComment.createdAt).toLocaleString()
+                {(activeComment.createdAt || activeComment.created_at)
+                  ? new Date(activeComment.createdAt || activeComment.created_at).toLocaleString()
                   : "Unknown date"}
               </span>
             </div>

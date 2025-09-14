@@ -211,19 +211,14 @@ const MembershipStatus = ({ status, onApplyClick }) => {
   };
 
   const membershipStage = status.membership_stage || 'none';
-  const memberStatus = status.is_member || 'not_applied';
+  const memberStatus = status.initial_application_status || status.application_status || 'not_applied';
   
   let applicationStatus, applicationStatusDisplay, applicationDescription;
   
-  if (status.application_status) {
-    applicationStatus = status.application_status;
-    applicationStatusDisplay = status.application_status_display || status.application_status;
-    applicationDescription = status.application_description || 'No description available';
-  } else {
-    applicationStatus = status.initial_application_status || 'not_submitted';
-    applicationStatusDisplay = applicationStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    applicationDescription = 'Application status information';
-  }
+  // Use new field structure with fallback for compatibility
+  applicationStatus = status.initial_application_status || status.application_status || 'not_applied';
+  applicationStatusDisplay = status.application_status_display || applicationStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  applicationDescription = status.application_description || 'Application status information';
   
   console.log('🔍 MembershipStatus processing:', {
     membershipStage,
@@ -363,9 +358,9 @@ const MembershipStatus = ({ status, onApplyClick }) => {
             <div className="rejected-icon">❌</div>
             <h4>Application Not Approved</h4>
             <p>{applicationDescription}</p>
-            {status.admin_notes && (
+            {(status.admin_notes || status.notes) && (
               <div className="admin-feedback">
-                <strong>Feedback:</strong> {status.admin_notes}
+                <strong>Feedback:</strong> {status.admin_notes || status.notes}
               </div>
             )}
             <button 
@@ -1560,8 +1555,8 @@ const UserDashboard = () => {
                       </div>
                       <div className="info-item">
                         <label>Application Status:</label>
-                        <span className={`status-indicator ${user?.application_status === 'approved' ? 'success' : 'info'}`}>
-                          {user?.application_status || 'Pending'}
+                        <span className={`status-indicator ${(user?.initial_application_status || user?.application_status) === 'approved' ? 'success' : 'info'}`}>
+                          {user?.initial_application_status || user?.application_status || 'Pending'}
                         </span>
                       </div>
                     </div>

@@ -362,7 +362,7 @@ const ProfilePage = () => {
             <div className="stats-grid">
               <div className="stat-item">
                 <span className="stat-number">
-                  {new Date(user?.created_at).toLocaleDateString() || 'N/A'}
+                  {new Date(user?.createdAt).toLocaleDateString() || 'N/A'}
                 </span>
                 <span className="stat-label">Member Since</span>
               </div>

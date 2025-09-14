@@ -22,7 +22,7 @@ const AudienceClassMgr = () => {
     status: 'all',
     capacity: 'all',
     dateRange: 'all',
-    sortBy: 'created_at',
+    sortBy: 'createdAt',
     sortOrder: 'desc'
   });
   
@@ -799,13 +799,13 @@ const AudienceClassMgr = () => {
             }}
             className="filter-select"
           >
-            <option value="created_at-desc">Newest First</option>
-            <option value="created_at-asc">Oldest First</option>
+            <option value="createdAt-desc">Newest First</option>
+            <option value="createdAt-asc">Oldest First</option>
             <option value="class_name-asc">Name A-Z</option>
             <option value="class_name-desc">Name Z-A</option>
             <option value="total_members-desc">Most Members</option>
             <option value="total_members-asc">Least Members</option>
-            <option value="updated_at-desc">Recently Updated</option>
+            <option value="updatedAt-desc">Recently Updated</option>
           </select>
         </div>
         
@@ -1558,7 +1558,7 @@ const ContentManagerModal = ({ selectedClass, content, onClose, isLoading }) => 
                     <div className="content-header">
                       <h5>{item.title}</h5>
                       <span className="content-date">
-                        {new Date(item.created_at).toLocaleDateString()}
+                        {new Date(item.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                     <div className="content-body">
@@ -1976,7 +1976,7 @@ const ClassesGrid = ({
             
             <div className="meta-item">
               <span className="meta-label">Created:</span>
-              <span className="meta-value">{formatDate(classItem.created_at)}</span>
+              <span className="meta-value">{formatDate(classItem.createdAt)}</span>
             </div>
             
             <div className="meta-item">
@@ -2103,7 +2103,7 @@ const ClassesList = ({
           </div>
           
           <div className="list-col-created">
-            {formatDate(classItem.created_at)}
+            {formatDate(classItem.createdAt)}
           </div>
           
           <div className="list-col-creator">
@@ -2246,11 +2246,11 @@ const ClassDetailsPanel = ({
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">Created:</span>
-                    <span className="detail-value">{formatDate(selectedClass.created_at)}</span>
+                    <span className="detail-value">{formatDate(selectedClass.createdAt)}</span>
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">Updated:</span>
-                    <span className="detail-value">{formatDate(selectedClass.updated_at)}</span>
+                    <span className="detail-value">{formatDate(selectedClass.updatedAt)}</span>
                   </div>
                   {selectedClass.created_by_username && (
                     <div className="detail-item">
@@ -2402,7 +2402,7 @@ const ClassDetailsPanel = ({
                       <div className="content-title">{content.title}</div>
                       <div className="content-meta">
                         <span className="content-type">{content.type}</span>
-                        <span className="content-date">{formatDate(content.created_at)}</span>
+                        <span className="content-date">{formatDate(content.createdAt)}</span>
                       </div>
                     </div>
                   </div>
@@ -2791,7 +2791,7 @@ const AnalyticsView = ({ classesData, summary, analyticsData, systemStats, onSel
                 <div className="trend-chart">
                   <p>📈 {classesData.length} total classes created</p>
                   <p>📅 Latest: {classesData.length > 0 ? 
-                    new Date(Math.max(...classesData.map(c => new Date(c.created_at || Date.now())))).toLocaleDateString() : 'N/A'
+                    new Date(Math.max(...classesData.map(c => new Date(c.createdAt || Date.now())))).toLocaleDateString() : 'N/A'
                   }</p>
                 </div>
               </div>

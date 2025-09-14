@@ -176,8 +176,8 @@ const ListComments = ({ activeItem, setActiveComment, activeComment, deactivateL
     if (comment.user_id && typeof comment.user_id === 'string' && comment.user_id.startsWith('OTO#')) {
       return comment.user_id;
     }
-    // Fallback to other fields if needed
-    return comment.author || comment.username || 'Unknown User';
+    // Fallback to converse_id or Unknown if not available
+    return comment.converse_id || 'Unknown';
   };
 
   // Loading state

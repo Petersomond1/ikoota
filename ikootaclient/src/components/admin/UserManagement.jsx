@@ -271,8 +271,8 @@ const UserManagement = () => {
   const statistics = useMemo(() => {
     return {
       totalUsers: users?.length || 0,
-      activeMembers: users?.filter(u => u?.is_member === 'granted').length || 0,
-      pendingApplications: users?.filter(u => u?.is_member === 'applied').length || 0,
+      activeMembers: users?.filter(u => u?.membership_stage === 'member').length || 0,
+      pendingApplications: users?.filter(u => u?.membership_stage === 'applicant').length || 0,
       totalReports: reports?.length || 0,
       pendingReports: reports?.filter(r => r?.status === 'pending').length || 0
     };
@@ -284,11 +284,11 @@ const UserManagement = () => {
       
       switch (activeTab) {
         case 'legacy_pending':
-          return userArray.filter(user => user?.is_member === 'applied');
+          return userArray.filter(user => user?.membership_stage === 'applicant');
         case 'legacy_granted':
-          return userArray.filter(user => user?.is_member === 'granted');
+          return userArray.filter(user => user?.membership_stage === 'member');
         case 'legacy_declined':
-          return userArray.filter(user => user?.is_member === 'declined');
+          return userArray.filter(user => user?.initial_application_status === 'declined' || user?.application_status === 'declined');
         default:
           return userArray;
       }
@@ -540,8 +540,8 @@ const UserManagement = () => {
                         <span className={`role-badge role-${user.role}`}>{user.role}</span>
                       </td>
                       <td className="status-cell">
-                        <span className={`status-badge ${getStatusBadgeClass(user.is_member)}`}>
-                          {user.is_member}
+                        <span className={`status-badge ${getStatusBadgeClass(user.membership_stage)}`}>
+                          {user.membership_stage || 'none'}
                         </span>
                         {user.isblocked && <span className="status-badge blocked">Blocked</span>}
                         {user.isbanned && <span className="status-badge banned">Banned</span>}
@@ -679,10 +679,10 @@ const UserManagement = () => {
                           <span className="ticket-number">{application.application_ticket}</span>
                         </div>
                       )}
-                      {application.admin_notes && (
+                      {(application.admin_notes || application.notes) && (
                         <div className="detail-item">
                           <strong>Admin Notes:</strong> 
-                          <span className="admin-note">{application.admin_notes}</span>
+                          <span className="admin-note">{application.admin_notes || application.notes}</span>
                         </div>
                       )}
                     </div>

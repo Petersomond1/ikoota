@@ -13,12 +13,13 @@ export const normalizeContentItem = (item, contentType) => {
       content_type: contentType || item.content_type || 'unknown',
       
       // Timestamps (consistent format)
-      created_at: item.createdAt || item.created_at || item.content_createdAt,
-      updated_at: item.updatedAt || item.updated_at || item.content_updatedAt,
+      createdAt: item.createdAt || item.createdAt || item.content_createdAt,
+     updatedAt: item.updatedAt || item.updatedAt || item.content_updatedAt,
       
       // User information
       user_id: item.user_id,
       author_id: item.author_id || item.user_id,
+      converse_id: item.converse_id || null,
       
       // Content fields
       title: item.title || item.topic || item.content_title || null,
@@ -80,6 +81,7 @@ const normalizeChatItem = (original, base) => {
     
     // User ID format (converse_id for chats)
     user_id: original.user_id, // Keep as char(10)
+    converse_id: original.converse_id || null, // Privacy-masked ID
     author_name: original.username || null,
     author_email: original.email || null,
     
@@ -372,8 +374,8 @@ export const formatContentResponse = (content, includeMetadata = false) => {
     title: content.title,
     content: content.content,
     summary: generateContentSummary(content.content || content.description),
-    created_at: content.created_at,
-    updated_at: content.updated_at,
+    createdAt: content.createdAt,
+   updatedAt: content.updated_at,
     approval_status: content.approval_status,
     media: content.media || []
   };
@@ -463,14 +465,14 @@ export const applyContentFilters = (items, filters) => {
   if (filters.start_date) {
     const startDate = new Date(filters.start_date);
     filtered = filtered.filter(item => 
-      new Date(item.created_at) >= startDate
+      new Date(item.createdAt) >= startDate
     );
   }
   
   if (filters.end_date) {
     const endDate = new Date(filters.end_date);
     filtered = filtered.filter(item => 
-      new Date(item.created_at) <= endDate
+      new Date(item.createdAt) <= endDate
     );
   }
   

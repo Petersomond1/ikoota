@@ -223,8 +223,12 @@ const SurveyControls = () => {
           method: 'PUT',
           body: {
             surveyId, 
-            status, 
-            adminNotes: notes || ''
+            // Compatibility fields - include both old and new names
+            status, // New field name
+            approval_status: status, // Legacy field name
+            notes: notes || '', // New field name
+            adminNotes: notes || '', // Middle compatibility field
+            admin_notes: notes || '' // Legacy field name
           }
         });
         
@@ -263,8 +267,12 @@ const SurveyControls = () => {
           method: 'POST',
           body: {
             surveyIds: selectedSurveys, 
-            decision: status, 
-            notes: notes || '' 
+            // Compatibility fields - include both old and new names
+            decision: status,
+            status: status, // New field name
+            approval_status: status, // Legacy field name
+            notes: notes || '', // New field name
+            admin_notes: notes || '' // Legacy field name
           }
         });
         
@@ -567,8 +575,9 @@ const SurveyControls = () => {
     }
     
     return surveysData.filter(survey => {
-      // Status filter
-      if (filterStatus !== 'all' && survey.approval_status !== filterStatus) {
+      // Status filter - check both new and old field names for compatibility
+      const surveyStatus = survey.status || survey.approval_status;
+      if (filterStatus !== 'all' && surveyStatus !== filterStatus) {
         return false;
       }
       
@@ -1094,12 +1103,12 @@ const SurveyCard = ({
         </div>
         
         <div className="survey-status">
-          <span className={`status-badge ${survey.approval_status || 'pending'}`}>
-            {(survey.approval_status || 'pending').toUpperCase()}
+          <span className={`status-badge ${survey.status || survey.approval_status || 'pending'}`}>
+            {(survey.status || survey.approval_status || 'pending').toUpperCase()}
           </span>
-          {survey.survey_type && (
+          {(survey.survey_type || survey.application_type) && (
             <span className="type-badge" style={{ marginTop: '5px', display: 'block' }}>
-              {survey.survey_type.replace('_', ' ').toUpperCase()}
+              {(survey.survey_type || survey.application_type).replace('_', ' ').toUpperCase()}
             </span>
           )}
         </div>
@@ -1135,7 +1144,8 @@ const SurveyCard = ({
           {showDetails ? 'Hide Details' : 'Show Details'}
         </button>
         
-        {(survey.approval_status === 'pending' || !survey.approval_status) && (
+        {((survey.status === 'pending' || survey.approval_status === 'pending') || 
+          (!survey.status && !survey.approval_status)) && (
           <div className="review-actions">
             <button 
               onClick={() => onReview(survey.id, 'approved', reviewNotes)}
@@ -1168,10 +1178,10 @@ const SurveyCard = ({
             />
           </div>
           
-          {survey.admin_notes && (
+          {(survey.admin_notes || survey.notes) && (
             <div className="existing-notes">
               <strong>Previous Admin Notes:</strong>
-              <p>{survey.admin_notes}</p>
+              <p>{survey.admin_notes || survey.notes}</p>
             </div>
           )}
           

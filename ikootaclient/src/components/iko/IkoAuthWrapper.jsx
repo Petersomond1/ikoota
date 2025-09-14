@@ -34,7 +34,7 @@ const IkoAuthWrapper = ({ isNested = false }) => {
   // ✅ Check member privileges based on your database structure
   const hasIkoAccess = () => {
     const membershipStage = user.membership_stage?.toLowerCase();
-    const memberStatus = user.is_member?.toLowerCase();
+    const memberStatus = user.membership_stage?.toLowerCase();
     const userRole = user.role?.toLowerCase();
 
     console.log('🔍 Checking Iko access for user:', {
@@ -52,14 +52,14 @@ const IkoAuthWrapper = ({ isNested = false }) => {
     }
 
     // ✅ PRIORITY 2: Full members have access
-    if (membershipStage === 'member' && memberStatus === 'member') {
+    if (membershipStage === 'member') {
       console.log('✅ Full member access granted to Iko');
       return true;
     }
 
-    // ✅ PRIORITY 3: Check alternative member statuses
-    if (memberStatus === 'granted' || memberStatus === 'member') {
-      console.log('✅ Granted member access to Iko');
+    // ✅ PRIORITY 3: Check alternative member statuses (legacy support)
+    if (memberStatus === 'member') {
+      console.log('✅ Member access granted to Iko');
       return true;
     }
 
@@ -99,7 +99,7 @@ const IkoAuthWrapper = ({ isNested = false }) => {
         }}>
           <h3>Your Current Status:</h3>
           <p><strong>Membership Stage:</strong> {user.membership_stage || 'Not set'}</p>
-          <p><strong>Member Status:</strong> {user.is_member || 'Not set'}</p>
+          <p><strong>Membership Stage:</strong> {user.membership_stage || 'Not set'}</p>
           <p><strong>Role:</strong> {user.role || 'User'}</p>
         </div>
 

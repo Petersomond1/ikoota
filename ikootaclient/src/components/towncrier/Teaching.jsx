@@ -328,7 +328,8 @@ const Teaching = ({ setActiveItem, deactivateListChats }) => {
             <p>Lesson#: {teaching.lessonNumber || getContentIdentifier(teaching)}</p>
             <p>Subject Matter: {truncateText(teaching.subjectMatter, 50)}</p>
             <p>Audience: {teaching.audience || 'General'}</p>
-            <p>By: {teaching.user_id || 'Admin'}</p>
+            {/* <p>By: {teaching.user_id || 'Admin'}</p> */}
+            <p>By: {teaching.converse_id || 'Unknown'}</p>
             <p>Created: {formatDate(teaching.createdAt)}</p>
             <p>Updated: {formatDate(teaching.updatedAt)}</p>
           </div>

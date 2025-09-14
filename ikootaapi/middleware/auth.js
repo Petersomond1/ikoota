@@ -83,10 +83,10 @@ export const authenticate = async (req, res, next) => {
     // Get comprehensive user data from database
     const userResult = await db.query(`
       SELECT 
-        id, username, email, role, is_member, membership_stage, 
+        id, username, email, role, membership_stage, 
+        initial_application_status, full_membership_appl_status,
         isbanned, is_verified, converse_id, application_ticket,
-        full_membership_status, application_status, mentor_id, 
-        primary_class_id, createdAt, updatedAt
+        mentor_id, primary_class_id, createdAt, updatedAt
       FROM users 
       WHERE id = ?
     `, [decoded.user_id || decoded.id]);
@@ -141,8 +141,9 @@ export const authenticate = async (req, res, next) => {
       
       // Role and permissions
       role: user.role || 'user',
-      is_member: user.is_member,
       membership_stage: user.membership_stage,
+      initial_application_status: user.initial_application_status,
+      full_membership_appl_status: user.full_membership_appl_status,
       
       // Status flags
       is_verified: user.is_verified,
@@ -155,8 +156,6 @@ export const authenticate = async (req, res, next) => {
       
       // Application tracking
       application_ticket: user.application_ticket,
-      full_membership_status: user.full_membership_status,
-      application_status: user.application_status,
       
       // ✅ NEW: Survey system permissions
       can_submit_surveys: true, // All authenticated users can submit general surveys
@@ -175,7 +174,8 @@ export const authenticate = async (req, res, next) => {
       // Token data for compatibility
       token_role: decoded.role,
       token_membership_stage: decoded.membership_stage,
-      token_is_member: decoded.is_member,
+      token_initial_application_status: decoded.initial_application_status,
+      token_full_membership_appl_status: decoded.full_membership_appl_status,
       
       // Decoded token info
       token_data: decoded
@@ -253,7 +253,7 @@ export const optionalAuth = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
       const userResult = await db.query(
-        'SELECT id, username, email, role, membership_stage, is_member, isbanned FROM users WHERE id = ?',
+        'SELECT id, username, email, role, membership_stage, initial_application_status, full_membership_appl_status, isbanned FROM users WHERE id = ?',
         [decoded.user_id || decoded.id]
       );
       
@@ -272,7 +272,8 @@ export const optionalAuth = async (req, res, next) => {
           email: users[0].email,
           role: users[0].role || 'user',
           membership_stage: users[0].membership_stage,
-          is_member: users[0].is_member,
+          initial_application_status: users[0].initial_application_status,
+          full_membership_appl_status: users[0].full_membership_appl_status,
           // Survey permissions for optional auth
           can_submit_surveys: true,
           can_admin_surveys: ['admin', 'super_admin'].includes(users[0].role || 'user'),
