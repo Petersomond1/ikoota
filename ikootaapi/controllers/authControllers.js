@@ -377,7 +377,7 @@ const existingUsers = extractDbRows(existingUsersResult);
         
         console.log('✅ Verification codes cleaned up');
         
-        // Generate JWT token
+        // Generate JWT token - NO converse_id needed for authentication
         const tokenPayload = {
             user_id: userId,
             username,
@@ -385,7 +385,6 @@ const existingUsers = extractDbRows(existingUsersResult);
             membership_stage: 'none',
             initial_application_status: 'not_applied',
             role: 'user',
-            converse_id: converseId,
             application_ticket: applicationTicket,
             iat: Math.floor(Date.now() / 1000)
         };
@@ -430,7 +429,6 @@ const existingUsers = extractDbRows(existingUsersResult);
                 membership_stage: 'none',
                 initial_application_status: 'not_applied',
                 application_ticket: applicationTicket,
-                converse_id: converseId,
                 role: 'user'
             },
             // ✅ ALSO include nested data format
@@ -443,7 +441,6 @@ const existingUsers = extractDbRows(existingUsersResult);
                     membership_stage: 'none',
                     initial_application_status: 'not_applied',
                     application_ticket: applicationTicket,
-                    converse_id: converseId,
                     role: 'user'
                 }
             },
@@ -582,16 +579,15 @@ export const enhancedLogin = async (req, res) => {
         
         console.log('✅ Password verified successfully');
         
-        // Generate JWT token
-        const tokenPayload = { 
-            user_id: user.id, 
-            username: user.username, 
+        // Generate JWT token - NO converse_id needed for authentication
+        const tokenPayload = {
+            user_id: user.id,
+            username: user.username,
             email: user.email,
             membership_stage: user.membership_stage || 'none',
             initial_application_status: user.initial_application_status || 'not_applied',
             full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
             role: user.role || 'user',
-            converse_id: user.converse_id,
             application_ticket: user.application_ticket,
             iat: Math.floor(Date.now() / 1000)
         };
@@ -657,7 +653,6 @@ export const enhancedLogin = async (req, res) => {
                 initial_application_status: user.initial_application_status || 'not_applied',
                 full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
                 role: user.role || 'user',
-                converse_id: user.converse_id,
                 application_ticket: user.application_ticket
             },
             // Also include nested data format for compatibility
@@ -671,7 +666,6 @@ export const enhancedLogin = async (req, res) => {
                     initial_application_status: user.initial_application_status || 'not_applied',
                     full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
                     role: user.role || 'user',
-                    converse_id: user.converse_id,
                     application_ticket: user.application_ticket
                 }
             },
