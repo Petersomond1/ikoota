@@ -33,6 +33,10 @@ const Userinfo = () => {
         is_admin: user.is_admin || user.isAdmin || isAdmin || false
       };
       console.log('Setting user info from context:', userDataFromContext);
+      // Only block the specific problematic /admin/avatar.png path
+      if (userDataFromContext.converse_avatar && userDataFromContext.converse_avatar.includes('/admin/avatar.png')) {
+        userDataFromContext.converse_avatar = null;
+      }
       setUserInfo(userDataFromContext);
       setLoading(false);
     }
@@ -59,6 +63,10 @@ const Userinfo = () => {
             is_admin: decoded.is_admin || decoded.isAdmin || false
           };
           console.log('No context user, using token data:', tokenUserData);
+          // Only block the specific problematic /admin/avatar.png path
+          if (tokenUserData.converse_avatar && tokenUserData.converse_avatar.includes('/admin/avatar.png')) {
+            tokenUserData.converse_avatar = null;
+          }
           setUserInfo(tokenUserData);
           setLoading(false);
         }
@@ -109,6 +117,10 @@ const Userinfo = () => {
             is_admin: userData.is_admin || userData.isAdmin || isAdmin || false
           };
           console.log('Updated user info from API:', apiUserData);
+          // Only block the specific problematic /admin/avatar.png path
+          if (apiUserData.converse_avatar && apiUserData.converse_avatar.includes('/admin/avatar.png')) {
+            apiUserData.converse_avatar = null;
+          }
           setUserInfo(apiUserData);
         }
         setLoading(false);
@@ -185,9 +197,12 @@ const Userinfo = () => {
       <div className='userinfo'>
         {/* <div className="user"> */}
           <img className='avatar'
-            src={userInfo?.converse_avatar || "./avatar.png"} 
+            src={userInfo?.converse_avatar || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iMjAiIGZpbGw9IiNlZWUiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0xMiAxMmM0IDAgNCAyIDQgNGgtOGMwLTIgMC00IDQtNFptMC0xYzEuNjU2IDAgMy0xLjM0NCAzLTNTMTMuNjU2IDUgMTIgNSA5IDYuMzQ0IDkgOHMxLjM0NCAzIDMgM1oiIGZpbGw9IiM5OTkiLz4KPHN2Zz4KPHN2Zz4K'} 
             alt="User Avatar" 
-            onError={(e) => { e.target.src = "./avatar.png"; }}
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iMjAiIGZpbGw9IiNlZWUiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0xMiAxMmM0IDAgNCAyIDQgNGgtOGMwLTIgMC00IDQtNFptMC0xYzEuNjU2IDAgMy0xLjM0NCAzLTNTMTMuNjU2IDUgMTIgNSA5IDYuMzQ0IDkgOHMxLjM0NCAzIDMgM1oiIGZpbGw9IiM5OTkiLz4KPHN2Zz4KPHN2Zz4K';
+            }}
           />
            
             <span className="status-badge">

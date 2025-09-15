@@ -179,7 +179,7 @@ const ClassContentViewer = () => {
   });
 
   // Fetch participants
-  const { data: participantsData, isLoading: participantsLoading } = useQuery({
+  const { data: participantsData, isLoading: membersLoading } = useQuery({
     queryKey: ['classParticipants', apiClassId],
     queryFn: async () => {
       const { data } = await api.get(`/classes/${apiClassId}/participants`, {
@@ -261,6 +261,40 @@ const ClassContentViewer = () => {
     onError: (error) => {
       console.error('Failed to delete content:', error);
       alert('Failed to delete content. Please try again.');
+    }
+  });
+
+  // Join class mutation
+  const joinClassMutation = useMutation({
+    mutationFn: async () => {
+      const encodedClassId = encodeURIComponent(apiClassId);
+      return await api.post(`/classes/${encodedClassId}/join`);
+    },
+    onSuccess: () => {
+      alert('Successfully joined class!');
+      queryClient.invalidateQueries(['classDetails']);
+      queryClient.invalidateQueries(['classParticipants']);
+    },
+    onError: (error) => {
+      console.error('Failed to join class:', error);
+      alert('Failed to join class. Please try again.');
+    }
+  });
+
+  // Leave class mutation
+  const leaveClassMutation = useMutation({
+    mutationFn: async () => {
+      const encodedClassId = encodeURIComponent(apiClassId);
+      return await api.post(`/classes/${encodedClassId}/leave`);
+    },
+    onSuccess: () => {
+      alert('Successfully left class!');
+      queryClient.invalidateQueries(['classDetails']);
+      queryClient.invalidateQueries(['classParticipants']);
+    },
+    onError: (error) => {
+      console.error('Failed to leave class:', error);
+      alert('Failed to leave class. Please try again.');
     }
   });
 
@@ -373,8 +407,10 @@ const ClassContentViewer = () => {
   // Process data safely with proper field mapping
   const classInfo = classData?.data || classData || {};
   const content = contentData?.data?.data || contentData?.data || [];
-  const announcements = announcementsData?.data?.data || announcementsData?.data || [];
-  const members = membersData?.data?.data || membersData?.data || [];
+  const announcements = content.filter(item =>
+    item.content_type === 'announcement' || item.type === 'announcement'
+  );
+  const members = participantsData?.data || participantsData || [];
 
   // Check if user is a member (updated to match database structure)
   const isClassMember = members.some(m => m.user_id === user?.id || m.id === user?.id);
@@ -507,6 +543,12 @@ const ClassContentViewer = () => {
           <div className="class-actions">
             {isClassMember ? (
               <>
+                <button
+                  onClick={() => navigate(`/classes/${encodeURIComponent(apiClassId)}/video`)}
+                  className="btn-video-classroom"
+                >
+                  🎥 Video Classroom
+                </button>
                 <button onClick={handleMarkAttendance} className="btn-attendance" disabled={attendanceMutation.isLoading}>
                   📅 Mark Attendance
                 </button>
@@ -532,24 +574,60 @@ const ClassContentViewer = () => {
         )}
 
         {/* Important Announcements */}
-        {announcements.length > 0 && (
-          <div className="important-announcements">
+        <div className="important-announcements">
+          <div className="announcements-header">
             <h3>📢 Important Announcements</h3>
+            {canCreateContent && (
+              <button
+                onClick={() => {
+                  setNewContent({ ...newContent, type: 'announcement' });
+                  setShowCreateContent(true);
+                }}
+                className="btn-add-announcement"
+              >
+                ➕ Add Announcement
+              </button>
+            )}
+          </div>
+
+          {announcements.length > 0 ? (
             <div className="announcements-list">
               {announcements.slice(0, 2).map(announcement => (
                 <div key={announcement.id} className="announcement-item">
                   <div className="announcement-content">
                     <h4>{announcement.title}</h4>
-                    <p>{announcement.content}</p>
+                    <p>{announcement.content || announcement.text}</p>
                     <span className="announcement-date">
-                      {new Date(announcement.createdAt).toLocaleDateString()}
+                      {new Date(announcement.createdAt || announcement.created_at).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
               ))}
+              {announcements.length > 2 && (
+                <div className="more-announcements">
+                  <button
+                    onClick={() => {
+                      setActiveTab('announcements');
+                      document.querySelector('.content-area')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="btn-view-all"
+                  >
+                    View all {announcements.length} announcements
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="no-announcements">
+              <p>No announcements yet.</p>
+              {canCreateContent ? (
+                <p>Create the first announcement to keep members informed!</p>
+              ) : (
+                <p>Check back later for important updates from instructors.</p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ✅ MAIN CONTENT AREA */}
@@ -573,7 +651,16 @@ const ClassContentViewer = () => {
                   <div key={member.id} className="member-item">
                     <div className="member-avatar">
                       {member.avatar_url || member.converse_avatar ? (
-                        <img src={member.avatar_url || member.converse_avatar} alt={member.name} />
+                        <img
+                          src={((member.avatar_url && !member.avatar_url.includes('avatar.png')) ? member.avatar_url :
+                                (member.converse_avatar && !member.converse_avatar.includes('avatar.png')) ? member.converse_avatar :
+                                'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iMjAiIGZpbGw9IiNlZWUiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0xMiAxMmM0IDAgNCAyIDQgNGgtOGMwLTIgMC00IDQtNFptMC0xYzEuNjU2IDAgMy0xLjM0NCAzLTNTMTMuNjU2IDUgMTIgNSA5IDYuMzQ0IDkgOHMxLjM0NCAzIDMgM1oiIGZpbGw9IiM5OTkiLz4KPHN2Zz4KPHN2Zz4K')}
+                          alt={member.name}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iMjAiIGZpbGw9IiNlZWUiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0xMiAxMmM0IDAgNCAyIDQgNGgtOGMwLTIgMC00IDQtNFptMC0xYzEuNjU2IDAgMy0xLjM0NCAzLTNTMTMuNjU2IDUgMTIgNSA5IDYuMzQ0IDkgOHMxLjM0NCAzIDMgM1oiIGZpbGw9IiM5OTkiLz4KPHN2Zz4KPHN2Zz4K';
+                          }}
+                        />
                       ) : (
                         <div className="avatar-placeholder">
                           {(member.name || member.username || 'U').charAt(0).toUpperCase()}
@@ -1040,13 +1127,7 @@ const ClassContentViewer = () => {
                 Cancel
               </button>
               <button 
-                onClick={() => {
-                  // This would typically submit to an admin endpoint
-                  console.log('Creating content:', newContent);
-                  alert('Content creation would be handled by admin endpoint');
-                  setShowCreateContent(false);
-                  setNewContent({ type: 'announcement', title: '', content: '', attachments: [] });
-                }}
+                onClick={() => createContentMutation.mutate(newContent)}
                 className="btn-create"
                 disabled={!newContent.title.trim() || !newContent.content.trim()}
               >

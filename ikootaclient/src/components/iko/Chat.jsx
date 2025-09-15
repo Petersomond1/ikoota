@@ -14,46 +14,7 @@ import useCommentMutation from "../../hooks/useCommentMutation";
 import { useMediaCapture } from "../../hooks/useMediaCapture";
 // ✅ NEW: AI Features Import
 
-// Helper function to get creator information with converse_id
-const getCreatorInfo = async (content) => {
-  try {
-    if (!content) return "Unknown";
-    
-    // Priority order for getting creator's converse_id
-    const possibleCreatorIds = [
-      content.converse_id,
-      content.creator_converse_id,
-      content.author_converse_id,
-      content._original?.raw_data?.converse_id,
-      content.author,
-      content.user_converse_id
-    ];
-    
-    // Return the first valid converse_id found
-    for (const id of possibleCreatorIds) {
-      if (id && typeof id === 'string' && id.startsWith('OTO#')) {
-        return id;
-      }
-    }
-    
-    // If we have a user_id, try to fetch the converse_id from API
-    if (content.user_id) {
-      try {
-        const response = await api.get(`/auth/users/${content.user_id}/converse-id`);
-        if (response.data?.converse_id) {
-          return response.data.converse_id;
-        }
-      } catch (apiError) {
-        console.warn('Could not fetch converse_id from API:', apiError);
-      }
-    }
-    
-    return "Unknown";
-  } catch (error) {
-    console.error("Error getting creator info:", error);
-    return "Unknown";
-  }
-};
+// Note: getCreatorInfo function is defined later in the component with full implementation
 import { useContentSummarization } from "../../hooks/useSummarization";
 import { useContentRecommendations } from "../../hooks/useRecommendations";
 
@@ -611,7 +572,13 @@ const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
       content?.creator?.converse_avatar ||
       content?.user?.converse_avatar ||
       content?.avatar_url ||
-      "./avatar.png"; // fallback to default
+      'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iMjAiIGZpbGw9IiNlZWUiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0xMiAxMmM0IDAgNCAyIDQgNGgtOGMwLTIgMC00IDQtNFptMC0xYzEuNjU2IDAgMy0xLjM0NCAzLTNTMTMuNjU2IDUgMTIgNSA5IDYuMzQ0IDkgOHMxLjM0NCAzIDMgM1oiIGZpbGw9IiM5OTkiLz4KPHN2Zz4KPHN2Zz4K';
+
+    // Only block the specific problematic /admin/avatar.png path
+    if (avatar && avatar.includes('/admin/avatar.png')) {
+      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iMjAiIGZpbGw9IiNlZWUiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3E9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0xMiAxMmM0IDAgNCAyIDQgNGgtOGMwLTIgMC00IDQtNFptMC0xYzEuNjU2IDAgMy0xLjM0NCAzLTNTMTMuNjU2IDUgMTIgNSA5IDYuMzQ0IDkgOHMxLjM0NCAzIDMgM1oiIGZpbGw9IiM5OTkiLz4KPHN2Zz4KPHN2Zz4K';
+    }
+
     return avatar;
   };
 
@@ -812,7 +779,8 @@ const Chat = ({ activeItem, activeComment, chats = [], teachings = [] }) => {
             src={getCreatorAvatar(activeContent)}
             alt={`${getCreatorName(activeContent)} Avatar`}
             onError={(e) => {
-              e.target.src = "./avatar.png"; // Fallback if image fails to load
+              e.target.onerror = null;
+              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iMjAiIGZpbGw9IiNlZWUiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0xMiAxMmM0IDAgNCAyIDQgNGgtOGMwLTIgMC00IDQtNFptMC0xYzEuNjU2IDAgMy0xLjM0NCAzLTNTMTMuNjU2IDUgMTIgNSA5IDYuMzQ0IDkgOHMxLjM0NCAzIDMgM1oiIGZpbGw9IiM5OTkiLz4KPHN2Zz4KPHN2Zz4K';
             }}
             // title={`Created by ${getCreatorName(activeContent)}`}
           />

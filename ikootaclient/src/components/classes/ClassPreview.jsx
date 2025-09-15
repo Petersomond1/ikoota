@@ -328,22 +328,31 @@ const ClassPreview = () => {
 
           <div className="class-hero-actions">
             {canEnterClassroom ? (
-              <button 
-                onClick={handleEnterClassroom}
-                className="btn-enter-classroom primary"
-                disabled={!classInfo.is_active}
-              >
-                🎓 Enter Classroom
-              </button>
+              <>
+                <button
+                  onClick={handleEnterClassroom}
+                  className="btn-enter-classroom primary"
+                  disabled={!classInfo.is_active}
+                >
+                  🎓 Enter Classroom
+                </button>
+                <button
+                  onClick={() => navigate(`/classes/${encodeURIComponent(apiClassId)}/video`)}
+                  className="btn-video-classroom"
+                  disabled={!classInfo.is_active}
+                >
+                  🎥 Video Classroom
+                </button>
+              </>
             ) : (
-              <button 
+              <button
                 onClick={handleJoinClass}
                 className="btn-join-class"
               >
                 ➕ Join Class
               </button>
             )}
-            
+
             {isClassMember && (
               <button className="btn-bookmark">
                 🔖 Bookmark
@@ -427,9 +436,17 @@ const ClassPreview = () => {
               <div className="quick-actions">
                 <h4>Quick Actions</h4>
                 {canEnterClassroom && (
-                  <button onClick={handleEnterClassroom} className="action-btn primary">
-                    🎓 Enter Classroom
-                  </button>
+                  <>
+                    <button onClick={handleEnterClassroom} className="action-btn primary">
+                      🎓 Enter Classroom
+                    </button>
+                    <button
+                      onClick={() => navigate(`/classes/${encodeURIComponent(apiClassId)}/video`)}
+                      className="action-btn video"
+                    >
+                      🎥 Video Classroom
+                    </button>
+                  </>
                 )}
                 <button className="action-btn">📋 View Schedule</button>
                 <button className="action-btn">👥 View Members</button>

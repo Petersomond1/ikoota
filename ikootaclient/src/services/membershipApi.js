@@ -3,8 +3,18 @@
 
 import axios from 'axios';
 
-// ✅ FIXED: Use import.meta.env for Vite instead of process.env
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// ✅ SECURE CONFIGURATION: Production-first API URL determination
+const getApiBaseUrl = () => {
+  // In production, use production API
+  if (import.meta.env.PROD) {
+    return 'https://api.ikoota.com:8443/api';
+  }
+
+  // In development, use environment variable or localhost
+  return import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // Create axios instance with default config
 const api = axios.create({

@@ -59,6 +59,7 @@ import SearchControls from './components/search/SearchControls';
 // ✅ NEW: Import Class components
 import ClassPreview from './components/classes/ClassPreview';
 import ClassContentViewer from './components/classes/ClassContentViewer';
+import ClassroomVideoViewer from './components/classes/ClassroomVideoViewer';
 import ClassListPage from './components/classes/ClassListPage';
 import MyClassesPage from './components/classes/MyClassesPage';
 
@@ -231,6 +232,13 @@ function App() {
                   <Route path=":classId/classroom" element={
                     <ProtectedRoute requirePreMember={true}>
                       <ClassContentViewer />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* STAGE 3: Video Teaching Classroom - Dedicated video streaming for live/recorded sessions */}
+                  <Route path=":classId/video" element={
+                    <ProtectedRoute requirePreMember={true}>
+                      <ClassroomVideoViewer />
                     </ProtectedRoute>
                   } />
                 </Route>

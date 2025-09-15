@@ -8,6 +8,55 @@ import './revTeaching.css'; // Shared styles
 import '../search/searchcontrols.css'; // Shared styles
 import api from '../service/api';
 
+// Helper function to get converse_id for a teaching
+const getCreatorConverseId = async (teaching) => {
+  // If we already have converse_id, return it
+  if (teaching.converse_id && teaching.converse_id.startsWith('OTO#')) {
+    return teaching.converse_id;
+  }
+
+  // Check other possible fields
+  if (teaching.creator_converse_id && teaching.creator_converse_id.startsWith('OTO#')) {
+    return teaching.creator_converse_id;
+  }
+
+  // If we have numeric author ID, try to fetch converse_id from API
+  const userId = teaching.author || teaching.user_id || teaching.created_by;
+  if (userId && typeof userId === 'number') {
+    try {
+      const response = await api.get(`/auth/users/${userId}/converse-id`);
+      if (response.data?.converse_id) {
+        return response.data.converse_id;
+      }
+    } catch (error) {
+      console.warn('Could not fetch converse_id for user:', userId, error);
+    }
+  }
+
+  return teaching.author || 'Unknown';
+};
+
+// Component to display creator with async converse_id loading
+const CreatorDisplay = ({ teaching }) => {
+  const [creatorId, setCreatorId] = useState('Loading...');
+
+  useEffect(() => {
+    const fetchCreatorId = async () => {
+      try {
+        const id = await getCreatorConverseId(teaching);
+        setCreatorId(id);
+      } catch (error) {
+        console.error('Error fetching creator ID:', error);
+        setCreatorId(teaching.author || 'Unknown');
+      }
+    };
+
+    fetchCreatorId();
+  }, [teaching]);
+
+  return creatorId;
+};
+
 const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }) => {
   const [teachings, setTeachings] = useState([]);
   const [filteredTeachings, setFilteredTeachings] = useState([]);
@@ -269,7 +318,7 @@ const RevTopics = ({ teachings: propTeachings = [], onSelect, selectedTeaching }
                     <p>📋 Subject: {teaching.subjectMatter || teaching.subject || 'Not specified'}</p>
                     <p>👥 Audience: {teaching.audience || 'General'}</p>
                     {/* <p>✍️ By: {teaching.author}</p> */}
-                     <p>✍️ By: {teaching.converse_id || teaching.author}</p>
+                     <p>✍️ By: <CreatorDisplay teaching={teaching} /></p>
                   </div>
                   
                   <div className="topic-dates">

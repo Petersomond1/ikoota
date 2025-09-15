@@ -1301,3 +1301,4 @@ created_at
    KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
    KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
 
+ git commit -m "Fix remaining hardcoded localhost URLs in auth components,   - Update Passwordreset.jsx to use configured API instance instead of localhost - Update Signup.jsx to use configured API instance instead of localhost  - Replace axios.post with api.post for environment-aware endpoints   - Ensure all auth components respect VITE_API_URL production configuration This completes the fix for authentication issues where components were bypassing API configuration and calling localhost in production "  
