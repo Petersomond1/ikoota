@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import api from "../service/api";
 import './signup.css';
 
 const Signup = () => {
@@ -52,7 +53,7 @@ const Signup = () => {
       });
       
       // ✅ UPDATED: Use auth endpoint instead of membership endpoint
-      const verificationResponse = await axios.post("http://localhost:3000/api/auth/send-verification", {
+      const verificationResponse = await api.post("/auth/send-verification", {
         email: values.email,
         phone: values.phone,
         method: verificationMethod, // ✅ Use 'method' to match database
@@ -142,9 +143,7 @@ const Signup = () => {
       }
       
       // ✅ UPDATED: Use auth endpoint instead of membership endpoint
-      const registerResponse = await axios.post("http://localhost:3000/api/auth/register", requestData, { 
-        withCredentials: true 
-      });
+      const registerResponse = await api.post("/auth/register", requestData);
       
       console.log('✅ Registration response:', registerResponse.data);
       
@@ -229,7 +228,7 @@ const Signup = () => {
       console.log('🔍 Resending verification code...');
       
       // ✅ UPDATED: Use auth endpoint instead of membership endpoint
-      const response = await axios.post("http://localhost:3000/api/auth/send-verification", {
+      const response = await api.post("/auth/send-verification", {
         email: values.email,
         phone: values.phone,
         method: verificationMethod, // ✅ Use 'method' field

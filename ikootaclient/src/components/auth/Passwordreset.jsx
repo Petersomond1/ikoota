@@ -1,6 +1,7 @@
 //ikootaclient\src\components\auth\Passwordreset.jsx
 import React, { useState } from "react";
 import axios from "axios";
+import api from "../service/api";
 import "./passwordreset.css";
 
 const Passwordreset = () => {
@@ -15,7 +16,7 @@ const Passwordreset = () => {
   const handleResetRequest = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("http://localhost:3000/api/auth/passwordreset/request", {
+      await api.post("/auth/passwordreset/request", {
         emailOrPhone: values.emailOrPhone,
       });
       setStep(2); // Move to password reset step
@@ -27,7 +28,7 @@ const Passwordreset = () => {
   const handlePasswordReset = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("http://localhost:3000/api/auth/passwordreset/reset", {
+      await api.post("/auth/passwordreset/reset", {
         ...values,
       });
       setStep(3); // Move to verification step
@@ -39,7 +40,7 @@ const Passwordreset = () => {
   const handleVerification = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("http://localhost:3000/api/auth/passwordreset/verify", {
+      await api.post("/auth/passwordreset/verify", {
         emailOrPhone: values.emailOrPhone,
         verificationCode: values.verificationCode,
       });
