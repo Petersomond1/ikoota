@@ -20,16 +20,21 @@ ARG ENVIRONMENT=staging
 ENV NODE_ENV=production
 
 # Set API URL based on environment directly as build-time env var
-RUN if [ "$ENVIRONMENT" = "production" ]; then \
+RUN echo "🔧 Building with ENVIRONMENT=$ENVIRONMENT" && \
+    if [ "$ENVIRONMENT" = "production" ]; then \
         echo "VITE_API_URL=https://api.ikoota.com:8443/api" > .env.local; \
         echo "REACT_APP_USE_MOCK_DATA=false" >> .env.local; \
+        echo "🔧 Production environment variables set:"; \
+        cat .env.local; \
     else \
         echo "VITE_API_URL=http://localhost:3000/api" > .env.local; \
         echo "REACT_APP_USE_MOCK_DATA=false" >> .env.local; \
+        echo "🔧 Development environment variables set:"; \
+        cat .env.local; \
     fi
 
 # Build the React app (Vite will pick up .env.local)
-RUN npm run build
+RUN echo "🔧 Starting build process..." && npm run build
 
 # Production stage with nginx
 FROM nginx:alpine
