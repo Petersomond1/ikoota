@@ -3,8 +3,13 @@ import axios from 'axios';
 
 // ✅ SECURE CONFIGURATION: Determine API URL based on environment
 const getApiBaseUrl = () => {
-  // In production, use production API
-  if (import.meta.env.PROD) {
+  // Check if running on production domain
+  if (window.location.hostname === 'www.ikoota.com' || window.location.hostname === 'ikoota.com') {
+    return 'https://api.ikoota.com:8443/api';
+  }
+
+  // Check environment variables
+  if (import.meta.env.PROD || import.meta.env.NODE_ENV === 'production') {
     return 'https://api.ikoota.com:8443/api';
   }
 

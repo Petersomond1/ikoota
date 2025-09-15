@@ -348,14 +348,14 @@ const Towncrier = () => {
           }}>The Towncrier </span>
           <div style={{ display: 'flex', flexDirection: 'column', fontSize: '12px', fontFamily: 'Arial, sans-serif', color: 'black', marginLeft: '20px', lineHeight: '1.2' }}>
           <span>-A Clarion Call-out to Real Men;</span>
-          <span>-Saint! Join us for it's time to Rebuild & Re-institute the world's Altar & Temples of the Land of the Gods, </span>
+          <span>-Saint! {user?.converse_id} Join us for it's time to Rebuild & Re-institute the world's Altar & Temples of the Land of the Gods, </span>
           <span>-Together, we'll again reconnect to the Spirits of the Gods & restart the almost lost, awaited civilization for eternity.</span>
           </div>
           
           {isAuthenticated && (
             <div className="user-status">
               <span className="user-info">
-                👤 Saint 
+                👤 Saint! {user?.converse_id}
                 <span className={`status-badge ${userStatus.status}`} style={{color: userStatus.color}}>
                   {userStatus.label}
                 </span>

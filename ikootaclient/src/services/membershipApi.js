@@ -5,8 +5,13 @@ import axios from 'axios';
 
 // ✅ SECURE CONFIGURATION: Production-first API URL determination
 const getApiBaseUrl = () => {
-  // In production, use production API
-  if (import.meta.env.PROD) {
+  // Check if running on production domain
+  if (window.location.hostname === 'www.ikoota.com' || window.location.hostname === 'ikoota.com') {
+    return 'https://api.ikoota.com:8443/api';
+  }
+
+  // Check environment variables
+  if (import.meta.env.PROD || import.meta.env.NODE_ENV === 'production') {
     return 'https://api.ikoota.com:8443/api';
   }
 
@@ -16,9 +21,16 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl();
 
+console.log('🔧 Membership API Configuration:', {
+  baseURL: API_BASE_URL,
+  environment: import.meta.env.MODE || 'development'
+});
+
 // Create axios instance with default config
 const api = axios.create({
   baseURL: `${API_BASE_URL}/membership`,
+  timeout: 15000,
+  withCredentials: true, // Important for session cookies
   headers: {
     'Content-Type': 'application/json',
   },

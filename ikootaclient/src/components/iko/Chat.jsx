@@ -18,6 +18,31 @@ import { useMediaCapture } from "../../hooks/useMediaCapture";
 import { useContentSummarization } from "../../hooks/useSummarization";
 import { useContentRecommendations } from "../../hooks/useRecommendations";
 
+// Helper function to get creator info - MOVED TO PREVENT HOISTING ISSUES
+const getCreatorInfo = async (content) => {
+  // Get unique converse_id in OTO#XXXXXX format for privacy
+  console.log("Content data for extracting creator converse ID:", content);
+
+  // Method 1: Check if converse_id is directly available in content
+  if (content?.converse_id && content.converse_id.startsWith("OTO#")) {
+    console.log("Found converse_id directly:", content.converse_id);
+    return content.converse_id;
+  }
+
+  // Method 2: For comments, user_id field contains the converse ID
+  if (
+    content?.user_id &&
+    typeof content.user_id === "string" &&
+    content.user_id.startsWith("OTO#")
+  ) {
+    console.log("Found converse ID in user_id field:", content.user_id);
+    return content.user_id;
+  }
+
+  // Fallback to basic display
+  return content?.user_id || content?.author || "SYSTEM";
+};
+
 // ✅ NEW: Component for displaying creator converse ID with async loading
 const CreatorDisplay = ({ content }) => {
   const [creatorId, setCreatorId] = useState("Loading...");

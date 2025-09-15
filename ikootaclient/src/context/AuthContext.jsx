@@ -13,36 +13,29 @@ export const useAuth = () => {
   return context;
 };
 
-// Helper function to ensure user has converse_id
-const ensureConverseId = async (userData) => {
+// Helper function to fetch converse_id for display purposes ONLY
+// NOTE: converse_id is NOT part of authentication (removed from JWT per commit 7140ebc)
+const fetchDisplayConverseId = async (userData) => {
   if (!userData) return userData;
 
-  // If user already has converse_id, return as-is
-  if (userData.converse_id) {
+  // If user already has converse_id for display, return as-is
+  if (userData.converse_id && userData.converse_id.startsWith('OTO#')) {
     return userData;
   }
 
   try {
-    // Try to get converse_id from token
-    const token = localStorage.getItem('token');
-    if (token) {
-      const decoded = jwtDecode(token);
-      if (decoded.converse_id) {
-        userData.converse_id = decoded.converse_id;
-        return userData;
-      }
-    }
-
-    // Try to fetch from API
-    if (userData.user_id || userData.id) {
-      const userId = userData.user_id || userData.id;
+    // Fetch converse_id from API for privacy-masked display only
+    const userId = userData.user_id || userData.id;
+    if (userId) {
       const response = await api.get(`/auth/users/${userId}/converse-id`);
       if (response.data?.converse_id) {
+        // Add converse_id for display purposes only - not for authentication
         userData.converse_id = response.data.converse_id;
       }
     }
   } catch (error) {
-    console.warn('Could not fetch converse_id for user:', error);
+    console.warn('Could not fetch converse_id for display:', error);
+    // This is OK - converse_id is optional for display, authentication still works
   }
 
   return userData;
@@ -62,7 +55,7 @@ export const AuthProvider = ({ children }) => {
       if (token && userData) {
         try {
           const parsedUser = JSON.parse(userData);
-          const userWithConverseId = await ensureConverseId(parsedUser);
+          const userWithConverseId = await fetchDisplayConverseId(parsedUser);
           setUser(userWithConverseId);
           setIsAuthenticated(true);
 
@@ -90,7 +83,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', response.data.token);
 
         // Ensure user has converse_id before storing
-        const userWithConverseId = await ensureConverseId(response.data.user);
+        const userWithConverseId = await fetchDisplayConverseId(response.data.user);
         localStorage.setItem('user', JSON.stringify(userWithConverseId));
         setUser(userWithConverseId);
         setIsAuthenticated(true);
@@ -113,7 +106,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateUser = async (userData) => {
-    const userWithConverseId = await ensureConverseId(userData);
+    const userWithConverseId = await fetchDisplayConverseId(userData);
     setUser(userWithConverseId);
     localStorage.setItem('user', JSON.stringify(userWithConverseId));
   };

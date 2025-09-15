@@ -33,7 +33,12 @@ const getCreatorConverseId = async (teaching) => {
     }
   }
 
-  return teaching.author || 'Unknown';
+  // Never return raw user_id numbers, only return if it's already a converse_id format
+  if (teaching.author && typeof teaching.author === 'string' && teaching.author.startsWith('OTO#')) {
+    return teaching.author;
+  }
+
+  return 'Unknown';
 };
 
 // Component to display creator with async converse_id loading
@@ -47,7 +52,9 @@ const CreatorDisplay = ({ teaching }) => {
         setCreatorId(id);
       } catch (error) {
         console.error('Error fetching creator ID:', error);
-        setCreatorId(teaching.author || 'Unknown');
+        // Force another attempt to get converse_id, never show raw user_id
+        const fallbackId = await getCreatorConverseId(teaching);
+        setCreatorId(fallbackId);
       }
     };
 
