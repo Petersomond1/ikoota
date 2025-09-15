@@ -1,8 +1,18 @@
 //ikootaclient\src\components\service\api.js - Environment-aware API configuration
 import axios from 'axios';
 
-// ✅ ENVIRONMENT-AWARE: Use environment variables for API URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// ✅ SECURE CONFIGURATION: Determine API URL based on environment
+const getApiBaseUrl = () => {
+  // In production, use production API
+  if (import.meta.env.PROD) {
+    return 'https://api.ikoota.com:8443/api';
+  }
+
+  // In development, use environment variable or localhost
+  return import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 console.log('🔧 API Configuration:', {
   baseURL: API_BASE_URL,
