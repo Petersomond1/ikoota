@@ -24,19 +24,11 @@ RUN echo "🔧 Building with ENVIRONMENT=$ENVIRONMENT"
 
 # Set environment variables for Vite build based on ENVIRONMENT
 RUN if [ "$ENVIRONMENT" = "production" ]; then \
-        echo "🔧 Setting production environment variables"; \
-        export VITE_API_URL="https://api.ikoota.com:8443/api"; \
-        export REACT_APP_USE_MOCK_DATA="false"; \
-        echo "VITE_API_URL=$VITE_API_URL"; \
-        echo "REACT_APP_USE_MOCK_DATA=$REACT_APP_USE_MOCK_DATA"; \
-        VITE_API_URL="https://api.ikoota.com:8443/api" REACT_APP_USE_MOCK_DATA="false" npm run build; \
+        echo "🔧 Building for production with API URL: https://api.ikoota.com:8443/api"; \
+        env VITE_API_URL="https://api.ikoota.com:8443/api" REACT_APP_USE_MOCK_DATA="false" npm run build; \
     else \
-        echo "🔧 Setting development environment variables"; \
-        export VITE_API_URL="http://localhost:3000/api"; \
-        export REACT_APP_USE_MOCK_DATA="false"; \
-        echo "VITE_API_URL=$VITE_API_URL"; \
-        echo "REACT_APP_USE_MOCK_DATA=$REACT_APP_USE_MOCK_DATA"; \
-        VITE_API_URL="http://localhost:3000/api" REACT_APP_USE_MOCK_DATA="false" npm run build; \
+        echo "🔧 Building for development with API URL: http://localhost:3000/api"; \
+        env VITE_API_URL="http://localhost:3000/api" REACT_APP_USE_MOCK_DATA="false" npm run build; \
     fi
 
 # Production stage with nginx
