@@ -19,11 +19,13 @@ ARG ENVIRONMENT=staging
 # Set environment variables for build
 ENV NODE_ENV=production
 
-# Copy appropriate environment file based on build argument
+# Set API URL based on environment directly as build-time env var
 RUN if [ "$ENVIRONMENT" = "production" ]; then \
-        cp .env.production .env.local; \
+        echo "VITE_API_URL=https://api.ikoota.com:8443/api" > .env.local; \
+        echo "REACT_APP_USE_MOCK_DATA=false" >> .env.local; \
     else \
-        cp .env .env.local; \
+        echo "VITE_API_URL=http://localhost:3000/api" > .env.local; \
+        echo "REACT_APP_USE_MOCK_DATA=false" >> .env.local; \
     fi
 
 # Build the React app (Vite will pick up .env.local)
