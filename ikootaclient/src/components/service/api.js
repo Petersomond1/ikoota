@@ -1,9 +1,16 @@
-//ikootaclient\src\components\service\api.js - REPLACE YOUR EXISTING FILE WITH THIS
+//ikootaclient\src\components\service\api.js - Environment-aware API configuration
 import axios from 'axios';
 
-// ✅ CRITICAL CHANGE: Use /api instead of full URL to use proxy
+// ✅ ENVIRONMENT-AWARE: Use environment variables for API URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+console.log('🔧 API Configuration:', {
+  baseURL: API_BASE_URL,
+  environment: import.meta.env.MODE || 'development'
+});
+
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api', // This will use the Vite proxy to forward to localhost:3000/api
+  baseURL: API_BASE_URL,
   timeout: 15000,
   withCredentials: true, // Important for session cookies
   headers: {

@@ -13,7 +13,20 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the React app
+# Build argument for environment (passed from deploy.yml)
+ARG ENVIRONMENT=staging
+
+# Set environment variables for build
+ENV NODE_ENV=production
+
+# Copy appropriate environment file based on build argument
+RUN if [ "$ENVIRONMENT" = "production" ]; then \
+        cp .env.production .env.local; \
+    else \
+        cp .env .env.local; \
+    fi
+
+# Build the React app (Vite will pick up .env.local)
 RUN npm run build
 
 # Production stage with nginx

@@ -429,6 +429,7 @@ const existingUsers = extractDbRows(existingUsersResult);
                 membership_stage: 'none',
                 initial_application_status: 'not_applied',
                 application_ticket: applicationTicket,
+                converse_id: converseId,
                 role: 'user'
             },
             // ✅ ALSO include nested data format
@@ -441,6 +442,7 @@ const existingUsers = extractDbRows(existingUsersResult);
                     membership_stage: 'none',
                     initial_application_status: 'not_applied',
                     application_ticket: applicationTicket,
+                    converse_id: converseId,
                     role: 'user'
                 }
             },
@@ -653,6 +655,7 @@ export const enhancedLogin = async (req, res) => {
                 initial_application_status: user.initial_application_status || 'not_applied',
                 full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
                 role: user.role || 'user',
+                converse_id: user.converse_id,
                 application_ticket: user.application_ticket
             },
             // Also include nested data format for compatibility
@@ -666,6 +669,7 @@ export const enhancedLogin = async (req, res) => {
                     initial_application_status: user.initial_application_status || 'not_applied',
                     full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
                     role: user.role || 'user',
+                    converse_id: user.converse_id,
                     application_ticket: user.application_ticket
                 }
             },
