@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import api from "../service/api";
 import { useUser } from "./UserStatus";
 import './login.css';
 
@@ -100,12 +101,9 @@ const Login = () => {
     try {
       setLoading(true);
       
-      const response = await axios.post("http://localhost:3000/api/auth/login", {
+      const response = await api.post("/auth/login", {
         email: values.email,
         password: values.password
-      }, { 
-        withCredentials: true,
-        timeout: 15000
       });
 
       console.log('🔍 Login response:', response.data);
@@ -214,15 +212,15 @@ const Login = () => {
       }
 
       // ✅ PRIORITY 2: Full Members - Go to Iko Chat
-      if ((memberStatus === 'member' && membershipStage === 'member') || 
-          (memberStatus === 'active' && membershipStage === 'member')) {
+      if ((userData.member_status === 'member' && membershipStage === 'member') ||
+          (userData.member_status === 'active' && membershipStage === 'member')) {
         console.log('💎 Full member detected - routing to Iko Chat');
         navigate('/iko', { replace: true });
         return;
       }
 
-      // ✅ PRIORITY 3: Pre-Members - Go to Towncrier  
-      if (memberStatus === 'pre_member' || membershipStage === 'pre_member') {
+      // ✅ PRIORITY 3: Pre-Members - Go to Towncrier
+      if (userData.member_status === 'pre_member' || membershipStage === 'pre_member') {
         console.log('👤 Pre-member detected - routing to Towncrier');
         navigate('/towncrier', { replace: true });
         return;
@@ -263,28 +261,25 @@ const Login = () => {
       const membershipStage = userData.membership_stage?.toLowerCase();
       
       // Users who definitely don't need survey
-      if (memberStatus === 'pre_member' || 
-          memberStatus === 'member' || 
-          memberStatus === 'active' ||
-          membershipStage === 'pre_member' || 
+      if (userData.member_status === 'pre_member' ||
+          userData.member_status === 'member' ||
+          userData.member_status === 'active' ||
+          membershipStage === 'pre_member' ||
           membershipStage === 'member') {
         console.log('✅ User has confirmed membership status - no survey needed');
         return false;
       }
 
       // ✅ FIXED: Use the endpoint we just added to server.js
-      const response = await axios.get('http://localhost:3000/api/user/userstatus/survey/check-status', {
-        headers: { 'Authorization': `Bearer ${token}` },
-        timeout: 5000
-      });
+      const response = await api.get('/user/userstatus/survey/check-status');
       
       const statusData = response.data;
       console.log('📋 Survey status check:', statusData);
       
       // Only require survey if explicitly needed and not completed
-      const needsSurvey = statusData.needs_survey === true && 
+      const needsSurvey = statusData.needs_survey === true &&
                          statusData.survey_completed === false &&
-                         memberStatus === 'applied' &&
+                         userData.member_status === 'applied' &&
                          membershipStage === 'none';
       
       console.log('🎯 Survey requirement decision:', {
@@ -300,13 +295,13 @@ const Login = () => {
       // Conservative fallback: only require survey for clearly new users
       const membershipStage = userData.membership_stage?.toLowerCase();
       
-      const isNewUser = memberStatus === 'applied' && 
+      const isNewUser = userData.member_status === 'applied' &&
                        membershipStage === 'none' &&
                        !userData.application_submittedAt;
       
       console.log('🔄 Fallback survey check:', {
         isNewUser,
-        memberStatus,
+        memberStatus: userData.member_status,
         membershipStage
       });
       
