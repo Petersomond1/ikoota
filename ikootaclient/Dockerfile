@@ -16,25 +16,28 @@ COPY . .
 # Build argument for environment (passed from deploy.yml)
 ARG ENVIRONMENT=staging
 
-# Set environment variables for build
+# Set base environment variables
 ENV NODE_ENV=production
 
-# Set API URL based on environment directly as build-time env var
-RUN echo "🔧 Building with ENVIRONMENT=$ENVIRONMENT" && \
-    if [ "$ENVIRONMENT" = "production" ]; then \
-        echo "VITE_API_URL=https://api.ikoota.com:8443/api" > .env.local; \
-        echo "REACT_APP_USE_MOCK_DATA=false" >> .env.local; \
-        echo "🔧 Production environment variables set:"; \
-        cat .env.local; \
-    else \
-        echo "VITE_API_URL=http://localhost:3000/api" > .env.local; \
-        echo "REACT_APP_USE_MOCK_DATA=false" >> .env.local; \
-        echo "🔧 Development environment variables set:"; \
-        cat .env.local; \
-    fi
+# Set Vite environment variables directly as ENV (not .env file)
+RUN echo "🔧 Building with ENVIRONMENT=$ENVIRONMENT"
 
-# Build the React app (Vite will pick up .env.local)
-RUN echo "🔧 Starting build process..." && npm run build
+# Set environment variables for Vite build based on ENVIRONMENT
+RUN if [ "$ENVIRONMENT" = "production" ]; then \
+        echo "🔧 Setting production environment variables"; \
+        export VITE_API_URL="https://api.ikoota.com:8443/api"; \
+        export REACT_APP_USE_MOCK_DATA="false"; \
+        echo "VITE_API_URL=$VITE_API_URL"; \
+        echo "REACT_APP_USE_MOCK_DATA=$REACT_APP_USE_MOCK_DATA"; \
+        VITE_API_URL="https://api.ikoota.com:8443/api" REACT_APP_USE_MOCK_DATA="false" npm run build; \
+    else \
+        echo "🔧 Setting development environment variables"; \
+        export VITE_API_URL="http://localhost:3000/api"; \
+        export REACT_APP_USE_MOCK_DATA="false"; \
+        echo "VITE_API_URL=$VITE_API_URL"; \
+        echo "REACT_APP_USE_MOCK_DATA=$REACT_APP_USE_MOCK_DATA"; \
+        VITE_API_URL="http://localhost:3000/api" REACT_APP_USE_MOCK_DATA="false" npm run build; \
+    fi
 
 # Production stage with nginx
 FROM nginx:alpine
