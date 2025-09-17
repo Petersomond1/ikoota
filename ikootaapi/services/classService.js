@@ -90,7 +90,7 @@ export const getAllClasses = async (filters = {}, options = {}) => {
       LIMIT ? OFFSET ?
     `;
 
-    queryParams.push(limit, offset);
+    queryParams.push(parseInt(limit), parseInt(offset));
     const classes = await db.query(query, queryParams);
 
     // Get total count for pagination
@@ -657,8 +657,8 @@ export const getUserProgress = async (userId) => {
         ucm.joinedAt,
         COUNT(ca.id) as total_attendance_records
       FROM user_class_memberships ucm
-      JOIN classes cls ON ucm.class_id = cls.class_id
-      LEFT JOIN class_attendance ca ON ucm.user_id = ca.user_id AND ucm.class_id = ca.class_id
+      JOIN classes cls ON ucm.class_id COLLATE utf8mb4_general_ci = cls.class_id COLLATE utf8mb4_general_ci
+      LEFT JOIN class_attendance ca ON ucm.user_id = ca.user_id AND ucm.class_id COLLATE utf8mb4_general_ci = ca.class_id COLLATE utf8mb4_general_ci
       WHERE ucm.user_id = ? AND ucm.membership_status = 'active' AND cls.is_active = 1
       GROUP BY cls.class_id, cls.class_name, ucm.total_sessions_attended, ucm.last_attendance, ucm.joinedAt
       ORDER BY ucm.last_attendance DESC

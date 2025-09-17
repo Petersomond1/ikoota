@@ -1080,6 +1080,278 @@ export const getDetailedRoutes = async (req, res) => {
 };
 
 // ===============================================
+// ADMIN SETTINGS CONTROLLERS
+// ===============================================
+
+/**
+ * Get admin settings
+ * GET /api/admin/settings
+ */
+export const getAdminSettings = async (req, res) => {
+    try {
+        // Check if user is admin or super_admin
+        if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super_admin')) {
+            throw new CustomError('Admin access required', 403);
+        }
+
+        // Default settings structure
+        const defaultSettings = {
+            site_name: 'Ikoota Platform',
+            site_description: 'Educational Management Platform',
+            site_logo_url: '',
+            contact_email: 'contact@ikoota.com',
+            support_email: 'support@ikoota.com',
+            maintenance_mode: false,
+            registration_enabled: true,
+            auto_approve_members: false,
+            max_file_upload_size: 10,
+            session_timeout_minutes: 60,
+            password_min_length: 8,
+            require_email_verification: true,
+            max_login_attempts: 5,
+            lockout_duration_minutes: 30,
+            backup_frequency_hours: 24,
+            log_retention_days: 90,
+            email_notifications_enabled: true,
+            sms_notifications_enabled: false,
+            admin_notification_email: '',
+            system_timezone: 'UTC',
+            date_format: 'YYYY-MM-DD',
+            time_format: '24h',
+            default_user_role: 'applicant',
+            analytics_enabled: true,
+            privacy_mode: false
+        };
+
+        // Try to fetch from database or create if not exists
+        let settings;
+        try {
+            const [existingSettings] = await db.query(`
+                SELECT setting_key, setting_value
+                FROM admin_settings
+                WHERE is_active = 1
+            `);
+
+            if (existingSettings.length > 0) {
+                settings = { ...defaultSettings };
+                existingSettings.forEach(setting => {
+                    const value = setting.setting_value;
+                    // Convert boolean strings to actual booleans
+                    if (value === 'true') settings[setting.setting_key] = true;
+                    else if (value === 'false') settings[setting.setting_key] = false;
+                    // Convert numeric strings to numbers
+                    else if (!isNaN(value) && !isNaN(parseFloat(value))) settings[setting.setting_key] = parseFloat(value);
+                    else settings[setting.setting_key] = value;
+                });
+            } else {
+                settings = defaultSettings;
+            }
+        } catch (dbError) {
+            console.warn('⚠️ Could not fetch settings from database, using defaults:', dbError.message);
+            settings = defaultSettings;
+        }
+
+        return successResponse(res, {
+            data: settings,
+            source: 'database_with_defaults',
+            lastUpdated: new Date().toISOString()
+        }, 'Admin settings retrieved successfully');
+
+    } catch (error) {
+        console.error('❌ Get admin settings error:', error);
+        return errorResponse(res, error);
+    }
+};
+
+/**
+ * Update admin settings
+ * PUT /api/admin/settings
+ */
+export const updateAdminSettings = async (req, res) => {
+    try {
+        // Check if user is admin or super_admin
+        if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super_admin')) {
+            throw new CustomError('Admin access required', 403);
+        }
+
+        const newSettings = req.body;
+        if (!newSettings || Object.keys(newSettings).length === 0) {
+            throw new CustomError('Settings data is required', 400);
+        }
+
+        // Create admin_settings table if it doesn't exist
+        try {
+            await db.query(`
+                CREATE TABLE IF NOT EXISTS admin_settings (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    setting_key VARCHAR(100) NOT NULL UNIQUE,
+                    setting_value TEXT,
+                    setting_type ENUM('string', 'number', 'boolean', 'json') DEFAULT 'string',
+                    description TEXT,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_by INT,
+                    updated_by INT,
+                    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_setting_key (setting_key),
+                    INDEX idx_is_active (is_active)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+            `);
+        } catch (createError) {
+            console.warn('⚠️ Could not create admin_settings table:', createError.message);
+        }
+
+        // Trigger nodemon restart
+
+        // Update or insert settings
+        const updatePromises = [];
+        for (const [key, value] of Object.entries(newSettings)) {
+            const settingType = typeof value === 'boolean' ? 'boolean' :
+                              typeof value === 'number' ? 'number' :
+                              'string';
+
+            const settingValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+
+            updatePromises.push(
+                db.query(`
+                    INSERT INTO admin_settings (setting_key, setting_value, setting_type, updated_by)
+                    VALUES (?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        setting_value = VALUES(setting_value),
+                        setting_type = VALUES(setting_type),
+                        updated_by = VALUES(updated_by),
+                        updatedAt = CURRENT_TIMESTAMP
+                `, [key, settingValue, settingType, req.user.id])
+            );
+        }
+
+        await Promise.all(updatePromises);
+
+        // Log the settings update
+        console.log(`✅ Admin settings updated by user ${req.user.username} (ID: ${req.user.id})`);
+        console.log(`📊 Updated ${Object.keys(newSettings).length} settings:`, Object.keys(newSettings).join(', '));
+
+        return successResponse(res, {
+            data: newSettings,
+            updatedCount: Object.keys(newSettings).length,
+            updatedBy: req.user.username,
+            updateTime: new Date().toISOString()
+        }, 'Admin settings updated successfully');
+
+    } catch (error) {
+        console.error('❌ Update admin settings error:', error);
+        return errorResponse(res, error);
+    }
+};
+
+/**
+ * Test email configuration
+ * POST /api/admin/settings/test-email
+ */
+export const testEmailConfiguration = async (req, res) => {
+    try {
+        // Check if user is admin or super_admin
+        if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super_admin')) {
+            throw new CustomError('Admin access required', 403);
+        }
+
+        // Get admin email from settings or user
+        let adminEmail = req.user.email;
+        try {
+            const [emailSetting] = await db.query(`
+                SELECT setting_value
+                FROM admin_settings
+                WHERE setting_key = 'admin_notification_email' AND is_active = 1
+            `);
+            if (emailSetting.length > 0 && emailSetting[0].setting_value) {
+                adminEmail = emailSetting[0].setting_value;
+            }
+        } catch (settingsError) {
+            console.warn('⚠️ Could not fetch admin email from settings:', settingsError.message);
+        }
+
+        // Mock email test (in real implementation, use your email service)
+        const testResult = {
+            success: true,
+            message: 'Test email sent successfully',
+            testDetails: {
+                to: adminEmail,
+                subject: 'Ikoota Admin Settings - Email Configuration Test',
+                sentAt: new Date().toISOString(),
+                testType: 'admin_settings_test'
+            },
+            note: 'This is a mock implementation. In production, integrate with your email service (SendGrid, AWS SES, etc.)'
+        };
+
+        // Simulate email sending delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        return successResponse(res, testResult, 'Email test completed successfully');
+
+    } catch (error) {
+        console.error('❌ Test email error:', error);
+        return errorResponse(res, error);
+    }
+};
+
+/**
+ * Get admin settings history
+ * GET /api/admin/settings/history
+ */
+export const getSettingsHistory = async (req, res) => {
+    try {
+        // Check if user is admin or super_admin
+        if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super_admin')) {
+            throw new CustomError('Admin access required', 403);
+        }
+
+        const { limit = 50, offset = 0 } = req.query;
+
+        try {
+            const [history] = await db.query(`
+                SELECT
+                    s.setting_key,
+                    s.setting_value,
+                    s.setting_type,
+                    s.updatedAt,
+                    u.username as updated_by_username,
+                    u.converse_id as updated_by_converse_id
+                FROM admin_settings s
+                LEFT JOIN users u ON s.updated_by = u.id
+                ORDER BY s.updatedAt DESC
+                LIMIT ? OFFSET ?
+            `, [parseInt(limit), parseInt(offset)]);
+
+            const [totalCount] = await db.query(`
+                SELECT COUNT(*) as total FROM admin_settings
+            `);
+
+            return successResponse(res, {
+                history,
+                pagination: {
+                    total: totalCount[0].total,
+                    limit: parseInt(limit),
+                    offset: parseInt(offset),
+                    hasMore: totalCount[0].total > (parseInt(offset) + parseInt(limit))
+                }
+            }, 'Settings history retrieved successfully');
+
+        } catch (dbError) {
+            console.warn('⚠️ Could not fetch settings history:', dbError.message);
+            return successResponse(res, {
+                history: [],
+                message: 'Settings history table not available',
+                note: 'This feature requires the admin_settings table to be created'
+            }, 'Settings history not available');
+        }
+
+    } catch (error) {
+        console.error('❌ Get settings history error:', error);
+        return errorResponse(res, error);
+    }
+};
+
+// ===============================================
 // EXPORT DEFAULT CONTROLLER OBJECT
 // ===============================================
 
@@ -1091,18 +1363,24 @@ export default {
     getDatabaseHealth,
     getAPIInformation,
     testConnectivity,
-    
+
     // Advanced system controllers
     getSystemDiagnostics,
     clearSystemCache,
     getSystemLogs,
     restartServices,
-    
+
     // Testing controllers
     testAuthentication,
     testLoad,
-    
+
     // Development controllers
     getEnvironmentInfo,
-    getDetailedRoutes
+    getDetailedRoutes,
+
+    // Admin settings controllers
+    getAdminSettings,
+    updateAdminSettings,
+    testEmailConfiguration,
+    getSettingsHistory
 };

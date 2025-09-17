@@ -780,6 +780,38 @@ class SimpleMentorshipController {
     }
 }
 
+// =================================================================
+// USER ASSIGNMENTS OPERATIONS
+// =================================================================
+
+/**
+ * Get user's mentorship assignments
+ * GET /api/users/mentorship/assignments
+ */
+export const getUserAssignments = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const result = await mentorshipServices.getUserAssignments(userId);
+
+        res.status(200).json({
+            success: true,
+            data: result.data,
+            message: 'Mentorship assignments retrieved successfully',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('❌ getUserAssignments controller error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch mentorship assignments',
+            details: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+};
+
 // Create instance for simple controller methods
 const simpleMentorshipController = new SimpleMentorshipController();
 
@@ -792,6 +824,7 @@ export default {
     searchMentees,
     getMentorDetails,
     batchAssignMentees,
+    getUserAssignments,
     // Simple controller methods
     getAvailableMentorsSimple: simpleMentorshipController.getAvailableMentorsSimple,
     assignMenteeToMentorSimple: simpleMentorshipController.assignMenteeToMentorSimple,

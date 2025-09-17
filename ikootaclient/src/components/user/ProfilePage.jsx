@@ -4,6 +4,7 @@ import { useUser } from '../auth/UserStatus';
 import api from '../service/api';
 import './ProfilePage.css';
 import { useNavigate } from 'react-router-dom';
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 
 const fetchUserProfile = async () => {
   const token = localStorage.getItem("token");
@@ -97,9 +98,7 @@ const ProfilePage = () => {
       setFormData(prev => ({
         ...prev,
         first_name: user.first_name || '',
-        last_name: user.last_name || '',
-        email: user.email || '',
-        username: user.username || ''
+        last_name: user.last_name || ''
       }));
     }
   }, [profileData, user]);
@@ -188,10 +187,10 @@ const ProfilePage = () => {
           <div className="profile-avatar-section">
             <div className="profile-avatar">
               <div className="avatar-circle">
-                {user?.username?.charAt(0)?.toUpperCase() || 'U'}
+                {getSecureDisplayName(user, DISPLAY_CONTEXTS.COMPACT)?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <h2>{user?.first_name} {user?.last_name}</h2>
-              <p className="username">@{user?.username}</p>
+              <p className="username">{getFullConverseId(user)}</p>
               <div className="membership-badge">
                 <span className={`status-badge ${user?.membership_stage?.toLowerCase()}`}>
                   {user?.membership_stage || 'Member'}
@@ -205,8 +204,8 @@ const ProfilePage = () => {
               <div className="profile-view">
                 <div className="profile-grid">
                   <div className="profile-field">
-                    <label>Email</label>
-                    <p>{formData.email || 'Not provided'}</p>
+                    <label>Member ID</label>
+                    <p>{getFullConverseId(user)}</p>
                   </div>
                   <div className="profile-field">
                     <label>Phone</label>

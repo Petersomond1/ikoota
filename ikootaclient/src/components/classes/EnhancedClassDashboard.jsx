@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../auth/UserStatus';
 import api from '../service/api';
 import ClassMentorshipView from './ClassMentorshipView';
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import './EnhancedClassDashboard.css';
 
 const EnhancedClassDashboard = () => {
@@ -167,7 +168,7 @@ const EnhancedClassDashboard = () => {
       <div className="dashboard-header">
         <div className="header-content">
           <div className="user-welcome">
-            <h1>Welcome back, {user?.converse_id || user?.username}!</h1>
+            <h1>Welcome back, {getSecureDisplayName(user, DISPLAY_CONTEXTS.FULL_ID)}!</h1>
             <p>Your personalized class dashboard with mentorship integration</p>
           </div>
           

@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../service/api';
 import './audienceclassmgr.css';
 import { generateUniqueClassId, validateIdFormat } from '../service/idGenerationService';
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import './converseId.css';
 
 const AudienceClassMgr = () => {
@@ -83,7 +84,7 @@ const AudienceClassMgr = () => {
   const { data: systemStats, isLoading: statsLoading } = useQuery({
     queryKey: ['classSystemStats'],
     queryFn: async () => {
-      const { data } = await api.get('/classes/admin/stats');
+      const { data } = await api.get('/classes/admin/analytics');
       return data;
     },
     staleTime: 5 * 60 * 1000,
@@ -1412,14 +1413,13 @@ const ParticipantManagerModal = ({ selectedClass, participants, onParticipantAct
                       />
                     ) : (
                       <div className="avatar-placeholder">
-                        {(participant.name || participant.username || 'U').charAt(0).toUpperCase()}
+                        {getSecureDisplayName(participant, DISPLAY_CONTEXTS.COMPACT)?.charAt(0)?.toUpperCase() || 'U'}
                       </div>
                     )}
                   </div>
 
                   <div className="participant-info">
-                    <div className="participant-name">{participant.name || participant.username || 'Unknown'}</div>
-                    <div className="participant-email">{participant.email}</div>
+                    <div className="participant-name">{getFullConverseId(participant)}</div>
                     <div className="participant-joined">
                       Joined: {new Date(participant.joined_at).toLocaleDateString()}
                     </div>
@@ -1999,7 +1999,7 @@ const ClassesGrid = ({
             )}
           </div>
 
-          {classItem.tags && classItem.tags.length > 0 && (
+          {classItem.tags && Array.isArray(classItem.tags) && classItem.tags.length > 0 && (
             <div className="class-tags">
               {classItem.tags.slice(0, 3).map((tag, index) => (
                 <span key={index} className="tag">{tag}</span>
@@ -2337,12 +2337,12 @@ const ClassDetailsPanel = ({
                       />
                       ) : (
                         <div className="avatar-placeholder">
-                          {(participant.name || participant.username || 'U').charAt(0).toUpperCase()}
+                          {getSecureDisplayName(participant, DISPLAY_CONTEXTS.COMPACT)?.charAt(0)?.toUpperCase() || 'U'}
                         </div>
                       )}
                     </div>
                     <div className="participant-info">
-                      <div className="participant-name">{participant.name || participant.username || 'Unknown'}</div>
+                      <div className="participant-name">{getFullConverseId(participant)}</div>
                       <div className="participant-role">{participant.role || 'Member'}</div>
                       <div className="participant-joined">Joined: {formatDate(participant.joined_at)}</div>
                     </div>
@@ -2961,7 +2961,7 @@ const LiveSessionsTab = ({ selectedClass }) => {
     queryFn: async () => {
       if (!selectedClass?.class_id) return [];
       try {
-        const { data } = await api.get(`/classes/live/admin/pending?classId=${selectedClass.class_id}`);
+        const { data } = await api.get(`/classes/admin/live/admin/pending?classId=${selectedClass.class_id}`);
         return data?.data || [];
       } catch (error) {
         console.error('Failed to fetch pending live approvals:', error);
@@ -2978,7 +2978,7 @@ const LiveSessionsTab = ({ selectedClass }) => {
     queryFn: async () => {
       if (!selectedClass?.class_id) return {};
       try {
-        const { data } = await api.get(`/classes/live/admin/stats/${selectedClass.class_id}`);
+        const { data } = await api.get(`/classes/admin/live/admin/dashboard`);
         return data?.data || {};
       } catch (error) {
         console.error('Failed to fetch class live stats:', error);

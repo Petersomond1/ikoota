@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../service/api';
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import './admin.css';
 import './converseId.css';
 
@@ -311,7 +312,7 @@ const ConverseIdControls = () => {
             <div className="search-filter-bar">
               <input
                 type="text"
-                placeholder="Search by username, email, or converse ID..."
+                placeholder="Search by converse ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="search-input"
@@ -347,7 +348,7 @@ const ConverseIdControls = () => {
                     {maskedIdentities?.map(user => (
                       <tr key={user.user_id || user.id}>
                         <td>{user.user_id || user.id}</td>
-                        <td>{user.username || 'N/A'}</td>
+                        <td>{getFullConverseId(user)}</td>
                         <td>
                           <span className="converse-id">
                             {user.converse_id || 'Not Generated'}
@@ -582,7 +583,7 @@ const ConverseIdControls = () => {
           <div className="modal">
             <h3>⚠️ Unmask User Identity</h3>
             <p>
-              You are about to unmask <strong>{selectedUser?.converse_id || selectedUser?.username}</strong>.
+              You are about to unmask <strong>{getFullConverseId(selectedUser)}</strong>.
               This action will be logged and the user will be notified.
             </p>
             <textarea

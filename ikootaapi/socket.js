@@ -34,14 +34,13 @@ const setupSocket = (server) => {
                     const decoded = jwt.verify(token, process.env.JWT_SECRET);
                     socket.userId = decoded.user_id;
                     socket.userRole = decoded.role;
-                    socket.username = decoded.username || decoded.email;
-                    socket.email = decoded.email;
+                    socket.converseId = decoded.converse_id;
                     socket.isAuthenticated = true;
 
                     logger.info('Authenticated user connected to socket', {
                         socketId: socket.id,
                         userId: decoded.user_id,
-                        username: socket.username,
+                        converseId: socket.converseId,
                         role: decoded.role
                     });
                 } catch (tokenError) {
@@ -52,14 +51,14 @@ const setupSocket = (server) => {
                     });
                     socket.isAuthenticated = false;
                     socket.userId = null;
-                    socket.username = 'Guest';
+                    socket.converseId = 'Guest';
                     socket.userRole = 'guest';
                 }
             } else {
                 // No token provided, treat as guest
                 socket.isAuthenticated = false;
                 socket.userId = null;
-                socket.username = 'Guest';
+                socket.converseId = 'Guest';
                 socket.userRole = 'guest';
                 
                 logger.debug('Guest user connected to socket', {
@@ -73,7 +72,7 @@ const setupSocket = (server) => {
             // Don't block connection, just treat as guest
             socket.isAuthenticated = false;
             socket.userId = null;
-            socket.username = 'Guest';
+            socket.converseId = 'Guest';
             socket.userRole = 'guest';
             next();
         }
@@ -83,7 +82,7 @@ const setupSocket = (server) => {
         const connectionInfo = {
             socketId: socket.id,
             userId: socket.userId,
-            username: socket.username,
+            converseId: socket.converseId,
             role: socket.userRole,
             isAuthenticated: socket.isAuthenticated,
             timestamp: new Date().toISOString()
@@ -123,7 +122,7 @@ const setupSocket = (server) => {
                 const messageData = {
                     ...data,
                     from: socket.userId || 'guest',
-                    fromUsername: socket.username,
+                    fromConverseId: socket.converseId,
                     fromRole: socket.userRole,
                     isAuthenticated: socket.isAuthenticated,
                     socketId: socket.id,
@@ -171,7 +170,7 @@ const setupSocket = (server) => {
                     socket.emit('receiveMessage', { ...messageData, sent: true });
 
                     logger.debug('Classroom message sent', {
-                        from: socket.username,
+                        from: socket.converseId,
                         room: data.room,
                         classId: data.classId,
                         messageId: data.id || 'unknown'
@@ -180,7 +179,7 @@ const setupSocket = (server) => {
                     // Send to specific room
                     socket.to(data.room).emit('receiveMessage', messageData);
                     logger.debug('Message sent to room', {
-                        from: socket.username,
+                        from: socket.converseId,
                         room: data.room,
                         messageId: data.id || 'unknown'
                     });
@@ -188,7 +187,7 @@ const setupSocket = (server) => {
                     // ✅ PRESERVED: Your original broadcast behavior
                     io.emit('receiveMessage', messageData);
                     logger.debug('Message broadcast to all users', {
-                        from: socket.username,
+                        from: socket.converseId,
                         messageId: data.id || 'unknown'
                     });
                 }
@@ -220,7 +219,7 @@ const setupSocket = (server) => {
                 const chatMessage = {
                     id: data.id || Date.now().toString(),
                     from: socket.userId,
-                    fromUsername: socket.username,
+                    fromConverseId: socket.converseId,
                     to: data.to,
                     message: data.message,
                     type: 'chat',
@@ -251,7 +250,7 @@ const setupSocket = (server) => {
         socket.on('adminMessage', (data) => {
             if (socket.userRole === 'admin' || socket.userRole === 'super_admin') {
                 const adminMessage = {
-                    from: socket.username,
+                    from: socket.converseId,
                     message: data.message,
                     type: data.type || 'announcement',
                     priority: data.priority || 'normal',
@@ -277,7 +276,7 @@ const setupSocket = (server) => {
             if (socket.isAuthenticated) {
                 const statusUpdate = {
                     userId: socket.userId,
-                    username: socket.username,
+                    converseId: socket.converseId,
                     status: data.status,
                     message: data.message,
                     timestamp: new Date().toISOString()
@@ -294,7 +293,7 @@ const setupSocket = (server) => {
             if (socket.isAuthenticated) {
                 const typingData = {
                     from: socket.userId,
-                    fromUsername: socket.username,
+                    fromConverseId: socket.converseId,
                     isTyping: data.isTyping,
                     timestamp: new Date().toISOString()
                 };
@@ -304,7 +303,7 @@ const setupSocket = (server) => {
                     socket.to(data.room).emit('userTyping', typingData);
 
                     logger.debug('Classroom typing indicator', {
-                        from: socket.username,
+                        from: socket.converseId,
                         room: data.room,
                         isTyping: data.isTyping
                     });
@@ -347,7 +346,7 @@ const setupSocket = (server) => {
                     messageId: data.messageId,
                     reaction: data.reaction,
                     userId: socket.userId,
-                    username: socket.username,
+                    converseId: socket.converseId,
                     timestamp: new Date().toISOString()
                 };
 
@@ -415,7 +414,7 @@ const setupSocket = (server) => {
                 const deletionData = {
                     messageId: data.messageId,
                     deletedBy: socket.userId,
-                    moderator: socket.username,
+                    moderator: socket.converseId,
                     timestamp: new Date().toISOString()
                 };
 
@@ -470,7 +469,7 @@ const setupSocket = (server) => {
                     messageId: data.messageId,
                     message: data.message,
                     author: data.author,
-                    pinnedBy: socket.username,
+                    pinnedBy: socket.converseId,
                     timestamp: new Date().toISOString()
                 };
 
@@ -496,7 +495,7 @@ const setupSocket = (server) => {
             if (socket.isAuthenticated && data.room) {
                 const stopTypingData = {
                     from: socket.userId,
-                    fromUsername: socket.username,
+                    fromConverseId: socket.converseId,
                     classId: data.classId,
                     timestamp: new Date().toISOString()
                 };
@@ -586,7 +585,7 @@ const setupSocket = (server) => {
                     type: 'announcement',
                     message: `📢 ANNOUNCEMENT: ${data.message}`,
                     from: socket.userId,
-                    fromUsername: socket.username,
+                    fromConverseId: socket.converseId,
                     classId: data.classId,
                     room: data.room,
                     timestamp: new Date().toISOString(),
@@ -628,7 +627,7 @@ const setupSocket = (server) => {
             const disconnectInfo = {
                 socketId: socket.id,
                 userId: socket.userId,
-                username: socket.username,
+                converseId: socket.converseId,
                 reason,
                 duration: Date.now() - (socket.connectedAt || Date.now()),
                 timestamp: new Date().toISOString()
@@ -640,7 +639,7 @@ const setupSocket = (server) => {
             if (socket.isAuthenticated) {
                 socket.broadcast.emit('userDisconnected', {
                     userId: socket.userId,
-                    username: socket.username,
+                    converseId: socket.converseId,
                     timestamp: new Date().toISOString()
                 });
             }
@@ -668,7 +667,7 @@ const setupSocket = (server) => {
             message: 'Connected to Ikoota Socket Server',
             socketId: socket.id,
             isAuthenticated: socket.isAuthenticated,
-            username: socket.username,
+            converseId: socket.converseId,
             role: socket.userRole,
             timestamp: new Date().toISOString()
         });

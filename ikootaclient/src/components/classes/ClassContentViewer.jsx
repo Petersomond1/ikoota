@@ -7,6 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '../auth/UserStatus';
 import api from '../service/api';
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import './ClassContentViewer.css';
 // ✅ NEW: AI Features Panel
 import AIFeaturesPanel from '../shared/AIFeaturesPanel';
@@ -703,12 +704,12 @@ const ClassContentViewer = () => {
                         />
                       ) : (
                         <div className="avatar-placeholder">
-                          {(member.name || member.username || 'U').charAt(0).toUpperCase()}
+                          {getSecureDisplayName(member, DISPLAY_CONTEXTS.COMPACT)?.charAt(0)?.toUpperCase() || 'U'}
                         </div>
                       )}
                     </div>
                     <div className="member-info">
-                      <div className="member-name">{member.name || member.username}</div>
+                      <div className="member-name">{getFullConverseId(member)}</div>
                       <div className="member-role">{member.role_in_class || member.role || 'Member'}</div>
                       {member.membership_status && member.membership_status !== 'active' && (
                         <div className="member-status-badge">{member.membership_status}</div>

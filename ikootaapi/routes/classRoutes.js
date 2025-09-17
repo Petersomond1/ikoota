@@ -94,6 +94,30 @@ router.get('/my-progress',
 );
 
 /**
+ * GET USER ACTIVITY
+ * GET /api/classes/my-activity
+ * Role: Member
+ * NOTE: Must come BEFORE /:classId route to avoid parameter capture
+ */
+router.get('/my-activity',
+  authenticate,
+  requireMembership('pre_member'),
+  classController.getUserActivity
+);
+
+/**
+ * GET CLASS RECOMMENDATIONS
+ * GET /api/classes/recommendations
+ * Role: Member
+ * NOTE: Must come BEFORE /:classId route to avoid parameter capture
+ */
+router.get('/recommendations',
+  authenticate,
+  requireMembership('pre_member'),
+  classController.getClassRecommendations
+);
+
+/**
  * STEP 2: GET CLASS DETAILS
  * GET /api/classes/:classId
  * Role: Any User

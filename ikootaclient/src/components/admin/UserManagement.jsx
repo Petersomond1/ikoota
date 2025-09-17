@@ -5,12 +5,13 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../service/api';
 import './userManagement.css';
-import { 
-  generateUniqueConverseId, 
-  generateRandomId, 
-  validateIdFormat, 
-  formatIdForDisplay 
+import {
+  generateUniqueConverseId,
+  generateRandomId,
+  validateIdFormat,
+  formatIdForDisplay
 } from '../service/idGenerationService';
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 
 // ==================================================
 // OPTIMIZED API FUNCTIONS WITH BETTER ERROR HANDLING
@@ -344,7 +345,7 @@ const UserManagement = () => {
     if (user.is_identity_masked && user.converse_id) {
       return user.converse_id;
     }
-    return user.username || user.email || 'Unknown User';
+    return getFullConverseId(user);
   }, []);
 
   const getStatusBadgeClass = useCallback((status) => {
@@ -527,15 +528,15 @@ const UserManagement = () => {
                       <td className="user-cell">
                         <div className="user-info">
                           <div className="user-avatar small">
-                            {(user.username || 'U').charAt(0).toUpperCase()}
+                            {getSecureDisplayName(user, DISPLAY_CONTEXTS.COMPACT)?.charAt(0)?.toUpperCase() || 'U'}
                           </div>
                           <div className="user-details">
-                            <span className="username">{formatUserDisplayName(user)}</span>
+                            <span className="username">{getFullConverseId(user)}</span>
                             <span className="user-id">ID: {user.id}</span>
                           </div>
                         </div>
                       </td>
-                      <td className="email-cell">{user.email}</td>
+                      <td className="converse-cell">{getFullConverseId(user)}</td>
                       <td className="role-cell">
                         <span className={`role-badge role-${user.role}`}>{user.role}</span>
                       </td>
@@ -647,8 +648,7 @@ const UserManagement = () => {
                 <div key={application.application_id} className="application-card">
                   <div className="application-header">
                     <div className="user-info">
-                      <h4 className="username">{application.username}</h4>
-                      <p className="email">{application.email}</p>
+                      <h4 className="username">{getFullConverseId(application)}</h4>
                       <span className="user-id">ID: {application.user_id}</span>
                     </div>
                     

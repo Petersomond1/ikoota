@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './membershipReviewControls.css';
 import api from '../service/api';
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 
 const MembershipReviewControls = () => {
   const [selectedApplications, setSelectedApplications] = useState([]);
@@ -471,8 +472,7 @@ const MembershipReviewControls = () => {
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
         const searchableFields = [
-          app?.email,
-          app?.username,
+          getFullConverseId(app),
           app?.application_ticket,
           app?.membership_ticket,
           app?.full_membership_ticket
@@ -617,7 +617,7 @@ const MembershipReviewControls = () => {
               <label>Search:</label>
               <input
                 type="text"
-                placeholder="Search by username, email, ticket..."
+                placeholder="Search by converse ID, ticket..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -819,12 +819,12 @@ const ApplicationCard = ({
           />
           <div className="user-info">
             <h4>
-              {application.username || 'Unknown User'}
+              {getSecureDisplayName(application, DISPLAY_CONTEXTS.COMPACT) || 'Unknown User'}
               <span style={{ fontSize: '0.8em', color: '#666', marginLeft: '10px' }}>
                 #{application.id}
               </span>
             </h4>
-            <p className="user-email">{application.email}</p>
+            <p className="user-converse-id">{getFullConverseId(application)}</p>
             <p className="application-date">
               Applied: {application.createdAt ? 
                 new Date(application.createdAt).toLocaleDateString() : 

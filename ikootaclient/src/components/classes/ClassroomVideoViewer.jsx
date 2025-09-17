@@ -11,6 +11,7 @@ import VideoRecorder from './VideoRecorder';
 import ClassroomVideoPlayer from './ClassroomVideoPlayer';
 import LiveChat from './LiveChat';
 import { io } from 'socket.io-client';
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import './ClassroomVideoViewer.css';
 
 const ClassroomVideoViewer = () => {
@@ -235,7 +236,7 @@ const ClassroomVideoViewer = () => {
         const updated = prev.filter(p => p.id !== statusData.userId);
         return [...updated, {
           id: statusData.userId,
-          name: statusData.username,
+          name: statusData.converseId,
           status: statusData.status,
           is_online: statusData.status === 'online'
         }];

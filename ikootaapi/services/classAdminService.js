@@ -150,7 +150,7 @@ export const getAllClassesAdmin = async (options = {}) => {
       LIMIT ? OFFSET ?
     `;
 
-    queryParams.push(limit, offset);
+    queryParams.push(parseInt(limit), parseInt(offset));
     const classes = await db.query(query, queryParams);
 
     // Get total count

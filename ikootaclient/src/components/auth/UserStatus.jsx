@@ -194,10 +194,21 @@ export const UserProvider = ({ children }) => {
       const membershipStatusResponse = await membershipApi.getCurrentStatus();
       console.log('✅ Membership status response:', membershipStatusResponse);
 
+      // Debug: Check JWT token data
+      console.log('🔍 UserStatus - JWT tokenData:', tokenData);
+      console.log('🔍 UserStatus - tokenData.converse_id:', tokenData.converse_id);
+
+      // Handle old JWT tokens that don't have converse_id
+      let converseId = tokenData.converse_id;
+      if (!converseId) {
+        console.warn('⚠️ Old JWT token detected without converse_id. You may need to login again.');
+        // For old tokens, try to get converse_id from membershipStatusResponse or use fallback
+        converseId = membershipStatusResponse.converse_id || 'OLD_TOKEN';
+      }
+
       const combinedUserData = {
         user_id: tokenData.user_id,
-        username: tokenData.username,
-        email: tokenData.email,
+        converse_id: converseId,
         membership_stage: tokenData.membership_stage,
         role: tokenData.role,
         // Use data from membership status response with compatibility fallback
@@ -228,12 +239,17 @@ export const UserProvider = ({ children }) => {
         }
       }
 
+      const finalUserObject = {
+        ...combinedUserData,
+        ...statusResult,
+        finalStatus
+      };
+
+      console.log('🔍 UserStatus - Final user object being set:', finalUserObject);
+      console.log('🔍 UserStatus - Final user converse_id:', finalUserObject.converse_id);
+
       updateUserState({
-        user: {
-          ...combinedUserData,
-          ...statusResult,
-          finalStatus
-        },
+        user: finalUserObject,
         membershipStatus: 'loaded',
         status: finalStatus,
         loading: false,
@@ -667,12 +683,8 @@ const UserStatus = () => {
           <h3 className="font-medium text-gray-800 mb-2">Account Details</h3>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-gray-500">Username:</span>
-              <span className="ml-2 font-medium">{user?.username || 'N/A'}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">Email:</span>
-              <span className="ml-2 font-medium">{user?.email || 'N/A'}</span>
+              <span className="text-gray-500">Member ID:</span>
+              <span className="ml-2 font-medium">{user?.converse_id || 'N/A'}</span>
             </div>
             <div>
               <span className="text-gray-500">Stage:</span>

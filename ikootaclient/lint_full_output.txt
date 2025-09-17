@@ -1,0 +1,484 @@
+
+> ikootaclient@0.0.0 lint
+> eslint .
+
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\ErrorBoundary.jsx
+  10:35  warning  'error' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\Admin.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\Analytics.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\AudienceClassMgr.jsx
+     5:8   warning  'React' is defined but never used                              no-unused-vars
+     5:27  warning  'useEffect' is defined but never used                          no-unused-vars
+   148:17  warning  'auditLogs' is assigned a value but never used                 no-unused-vars
+   464:9   warning  'handleGenerateNewClassId' is assigned a value but never used  no-unused-vars
+   474:9   warning  'handleInputChange' is assigned a value but never used         no-unused-vars
+   482:9   warning  'handleTagsChange' is assigned a value but never used          no-unused-vars
+   486:9   warning  'handleSubmit' is assigned a value but never used              no-unused-vars
+   509:9   warning  'handleUpdateClass' is assigned a value but never used         no-unused-vars
+   547:9   warning  'handleBulkAction' is assigned a value but never used          no-unused-vars
+  1136:77  warning  'onSelectClass' is defined but never used                      no-unused-vars
+  1299:7   warning  'ParticipantManagerModal' is assigned a value but never used   no-unused-vars
+  1500:7   warning  'ContentManagerModal' is assigned a value but never used       no-unused-vars
+  1599:7   warning  'ReportsModal' is assigned a value but never used              no-unused-vars
+  1599:52  warning  'classesData' is defined but never used                        no-unused-vars
+  1725:7   warning  'AuditLogsModal' is assigned a value but never used            no-unused-vars
+  1804:7   warning  'SystemSettingsModal' is assigned a value but never used       no-unused-vars
+  2575:39  warning  'summary' is defined but never used                            no-unused-vars
+  2575:48  warning  'analyticsData' is defined but never used                      no-unused-vars
+  2954:10  warning  'pendingApprovals' is assigned a value but never used          no-unused-vars
+  2954:28  warning  'setPendingApprovals' is assigned a value but never used       no-unused-vars
+  2955:10  warning  'liveSessionStats' is assigned a value but never used          no-unused-vars
+  2955:28  warning  'setLiveSessionStats' is assigned a value but never used       no-unused-vars
+  2956:10  warning  'isLoading' is assigned a value but never used                 no-unused-vars
+  2956:21  warning  'setIsLoading' is assigned a value but never used              no-unused-vars
+  2976:44  warning  'statsLoading' is assigned a value but never used              no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\ConverseIdControls.jsx
+    2:8   warning  'React' is defined but never used                          no-unused-vars
+    2:27  warning  'useEffect' is defined but never used                      no-unused-vars
+   12:10  warning  'maskingReason' is assigned a value but never used         no-unused-vars
+   19:43  warning  'statsLoading' is assigned a value but never used          no-unused-vars
+   71:9   warning  'maskIdentityMutation' is assigned a value but never used  no-unused-vars
+  108:9   warning  'bulkMaskMutation' is assigned a value but never used      no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\Dashboard.jsx
+    5:8   warning  'React' is defined but never used                          no-unused-vars
+  174:43  warning  'pendingCountsLoading' is assigned a value but never used  no-unused-vars
+  174:72  warning  'pendingCountsError' is assigned a value but never used    no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\FullMembershipReviewControls.jsx
+  113:16  warning  'statsLoading' is assigned a value but never used  no-unused-vars
+  285:18  warning  'parseError' is defined but never used             no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\KeyStats.jsx
+  4:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\LiveClassManagement.jsx
+   2:8   warning  'React' is defined but never used                      no-unused-vars
+   2:17  warning  'useState' is defined but never used                   no-unused-vars
+  11:48  warning  'dashboardLoading' is assigned a value but never used  no-unused-vars
+  11:73  warning  'dashboardError' is assigned a value but never used    no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\MembershipReviewControls.jsx
+  166:6   warning  React Hook useEffect has a missing dependency: 'fetchApplications'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  191:15  warning  'response' is assigned a value but never used                                                                         no-unused-vars
+  229:15  warning  'response' is assigned a value but never used                                                                         no-unused-vars
+  297:18  warning  'parseError' is defined but never used                                                                                no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\MentorshipControls.jsx
+    2:8   warning  'React' is defined but never used                            no-unused-vars
+    2:27  warning  'useEffect' is defined but never used                        no-unused-vars
+   20:45  warning  'statsLoading' is assigned a value but never used            no-unused-vars
+   92:9   warning  'reassignMenteeMutation' is assigned a value but never used  no-unused-vars
+  123:9   warning  'batchAssignMutation' is assigned a value but never used     no-unused-vars
+  161:9   warning  'safeMentors' is assigned a value but never used             no-unused-vars
+  162:9   warning  'safeAllMentors' is assigned a value but never used          no-unused-vars
+  163:9   warning  'safeMentees' is assigned a value but never used             no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\Navbar.jsx
+  4:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\PendingReports.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\Reports.jsx
+  4:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\Sidebar.jsx
+   2:8   warning  'React' is defined but never used                                no-unused-vars
+  34:17  warning  'pendingFullMembershipCount' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\SurveyControls.jsx
+  198:6   warning  React Hook useEffect has a missing dependency: 'fetchSurveys'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  222:15  warning  'response' is assigned a value but never used                                                                    no-unused-vars
+  266:15  warning  'response' is assigned a value but never used                                                                    no-unused-vars
+  307:13  warning  'response' is assigned a value but never used                                                                    no-unused-vars
+  424:18  warning  'parseError' is defined but never used                                                                           no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\admin\UserManagement.jsx
+    4:8   warning  'React' is defined but never used                        no-unused-vars
+    5:20  warning  'useMutation' is defined but never used                  no-unused-vars
+    9:3   warning  'generateUniqueConverseId' is defined but never used     no-unused-vars
+   10:3   warning  'generateRandomId' is defined but never used             no-unused-vars
+   11:3   warning  'validateIdFormat' is defined but never used             no-unused-vars
+   12:3   warning  'formatIdForDisplay' is defined but never used           no-unused-vars
+  105:7   warning  'exportUserData' is assigned a value but never used      no-unused-vars
+  111:7   warning  'maskUserIdentity' is assigned a value but never used    no-unused-vars
+  175:10  warning  'selectedUsers' is assigned a value but never used       no-unused-vars
+  176:19  warning  'setFilters' is assigned a value but never used          no-unused-vars
+  203:11  warning  'membershipOverview' is assigned a value but never used  no-unused-vars
+  242:17  warning  'classes' is assigned a value but never used             no-unused-vars
+  248:17  warning  'mentors' is assigned a value but never used             no-unused-vars
+  281:9   warning  'filteredUsers' is assigned a value but never used       no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\auth\AdminRoute.jsx
+  2:8   warning  'React' is defined but never used     no-unused-vars
+  3:10  warning  'Navigate' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\auth\Applicationsurvey.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\auth\AuthControls.jsx
+  2:8  warning  'React' is defined but never used                 no-unused-vars
+  9:9  warning  'queryClient' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\auth\LandingPage.jsx
+    2:8   warning  'React' is defined but never used                        no-unused-vars
+    4:10  warning  'jwtDecode' is defined but never used                    no-unused-vars
+  147:9   warning  'navigateToUserArea' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\auth\Login.jsx
+  4:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\auth\NavigationWrapperX.jsx
+  2:8   warning  'React' is defined but never used                     no-unused-vars
+  7:20  warning  'isAuthenticated' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\auth\Passwordreset.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+  3:8  warning  'axios' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\auth\ProtectedRoute.jsx
+   4:8  warning  'React' is defined but never used                   no-unused-vars
+  86:9  warning  'isPublicRoute' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\auth\RoleProtectedRouteX.jsx
+   3:27  warning  'useState' is not defined   no-undef
+   4:33  warning  'useState' is not defined   no-undef
+   6:3   warning  'useEffect' is not defined  no-undef
+  12:11  warning  'navigate' is not defined   no-undef
+  22:11  warning  'navigate' is not defined   no-undef
+  29:11  warning  'navigate' is not defined   no-undef
+  36:9   warning  'navigate' is not defined   no-undef
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\auth\Signup.jsx
+    2:8   warning  'React' is defined but never used  no-unused-vars
+  183:15  warning  'process' is not defined           no-undef
+  190:15  warning  'process' is not defined           no-undef
+  217:48  warning  'email' is defined but never used  no-unused-vars
+  297:10  warning  'process' is not defined           no-undef
+  399:12  warning  'process' is not defined           no-undef
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\auth\UserStatus.jsx
+    4:8   warning  'React' is defined but never used                                                                                               no-unused-vars
+   10:8   warning  'api' is defined but never used                                                                                                 no-unused-vars
+   16:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   40:9   warning  'normalizedInitialStatus' is assigned a value but never used                                                                    no-unused-vars
+  348:6   warning  React Hook useEffect has a missing dependency: 'initializeUser'. Either include it or remove the dependency array               react-hooks/exhaustive-deps
+  557:13  warning  'user_status' is assigned a value but never used                                                                                no-unused-vars
+  557:44  warning  'needs_survey' is assigned a value but never used                                                                               no-unused-vars
+  557:58  warning  'survey_completed' is assigned a value but never used                                                                           no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\classes\ClassContentViewer.jsx
+    5:8   warning  'React' is defined but never used                           no-unused-vars
+  148:25  warning  'setContentFilter' is assigned a value but never used       no-unused-vars
+  171:64  warning  'contentError' is assigned a value but never used           no-unused-vars
+  255:9   warning  'deleteContentMutation' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\classes\ClassListPage.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\classes\ClassMentorshipView.jsx
+    5:8   warning  'React' is defined but never used                            no-unused-vars
+    5:27  warning  'useEffect' is defined but never used                        no-unused-vars
+   85:9   warning  'userStatus' is assigned a value but never used              no-unused-vars
+  120:9   warning  'handleAcceptMentorship' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\classes\ClassPreview.jsx
+  5:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\classes\ClassroomVideoPlayer.jsx
+    4:8  warning  'React' is defined but never used                                                                                                                   no-unused-vars
+    7:3  warning  'Settings' is defined but never used                                                                                                                no-unused-vars
+  233:6  warning  React Hook useEffect has missing dependencies: 'skipTime', 'toggleMute', and 'togglePlayPause'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\classes\ClassroomVideoViewer.jsx
+   10:8   warning  'VideoRecorder' is defined but never used                   no-unused-vars
+   11:8   warning  'ClassroomVideoPlayer' is defined but never used            no-unused-vars
+   20:9   warning  'queryClient' is assigned a value but never used            no-unused-vars
+   41:10  warning  'onlineParticipants' is assigned a value but never used     no-unused-vars
+   42:10  warning  'typingUsers' is assigned a value but never used            no-unused-vars
+   45:10  warning  'currentView' is assigned a value but never used            no-unused-vars
+   45:23  warning  'setCurrentView' is assigned a value but never used         no-unused-vars
+   46:10  warning  'selectedVideo' is assigned a value but never used          no-unused-vars
+   46:25  warning  'setSelectedVideo' is assigned a value but never used       no-unused-vars
+   47:10  warning  'videoProgress' is assigned a value but never used          no-unused-vars
+   47:25  warning  'setVideoProgress' is assigned a value but never used       no-unused-vars
+   62:14  warning  'error' is defined but never used                           no-unused-vars
+  299:9   warning  'handleKeyPress' is assigned a value but never used         no-unused-vars
+  318:9   warning  'handleChatInputChange' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\classes\EnhancedClassDashboard.jsx
+  5:8   warning  'React' is defined but never used      no-unused-vars
+  5:27  warning  'useEffect' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\classes\LiveChat.jsx
+    4:8   warning  'React' is defined but never used                                                                                                                                                            no-unused-vars
+    6:39  warning  'Video' is defined but never used                                                                                                                                                            no-unused-vars
+    7:3   warning  'ThumbsUp' is defined but never used                                                                                                                                                         no-unused-vars
+    7:13  warning  'Heart' is defined but never used                                                                                                                                                            no-unused-vars
+    7:20  warning  'Star' is defined but never used                                                                                                                                                             no-unused-vars
+    7:26  warning  'Flag' is defined but never used                                                                                                                                                             no-unused-vars
+    7:32  warning  'MoreVertical' is defined but never used                                                                                                                                                     no-unused-vars
+   21:3   warning  'isLiveSession' is assigned a value but never used                                                                                                                                           no-unused-vars
+   34:26  warning  'setPinnedMessages' is assigned a value but never used                                                                                                                                       no-unused-vars
+  186:6   warning  React Hook useCallback has missing dependencies: 'handleFileUpload', 'messageTypes.FILE', 'messageTypes.IMAGE', and 'messageTypes.TEXT'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\classes\MyClassesPage.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\classes\VideoMaskingSystem.jsx
+    4:8   warning  'React' is defined but never used                                                                                        no-unused-vars
+    6:15  warning  'EyeOff' is defined but never used                                                                                       no-unused-vars
+    6:23  warning  'Volume2' is defined but never used                                                                                      no-unused-vars
+    6:32  warning  'VolumeX' is defined but never used                                                                                      no-unused-vars
+    6:41  warning  'Palette' is defined but never used                                                                                      no-unused-vars
+    6:50  warning  'Sliders' is defined but never used                                                                                      no-unused-vars
+    7:3   warning  'RefreshCw' is defined but never used                                                                                    no-unused-vars
+    7:14  warning  'Save' is defined but never used                                                                                         no-unused-vars
+    7:20  warning  'Settings' is defined but never used                                                                                     no-unused-vars
+    7:49  warning  'UserCheck' is defined but never used                                                                                    no-unused-vars
+   10:44  warning  'onMaskedStream' is defined but never used                                                                               no-unused-vars
+   10:78  warning  'enabled' is assigned a value but never used                                                                             no-unused-vars
+   61:6   warning  React Hook useEffect has a missing dependency: 'setupAudioProcessing'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   85:25  warning  'voiceSpeed' is assigned a value but never used                                                                          no-unused-vars
+  147:9   warning  'processVideoFrame' is assigned a value but never used                                                                   no-unused-vars
+  205:23  warning  'faceDistortion' is assigned a value but never used                                                                      no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\classes\VideoRecorder.jsx
+  4:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\common\ErrorMessage.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\common\LoadingSpinner.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\config\accessMatrix.js
+  221:32  warning  'requestedRoute' is assigned a value but never used     no-unused-vars
+  221:55  warning  'requestedEndpoint' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\enhanced\SmartContentViewer.jsx
+   4:8   warning  'React' is defined but never used                            no-unused-vars
+   4:27  warning  'useEffect' is defined but never used                        no-unused-vars
+  19:10  warning  'selectedRecommendation' is assigned a value but never used  no-unused-vars
+  28:12  warning  'summaryError' is assigned a value but never used            no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\iko\Chat.jsx
+    2:8   warning  'React' is defined but never used                    no-unused-vars
+   11:8   warning  'MediaGallery' is defined but never used             no-unused-vars
+   68:42  warning  'setValue' is assigned a value but never used        no-unused-vars
+   77:5   warning  'mediaStream' is assigned a value but never used     no-unused-vars
+  102:10  warning  'playingMedia' is assigned a value but never used    no-unused-vars
+  111:10  warning  'captureMode' is assigned a value but never used     no-unused-vars
+  444:13  warning  'uploadedFiles' is assigned a value but never used   no-unused-vars
+  532:31  warning  'data' is defined but never used                     no-unused-vars
+  613:9   warning  'getCreatorInfo' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\iko\Iko.jsx
+    5:8   warning  'React' is defined but never used                  no-unused-vars
+   26:11  warning  'user' is assigned a value but never used          no-unused-vars
+  226:9   warning  'safeComments' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\iko\IkoAuthWrapper.jsx
+  4:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\iko\IkoControls.jsx
+   2:8  warning  'React' is defined but never used                                                                             no-unused-vars
+   3:8  warning  'axios' is defined but never used                                                                             no-unused-vars
+  53:6  warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\iko\List.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\iko\ListChats.jsx
+  410:14  warning  'error' is defined but never used                    no-unused-vars
+  419:9   warning  'getUserDisplay' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\iko\ListComments.jsx
+    2:8   warning  'React' is defined but never used                no-unused-vars
+    4:10  warning  'useSmartSearch' is defined but never used       no-unused-vars
+   11:70  warning  'deactivateListChats' is defined but never used  no-unused-vars
+   13:10  warning  'user_id' is assigned a value but never used     no-unused-vars
+  164:14  warning  'error' is defined but never used                no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\iko\MediaGallery.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\iko\Userinfo.jsx
+   2:8   warning  'React' is defined but never used                     no-unused-vars
+  13:24  warning  'setSessionStart' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\info\ApplicationThankYou.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\info\Approveverifyinfo.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\info\Pendverifyinfo.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\info\ReviewSurvey.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\info\SurveySubmitted.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\info\Suspendedverifyinfo.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\info\Thankyou.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\membership\FullMembershipApprovedX.jsx
+  4:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\membership\FullMembershipDeclined.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\membership\FullMembershipInfo.jsx
+   2:8  warning  'React' is defined but never used                                                                                              no-unused-vars
+  25:6  warning  React Hook useEffect has a missing dependency: 'checkMembershipEligibility'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\membership\FullMembershipPendingX.jsx
+   4:8   warning  'React' is defined but never used                                                                                          no-unused-vars
+  12:17  warning  'refreshUser' is assigned a value but never used                                                                           no-unused-vars
+  18:6   warning  React Hook useEffect has a missing dependency: 'fetchApplicationStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\membership\FullMembershipStatusX.jsx
+  3:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\membership\FullMembershipSubmitted.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\membership\FullMembershipSurvey.jsx
+    2:8  warning  'React' is defined but never used                                                                                                                         no-unused-vars
+  104:6  warning  React Hook useEffect has missing dependencies: 'PROGRESS_KEY', 'STORAGE_KEY', and 'questions.length'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  129:6  warning  React Hook useCallback has a missing dependency: 'user.username'. Either include it or remove the dependency array                                        react-hooks/exhaustive-deps
+  166:6  warning  React Hook useEffect has a missing dependency: 'checkSubmissionStatus'. Either include it or remove the dependency array                                  react-hooks/exhaustive-deps
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\search\AdvancedSearchControls.jsx
+   2:8  warning  'React' is defined but never used                                                                                no-unused-vars
+  45:6  warning  React Hook useEffect has a missing dependency: 'handleSearch'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\service\api.js
+  597:29  warning  'user_status' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\service\fullMembershipService.js
+  285:17  warning  'data' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\shared\AIFeaturesPanel.jsx
+  3:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\towncrier\RevTeaching.jsx
+    2:8   warning  'React' is defined but never used  no-unused-vars
+  113:14  warning  'error' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\towncrier\RevTopics.jsx
+    2:8   warning  'React' is defined but never used                                                                                                                                                                                                                                              no-unused-vars
+    2:38  warning  'useMemo' is defined but never used                                                                                                                                                                                                                                            no-unused-vars
+  142:6   warning  React Hook useEffect has a missing dependency: 'propTeachings'. Either include it or remove the dependency array. If 'setTeachings' needs the current value of 'propTeachings', you can also switch to useReducer instead of useState and read 'propTeachings' in the reducer  react-hooks/exhaustive-deps
+  205:14  warning  'error' is defined but never used                                                                                                                                                                                                                                              no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\towncrier\StepsForm.jsx
+  2:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\towncrier\Teaching.jsx
+    2:8   warning  'React' is defined but never used  no-unused-vars
+  160:14  warning  'error' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\towncrier\Towncrier.jsx
+   3:8  warning  'React' is defined but never used                                                                                                                                no-unused-vars
+  11:8  warning  'AIFeaturesPanel' is defined but never used                                                                                                                      no-unused-vars
+  34:6  warning  React Hook useEffect has missing dependencies: 'canAccessIko', 'canApplyForMembership', and 'getUserStatus'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  75:6  warning  React Hook useEffect has missing dependencies: 'enhancedTeachings' and 'selectedTeaching'. Either include them or remove the dependency array                    react-hooks/exhaustive-deps
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\towncrier\TowncrierControls.jsx
+   2:8   warning  'React' is defined but never used  no-unused-vars
+   8:8   warning  'api' is defined but never used    no-unused-vars
+  75:14  warning  'error' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\user\HelpPage.jsx
+  1:8   warning  'React' is defined but never used          no-unused-vars
+  8:11  warning  'user' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\user\ProfilePage.jsx
+   1:8   warning  'React' is defined but never used                  no-unused-vars
+  53:64  warning  'profileError' is assigned a value but never used  no-unused-vars
+  60:17  warning  'settingsData' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\user\SettingsPage.jsx
+   1:8   warning  'React' is defined but never used          no-unused-vars
+  65:11  warning  'user' is assigned a value but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\user\UserDashboard.jsx
+     4:8   warning  'React' is defined but never used                                                                                                   no-unused-vars
+    34:12  warning  'error' is defined but never used                                                                                                   no-unused-vars
+    48:12  warning  'error' is defined but never used                                                                                                   no-unused-vars
+    75:12  warning  'error' is defined but never used                                                                                                   no-unused-vars
+   155:37  warning  'onApplyClick' is defined but never used                                                                                            no-unused-vars
+  1171:33  warning  'dashboardData' is defined but never used                                                                                           no-unused-vars
+  1171:48  warning  'analyticsData' is defined but never used                                                                                           no-unused-vars
+  1198:34  warning  'getUserStatus' is assigned a value but never used                                                                                  no-unused-vars
+  1202:24  warning  'setSearchParams' is assigned a value but never used                                                                                no-unused-vars
+  1227:6   warning  React Hook useEffect has missing dependencies: 'activeTab' and 'getTabFromUrl'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  1275:17  warning  'profileData' is assigned a value but never used                                                                                    no-unused-vars
+  1598:48  warning  'handleLeaveClass' is not defined                                                                                                   no-undef
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\utils\DebugWrapper.jsx
+  4:8  warning  'React' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\utils\IdDisplay.jsx
+   4:8   warning  'React' is defined but never used                                                                                               no-unused-vars
+  27:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  47:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\utils\apiDebugHelper.js
+  3:8  warning  'api' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\components\utils\membershipUtils.js
+  124:7   warning  'memberStatus' is not defined  no-undef
+  130:7   warning  'memberStatus' is not defined  no-undef
+  130:37  warning  'memberStatus' is not defined  no-undef
+  133:7   warning  'memberStatus' is not defined  no-undef
+  133:38  warning  'memberStatus' is not defined  no-undef
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\context\AuthContext.jsx
+  2:8   warning  'React' is defined but never used                                                                                               no-unused-vars
+  3:10  warning  'jwtDecode' is defined but never used                                                                                           no-unused-vars
+  8:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\hooks\useAuth.js
+  23:20  warning  'error' is defined but never used  no-unused-vars
+  38:16  warning  'error' is defined but never used  no-unused-vars
+  53:14  warning  'error' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\hooks\useRecommendations.js
+  273:42  warning  'progress' is defined but never used                                                                          no-unused-vars
+  294:6   warning  React Hook useEffect has a missing dependency: 'smartRecs'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\hooks\useSummarization.js
+  175:6  warning  React Hook React.useEffect has missing dependencies: 'contentType', 'recommendation.method', and 'textSummarization'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\hooks\useUpload.js
+  19:26  warning  'files' is defined but never used  no-unused-vars
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\src\hooks\useUserStatus.js
+   71:28  warning  'surveyData' is assigned a value but never used                                                                   no-unused-vars
+  115:6   warning  React Hook useEffect has a missing dependency: 'getUserStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\peter\ReactProjects\ikoota\ikootaclient\vite.config.js
+  17:28  warning  '_options' is defined but never used  no-unused-vars
+  18:35  warning  '_req' is defined but never used      no-unused-vars
+  18:41  warning  '_res' is defined but never used      no-unused-vars
+  21:48  warning  '_res' is defined but never used      no-unused-vars
+  24:48  warning  '_res' is defined but never used      no-unused-vars
+
+✖ 295 problems (0 errors, 295 warnings)
+

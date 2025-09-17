@@ -5,11 +5,12 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '../auth/UserStatus';
 import { getUserAccess } from '../config/accessMatrix';
-import api from '../service/api'; 
+import api from '../service/api';
 import './userDashboard.css';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Userinfo from '../iko/Userinfo';
+import { getSecureDisplayName, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 
 // ===============================================
 // ✅ ENHANCED API FUNCTIONS WITH COMPREHENSIVE ENDPOINTS
@@ -46,19 +47,9 @@ const fetchMentorshipAssignments = async () => {
     });
     return data;
   } catch (error) {
-    console.log('Mentorship assignments API not available, using mock data');
+    console.log('Mentorship assignments API not available');
     return {
-      fromMentor: [
-        {
-          id: 'assignment_1',
-          title: 'Complete African History Course Introduction',
-          description: 'Study the fundamentals of African civilization and complete assigned readings.',
-          assignedDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          status: 'in_progress',
-          priority: 'high'
-        }
-      ],
+      fromMentor: [],
       toMentees: []
     };
   }
@@ -1176,11 +1167,16 @@ const WelcomeSection = ({ user, dashboardData, analyticsData }) => {
     return 'Good evening';
   };
 
+  // Debug: Check what's in the user object
+  console.log('🔍 UserDashboard - User object:', user);
+  console.log('🔍 UserDashboard - User converse_id:', user?.converse_id);
+  console.log('🔍 UserDashboard - getSecureDisplayName result:', getSecureDisplayName(user, DISPLAY_CONTEXTS.FULL_ID));
+
   return (
     <div className="welcome-section">
       <div className="welcome-content">
         <h1 className="welcome-title">
-          {getGreeting()}, {user?.username || 'User'}! 👋
+          {getGreeting()}, Saint {getSecureDisplayName(user, DISPLAY_CONTEXTS.FULL_ID)}! 👋
         </h1>
         <p className="welcome-subtitle">
           Here's your current status and available opportunities

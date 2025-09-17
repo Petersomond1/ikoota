@@ -8,6 +8,7 @@ import {
   Download, Trash2, Edit, Pin, Reply
 } from 'lucide-react';
 import { useUser } from '../auth/UserStatus';
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import './LiveChat.css';
 
 const LiveChat = ({
@@ -111,7 +112,7 @@ const LiveChat = ({
       room: `classroom_${classId}`,
       classId,
       from: user?.user_id,
-      fromUsername: user?.username || user?.email
+      fromConverseId: getFullConverseId(user)
     });
 
     // Clear previous timeout
@@ -125,7 +126,7 @@ const LiveChat = ({
         room: `classroom_${classId}`,
         classId,
         from: user?.user_id,
-        fromUsername: user?.username || user?.email
+        fromConverseId: getFullConverseId(user)
       });
     }, 1000);
   }, [socket, isConnected, classId, user]);
@@ -255,7 +256,7 @@ const LiveChat = ({
       classId,
       room: `classroom_${classId}`,
       userId: user?.user_id,
-      username: user?.username || user?.email
+      converseId: getFullConverseId(user)
     });
   };
 
@@ -393,7 +394,7 @@ const LiveChat = ({
                 {msg.isRealtime && <span className="realtime-badge">🔴</span>}
 
                 {/* Message actions */}
-                {(userRole === 'admin' || userRole === 'instructor' || msg.author === user?.username) && (
+                {(userRole === 'admin' || userRole === 'instructor' || msg.author === getFullConverseId(user)) && (
                   <div className="message-actions">
                     <button onClick={() => setReplyToMessage(msg)} title="Reply">
                       <Reply size={12} />
@@ -407,7 +408,7 @@ const LiveChat = ({
                           <Trash2 size={12} />
                         </button>
                       </>
-                    ) : msg.author === user?.username && (
+                    ) : msg.author === getFullConverseId(user) && (
                       <button onClick={() => setEditingMessage(msg)} title="Edit">
                         <Edit size={12} />
                       </button>

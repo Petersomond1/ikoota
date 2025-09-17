@@ -462,3 +462,55 @@ export const getClassroomParticipants = async (req, res) => {
     return errorResponse(res, error, statusCode);
   }
 };
+
+// =============================================================================
+// USER ACTIVITY AND RECOMMENDATIONS
+// =============================================================================
+
+/**
+ * GET /api/classes/my-activity - Get user's recent class activity
+ */
+export const getUserActivity = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await classService.getUserClasses(userId, { limit: 5 });
+    const activityData = {
+      recent_joins: result.data.map(cls => ({
+        class_name: cls.class_name,
+        joinedAt: cls.joinedAt,
+        type: 'join'
+      })),
+      total_activities: result.data.length
+    };
+    return successResponse(res, {
+      data: { activity: activityData },
+      user_id: userId
+    }, 'User activity retrieved successfully');
+  } catch (error) {
+    console.error('❌ getUserActivity error:', error);
+    return errorResponse(res, error);
+  }
+};
+
+/**
+ * GET /api/classes/recommendations - Get class recommendations
+ */
+export const getClassRecommendations = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const options = {
+      limit: parseInt(req.query.limit) || 6,
+      page: 1
+    };
+    const result = await classService.getAllClasses({}, options);
+
+    return successResponse(res, {
+      data: result.data,
+      user_id: userId,
+      total: result.total
+    }, 'Class recommendations retrieved successfully');
+  } catch (error) {
+    console.error('❌ getClassRecommendations error:', error);
+    return errorResponse(res, error);
+  }
+};

@@ -4,6 +4,7 @@
 import React from 'react';
 import { useUser } from '../auth/UserStatus';
 import { Navigate } from 'react-router-dom';
+import { getFullConverseId } from '../../utils/converseIdUtils';
 import Iko from './Iko';
 
 const IkoAuthWrapper = ({ isNested = false }) => {
@@ -39,7 +40,7 @@ const IkoAuthWrapper = ({ isNested = false }) => {
 
     console.log('🔍 Checking Iko access for user:', {
       id: user.id,
-      username: user.username,
+      converse_id: getFullConverseId(user),
       membershipStage,
       memberStatus,
       userRole

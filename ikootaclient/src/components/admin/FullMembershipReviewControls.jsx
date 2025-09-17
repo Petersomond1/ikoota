@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import api from '../service/api'; // Use the fixed api service
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import './fullMembershipReviewControls.css';
 
 const FullMembershipReviewControls = () => {
@@ -398,8 +399,7 @@ const FullMembershipReviewControls = () => {
       
       // Check various possible field names for compatibility
       const searchableFields = [
-        app?.email,
-        app?.username,
+        getFullConverseId(app),
         app?.membership_ticket
       ].filter(Boolean);
       
@@ -509,7 +509,7 @@ const FullMembershipReviewControls = () => {
           <label>Search Applications:</label>
           <input
             type="text"
-            placeholder="Search by email, name, ticket..."
+            placeholder="Search by converse ID, name, ticket..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -641,12 +641,11 @@ const EnhancedApplicationCard = ({
           />
           <div className="user-info">
             <h4>
-              {application.username || 'Unknown User'}
+              {getFullConverseId(application)}
               <span style={{ fontSize: '0.8em', color: '#666', marginLeft: '10px' }}>
                 #{applicationId}
               </span>
             </h4>
-            <p className="user-email">{application.email}</p>
             <p className="submission-date">
               Submitted: {
                 application.submittedAt ? new Date(application.submittedAt).toLocaleDateString() : 

@@ -12,7 +12,11 @@ import {
   getPerformanceMetrics,
   getDatabaseHealth,
   getAPIInformation,
-  testConnectivity
+  testConnectivity,
+  getAdminSettings,
+  updateAdminSettings,
+  testEmailConfiguration,
+  getSettingsHistory
 } from '../controllers/systemControllers.js';
 
 import db from '../config/db.js';
@@ -323,6 +327,22 @@ router.get('/test/database', async (req, res) => {
 });
 
 // ===============================================
+// ADMIN SETTINGS ENDPOINTS
+// ===============================================
+
+// GET /admin/settings - Get admin settings (Admin only)
+router.get('/admin/settings', authenticate, getAdminSettings);
+
+// PUT /admin/settings - Update admin settings (Admin only)
+router.put('/admin/settings', authenticate, updateAdminSettings);
+
+// POST /admin/settings/test-email - Test email configuration (Admin only)
+router.post('/admin/settings/test-email', authenticate, testEmailConfiguration);
+
+// GET /admin/settings/history - Get settings history (Admin only)
+router.get('/admin/settings/history', authenticate, getSettingsHistory);
+
+// ===============================================
 // DEVELOPMENT ENDPOINTS
 // ===============================================
 
@@ -406,6 +426,12 @@ router.use('*', (req, res) => {
         'GET /test/auth - Authentication test',
         'GET /test/database - Database connectivity test'
       ],
+      admin: [
+        'GET /admin/settings - Get admin settings (Admin only)',
+        'PUT /admin/settings - Update admin settings (Admin only)',
+        'POST /admin/settings/test-email - Test email configuration (Admin only)',
+        'GET /admin/settings/history - Get settings history (Admin only)'
+      ],
       debug: process.env.NODE_ENV === 'development' ? [
         'GET /debug/environment - Environment information',
         'GET /debug/routes-detailed - Detailed route information'
@@ -434,7 +460,12 @@ router.use((error, req, res, next) => {
 });
 
 if (process.env.NODE_ENV === 'development') {
-  console.log('🔧 System routes loaded: health checks, metrics, API information, testing');
+  console.log('🔧 System routes loaded: health checks, metrics, API information, testing, admin settings');
+  console.log('🔐 Admin settings routes:');
+  console.log('   • GET /admin/settings - Get admin settings');
+  console.log('   • PUT /admin/settings - Update admin settings');
+  console.log('   • POST /admin/settings/test-email - Test email config');
+  console.log('   • GET /admin/settings/history - Settings history');
 }
 
 export default router;

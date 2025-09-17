@@ -141,7 +141,7 @@ export const getPendingLiveClassApprovals = async (options = {}) => {
         cls.class_name as target_class_name
       FROM live_class_schedules lcs
       LEFT JOIN users u ON lcs.instructor_id = u.id
-      LEFT JOIN classes cls ON lcs.target_class_id = cls.class_id
+      LEFT JOIN classes cls ON lcs.target_class_id COLLATE utf8mb4_general_ci = cls.class_id COLLATE utf8mb4_general_ci
       ${whereClause}
       ORDER BY lcs.createdAt ASC
       LIMIT ?
@@ -460,7 +460,7 @@ export const getUserLiveClasses = async (userId) => {
         lcs.target_class_id, lcs.status, lcs.createdAt,
         cls.class_name as target_class_name
       FROM live_class_schedules lcs
-      LEFT JOIN classes cls ON lcs.target_class_id = cls.class_id
+      LEFT JOIN classes cls ON lcs.target_class_id COLLATE utf8mb4_general_ci = cls.class_id COLLATE utf8mb4_general_ci
       WHERE lcs.instructor_id = ?
       ORDER BY lcs.scheduled_start_time DESC
     `;

@@ -75,8 +75,7 @@ export const authenticate = async (req, res, next) => {
     console.log('✅ JWT token verified successfully');
     console.log('👤 Decoded user info:', {
       user_id: decoded.user_id || decoded.id,
-      username: decoded.username,
-      email: decoded.email,
+      converse_id: decoded.converse_id,
       role: decoded.role
     });
     
@@ -136,8 +135,7 @@ export const authenticate = async (req, res, next) => {
       // Primary identifiers
       id: user.id,
       user_id: user.id, // For backward compatibility
-      username: user.username,
-      email: user.email,
+      converse_id: user.converse_id,
       
       // Role and permissions
       role: user.role || 'user',
@@ -849,7 +847,7 @@ export const auditLog = (action) => {
               url: req.originalUrl,
               timestamp: new Date().toISOString(),
               userId: req.user.id,
-              username: req.user.username,
+              converse_id: req.user.converse_id,
               survey_action: action.includes('survey') // Flag survey-related actions
             }),
             req.ip || req.connection?.remoteAddress,

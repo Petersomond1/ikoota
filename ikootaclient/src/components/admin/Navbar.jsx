@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import './navbar.css';
 
 const Navbar = () => {
@@ -31,9 +32,8 @@ const Navbar = () => {
   useEffect(() => {
     // Replace this with your actual user fetching logic
     const user = {
-      name: 'Admin User',
-      role: 'Administrator',
-      email: 'admin@ikoota.com'
+      converse_id: 'admin@ikoota.com',
+      role: 'Administrator'
     };
     setCurrentUser(user);
   }, []);
@@ -151,7 +151,7 @@ const Navbar = () => {
         {/* User info */}
         {currentUser && (
           <div className="user-info">
-            <span className="user-name">{currentUser.name}</span>
+            <span className="user-name">{getSecureDisplayName(currentUser, DISPLAY_CONTEXTS.COMPACT) || 'Admin User'}</span>
             <span className="user-role">{currentUser.role}</span>
           </div>
         )}

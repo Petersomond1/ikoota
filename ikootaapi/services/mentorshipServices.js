@@ -726,6 +726,87 @@ class MentorshipServices {
             throw new CustomError(`Failed to get system statistics: ${error.message}`, 500);
         }
     }
+
+    // =================================================================
+    // MENTORSHIP ASSIGNMENTS OPERATIONS
+    // =================================================================
+
+    /**
+     * Get user's mentorship assignments (both from mentor and to mentees)
+     * @param {number} userId - User ID
+     * @returns {object} Assignments categorized by fromMentor and toMentees
+     */
+    async getUserAssignments(userId) {
+        try {
+            // Get assignments FROM mentor (user is mentee)
+            const fromMentor = await db.query(`
+                SELECT
+                    ma.id,
+                    ma.title,
+                    ma.description,
+                    ma.assigned_date as assignedDate,
+                    ma.due_date as dueDate,
+                    ma.status,
+                    ma.priority,
+                    ma.completion_notes,
+                    ma.completed_at,
+                    u_mentor.converse_id as mentor_converse_id,
+                    u_mentor.username as mentor_username
+                FROM mentorship_assignments ma
+                JOIN users u_mentor ON ma.mentor_id = u_mentor.id
+                WHERE ma.mentee_id = ?
+                ORDER BY
+                    CASE ma.status
+                        WHEN 'overdue' THEN 1
+                        WHEN 'in_progress' THEN 2
+                        WHEN 'pending' THEN 3
+                        WHEN 'completed' THEN 4
+                        ELSE 5
+                    END,
+                    ma.due_date ASC
+            `, [userId]);
+
+            // Get assignments TO mentees (user is mentor)
+            const toMentees = await db.query(`
+                SELECT
+                    ma.id,
+                    ma.title,
+                    ma.description,
+                    ma.assigned_date as assignedDate,
+                    ma.due_date as dueDate,
+                    ma.status,
+                    ma.priority,
+                    ma.completion_notes,
+                    ma.completed_at,
+                    u_mentee.converse_id as mentee_converse_id,
+                    u_mentee.username as mentee_username
+                FROM mentorship_assignments ma
+                JOIN users u_mentee ON ma.mentee_id = u_mentee.id
+                WHERE ma.mentor_id = ?
+                ORDER BY
+                    CASE ma.status
+                        WHEN 'overdue' THEN 1
+                        WHEN 'in_progress' THEN 2
+                        WHEN 'pending' THEN 3
+                        WHEN 'completed' THEN 4
+                        ELSE 5
+                    END,
+                    ma.due_date ASC
+            `, [userId]);
+
+            return {
+                success: true,
+                data: {
+                    fromMentor: fromMentor || [],
+                    toMentees: toMentees || []
+                }
+            };
+
+        } catch (error) {
+            console.error('❌ getUserAssignments error:', error);
+            throw new CustomError(`Failed to get user assignments: ${error.message}`, 500);
+        }
+    }
 }
 
 export default new MentorshipServices();

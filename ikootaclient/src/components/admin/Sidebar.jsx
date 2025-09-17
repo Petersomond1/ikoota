@@ -128,7 +128,13 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
       label: 'Mentorship Controls',
       icon: '🏛️',
     },
-
+    // ✅ ADD: Admin Settings item
+    {
+      name: 'AdminSettings',
+      to: 'settings',
+      label: 'Admin Settings',
+      icon: '⚙️',
+    },
 
   ];
 

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../service/api';
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import './admin.css';
 
 const MentorshipControls = () => {
@@ -356,7 +357,7 @@ const MentorshipControls = () => {
             <div className="search-filter-bar">
               <input
                 type="text"
-                placeholder="Search mentors by name or converse ID..."
+                placeholder="Search mentors by converse ID..."
                 value={searchMentorTerm}
                 onChange={(e) => setSearchMentorTerm(e.target.value)}
                 className="search-input"
@@ -461,7 +462,7 @@ const MentorshipControls = () => {
               <h4>Search for Mentees</h4>
               <input
                 type="text"
-                placeholder="Search mentees by username or ID..."
+                placeholder="Search mentees by converse ID..."
                 value={searchMenteeTerm}
                 onChange={(e) => setSearchMenteeTerm(e.target.value)}
                 className="search-input"
@@ -473,7 +474,7 @@ const MentorshipControls = () => {
                     <thead>
                       <tr>
                         <th>User ID</th>
-                        <th>Username</th>
+                        <th>Converse ID</th>
                         <th>Current Mentor</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -483,7 +484,7 @@ const MentorshipControls = () => {
                       {(Array.isArray(searchedMentees) ? searchedMentees : []).map(mentee => (
                         <tr key={mentee.user_id}>
                           <td>{mentee.user_id}</td>
-                          <td>{mentee.username}</td>
+                          <td>{getFullConverseId(mentee) || 'N/A'}</td>
                           <td>
                             {mentee.current_mentor ? (
                               <span className="mentor-badge">
@@ -588,7 +589,7 @@ const MentorshipControls = () => {
                       <div className="mentee-list">
                         {(Array.isArray(mentor.mentees) ? mentor.mentees : []).map(mentee => (
                           <div key={mentee.user_id} className="mentee-item">
-                            {mentee.username}
+                            {getSecureDisplayName(mentee, DISPLAY_CONTEXTS.COMPACT) || 'Unknown'}
                           </div>
                         ))}
                       </div>
@@ -612,7 +613,7 @@ const MentorshipControls = () => {
                       <div className="mentee-list">
                         {(Array.isArray(mentor.mentees) ? mentor.mentees : []).map(mentee => (
                           <div key={mentee.user_id} className="mentee-item">
-                            {mentee.username}
+                            {getSecureDisplayName(mentee, DISPLAY_CONTEXTS.COMPACT) || 'Unknown'}
                           </div>
                         ))}
                       </div>
@@ -636,7 +637,7 @@ const MentorshipControls = () => {
                       <div className="mentee-list">
                         {(Array.isArray(mentor.mentees) ? mentor.mentees : []).map(mentee => (
                           <div key={mentee.user_id} className="mentee-item">
-                            {mentee.username}
+                            {getSecureDisplayName(mentee, DISPLAY_CONTEXTS.COMPACT) || 'Unknown'}
                           </div>
                         ))}
                       </div>
@@ -764,7 +765,7 @@ const MentorshipControls = () => {
               <div className="selected-item">
                 {selectedMentee ? (
                   <>
-                    <span>{selectedMentee.username}</span>
+                    <span>{getFullConverseId(selectedMentee) || 'Unknown'}</span>
                     <span className="badge">ID: {selectedMentee.user_id}</span>
                   </>
                 ) : (
@@ -816,7 +817,7 @@ const MentorshipControls = () => {
               <div className="selected-item">
                 {selectedMentee && (
                   <>
-                    <span>{selectedMentee.username}</span>
+                    <span>{getFullConverseId(selectedMentee) || 'Unknown'}</span>
                     <span className="badge">Current: {selectedMentee.current_mentor}</span>
                   </>
                 )}

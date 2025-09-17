@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './surveyControls.css';
 import api from '../service/api';
+import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 
 const SurveyControls = () => {
   const [selectedSurveys, setSelectedSurveys] = useState([]);
@@ -590,8 +591,7 @@ const SurveyControls = () => {
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
         const searchableFields = [
-          survey?.username,
-          survey?.user_email,
+          getFullConverseId(survey),
           survey?.survey_title,
           survey?.application_ticket
         ].filter(Boolean);
@@ -742,7 +742,7 @@ const SurveyControls = () => {
               <label>Search Surveys:</label>
               <input
                 type="text"
-                placeholder="Search by username, email, title..."
+                placeholder="Search by converse ID, title..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="search-input"
@@ -1055,12 +1055,12 @@ const SurveyCard = ({
           />
           <div className="user-info">
             <h4>
-              {survey.username || 'Unknown User'}
+              {getSecureDisplayName(survey, DISPLAY_CONTEXTS.COMPACT) || 'Unknown User'}
               <span style={{ fontSize: '0.8em', color: '#666', marginLeft: '10px' }}>
                 #{survey.id}
               </span>
             </h4>
-            <p className="user-email">{survey.user_email || survey.email}</p>
+            <p className="user-converse-id">{getFullConverseId(survey)}</p>
             <p className="submission-date">
               Submitted: {
                 survey.createdAt ? new Date(survey.createdAt).toLocaleDateString() : 
