@@ -353,6 +353,17 @@ const ClassPreview = () => {
               </button>
             )}
 
+            {(user?.role === 'admin' || user?.role === 'super_admin' || user?.membership_stage === 'member') && (
+              <button
+                onClick={() => {
+                  navigate('/classes/OTU%23004001/classroom');
+                }}
+                className="btn-create-class"
+              >
+                📹 Create Video/Audio Class
+              </button>
+            )}
+
             {isClassMember && (
               <button className="btn-bookmark">
                 🔖 Bookmark

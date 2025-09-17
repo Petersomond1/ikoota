@@ -84,6 +84,51 @@ const fetchPendingCount = async () => {
   }
 };
 
+// ✅ NEW: Live class management functions
+const fetchLiveClassDashboard = async () => {
+  try {
+    const { data } = await api.get('/classes/live/admin/dashboard');
+    return data?.data || data;
+  } catch (error) {
+    console.error('Failed to fetch live class dashboard:', error);
+    return {
+      stats: {
+        total_scheduled: 0,
+        pending_approval: 0,
+        approved_today: 0,
+        currently_live: 0,
+        completed_this_week: 0
+      },
+      recent_requests: [],
+      upcoming_sessions: []
+    };
+  }
+};
+
+const fetchPendingLiveClassApprovals = async () => {
+  try {
+    const { data } = await api.get('/classes/live/admin/pending?limit=5');
+    return data?.data || [];
+  } catch (error) {
+    console.error('Failed to fetch pending live class approvals:', error);
+    return [];
+  }
+};
+
+const approveLiveClassSchedule = async (scheduleId, decision, adminNotes = '') => {
+  try {
+    const { data } = await api.put(`/classes/live/admin/review/${scheduleId}`, {
+      decision,
+      admin_notes: adminNotes,
+      notification_message: decision === 'approve' ? 'Your live class has been approved and participants will be notified.' : 'Your live class request requires revision.'
+    });
+    return data;
+  } catch (error) {
+    console.error('Failed to approve/reject live class:', error);
+    throw error;
+  }
+};
+
 const Dashboard = () => {
   const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
 
@@ -134,12 +179,42 @@ const Dashboard = () => {
     refetchInterval: 30000 // Refresh every 30 seconds
   });
 
+  // ✅ NEW: Live class queries
+  const { data: liveClassDashboard, isLoading: liveClassLoading, error: liveClassError, refetch: refetchLiveClasses } = useQuery({
+    queryKey: ['liveClassDashboard'],
+    queryFn: fetchLiveClassDashboard,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchInterval: 60000 // Refresh every minute
+  });
+
+  const { data: pendingLiveApprovals, isLoading: pendingLiveLoading, error: pendingLiveError } = useQuery({
+    queryKey: ['pendingLiveApprovals'],
+    queryFn: fetchPendingLiveClassApprovals,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchInterval: 30000 // Refresh every 30 seconds
+  });
+
   // Helper function for safe access
   const safeAccess = (obj, path, fallback = 0) => {
     try {
       return path.split('.').reduce((current, key) => current?.[key], obj) ?? fallback;
     } catch {
       return fallback;
+    }
+  };
+
+  // ✅ NEW: Live class approval handler
+  const handleLiveClassApproval = async (scheduleId, decision, adminNotes = '') => {
+    try {
+      await approveLiveClassSchedule(scheduleId, decision, adminNotes);
+      // Refetch data after successful action
+      refetchLiveClasses();
+      alert(`Live class ${decision}d successfully!`);
+    } catch (error) {
+      console.error(`Failed to ${decision} live class:`, error);
+      alert(`Failed to ${decision} live class. Please try again.`);
     }
   };
 
@@ -244,6 +319,194 @@ const Dashboard = () => {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ✅ NEW: Live Class Management Section */}
+      <div className="live-class-management-section">
+        <h3>🎓 Live Class Management</h3>
+
+        {liveClassError && (
+          <div className="error-banner">
+            <span className="error-icon">⚠️</span>
+            <span>Live class data temporarily unavailable.</span>
+          </div>
+        )}
+
+        {liveClassLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading live class data...</p>
+          </div>
+        ) : (
+          <div className="live-class-overview">
+            {/* Live Class Stats Cards */}
+            <div className="live-class-stats">
+              <div className="stat-card pending-approval">
+                <div className="stat-icon">⏳</div>
+                <div className="stat-content">
+                  <h4>Pending Approval</h4>
+                  <span className="stat-number">
+                    {safeAccess(liveClassDashboard, 'stats.pending_approval')}
+                  </span>
+                  <small>Awaiting admin review</small>
+                </div>
+              </div>
+
+              <div className="stat-card approved-today">
+                <div className="stat-icon">✅</div>
+                <div className="stat-content">
+                  <h4>Approved Today</h4>
+                  <span className="stat-number">
+                    {safeAccess(liveClassDashboard, 'stats.approved_today')}
+                  </span>
+                  <small>Classes scheduled</small>
+                </div>
+              </div>
+
+              <div className="stat-card currently-live">
+                <div className="stat-icon">🔴</div>
+                <div className="stat-content">
+                  <h4>Currently Live</h4>
+                  <span className="stat-number">
+                    {safeAccess(liveClassDashboard, 'stats.currently_live')}
+                  </span>
+                  <small>Active sessions</small>
+                </div>
+              </div>
+
+              <div className="stat-card total-scheduled">
+                <div className="stat-icon">📅</div>
+                <div className="stat-content">
+                  <h4>Total Scheduled</h4>
+                  <span className="stat-number">
+                    {safeAccess(liveClassDashboard, 'stats.total_scheduled')}
+                  </span>
+                  <small>All time sessions</small>
+                </div>
+              </div>
+
+              <div className="stat-card completed-week">
+                <div className="stat-icon">🎯</div>
+                <div className="stat-content">
+                  <h4>Completed This Week</h4>
+                  <span className="stat-number">
+                    {safeAccess(liveClassDashboard, 'stats.completed_this_week')}
+                  </span>
+                  <small>Sessions finished</small>
+                </div>
+              </div>
+            </div>
+
+            {/* Pending Approvals Section */}
+            <div className="pending-approvals-section">
+              <h4>⏳ Pending Live Class Approvals</h4>
+
+              {pendingLiveError && (
+                <div className="error-banner">
+                  <span className="error-icon">⚠️</span>
+                  <span>Pending approvals temporarily unavailable.</span>
+                </div>
+              )}
+
+              {pendingLiveLoading ? (
+                <div className="loading-state">
+                  <div className="loading-spinner"></div>
+                  <p>Loading pending approvals...</p>
+                </div>
+              ) : (
+                <div className="pending-approvals-list">
+                  {pendingLiveApprovals && pendingLiveApprovals.length > 0 ? (
+                    pendingLiveApprovals.map(approval => (
+                      <div key={approval.id} className="approval-card">
+                        <div className="approval-header">
+                          <h5>{approval.title}</h5>
+                          <span className="class-type-badge">{approval.class_type}</span>
+                        </div>
+                        <div className="approval-details">
+                          <div className="detail-row">
+                            <span className="label">Instructor:</span>
+                            <span>{approval.instructor_name || approval.requested_by_username}</span>
+                          </div>
+                          <div className="detail-row">
+                            <span className="label">Scheduled:</span>
+                            <span>{new Date(approval.scheduled_start_time).toLocaleString()}</span>
+                          </div>
+                          <div className="detail-row">
+                            <span className="label">Duration:</span>
+                            <span>{approval.estimated_duration} minutes</span>
+                          </div>
+                          <div className="detail-row">
+                            <span className="label">Audience:</span>
+                            <span>{approval.target_audience}</span>
+                          </div>
+                          {approval.description && (
+                            <div className="detail-row">
+                              <span className="label">Description:</span>
+                              <span className="description">{approval.description}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="approval-actions">
+                          <button
+                            className="approve-btn"
+                            onClick={() => handleLiveClassApproval(approval.id, 'approve')}
+                          >
+                            ✅ Approve
+                          </button>
+                          <button
+                            className="reject-btn"
+                            onClick={() => handleLiveClassApproval(approval.id, 'reject', 'Requires revision')}
+                          >
+                            ❌ Reject
+                          </button>
+                          <button
+                            className="modify-btn"
+                            onClick={() => {
+                              const notes = prompt('Enter modification notes:');
+                              if (notes) {
+                                handleLiveClassApproval(approval.id, 'modify', notes);
+                              }
+                            }}
+                          >
+                            ✏️ Modify
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="no-pending-approvals">
+                      <div className="no-data-icon">✨</div>
+                      <p>No pending live class approvals</p>
+                      <small>All live class requests have been reviewed!</small>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Quick Actions */}
+            <div className="live-class-actions">
+              <h4>Quick Actions</h4>
+              <div className="action-buttons">
+                <a href="/admin/live-classes" className="action-btn primary">
+                  📋 View All Live Classes ({safeAccess(liveClassDashboard, 'stats.total_scheduled')})
+                </a>
+                <a href="/admin/live-classes/schedule" className="action-btn secondary">
+                  📅 Schedule Live Class
+                </a>
+                <a href="/admin/live-classes/analytics" className="action-btn secondary">
+                  📊 Live Class Analytics
+                </a>
+                <button
+                  onClick={() => refetchLiveClasses()}
+                  className="action-btn tertiary"
+                >
+                  🔄 Refresh Data
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Rest of the component remains the same */}

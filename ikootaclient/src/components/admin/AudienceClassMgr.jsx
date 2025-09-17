@@ -2183,11 +2183,17 @@ const ClassDetailsPanel = ({
         >
           Analytics
         </button>
-        <button 
+        <button
           className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveTab('settings')}
         >
           Settings
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'liveSessions' ? 'active' : ''}`}
+          onClick={() => setActiveTab('liveSessions')}
+        >
+          🎥 Live Sessions
         </button>
       </div>
 
@@ -2555,6 +2561,10 @@ const ClassDetailsPanel = ({
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'liveSessions' && (
+          <LiveSessionsTab selectedClass={selectedClass} />
         )}
       </div>
     </div>
@@ -2938,6 +2948,252 @@ const AnalyticsView = ({ classesData, summary, analyticsData, systemStats, onSel
 
 // ✅ Keep existing components (CreateClassModal, EditClassModal, BulkOperationsModal, AnalyticsModal, TagInput)
 // These remain the same as in the original code...
+
+// ✅ NEW: Live Sessions Tab Component
+const LiveSessionsTab = ({ selectedClass }) => {
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [liveSessionStats, setLiveSessionStats] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch pending live session approvals for this class
+  const { data: pendingLiveApprovals, isLoading: pendingLoading, refetch: refetchPending } = useQuery({
+    queryKey: ['pendingLiveApprovals', selectedClass?.class_id],
+    queryFn: async () => {
+      if (!selectedClass?.class_id) return [];
+      try {
+        const { data } = await api.get(`/classes/live/admin/pending?classId=${selectedClass.class_id}`);
+        return data?.data || [];
+      } catch (error) {
+        console.error('Failed to fetch pending live approvals:', error);
+        return [];
+      }
+    },
+    enabled: !!selectedClass?.class_id,
+    refetchInterval: 30000
+  });
+
+  // Fetch live session stats for this class
+  const { data: classLiveStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['classLiveStats', selectedClass?.class_id],
+    queryFn: async () => {
+      if (!selectedClass?.class_id) return {};
+      try {
+        const { data } = await api.get(`/classes/live/admin/stats/${selectedClass.class_id}`);
+        return data?.data || {};
+      } catch (error) {
+        console.error('Failed to fetch class live stats:', error);
+        return {};
+      }
+    },
+    enabled: !!selectedClass?.class_id
+  });
+
+  // Approve/Reject live session
+  const handleLiveSessionDecision = async (scheduleId, decision, adminNotes = '') => {
+    try {
+      await api.put(`/classes/live/admin/review/${scheduleId}`, {
+        decision,
+        admin_notes: adminNotes,
+        notification_message: decision === 'approve'
+          ? 'Your live session has been approved and participants will be notified.'
+          : 'Your live session request requires revision.'
+      });
+
+      refetchPending();
+      alert(`Live session ${decision}d successfully!`);
+    } catch (error) {
+      console.error(`Failed to ${decision} live session:`, error);
+      alert(`Failed to ${decision} live session. Please try again.`);
+    }
+  };
+
+  if (!selectedClass) {
+    return (
+      <div className="live-sessions-tab">
+        <div className="no-class-selected">
+          <h4>Select a class to view live sessions</h4>
+          <p>Choose a class from the list to see its live session management options.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="live-sessions-tab">
+      <div className="live-sessions-header">
+        <h4>🎥 Live Sessions for "{selectedClass.class_name}"</h4>
+        <p>Manage live session requests, approvals, and statistics for this class.</p>
+      </div>
+
+      {/* Live Session Stats */}
+      <div className="live-session-stats">
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-icon">⏳</div>
+            <div className="stat-content">
+              <h5>Pending Approval</h5>
+              <span className="stat-number">{pendingLiveApprovals?.length || 0}</span>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">✅</div>
+            <div className="stat-content">
+              <h5>Approved Sessions</h5>
+              <span className="stat-number">{classLiveStats?.approved_sessions || 0}</span>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">🔴</div>
+            <div className="stat-content">
+              <h5>Currently Live</h5>
+              <span className="stat-number">{classLiveStats?.currently_live || 0}</span>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">📊</div>
+            <div className="stat-content">
+              <h5>Total Sessions</h5>
+              <span className="stat-number">{classLiveStats?.total_sessions || 0}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Pending Approvals Section */}
+      <div className="pending-approvals-section">
+        <h5>⏳ Pending Live Session Approvals</h5>
+
+        {pendingLoading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading pending approvals...</p>
+          </div>
+        ) : pendingLiveApprovals && pendingLiveApprovals.length > 0 ? (
+          <div className="pending-approvals-list">
+            {pendingLiveApprovals.map(approval => (
+              <div key={approval.id} className="approval-card">
+                <div className="approval-header">
+                  <h6>{approval.title}</h6>
+                  <span className="session-type-badge">{approval.session_type || 'General'}</span>
+                </div>
+
+                <div className="approval-details">
+                  <div className="detail-row">
+                    <span className="label">Instructor:</span>
+                    <span>{approval.instructor_name || approval.requested_by_username}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="label">Scheduled:</span>
+                    <span>{new Date(approval.scheduled_start_time).toLocaleString()}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="label">Duration:</span>
+                    <span>{approval.estimated_duration} minutes</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="label">Target Audience:</span>
+                    <span>{approval.target_audience}</span>
+                  </div>
+                  {approval.description && (
+                    <div className="detail-row">
+                      <span className="label">Description:</span>
+                      <span className="description">{approval.description}</span>
+                    </div>
+                  )}
+                  {approval.special_instructions && (
+                    <div className="detail-row">
+                      <span className="label">Special Instructions:</span>
+                      <span className="description">{approval.special_instructions}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="approval-actions">
+                  <button
+                    className="approve-btn"
+                    onClick={() => handleLiveSessionDecision(approval.id, 'approve')}
+                  >
+                    ✅ Approve
+                  </button>
+                  <button
+                    className="reject-btn"
+                    onClick={() => {
+                      const notes = prompt('Enter rejection reason:');
+                      if (notes) {
+                        handleLiveSessionDecision(approval.id, 'reject', notes);
+                      }
+                    }}
+                  >
+                    ❌ Reject
+                  </button>
+                  <button
+                    className="modify-btn"
+                    onClick={() => {
+                      const notes = prompt('Enter modification notes:');
+                      if (notes) {
+                        handleLiveSessionDecision(approval.id, 'modify', notes);
+                      }
+                    }}
+                  >
+                    ✏️ Request Changes
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="no-pending-approvals">
+            <div className="no-data-icon">✨</div>
+            <p>No pending live session approvals for this class</p>
+            <small>All live session requests have been reviewed!</small>
+          </div>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="live-session-actions">
+        <h5>Quick Actions</h5>
+        <div className="action-buttons">
+          <button
+            className="action-btn primary"
+            onClick={() => window.open(`/classes/${selectedClass.class_id}/classroom`, '_blank')}
+          >
+            🎥 Join Live Session
+          </button>
+          <button
+            className="action-btn secondary"
+            onClick={() => window.open(`/admin/live-sessions/${selectedClass.class_id}/schedule`, '_blank')}
+          >
+            📅 Schedule Session
+          </button>
+          <button
+            className="action-btn secondary"
+            onClick={() => refetchPending()}
+          >
+            🔄 Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      {classLiveStats?.recent_activity && classLiveStats.recent_activity.length > 0 && (
+        <div className="recent-activity-section">
+          <h5>Recent Live Session Activity</h5>
+          <div className="activity-list">
+            {classLiveStats.recent_activity.map((activity, index) => (
+              <div key={index} className="activity-item">
+                <span className="activity-time">
+                  {new Date(activity.timestamp).toLocaleDateString()}
+                </span>
+                <span className="activity-description">{activity.description}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Export the enhanced component
 export default AudienceClassMgr;

@@ -877,4 +877,238 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .class-info .class-meta { justify-content: flex-start; }
 .action-buttons { display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; flex-wrap: wrap; }
 
+/* ===============================================
+   LIVE TEACHING STYLES
+   =============================================== */
+
+/* Live Teaching Button */
+.btn-start-live {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-md);
+  animation: pulse-red 2s infinite;
+}
+
+.btn-start-live:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-end-live {
+  background: linear-gradient(135deg, #64748b, #475569);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-end-live:hover {
+  background: linear-gradient(135deg, #475569, #334155);
+  transform: translateY(-2px);
+}
+
+@keyframes pulse-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+/* Live Teaching Modal */
+.live-teaching-options {
+  padding: 1rem 0;
+}
+
+.live-teaching-options > p {
+  text-align: center;
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  font-size: 1.1rem;
+}
+
+.session-type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.session-type-card {
+  background: white;
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.session-type-card:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.session-type-card.video:hover {
+  border-color: #ef4444;
+  box-shadow: 0 10px 25px -3px rgba(239, 68, 68, 0.3);
+}
+
+.session-type-card.audio:hover {
+  border-color: #8b5cf6;
+  box-shadow: 0 10px 25px -3px rgba(139, 92, 246, 0.3);
+}
+
+.session-icon {
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.session-type-card h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.session-type-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.session-type-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.session-type-card li {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0.25rem 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Live Session Features */
+.live-session-features {
+  background: var(--secondary-color);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.live-session-features h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.feature-icon {
+  font-size: 1.1rem;
+}
+
+/* Live Session Active Indicator */
+.live-session-indicator {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  background: rgba(239, 68, 68, 0.95);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(10px);
+}
+
+.live-indicator-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.live-pulse {
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .session-type-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .live-session-indicator {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    padding: 0.75rem 1rem;
+  }
+
+  .live-indicator-content {
+    font-size: 0.8rem;
+    justify-content: center;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* End of CSS */

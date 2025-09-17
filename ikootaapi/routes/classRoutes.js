@@ -1,429 +1,408 @@
 // ikootaapi/routes/classRoutes.js
-// COMPLETE REBUILD USING EXACT MEMBERSHIP ROUTES PATTERNS
-// Simple middleware setup, consistent route structure, proper error handling
+// USER CLASS ROUTES - TYPE 1 (Traditional) + TYPE 3 (Recorded)
+// Following scheduleClassroomSession.md documentation strictly
 
 import express from 'express';
-import { authenticate } from '../middleware/auth.js';
+import multer from 'multer';
+import { authenticate, requireMembership } from '../middleware/auth.js';
 import {
   validateClassId,
   validatePagination,
   validateSorting,
-  validateDateRange,
   validateRequestSize
 } from '../middleware/classValidation.js';
-import * as classController from '../controllers/classControllers.js';
+import * as classController from '../controllers/classController.js';
+import * as classAdminController from '../controllers/classAdminController.js';
+
+// Configure multer for video uploads (up to 5GB)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 * 1024, // 5GB limit
+    fieldSize: 100 * 1024 * 1024      // 100MB for other fields
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept video, audio files, and common document formats
+    if (file.mimetype.startsWith('video/') ||
+        file.mimetype.startsWith('audio/') ||
+        file.mimetype.startsWith('image/') ||
+        file.mimetype === 'application/pdf' ||
+        file.mimetype === 'application/msword' ||
+        file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        file.mimetype === 'text/plain') {
+      cb(null, true);
+    } else {
+      cb(new Error('File type not supported'), false);
+    }
+  }
+});
 
 const router = express.Router();
 
-// ===============================================
-// GLOBAL MIDDLEWARE (FOLLOWING MEMBERSHIP PATTERN)
-// ===============================================
+// =============================================================================
+// GLOBAL MIDDLEWARE
+// =============================================================================
 
 // Apply request size validation to all routes
 router.use(validateRequestSize);
 
 // Add route logging middleware
 router.use((req, res, next) => {
-  console.log(`📊 Class Route: ${req.method} ${req.originalUrl}`);
+  console.log(`🛣️ Class Route: ${req.method} ${req.path} - User: ${req.user?.id || 'anonymous'}`);
   next();
 });
 
-// ===============================================
-// PUBLIC CLASS ROUTES
-// ===============================================
+// =============================================================================
+// TYPE 1: TRADITIONAL CLASS SESSIONS ROUTES
+// Following scheduleClassroomSession.md documentation
+// =============================================================================
 
 /**
- * GET /api/classes/test
- * Test endpoint for class system
- */
-router.get('/test', classController.testClassRoutes);
-
-/**
+ * STEP 1: BROWSE AVAILABLE CLASSES
  * GET /api/classes
- * Get all public classes (no authentication required)
- * ✅ ENHANCED: Public course catalog for prospective learners
+ * Role: Any User
  */
-router.get('/', 
-  validatePagination, 
-  validateSorting, 
-  classController.getAllClasses
-);
-
-// ===============================================
-// AUTHENTICATED CLASS ROUTES  
-// ===============================================
-
-/**
- * GET /api/classes/my-classes
- * Get classes for the authenticated user
- */
-// UserDashboard.jsx, ClassContentViewer.jsx its navigate
-router.get('/my-classes',
+router.get('/',
   authenticate,
   validatePagination,
   validateSorting,
+  classController.getAllClasses
+);
+
+/**
+ * GET USER'S ENROLLED CLASSES
+ * GET /api/classes/my-classes
+ * Role: Member
+ * NOTE: Must come BEFORE /:classId route to avoid parameter capture
+ */
+router.get('/my-classes',
+  authenticate,
+  requireMembership('pre_member'),
   classController.getUserClasses
 );
 
 /**
- * GET /api/classes/recommendations
- * Get personalized class recommendations
- */
-// UserDashboard.jsx
-router.get('/recommendations',
-  authenticate,
-  validatePagination,
-  classController.getClassRecommendations
-);
-
-/**
+ * GET USER PROGRESS
  * GET /api/classes/my-progress
- * Get user's progress across all classes
+ * Role: Member
+ * NOTE: Must come BEFORE /:classId route to avoid parameter capture
  */
-// UserDashboard.jsx
 router.get('/my-progress',
   authenticate,
-  validateDateRange,
+  requireMembership('pre_member'),
   classController.getUserProgress
 );
 
 /**
- * GET /api/classes/my-activity
- * Get user's recent class activity
+ * STEP 2: GET CLASS DETAILS
+ * GET /api/classes/:classId
+ * Role: Any User
+ * NOTE: Must come AFTER specific routes like /my-classes
  */
-// UserDashboard.jsx
-router.get('/my-activity',
-  authenticate,
-  validatePagination,
-  classController.getUserActivity
-);
-
-/**
- * GET /api/classes/:id
- * Get specific class details
- */
-// Nil
-router.get('/:id',
+router.get('/:classId',
   authenticate,
   validateClassId,
   classController.getClassById
 );
 
 /**
- * POST /api/classes/:id/join
- * Join a specific class
+ * STEP 2: JOIN A CLASS
+ * POST /api/classes/:classId/join
+ * Role: Member
  */
-// Nil
-router.post('/:id/join',
+router.post('/:classId/join',
   authenticate,
+  requireMembership('pre_member'),
   validateClassId,
   classController.joinClass
 );
 
 /**
- * POST /api/classes/:id/leave
- * Leave a specific class
+ * LEAVE A CLASS
+ * POST /api/classes/:classId/leave
+ * Role: Member
  */
-// Nil
-router.post('/:id/leave',
+router.post('/:classId/leave',
   authenticate,
+  requireMembership('pre_member'),
   validateClassId,
   classController.leaveClass
 );
 
 /**
- * GET /api/classes/:id/members
- * Get members of a specific class
+ * STEP 3: ACCESS CLASS MEMBERS
+ * GET /api/classes/:classId/members
+ * Role: Class Member
  */
-// Nil
-router.get('/:id/members',
+router.get('/:classId/members',
   authenticate,
+  requireMembership('pre_member'),
   validateClassId,
-  validatePagination,
-  validateSorting,
   classController.getClassMembers
 );
 
 /**
- * GET /api/classes/:id/content
- * Get content for a specific class
- * ✅ ENHANCED: Interactive learning materials and resources
+ * MARK CLASS ATTENDANCE
+ * POST /api/classes/:classId/attendance
+ * Role: Class Member
  */
-router.get('/:id/content',
+router.post('/:classId/attendance',
   authenticate,
+  requireMembership('pre_member'),
   validateClassId,
-  validatePagination,
-  classController.getClassContent
+  classController.markClassAttendance
 );
 
 /**
- * GET /api/classes/:id/announcements
- * Get announcements for a specific class
- * ✅ ENHANCED: Real-time class updates and important notifications
+ * SUBMIT CLASS FEEDBACK
+ * POST /api/classes/:classId/feedback
+ * Role: Class Member
  */
-router.get('/:id/announcements',
+router.post('/:classId/feedback',
   authenticate,
-  validateClassId,
-  validatePagination,
-  classController.getClassAnnouncements
-);
-
-/**
- * POST /api/classes/:id/feedback
- * Submit feedback for a class
- * ✅ ENHANCED: Continuous improvement through student feedback
- */
-router.post('/:id/feedback',
-  authenticate,
+  requireMembership('pre_member'),
   validateClassId,
   classController.submitClassFeedback
 );
 
 /**
- * POST /api/classes/:id/attendance
- * Mark attendance for a class session
- * ✅ ENHANCED: Automated attendance tracking for engagement metrics
+ * GET CLASS STATISTICS
+ * GET /api/classes/:classId/stats
+ * Role: Class Member
  */
-router.post('/:id/attendance',
+router.get('/:classId/stats',
   authenticate,
-  validateClassId,
-  classController.markAttendance
-);
-
-/**
- * GET /api/classes/:id/schedule
- * Get class schedule
- * ✅ ENHANCED: Dynamic scheduling for live sessions and deadlines
- */
-router.get('/:id/schedule',
-  authenticate,
-  validateClassId,
-  validateDateRange,
-  classController.getClassSchedule
-);
-
-/**
- * GET /api/classes/:id/stats
- * Get statistics for a specific class
- */
-router.get('/:id/stats',
-  authenticate,
+  requireMembership('pre_member'),
   validateClassId,
   classController.getClassStats
 );
 
 /**
- * GET /api/classes/:id/progress
- * Get user's progress in specific class
+ * GET ATTENDANCE REPORTS (INSTRUCTOR FEATURE)
+ * GET /api/classes/:classId/attendance/reports
+ * Role: Instructor (Member level required)
  */
-// Nil
-router.get('/:id/progress',
+router.get('/:classId/attendance/reports',
   authenticate,
+  requireMembership('member'),
   validateClassId,
-  classController.getClassProgress
+  classController.getAttendanceReports
 );
 
-// ===============================================
-// MENTORSHIP ROUTES (CONVERSE ID INTEGRATION)
-// ===============================================
-
 /**
- * GET /api/classes/:id/mentorship-pairs
- * Get mentorship pairs within class with converse ID protection
+ * GET FEEDBACK SUMMARY (INSTRUCTOR FEATURE)
+ * GET /api/classes/:classId/feedback/summary
+ * Role: Instructor (Member level required)
  */
-// ClassMentorshipView.jsx
-router.get('/:id/mentorship-pairs',
+router.get('/:classId/feedback/summary',
   authenticate,
+  requireMembership('member'),
   validateClassId,
-  classController.getClassMentorshipPairs
+  classController.getFeedbackSummary
 );
 
 /**
- * GET /api/classes/:id/my-mentorship-status
- * Get user's mentorship status in specific class
+ * GET CLASS CONTENT
+ * GET /api/classes/:classId/content
+ * Role: Class Member
  */
-// ClassMentorshipView.jsx
-router.get('/:id/my-mentorship-status',
+router.get('/:classId/content',
   authenticate,
+  requireMembership('pre_member'),
   validateClassId,
-  classController.getUserMentorshipStatus
+  classController.getClassContent
 );
 
+// =============================================================================
+// TYPE 3: RECORDED TEACHING SESSIONS ROUTES
+// Following scheduleClassroomSession.md documentation
+// =============================================================================
+
 /**
- * POST /api/classes/:id/request-mentor
- * Request a mentor within class context
+ * STEP 1: INSTRUCTOR UPLOADS VIDEO/AUDIO CONTENT
+ * POST /api/classes/:id/videos
+ * Role: Instructor (Member level required)
+ * Status: Content uploaded but NOT LIVE (pending approval)
  */
-// ClassMentorshipView.jsx
-router.post('/:id/request-mentor',
+router.post('/:id/videos',
   authenticate,
+  requireMembership('member'), // Member level required per documentation
   validateClassId,
-  classController.requestClassMentor
+  upload.fields([
+    { name: 'video', maxCount: 1 },
+    { name: 'audio', maxCount: 1 },
+    { name: 'attachment', maxCount: 10 }
+  ]),
+  classController.uploadClassVideo
 );
 
 /**
- * POST /api/classes/:id/accept-mentorship
- * Accept mentorship responsibility within class
+ * STEP 6: GET APPROVED CLASS VIDEOS
+ * GET /api/classes/:id/videos
+ * Role: Students (only shows approved content)
  */
-// ClassMentorshipView.jsx
-router.post('/:id/accept-mentorship',
+router.get('/:id/videos',
   authenticate,
+  requireMembership('pre_member'),
   validateClassId,
-  classController.acceptClassMentorship
+  classController.getClassVideos
 );
 
 /**
- * GET /api/classes/:id/members?include_mentorship=true
- * Enhanced members endpoint with mentorship data
+ * DELETE CLASS VIDEO
+ * DELETE /api/classes/:classId/videos/:videoId
+ * Role: Instructor/Admin
  */
-// Enhanced version of existing endpoint - no new route needed
-
-// ===============================================
-// SEARCH ROUTES
-// ===============================================
-
-/**
- * GET /api/classes/search
- * Search classes with filters
- */
-// Nil
-router.get('/search',
-  validatePagination,
-  validateSorting,
-  (req, res, next) => {
-    // Optional authentication - if token provided, use it
-    const token = req.headers.authorization;
-    if (token) {
-      authenticate(req, res, next);
-    } else {
-      next();
-    }
-  },
-  classController.getAllClasses
+router.delete('/:classId/videos/:videoId',
+  authenticate,
+  requireMembership('member'),
+  validateClassId,
+  classController.deleteClassVideo
 );
 
 /**
- * GET /api/classes/by-type/:type
- * Get classes by type
+ * STEP 5: CREATE CLASSROOM SESSION (OPTIONAL)
+ * POST /api/classes/:id/classroom/sessions
+ * Role: Instructor
+ * Note: Optional - students can access videos directly or instructor can create guided sessions
  */
-// Nil
-router.get('/by-type/:type',
-  validatePagination,
-  validateSorting,
-  (req, res, next) => {
-    const { type } = req.params;
-    const allowedTypes = ['demographic', 'subject', 'public', 'special'];
-    
-    if (!allowedTypes.includes(type)) {
+router.post('/:id/classroom/sessions',
+  authenticate,
+  requireMembership('member'),
+  validateClassId,
+  classController.createClassroomSession
+);
+
+/**
+ * GET CLASSROOM SESSION INFO
+ * GET /api/classes/:classId/classroom/session
+ * Role: Students/Attendees
+ */
+router.get('/:classId/classroom/session',
+  authenticate,
+  requireMembership('pre_member'),
+  validateClassId,
+  classController.getClassroomSession
+);
+
+/**
+ * STEP 6: JOIN CLASSROOM SESSION
+ * POST /api/classes/:classId/classroom/sessions/:sessionId/join
+ * Role: Students/Attendees
+ */
+router.post('/:classId/classroom/sessions/:sessionId/join',
+  authenticate,
+  requireMembership('pre_member'),
+  validateClassId,
+  classController.joinClassroomSession
+);
+
+/**
+ * STEP 6: GET CLASSROOM CHAT MESSAGES
+ * GET /api/classes/:id/classroom/chat
+ * Role: Students/Attendees
+ * Features: Get chat messages for live/recorded sessions
+ */
+router.get('/:id/classroom/chat',
+  authenticate,
+  requireMembership('pre_member'),
+  validateClassId,
+  classController.getClassroomChat
+);
+
+/**
+ * STEP 6: SEND CLASSROOM CHAT MESSAGE
+ * POST /api/classes/:id/classroom/chat
+ * Role: Students/Attendees
+ * Features: Send chat message during live/recorded sessions
+ */
+router.post('/:id/classroom/chat',
+  authenticate,
+  requireMembership('pre_member'),
+  validateClassId,
+  classController.sendClassroomChatMessage
+);
+
+/**
+ * STEP 6: GET CLASSROOM PARTICIPANTS
+ * GET /api/classes/:id/classroom/participants
+ * Role: Students/Attendees
+ * Features: View current participants in classroom session
+ */
+router.get('/:id/classroom/participants',
+  authenticate,
+  requireMembership('pre_member'),
+  validateClassId,
+  classController.getClassroomParticipants
+);
+
+// =============================================================================
+// TYPE 2: LIVE TEACHING SESSIONS INSTRUCTOR ROUTES
+// Following scheduleClassroomSession.md documentation exactly
+// =============================================================================
+
+/**
+ * STEP 1: INSTRUCTOR SCHEDULES LIVE TEACHING SESSION
+ * POST /api/classes/live/schedule
+ * Role: Instructor (Member level required)
+ * Features: Schedule live session → Admin Approval → Notify → Start Live → Students Join
+ */
+router.post('/live/schedule',
+  authenticate,
+  requireMembership('member'), // Member level required per documentation
+  classAdminController.scheduleLiveClass
+);
+
+/**
+ * GET USER'S LIVE CLASS SESSIONS
+ * GET /api/classes/live/my-sessions
+ * Role: Instructor
+ */
+router.get('/live/my-sessions',
+  authenticate,
+  requireMembership('member'),
+  classAdminController.getUserLiveClasses
+);
+
+/**
+ * STEP 4: INSTRUCTOR STARTS LIVE SESSION
+ * POST /api/classes/live/start/:sessionId
+ * Role: Instructor
+ */
+router.post('/live/start/:sessionId',
+  authenticate,
+  requireMembership('member'),
+  classAdminController.startLiveClassSession
+);
+
+// =============================================================================
+// ERROR HANDLING MIDDLEWARE
+// =============================================================================
+
+// Handle multer errors
+router.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({
         success: false,
-        error: 'Invalid class type',
-        provided: type,
-        allowed: allowedTypes,
+        error: 'File too large',
+        message: 'File size exceeds 5GB limit',
         timestamp: new Date().toISOString()
       });
     }
-    
-    req.query.class_type = type;
-    next();
-  },
-  classController.getAllClasses
-);
-
-// ===============================================
-// ERROR HANDLING MIDDLEWARE
-// ===============================================
-
-/**
- * Handle class-specific errors
- */
-router.use((error, req, res, next) => {
-  console.error('🚨 Class Route Error:', error.message);
-  
-  // Handle specific error types
-  if (error.message.includes('not found')) {
-    return res.status(404).json({
-      success: false,
-      error: 'Resource not found',
-      message: error.message,
-      timestamp: new Date().toISOString()
-    });
   }
-  
-  if (error.message.includes('already')) {
-    return res.status(409).json({
-      success: false,
-      error: 'Conflict',
-      message: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  if (error.message.includes('full')) {
-    return res.status(409).json({
-      success: false,
-      error: 'Class is full',
-      message: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  if (error.message.includes('access') || error.message.includes('permission')) {
-    return res.status(403).json({
-      success: false,
-      error: 'Access denied',
-      message: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Generic error response
-  res.status(500).json({
-    success: false,
-    error: 'Internal server error',
-    message: error.message,
-    timestamp: new Date().toISOString()
-  });
+  next(error);
 });
 
-// ===============================================
-// 404 HANDLER
-// ===============================================
-
-router.use('*', (req, res) => {
-  res.status(404).json({
+// General error handler
+router.use((error, req, res, next) => {
+  console.error('❌ Class Routes Error:', error);
+  return res.status(500).json({
     success: false,
-    message: 'Class endpoint not found',
-    path: req.originalUrl,
-    method: req.method,
-    available_endpoints: {
-      public: [
-        'GET /api/classes - Get all public classes',
-        'GET /api/classes/test - Test endpoint',
-        'GET /api/classes/search - Search classes',
-        'GET /api/classes/by-type/:type - Get classes by type'
-      ],
-      authenticated: [
-        'GET /api/classes/my-classes - Get user classes',
-        'GET /api/classes/recommendations - Get recommendations',
-        'GET /api/classes/my-progress - Get user progress',
-        'GET /api/classes/my-activity - Get user activity',
-        'GET /api/classes/:id - Get specific class',
-        'POST /api/classes/:id/join - Join class',
-        'POST /api/classes/:id/leave - Leave class',
-        'GET /api/classes/:id/members - Get class members',
-        'GET /api/classes/:id/content - Get class content',
-        'GET /api/classes/:id/announcements - Get announcements',
-        'POST /api/classes/:id/feedback - Submit feedback',
-        'POST /api/classes/:id/attendance - Mark attendance',
-        'GET /api/classes/:id/schedule - Get class schedule',
-        'GET /api/classes/:id/progress - Get class progress'
-      ]
-    },
+    error: 'Internal Server Error',
+    message: error.message || 'An unexpected error occurred',
     timestamp: new Date().toISOString()
   });
 });
 
 export default router;
-
-
-

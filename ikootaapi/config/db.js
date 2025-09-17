@@ -202,7 +202,8 @@ export default {
     query,
     pool,
     testConnection,
-    closePool
+    closePool,
+    getConnection: () => pool.getConnection()
 };
 
 export { query };

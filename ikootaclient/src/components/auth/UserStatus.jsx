@@ -6,9 +6,8 @@ import { jwtDecode } from 'jwt-decode';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
-// ✅ REMOVED: Don't import the wrong api instance
-import api from '../service/api';
-import membershipApi from '../../services/membershipApi';
+// ✅ UNIFIED: Import unified API with membership functionality
+import api, { membershipApi } from '../service/api';
 
 // ✅ Create the UserContext
 const UserContext = createContext();

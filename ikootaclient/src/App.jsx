@@ -45,6 +45,7 @@ import MembershipReviewControls from './components/admin/MembershipReviewControl
 import SurveyControls from './components/admin/SurveyControls';
 import ConverseIdControls from './components/admin/ConverseIdControls';
 import MentorshipControls from './components/admin/MentorshipControls';
+import LiveClassManagement from './components/admin/LiveClassManagement';
 
 // Towncrier components
 import Towncrier from './components/towncrier/Towncrier';
@@ -329,7 +330,8 @@ function App() {
                   <Route path="reports" element={<Reports />} />
                   <Route path="usermanagement" element={<UserManagement />} />
                   <Route path="audienceclassmgr" element={<AudienceClassMgr />} />
-                  
+                  <Route path="liveclassmanagement" element={<LiveClassManagement />} />
+
                   {/* ✅ UPDATED: Membership Review Routes */}
                   <Route path="full-membership-review" element={<FullMembershipReviewControls />} />
                   <Route path="membership-review" element={<MembershipReviewControls />} />

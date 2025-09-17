@@ -1,6 +1,6 @@
 // ikootaapi/routes/classAdminRoutes.js
-// ADMIN CLASS MANAGEMENT ROUTES
-// Clean route definitions with proper middleware
+// ADMIN CLASS ROUTES - TYPE 2 (Live Teaching) + Admin Management
+// Following scheduleClassroomSession.md documentation strictly
 
 import express from 'express';
 import { authenticate, requireRole } from '../middleware/auth.js';
@@ -14,10 +14,8 @@ import {
   validateDateRange,
   validateRequestSize,
   validateMembershipAction
-} from '../middlewares/classValidation.js';
-
-// Import controllers
-import * as classAdminController from '../controllers/classAdminControllers.js';
+} from '../middleware/classValidation.js';
+import * as classAdminController from '../controllers/classAdminController.js';
 
 const router = express.Router();
 
@@ -25,331 +23,350 @@ const router = express.Router();
 // GLOBAL MIDDLEWARE FOR ALL ADMIN ROUTES
 // =============================================================================
 
-// Apply authentication and admin role requirement to all routes
-router.use(authenticate);
-router.use(requireRole(['admin', 'super_admin']));
-
-// Apply request size validation
+// Apply request size validation to all routes
 router.use(validateRequestSize);
 
-// Add admin route logging
+// Require admin authentication for all routes
+router.use(authenticate);
+router.use(requireRole('admin')); // Admin or super_admin required
+
+// Add route logging middleware
 router.use((req, res, next) => {
-  console.log(`🔐 Class Admin Route: ${req.method} ${req.originalUrl} - User: ${req.user?.username}`);
+  console.log(`🔐 Admin Route: ${req.method} ${req.path} - Admin: ${req.user?.id} (${req.user?.role})`);
   next();
 });
 
 // =============================================================================
-// HEALTH CHECK AND TEST ROUTES
+// ADMIN DASHBOARD & CLASS MANAGEMENT
 // =============================================================================
 
 /**
- * GET /api/classes/admin/test
- * Test endpoint for class admin system
+ * GET /api/classes/admin/dashboard - Admin dashboard data
+ * Role: Admin
+ * Features: Complete class management, CRUD operations, analytics
  */
-router.get('/test', classAdminController.testAdminSystem);
+router.get('/dashboard',
+  classAdminController.getAdminDashboard
+);
 
 /**
- * GET /api/classes/admin/health  
- * Health check for class admin system
+ * GET /api/classes/admin - Get all classes (Admin view)
+ * Role: Admin
+ * Features: System statistics, all classes with filters
  */
-router.get('/health', classAdminController.getSystemHealth);
-
-// =============================================================================
-// CLASS MANAGEMENT ENDPOINTS
-// =============================================================================
-
-/**
- * POST /api/classes/admin
- * Create a new class
- */
-// Nil
-router.post('/', validateClassCreation, classAdminController.createClass);
+router.get('/',
+  validatePagination,
+  validateSorting,
+  classAdminController.getAllClassesAdmin
+);
 
 /**
- * GET /api/classes/admin
- * Get all classes with admin details
+ * POST /api/classes/admin - Create new class
+ * Role: Admin
+ * Features: Create class with full configuration
  */
-// Nil
-router.get('/', validatePagination, validateSorting, classAdminController.getAllClasses);
+router.post('/',
+  validateClassCreation,
+  classAdminController.createClass
+);
 
 /**
- * GET /api/classes/admin/stats
- * Get system-wide class statistics
+ * PUT /api/classes/admin/:classId - Update class
+ * Role: Admin
+ * Features: Update any class property
  */
-// AudienceClassMger.jsx
-router.get('/stats', classAdminController.getSystemStats);
+router.put('/:classId',
+  validateClassId,
+  validateClassUpdate,
+  classAdminController.updateClass
+);
 
 /**
- * GET /api/classes/admin/dashboard
- * Get admin dashboard data
+ * DELETE /api/classes/admin/:classId - Delete class
+ * Role: Admin
+ * Features: Soft delete class (set is_active = 0)
  */
-// AudienceClassMger.jsx
-router.get('/dashboard', classAdminController.getDashboard);
+router.delete('/:classId',
+  validateClassId,
+  classAdminController.deleteClass
+);
 
 /**
- * GET /api/classes/admin/pending-approvals
- * Get classes or participants pending approval
+ * GET /api/classes/admin/analytics - System analytics
+ * Role: Admin
+ * Features: Comprehensive analytics, custom reports, data export
  */
-// AudienceClassMger.jsx
-router.get('/pending-approvals', validatePagination, classAdminController.getPendingApprovals);
-
-/**
- * GET /api/classes/admin/:id
- * Get specific class with admin details
- */
-// Nil
-router.get('/:id', validateClassId, classAdminController.getClassById);
-
-/**
- * PUT /api/classes/admin/:id
- * Update a specific class
- */
-// AudienceClassMger.jsx
-router.put('/:id', validateClassId, validateClassUpdate, classAdminController.updateClass);
-
-/**
- * DELETE /api/classes/admin/:id
- * Delete a specific class
- */
-// AudienceClassMger.jsx
-router.delete('/:id', validateClassId, classAdminController.deleteClass);
+router.get('/analytics',
+  validateDateRange,
+  classAdminController.getSystemAnalytics
+);
 
 // =============================================================================
 // PARTICIPANT MANAGEMENT
 // =============================================================================
 
 /**
- * GET /api/classes/admin/:id/participants
- * Get all participants of a specific class
+ * GET /api/classes/admin/:classId/participants - Get class participants
+ * Role: Admin
+ * Features: View all participants with detailed info
  */
-// Nil
-router.get('/:id/participants', validateClassId, validatePagination, validateSorting, classAdminController.getClassParticipants);
+router.get('/:classId/participants',
+  validateClassId,
+  classAdminController.getClassParticipants
+);
 
 /**
- * POST /api/classes/admin/:id/participants
- * Add participants to a class
+ * PUT /api/classes/admin/:classId/participants/:userId - Manage participant
+ * Role: Admin
+ * Features: Add/remove participants, role management
  */
-// Nil
-router.post('/:id/participants', validateClassId, classAdminController.addParticipant);
+router.put('/:classId/participants/:userId',
+  validateClassId,
+  validateMembershipAction,
+  classAdminController.manageParticipant
+);
 
 /**
- * PUT /api/classes/admin/:id/participants/:userId
- * Manage a specific class member (approve, reject, change role, etc.)
+ * POST /api/classes/admin/:classId/participants/add - Add participants
+ * Role: Admin
+ * Features: Bulk add participants to class
  */
-// Nil
-router.put('/:id/participants/:userId', validateClassId, validateMembershipAction, classAdminController.manageParticipant);
-
-/**
- * DELETE /api/classes/admin/:id/participants/:userId
- * Remove a participant from a class
- */
-// Nil
-router.delete('/:id/participants/:userId', validateClassId, classAdminController.removeParticipant);
-
-/**
- * POST /api/classes/admin/:id/participants/bulk
- * Bulk operations on class participants
- */
-// Nil
-router.post('/:id/participants/bulk', validateClassId, validateBulkOperation, classAdminController.bulkParticipantActions);
+router.post('/:classId/participants/add',
+  validateClassId,
+  validateBulkOperation,
+  classAdminController.addParticipants
+);
 
 // =============================================================================
-// ANALYTICS AND REPORTING
+// TYPE 3: RECORDED CONTENT APPROVAL ROUTES
+// Following scheduleClassroomSession.md documentation
 // =============================================================================
 
 /**
- * GET /api/classes/admin/analytics
- * Get comprehensive class analytics
+ * STEP 2: VIEW PENDING CONTENT FOR APPROVAL
+ * GET /api/classes/admin/pending-approvals?type=videos
+ * Role: Admin
+ * Features: Review all pending uploaded content
  */
-// AudienceClassMger.jsx
-router.get('/analytics', validateDateRange, classAdminController.getAnalytics);
+router.get('/pending-approvals',
+  classAdminController.getPendingContentApprovals
+);
 
 /**
- * GET /api/classes/admin/:id/analytics
- * Get specific class analytics
+ * STEP 2: REVIEW CONTENT DETAILS
+ * GET /api/classes/admin/:classId/content/:contentId
+ * Role: Admin
+ * Features: Get detailed content info for review
  */
-// Nil
-router.get('/:id/analytics', validateClassId, classAdminController.getClassAnalytics);
+router.get('/:classId/content/:contentId',
+  validateClassId,
+  classAdminController.getContentDetails
+);
 
 /**
- * GET /api/classes/admin/export
- * Export class data
+ * STEP 3: APPROVE OR REJECT CONTENT
+ * PUT /api/classes/admin/content/:contentId/review
+ * Role: Admin
+ * Features: Approve/reject uploaded content with notes
  */
-// AudienceClassMger.jsx with params
-router.get('/export', validateDateRange, classAdminController.exportClassData);
+router.put('/content/:contentId/review',
+  classAdminController.reviewContent
+);
+
+// =============================================================================
+// TYPE 2: LIVE TEACHING SESSIONS ADMIN ROUTES
+// Following scheduleClassroomSession.md documentation
+// =============================================================================
 
 /**
- * POST /api/classes/admin/reports
- * Generate custom reports
+ * LIVE CLASS ADMIN DASHBOARD
+ * GET /api/classes/live/admin/dashboard
+ * Role: Admin
+ * Features: Live class management, approvals, monitoring
  */
-// AudienceClassMger.jsx
-router.post('/reports', validateDateRange, classAdminController.generateReports);
+router.get('/live/admin/dashboard',
+  classAdminController.getLiveClassAdminDashboard
+);
 
 /**
- * GET /api/classes/admin/audit-logs
- * Get audit logs for class operations
+ * STEP 2: VIEW PENDING LIVE CLASS APPROVALS
+ * GET /api/classes/live/admin/pending
+ * Role: Admin
+ * Features: Get all pending live sessions for approval
  */
-// AudienceClassMgr.jsx
-router.get('/audit-logs', validatePagination, validateDateRange, classAdminController.getAuditLogs);
+router.get('/live/admin/pending',
+  classAdminController.getPendingLiveClassApprovals
+);
 
-// Nil
-// Create route to create additions of classes to make a an Audience (groupings of classes) for publication/notifications
 /**
- *  POST /api/classes/admin/audience
- *  Create a new audience (grouping of classes)
- *  TODO: Implement createAudience controller function
+ * STEP 2: ADMIN REVIEWS AND APPROVES
+ * PUT /api/classes/live/admin/review/:scheduleId
+ * Role: Admin
+ * Features: Approve/reject live teaching sessions
  */
-// router.post('/audience', validateClassCreation, classAdminController.createAudience);
+router.put('/live/admin/review/:scheduleId',
+  classAdminController.reviewLiveClassSchedule
+);
 
+/**
+ * STEP 3: SEND LIVE CLASS NOTIFICATIONS (MANUAL TRIGGER)
+ * POST /api/classes/live/admin/notify/:scheduleId
+ * Role: Admin
+ * Features: Manually trigger notifications if needed
+ */
+router.post('/live/admin/notify/:scheduleId',
+  classAdminController.triggerLiveClassNotifications
+);
+
+/**
+ * ADMIN CONTROL LIVE SESSION (START/STOP)
+ * POST /api/classes/live/admin/control/:sessionId
+ * Role: Admin
+ * Features: Force start/stop live sessions
+ */
+router.post('/live/admin/control/:sessionId',
+  classAdminController.adminControlLiveSession
+);
+
+// NOTE: Instructor live class routes (schedule, my-sessions, start) are now in classRoutes.js
+// to follow the documentation endpoint structure properly
 
 // =============================================================================
 // BULK OPERATIONS
 // =============================================================================
 
 /**
- * POST /api/classes/admin/bulk-create
- * Bulk create multiple classes
- */
-// Nil
-router.post('/bulk-create', validateBulkOperation, classAdminController.bulkCreateClasses);
-
-
-/**
+ * BULK DELETE CLASSES
  * DELETE /api/classes/admin/bulk-delete
- * Bulk delete multiple classes
+ * Role: Super Admin
+ * Features: Mass delete multiple classes
  */
-// see AudienceClassMger.jsx
-router.delete('/bulk-delete', validateBulkOperation, classAdminController.bulkDeleteClasses);
-
-
-// =============================================================================
-// ADVANCED ADMIN FEATURES
-// =============================================================================
+router.delete('/bulk-delete',
+  requireRole('super_admin'),
+  validateBulkOperation,
+  (req, res) => {
+    // TODO: Implement bulk delete functionality
+    res.status(501).json({
+      success: false,
+      message: 'Bulk delete not yet implemented',
+      timestamp: new Date().toISOString()
+    });
+  }
+);
 
 /**
+ * BULK UPDATE CLASSES
+ * PUT /api/classes/admin/bulk-update
+ * Role: Super Admin
+ * Features: Mass update multiple classes
+ */
+router.put('/bulk-update',
+  requireRole('super_admin'),
+  validateBulkOperation,
+  (req, res) => {
+    // TODO: Implement bulk update functionality
+    res.status(501).json({
+      success: false,
+      message: 'Bulk update not yet implemented',
+      timestamp: new Date().toISOString()
+    });
+  }
+);
+
+/**
+ * BATCH APPROVE ITEMS
  * POST /api/classes/admin/approve-batch
- * Batch approve multiple pending items
+ * Role: Admin
+ * Features: Batch approve multiple items
  */
-// AudienceClassMger.jsx
-router.post('/approve-batch', validateBulkOperation, classAdminController.batchApprove);
-
-/**
- * PUT /api/classes/admin/settings
- * Update system-wide class settings
- */
-// AudienceClassMger.jsx
-router.put('/settings', classAdminController.updateSystemSettings);
+router.post('/approve-batch',
+  validateBulkOperation,
+  (req, res) => {
+    // TODO: Implement batch approval functionality
+    res.status(501).json({
+      success: false,
+      message: 'Batch approve not yet implemented',
+      timestamp: new Date().toISOString()
+    });
+  }
+);
 
 // =============================================================================
-// CLASS ARCHIVE/RESTORE
+// DATA EXPORT
 // =============================================================================
 
 /**
- * POST /api/classes/admin/:id/archive
- * Archive a class instead of deleting
+ * EXPORT CLASS DATA
+ * GET /api/classes/admin/export
+ * Role: Admin
+ * Features: Export class data in various formats
  */
-// Nil
-router.post('/:id/archive', validateClassId, classAdminController.archiveClass);
+router.get('/export',
+  validateDateRange,
+  (req, res) => {
+    // TODO: Implement data export functionality
+    res.status(501).json({
+      success: false,
+      message: 'Data export not yet implemented',
+      timestamp: new Date().toISOString()
+    });
+  }
+);
 
 /**
- * POST /api/classes/admin/:id/restore
- * Restore an archived class
+ * GENERATE CUSTOM REPORTS
+ * POST /api/classes/admin/reports
+ * Role: Admin
+ * Features: Generate custom reports with filters
  */
-// Nil
-router.post('/:id/restore', validateClassId, classAdminController.restoreClass);
+router.post('/reports',
+  (req, res) => {
+    // TODO: Implement custom reports functionality
+    res.status(501).json({
+      success: false,
+      message: 'Custom reports not yet implemented',
+      timestamp: new Date().toISOString()
+    });
+  }
+);
+
+// =============================================================================
+// AUDIT LOGS
+// =============================================================================
 
 /**
- * POST /api/classes/admin/:id/duplicate
- * Duplicate a class with options
+ * GET AUDIT LOGS
+ * GET /api/classes/admin/audit-logs
+ * Role: Super Admin
+ * Features: View all administrative actions
  */
-// Nil
-router.post('/:id/duplicate', validateClassId, classAdminController.duplicateClass);
+router.get('/audit-logs',
+  requireRole('super_admin'),
+  validateDateRange,
+  validatePagination,
+  (req, res) => {
+    // TODO: Implement audit logs functionality
+    res.status(501).json({
+      success: false,
+      message: 'Audit logs not yet implemented',
+      timestamp: new Date().toISOString()
+    });
+  }
+);
 
 // =============================================================================
 // ERROR HANDLING MIDDLEWARE
 // =============================================================================
 
-/**
- * Handle admin-specific errors
- */
+// General error handler
 router.use((error, req, res, next) => {
-  console.error('🚨 Class Admin Route Error:', error.message);
-  
-  // Handle specific admin errors
-  if (error.code === 'INSUFFICIENT_PERMISSIONS') {
-    return res.status(403).json({
-      success: false,
-      error: 'Insufficient permissions',
-      message: 'Admin privileges required for this operation',
-      required_role: 'admin',
-      user_role: req.user?.role,
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  if (error.code === 'BULK_OPERATION_FAILED') {
-    return res.status(400).json({
-      success: false,
-      error: 'Bulk operation failed',
-      message: error.message,
-      failed_items: error.failedItems || [],
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Pass to global error handler
-  next(error);
-});
-
-// =============================================================================
-// 404 HANDLER FOR CLASS ADMIN ROUTES
-// =============================================================================
-
-router.use('*', (req, res) => {
-  res.status(404).json({
+  console.error('❌ Admin Routes Error:', error);
+  return res.status(500).json({
     success: false,
-    message: 'Class admin endpoint not found',
-    path: req.originalUrl,
-    method: req.method,
-    available_endpoints: [
-      'GET /api/classes/admin - Get all classes',
-      'POST /api/classes/admin - Create class',
-      'GET /api/classes/admin/:id - Get class details',
-      'PUT /api/classes/admin/:id - Update class',
-      'DELETE /api/classes/admin/:id - Delete class',
-      'GET /api/classes/admin/:id/participants - Get participants',
-      'POST /api/classes/admin/:id/participants - Add participant',
-      'PUT /api/classes/admin/:id/participants/:userId - Manage participant',
-      'DELETE /api/classes/admin/:id/participants/:userId - Remove participant',
-      'GET /api/classes/admin/analytics - Get analytics',
-      'GET /api/classes/admin/stats - Get statistics',
-      'POST /api/classes/admin/bulk-create - Bulk create',
-      'PUT /api/classes/admin/bulk-update - Bulk update',
-      'DELETE /api/classes/admin/bulk-delete - Bulk delete'
-    ],
-    note: 'All admin endpoints require admin role',
+    error: 'Internal Server Error',
+    message: error.message || 'An unexpected error occurred in admin routes',
     timestamp: new Date().toISOString()
   });
 });
 
 export default router;
-
-// =============================================================================
-// END OF ROUTES FILE
-// =============================================================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

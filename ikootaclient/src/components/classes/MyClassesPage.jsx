@@ -30,11 +30,38 @@ const leaveClass = async (classId) => {
   return data;
 };
 
+const scheduleLiveSession = async (sessionData) => {
+  const token = localStorage.getItem("token");
+  const { data } = await api.post('/classes/live/schedule', sessionData, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return data;
+};
+
 const MyClassesPage = () => {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState('all'); // all, active, completed
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({
+    title: '',
+    description: '',
+    class_type: 'video',
+    scheduled_start_time: '',
+    estimated_duration: 60,
+    target_audience: 'members',
+    target_class_id: '',
+    notification_preferences: {
+      email: true,
+      sms: false
+    },
+    streaming_settings: {
+      video_quality: 'HD',
+      audio_quality: 'high'
+    },
+    special_instructions: ''
+  });
 
   // Fetch user's classes
   const { data: userClasses, isLoading: classesLoading, error: classesError } = useQuery({
@@ -68,6 +95,31 @@ const MyClassesPage = () => {
     }
   });
 
+  // Schedule live session mutation
+  const scheduleSessionMutation = useMutation({
+    mutationFn: scheduleLiveSession,
+    onSuccess: () => {
+      setShowScheduleModal(false);
+      setScheduleForm({
+        title: '',
+        description: '',
+        class_type: 'video',
+        scheduled_start_time: '',
+        estimated_duration: 60,
+        target_audience: 'members',
+        target_class_id: '',
+        notification_preferences: { email: true, sms: false },
+        streaming_settings: { video_quality: 'HD', audio_quality: 'high' },
+        special_instructions: ''
+      });
+      alert('Live session scheduled successfully! It will be reviewed by admin.');
+    },
+    onError: (error) => {
+      console.error('Failed to schedule session:', error);
+      alert(error.response?.data?.message || 'Failed to schedule session');
+    }
+  });
+
   const handleLeaveClass = (classId, className) => {
     if (window.confirm(`Are you sure you want to leave "${className}"?`)) {
       leaveClassMutation.mutate(classId);
@@ -79,6 +131,31 @@ const MyClassesPage = () => {
     // URL encode the classId to handle # characters properly
     const encodedClassId = encodeURIComponent(classId);
     navigate(`/classes/${encodedClassId}`);
+  };
+
+  const handleScheduleSubmit = (e) => {
+    e.preventDefault();
+
+    // Basic validation
+    if (!scheduleForm.title || !scheduleForm.scheduled_start_time) {
+      alert('Please fill in title and start time');
+      return;
+    }
+
+    // Convert datetime-local to ISO format
+    const scheduleData = {
+      ...scheduleForm,
+      scheduled_start_time: new Date(scheduleForm.scheduled_start_time).toISOString()
+    };
+
+    scheduleSessionMutation.mutate(scheduleData);
+  };
+
+  const handleFormChange = (field, value) => {
+    setScheduleForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const classes = userClasses?.data || [];
@@ -124,7 +201,23 @@ const MyClassesPage = () => {
         </div>
         
         <div className="header-actions">
-          <button 
+          {user?.role === 'admin' || user?.role === 'super_admin' || user?.membership_stage === 'member' ? (
+            <>
+              <button
+                onClick={() => navigate('/classes?create=true')}
+                className="btn-create-class"
+              >
+                📹 Create Video/Audio Class
+              </button>
+              <button
+                onClick={() => setShowScheduleModal(true)}
+                className="btn-schedule-live"
+              >
+                📅 Schedule Live Session
+              </button>
+            </>
+          ) : null}
+          <button
             onClick={() => navigate('/classes')}
             className="btn-browse"
           >
@@ -304,13 +397,166 @@ const MyClassesPage = () => {
 
       {/* Page Footer */}
       <div className="page-footer">
-        <button 
+        <button
           onClick={() => navigate('/dashboard')}
           className="btn-back"
         >
           ← Back to Dashboard
         </button>
       </div>
+
+      {/* Schedule Live Session Modal */}
+      {showScheduleModal && (
+        <div className="modal-overlay" onClick={() => setShowScheduleModal(false)}>
+          <div className="schedule-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📅 Schedule Live Session</h2>
+              <button
+                className="close-btn"
+                onClick={() => setShowScheduleModal(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleScheduleSubmit} className="schedule-form">
+              <div className="form-group">
+                <label htmlFor="title">Session Title *</label>
+                <input
+                  id="title"
+                  type="text"
+                  value={scheduleForm.title}
+                  onChange={(e) => handleFormChange('title', e.target.value)}
+                  placeholder="e.g., Advanced Mathematics Session"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="description">Description</label>
+                <textarea
+                  id="description"
+                  value={scheduleForm.description}
+                  onChange={(e) => handleFormChange('description', e.target.value)}
+                  placeholder="Describe what will be covered in this session..."
+                  rows="3"
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="class_type">Session Type</label>
+                  <select
+                    id="class_type"
+                    value={scheduleForm.class_type}
+                    onChange={(e) => handleFormChange('class_type', e.target.value)}
+                  >
+                    <option value="video">Video & Audio</option>
+                    <option value="audio">Audio Only</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="estimated_duration">Duration (minutes)</label>
+                  <input
+                    id="estimated_duration"
+                    type="number"
+                    value={scheduleForm.estimated_duration}
+                    onChange={(e) => handleFormChange('estimated_duration', parseInt(e.target.value))}
+                    min="15"
+                    max="300"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="scheduled_start_time">Start Time *</label>
+                <input
+                  id="scheduled_start_time"
+                  type="datetime-local"
+                  value={scheduleForm.scheduled_start_time}
+                  onChange={(e) => handleFormChange('scheduled_start_time', e.target.value)}
+                  min={new Date(Date.now() + 30 * 60 * 1000).toISOString().slice(0, 16)}
+                  required
+                />
+                <small>Sessions must be scheduled at least 30 minutes in advance</small>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="target_class_id">Target Class (Optional)</label>
+                <select
+                  id="target_class_id"
+                  value={scheduleForm.target_class_id}
+                  onChange={(e) => handleFormChange('target_class_id', e.target.value)}
+                >
+                  <option value="">Open to all members</option>
+                  {classes.map(cls => (
+                    <option key={cls.class_id} value={cls.class_id}>
+                      {cls.class_name} ({cls.class_id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="special_instructions">Special Instructions</label>
+                <textarea
+                  id="special_instructions"
+                  value={scheduleForm.special_instructions}
+                  onChange={(e) => handleFormChange('special_instructions', e.target.value)}
+                  placeholder="Any special requirements or instructions for participants..."
+                  rows="2"
+                />
+              </div>
+
+              <div className="notification-section">
+                <h4>Notification Preferences</h4>
+                <div className="checkbox-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={scheduleForm.notification_preferences.email}
+                      onChange={(e) => handleFormChange('notification_preferences', {
+                        ...scheduleForm.notification_preferences,
+                        email: e.target.checked
+                      })}
+                    />
+                    📧 Email notifications
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={scheduleForm.notification_preferences.sms}
+                      onChange={(e) => handleFormChange('notification_preferences', {
+                        ...scheduleForm.notification_preferences,
+                        sms: e.target.checked
+                      })}
+                    />
+                    📱 SMS notifications
+                  </label>
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowScheduleModal(false)}
+                  className="btn-cancel"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={scheduleSessionMutation.isLoading}
+                  className="btn-schedule"
+                >
+                  {scheduleSessionMutation.isLoading ? 'Scheduling...' : '📅 Schedule Session'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

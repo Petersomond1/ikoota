@@ -314,15 +314,19 @@ export const requireRole = (allowedRoles) => {
 
       const userRole = req.user.role || 'user';
       const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
-      
-      if (!roles.includes(userRole)) {
+
+      // Role hierarchy: super_admin has all admin privileges
+      const hasPermission = roles.includes(userRole) ||
+                           (userRole === 'super_admin' && roles.includes('admin'));
+
+      if (!hasPermission) {
         console.log('❌ Insufficient permissions:', {
           userRole,
           requiredRoles: roles,
           user: req.user.username,
           endpoint: req.originalUrl
         });
-        
+
         return res.status(403).json({
           success: false,
           error: 'Insufficient permissions',
@@ -410,25 +414,45 @@ export const requireMembership = (allowedStages) => {
 
       const userStage = req.user.membership_stage || 'none';
       const stages = Array.isArray(allowedStages) ? allowedStages : [allowedStages];
-      
-      if (!stages.includes(userStage)) {
+
+      // Define membership hierarchy (higher levels include lower level permissions)
+      const membershipHierarchy = {
+        'none': 0,
+        'pre_member': 1,
+        'member': 2,
+        'full_member': 3,
+        'senior_member': 4
+      };
+
+      const userLevel = membershipHierarchy[userStage] || 0;
+      const requiredLevel = Math.min(...stages.map(stage => membershipHierarchy[stage] || 999));
+
+      // Check if user level meets minimum requirement
+      if (userLevel < requiredLevel) {
         console.log('❌ Insufficient membership level:', {
           userStage,
+          userLevel,
           requiredStages: stages,
+          requiredLevel,
           user: req.user.username
         });
-        
+
         return res.status(403).json({
           success: false,
           error: 'Membership level insufficient',
-          message: `Requires: ${stages.join(' or ')}`,
+          message: `Requires: ${stages.join(' or ')} (minimum level)`,
           required: stages,
           current: userStage,
           timestamp: new Date().toISOString()
         });
       }
 
-      console.log('✅ Membership authorization successful:', userStage);
+      console.log('✅ Membership authorization successful:', {
+        userStage,
+        userLevel,
+        requiredLevel,
+        authorized: true
+      });
       next();
     } catch (error) {
       console.error('Membership authorization error:', error);

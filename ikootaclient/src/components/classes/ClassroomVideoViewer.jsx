@@ -7,6 +7,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '../auth/UserStatus';
 import api from '../service/api';
+import VideoRecorder from './VideoRecorder';
+import ClassroomVideoPlayer from './ClassroomVideoPlayer';
+import LiveChat from './LiveChat';
+import { io } from 'socket.io-client';
 import './ClassroomVideoViewer.css';
 
 const ClassroomVideoViewer = () => {
@@ -18,6 +22,7 @@ const ClassroomVideoViewer = () => {
   // Refs
   const videoRef = useRef(null);
   const chatEndRef = useRef(null);
+  const socketRef = useRef(null);
 
   // State
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
@@ -29,6 +34,17 @@ const ClassroomVideoViewer = () => {
   const [showChat, setShowChat] = useState(true);
   const [showParticipants, setShowParticipants] = useState(false);
   const [hasMarkedAttendance, setHasMarkedAttendance] = useState(false);
+
+  // Real-time state
+  const [realtimeMessages, setRealtimeMessages] = useState([]);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [onlineParticipants, setOnlineParticipants] = useState([]);
+  const [typingUsers, setTypingUsers] = useState(new Set());
+
+  // Video management state
+  const [currentView, setCurrentView] = useState('player'); // 'player', 'recorder', 'videos'
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  const [videoProgress, setVideoProgress] = useState({});
 
   // Helper function to normalize class ID
   const normalizeClassId = (id) => {
@@ -49,12 +65,13 @@ const ClassroomVideoViewer = () => {
   };
 
   const apiClassId = normalizeClassId(classId);
+  const encodedClassId = encodeURIComponent(apiClassId || '');
 
   // Fetch classroom session data
   const { data: sessionData, isLoading: sessionLoading, error: sessionError } = useQuery({
     queryKey: ['classroomSession', apiClassId],
     queryFn: async () => {
-      const { data } = await api.get(`/classes/${apiClassId}/classroom/session`);
+      const { data } = await api.get(`/classes/${encodedClassId}/classroom/session`);
       return data?.data || data;
     },
     enabled: !!apiClassId && isAuthenticated,
@@ -62,23 +79,23 @@ const ClassroomVideoViewer = () => {
     refetchInterval: 30 * 1000
   });
 
-  // Fetch live chat messages
+  // Fetch initial chat messages (for history)
   const { data: chatData, isLoading: chatLoading } = useQuery({
     queryKey: ['classroomChat', apiClassId],
     queryFn: async () => {
-      const { data } = await api.get(`/classes/${apiClassId}/classroom/chat`);
+      const { data } = await api.get(`/classes/${encodedClassId}/classroom/chat`);
       return data?.data || data;
     },
     enabled: !!apiClassId && isAuthenticated,
-    staleTime: 5 * 1000, // Refresh every 5 seconds for chat
-    refetchInterval: 5 * 1000
+    staleTime: 60 * 1000, // Longer stale time since we use real-time updates
+    refetchOnWindowFocus: false // Disable auto-refetch since we have real-time updates
   });
 
   // Fetch participants list
   const { data: participantsData } = useQuery({
     queryKey: ['classroomParticipants', apiClassId],
     queryFn: async () => {
-      const { data } = await api.get(`/classes/${apiClassId}/classroom/participants`);
+      const { data } = await api.get(`/classes/${encodedClassId}/members`);
       return data?.data || data;
     },
     enabled: !!apiClassId && isAuthenticated,
@@ -86,17 +103,31 @@ const ClassroomVideoViewer = () => {
     refetchInterval: 10 * 1000
   });
 
-  // Send chat message mutation
+  // Send chat message via Socket.io
   const sendMessageMutation = useMutation({
     mutationFn: async (message) => {
-      return await api.post(`/classes/${apiClassId}/classroom/chat`, {
-        message,
-        timestamp: new Date().toISOString()
-      });
+      // Send via Socket.io for real-time delivery
+      if (socketRef.current && isSocketConnected) {
+        const messageData = {
+          id: Date.now().toString(),
+          message,
+          room: `classroom_${apiClassId}`,
+          classId: apiClassId,
+          timestamp: new Date().toISOString()
+        };
+
+        socketRef.current.emit('sendMessage', messageData);
+        return { success: true, data: messageData };
+      } else {
+        // Fallback to HTTP if socket not available
+        return await api.post(`/classes/${encodedClassId}/classroom/chat`, {
+          message,
+          timestamp: new Date().toISOString()
+        });
+      }
     },
     onSuccess: () => {
       setChatMessage('');
-      queryClient.invalidateQueries(['classroomChat']);
     },
     onError: (error) => {
       console.error('Failed to send message:', error);
@@ -107,7 +138,7 @@ const ClassroomVideoViewer = () => {
   // Mark attendance mutation
   const markAttendanceMutation = useMutation({
     mutationFn: async () => {
-      return await api.post(`/classes/${apiClassId}/classroom/attendance`, {
+      return await api.post(`/classes/${encodedClassId}/classroom/attendance`, {
         session_id: sessionData?.session_id || `session_${Date.now()}`,
         timestamp: new Date().toISOString()
       });
@@ -122,12 +153,126 @@ const ClassroomVideoViewer = () => {
     }
   });
 
+  // Socket.io connection setup
+  useEffect(() => {
+    if (!apiClassId || !isAuthenticated) return;
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    // Connect to Socket.io server
+    const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
+
+    socketRef.current = io(socketUrl, {
+      auth: {
+        token: token
+      },
+      transports: ['websocket', 'polling']
+    });
+
+    const socket = socketRef.current;
+
+    // Connection events
+    socket.on('connect', () => {
+      console.log('💬 Connected to live chat');
+      setIsSocketConnected(true);
+
+      // Join classroom room
+      socket.emit('joinRoom', `classroom_${apiClassId}`);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('💬 Disconnected from live chat');
+      setIsSocketConnected(false);
+    });
+
+    // Chat message events
+    socket.on('receiveMessage', (messageData) => {
+      // Only show messages for this classroom
+      if (messageData.room === `classroom_${apiClassId}` || messageData.classId === apiClassId) {
+        setRealtimeMessages(prev => {
+          // Avoid duplicates
+          const exists = prev.some(msg => msg.id === messageData.id);
+          if (exists) return prev;
+
+          return [...prev, {
+            id: messageData.id || Date.now(),
+            message: messageData.message,
+            author_converse_id: messageData.fromUsername || messageData.from,
+            author: messageData.fromUsername || messageData.from,
+            timestamp: messageData.timestamp,
+            createdAt: messageData.timestamp,
+            isRealtime: true
+          }];
+        });
+      }
+    });
+
+    // Typing indicators
+    socket.on('userTyping', (typingData) => {
+      if (typingData.isTyping) {
+        setTypingUsers(prev => new Set([...prev, typingData.fromUsername]));
+        // Clear typing after 3 seconds
+        setTimeout(() => {
+          setTypingUsers(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(typingData.fromUsername);
+            return newSet;
+          });
+        }, 3000);
+      } else {
+        setTypingUsers(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(typingData.fromUsername);
+          return newSet;
+        });
+      }
+    });
+
+    // User status updates
+    socket.on('userStatusUpdate', (statusData) => {
+      setOnlineParticipants(prev => {
+        const updated = prev.filter(p => p.id !== statusData.userId);
+        return [...updated, {
+          id: statusData.userId,
+          name: statusData.username,
+          status: statusData.status,
+          is_online: statusData.status === 'online'
+        }];
+      });
+    });
+
+    return () => {
+      if (socket) {
+        socket.emit('leaveRoom', `classroom_${apiClassId}`);
+        socket.disconnect();
+      }
+    };
+  }, [apiClassId, isAuthenticated]);
+
   // Auto-scroll chat to bottom
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [chatData]);
+  }, [realtimeMessages, chatData]);
+
+  // Merge historical and real-time messages
+  const allMessages = React.useMemo(() => {
+    const historical = chatData || [];
+    const combined = [...historical, ...realtimeMessages];
+
+    // Remove duplicates and sort by timestamp
+    const unique = combined.filter((msg, index, arr) =>
+      index === arr.findIndex(m => m.id === msg.id ||
+        (m.message === msg.message && m.timestamp === msg.timestamp)
+      )
+    );
+
+    return unique.sort((a, b) =>
+      new Date(a.timestamp || a.createdAt) - new Date(b.timestamp || b.createdAt)
+    );
+  }, [chatData, realtimeMessages]);
 
   // Video event handlers
   const handleVideoPlay = () => setIsVideoPlaying(true);
@@ -156,6 +301,35 @@ const ClassroomVideoViewer = () => {
       e.preventDefault();
       handleSendMessage(e);
     }
+  };
+
+  // Handle typing indicator
+  const handleTyping = (isTyping) => {
+    if (socketRef.current && isSocketConnected) {
+      socketRef.current.emit('typing', {
+        isTyping,
+        room: `classroom_${apiClassId}`
+      });
+    }
+  };
+
+  // Typing timeout
+  const typingTimeoutRef = useRef(null);
+  const handleChatInputChange = (e) => {
+    setChatMessage(e.target.value);
+
+    // Send typing indicator
+    handleTyping(true);
+
+    // Clear previous timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Stop typing after 1 second of no input
+    typingTimeoutRef.current = setTimeout(() => {
+      handleTyping(false);
+    }, 1000);
   };
 
   // Video controls
@@ -195,7 +369,7 @@ const ClassroomVideoViewer = () => {
 
   // Process data
   const session = sessionData || {};
-  const messages = chatData || [];
+  const messages = allMessages || [];
   const participants = participantsData || [];
   const isLiveSession = session.is_live || session.status === 'live';
   const videoUrl = session.video_url || session.stream_url;
@@ -245,6 +419,9 @@ const ClassroomVideoViewer = () => {
               </span>
               <span className="session-id">ID: {apiClassId}</span>
               <span className="participants-count">👥 {participants.length} online</span>
+              {isSocketConnected && (
+                <span className="live-indicator">🟢 Live Chat</span>
+              )}
             </div>
           </div>
         </div>
@@ -454,69 +631,18 @@ const ClassroomVideoViewer = () => {
             </div>
           )}
 
-          {/* Chat Panel */}
+          {/* Live Chat Panel */}
           {showChat && (
-            <div className="chat-panel">
-              <div className="panel-header">
-                <h3>💬 Live Chat</h3>
-                {isLiveSession && <span className="live-indicator">🔴 LIVE</span>}
-              </div>
-
-              <div className="chat-messages">
-                {chatLoading ? (
-                  <div className="chat-loading">Loading messages...</div>
-                ) : messages.length === 0 ? (
-                  <div className="empty-chat">
-                    <span className="empty-icon">💬</span>
-                    <p>No messages yet</p>
-                    <p>Be the first to start the conversation!</p>
-                  </div>
-                ) : (
-                  messages.map(message => (
-                    <div key={message.id} className="chat-message">
-                      <div className="message-header">
-                        <span className="message-author">
-                          {message.author_converse_id || message.author || 'Unknown'}
-                        </span>
-                        <span className="message-time">
-                          {new Date(message.timestamp || message.createdAt).toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <div className="message-content">
-                        {message.message || message.content}
-                      </div>
-                    </div>
-                  ))
-                )}
-                <div ref={chatEndRef} />
-              </div>
-
-              <form onSubmit={handleSendMessage} className="chat-input-form">
-                <div className="chat-input-container">
-                  <textarea
-                    value={chatMessage}
-                    onChange={(e) => setChatMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder={isLiveSession ? "Type a message..." : "Chat is available during live sessions"}
-                    className="chat-input"
-                    disabled={!isLiveSession || sendMessageMutation.isLoading}
-                    rows="2"
-                  />
-                  <button
-                    type="submit"
-                    className="btn-send"
-                    disabled={!chatMessage.trim() || !isLiveSession || sendMessageMutation.isLoading}
-                  >
-                    {sendMessageMutation.isLoading ? '⏳' : '📤'}
-                  </button>
-                </div>
-                {!isLiveSession && (
-                  <div className="chat-disabled-notice">
-                    💡 Chat is only available during live sessions
-                  </div>
-                )}
-              </form>
-            </div>
+            <LiveChat
+              socket={socketRef.current}
+              classId={apiClassId}
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              isConnected={isSocketConnected}
+              isLoading={chatLoading || sendMessageMutation.isLoading}
+              currentUser={user}
+              isLiveSession={isLiveSession}
+            />
           )}
         </div>
       </div>

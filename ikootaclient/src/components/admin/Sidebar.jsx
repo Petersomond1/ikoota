@@ -69,8 +69,8 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
     queryKey: ['pendingSurveysCount'],
     queryFn: async () => {
       try {
-        const { data } = await api.get('/survey/admin/stats', { 
-          withCredentials: true 
+        const { data } = await api.get('/survey/admin/stats', {
+          withCredentials: true
         });
         return data?.data?.pending || 0;
       } catch (error) {
@@ -84,6 +84,7 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
     retry: 1
   });
 
+
   // ✅ UPDATED: Add new components to sidebar items
   const sidebarItems = [
     { name: 'Dashboard', to: '', label: 'Dashboard', icon: '📊' },
@@ -95,7 +96,8 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
     { name: 'SearchControls', to: 'searchcontrols', label: 'SearchControls', icon: '🔍' },
     { name: 'Reports', to: 'reports', label: 'Reports', icon: '📈' },
     { name: 'UserManagement', to: 'usermanagement', label: 'UserManagement', icon: '👥' },
-    { name: 'AudienceClassMgr', to: 'audienceclassmgr', label: 'AudienceClassMgr', icon: '🎯' },
+    { name: 'AudienceClassMgr', to: 'audienceclassmgr', label: 'Class Management', icon: '🎯' },
+    { name: 'LiveClassManagement', to: 'liveclassmanagement', label: 'Live Sessions 🎥', icon: '🎥' },
     // ✅ ADD: Membership Review item
     {
       name: 'Membership Review',
@@ -125,7 +127,7 @@ const Sidebar = ({ selectedItem, setSelectedItem, isMobile, closeMobileMenu }) =
       to: 'mentorshipcontrols',
       label: 'Mentorship Controls',
       icon: '🏛️',
-    }
+    },
 
 
   ];

@@ -142,6 +142,9 @@ const ClassContentViewer = () => {
     attachments: []
   });
   const [searchQuery, setSearchQuery] = useState('');
+  const [showLiveTeachingModal, setShowLiveTeachingModal] = useState(false);
+  const [isLiveSessionActive, setIsLiveSessionActive] = useState(false);
+  const [liveSessionType, setLiveSessionType] = useState('video'); // 'video' or 'audio'
   const [contentFilter, setContentFilter] = useState('all');
   const [showParticipants, setShowParticipants] = useState(false);
   
@@ -155,7 +158,7 @@ const ClassContentViewer = () => {
   const { data: classData, isLoading: classLoading, error: classError } = useQuery({
     queryKey: ['classDetails', apiClassId],
     queryFn: async () => {
-      const { data } = await api.get(`/classes/${apiClassId}/details`, {
+      const { data } = await api.get(`/classes/${encodeURIComponent(apiClassId)}`, {
         withCredentials: true
       });
       return data?.data || data;
@@ -168,7 +171,7 @@ const ClassContentViewer = () => {
   const { data: contentData, isLoading: contentLoading, error: contentError } = useQuery({
     queryKey: ['classContent', apiClassId, activeTab],
     queryFn: async () => {
-      const { data } = await api.get(`/classes/${apiClassId}/content`, {
+      const { data } = await api.get(`/classes/${encodeURIComponent(apiClassId)}/content`, {
         params: { type: activeTab },
         withCredentials: true
       });
@@ -182,7 +185,7 @@ const ClassContentViewer = () => {
   const { data: participantsData, isLoading: membersLoading } = useQuery({
     queryKey: ['classParticipants', apiClassId],
     queryFn: async () => {
-      const { data } = await api.get(`/classes/${apiClassId}/participants`, {
+      const { data } = await api.get(`/classes/${encodeURIComponent(apiClassId)}/members`, {
         withCredentials: true
       });
       return data?.data || data;
@@ -402,6 +405,33 @@ const ClassContentViewer = () => {
     }));
   };
 
+  // Live teaching session handlers
+  const handleStartLiveTeaching = () => {
+    setShowLiveTeachingModal(true);
+  };
+
+  const handleStartLiveSession = (sessionType) => {
+    setLiveSessionType(sessionType);
+    setIsLiveSessionActive(true);
+    setShowLiveTeachingModal(false);
+
+    // Create a live session content entry
+    const liveSessionData = {
+      title: `Live ${sessionType === 'video' ? 'Video' : 'Audio'} Session - ${new Date().toLocaleString()}`,
+      content_type: 'live_session',
+      content_text: `Live ${sessionType} teaching session started`,
+      is_live: true,
+      session_type: sessionType
+    };
+
+    createContentMutation.mutate(liveSessionData);
+  };
+
+  const handleEndLiveSession = () => {
+    setIsLiveSessionActive(false);
+    setLiveSessionType('video');
+  };
+
   // Scroll to bottom of messages
 
   // Process data safely with proper field mapping
@@ -555,6 +585,16 @@ const ClassContentViewer = () => {
                 <button onClick={() => setShowParticipants(!showParticipants)} className="btn-members">
                   👥 Members ({members.length})
                 </button>
+                {canCreateContent && !isLiveSessionActive && (
+                  <button onClick={handleStartLiveTeaching} className="btn-start-live">
+                    🔴 Start Live Teaching
+                  </button>
+                )}
+                {canCreateContent && isLiveSessionActive && (
+                  <button onClick={handleEndLiveSession} className="btn-end-live active">
+                    ⏹️ End Live Session
+                  </button>
+                )}
                 <button onClick={handleLeaveClass} className="btn-leave" disabled={leaveClassMutation.isLoading}>
                   🚪 Leave Class
                 </button>
@@ -1058,11 +1098,16 @@ const ClassContentViewer = () => {
               <div className="create-content-form">
                 <div className="form-group">
                   <label>Content Type</label>
-                  <select 
-                    value={newContent.type} 
+                  <select
+                    value={newContent.type}
                     onChange={(e) => setNewContent(prev => ({ ...prev, type: e.target.value }))}
                     className="form-select"
                   >
+                    <option value="lesson">Lesson</option>
+                    <option value="video">Video Class</option>
+                    <option value="audio">Audio Class</option>
+                    <option value="live_session">Live Session</option>
+                    <option value="material">Learning Material</option>
                     <option value="announcement">Announcement</option>
                     <option value="discussion">Discussion</option>
                     <option value="assignment">Assignment</option>
@@ -1093,11 +1138,20 @@ const ClassContentViewer = () => {
                 </div>
                 
                 <div className="form-group">
-                  <label>Attachments</label>
-                  <input 
+                  <label>
+                    {newContent.type === 'video' ? 'Video File' :
+                     newContent.type === 'audio' ? 'Audio File' :
+                     'Attachments'}
+                  </label>
+                  <input
                     type="file"
                     ref={fileInputRef}
-                    multiple
+                    multiple={newContent.type !== 'video' && newContent.type !== 'audio'}
+                    accept={
+                      newContent.type === 'video' ? 'video/*' :
+                      newContent.type === 'audio' ? 'audio/*' :
+                      'video/*,audio/*,image/*,.pdf,.doc,.docx,.txt'
+                    }
                     onChange={handleFileUpload}
                     className="form-file"
                   />
@@ -1133,6 +1187,95 @@ const ClassContentViewer = () => {
               >
                 Create Content
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Teaching Modal */}
+      {showLiveTeachingModal && canCreateContent && (
+        <div className="modal-overlay" onClick={() => setShowLiveTeachingModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>🔴 Start Live Teaching Session</h3>
+              <button onClick={() => setShowLiveTeachingModal(false)} className="btn-close">✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="live-teaching-options">
+                <p>Choose your live teaching format:</p>
+
+                <div className="session-type-grid">
+                  <button
+                    onClick={() => handleStartLiveSession('video')}
+                    className="session-type-card video"
+                  >
+                    <div className="session-icon">🎥</div>
+                    <h4>Video Session</h4>
+                    <p>Live video teaching with camera and audio</p>
+                    <ul>
+                      <li>• Camera and microphone</li>
+                      <li>• Screen sharing</li>
+                      <li>• Real-time interaction</li>
+                      <li>• Recording option</li>
+                    </ul>
+                  </button>
+
+                  <button
+                    onClick={() => handleStartLiveSession('audio')}
+                    className="session-type-card audio"
+                  >
+                    <div className="session-icon">🎙️</div>
+                    <h4>Audio Session</h4>
+                    <p>Voice-only teaching session</p>
+                    <ul>
+                      <li>• Microphone only</li>
+                      <li>• Lower bandwidth</li>
+                      <li>• Focus on voice content</li>
+                      <li>• Recording option</li>
+                    </ul>
+                  </button>
+                </div>
+
+                <div className="live-session-features">
+                  <h4>📋 Live Session Features:</h4>
+                  <div className="features-grid">
+                    <div className="feature">
+                      <span className="feature-icon">💬</span>
+                      <span>Real-time chat</span>
+                    </div>
+                    <div className="feature">
+                      <span className="feature-icon">👥</span>
+                      <span>Participant management</span>
+                    </div>
+                    <div className="feature">
+                      <span className="feature-icon">📊</span>
+                      <span>Attendance tracking</span>
+                    </div>
+                    <div className="feature">
+                      <span className="feature-icon">🎯</span>
+                      <span>Interactive tools</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => setShowLiveTeachingModal(false)} className="btn-cancel">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Session Active Indicator */}
+      {isLiveSessionActive && (
+        <div className="live-session-indicator">
+          <div className="live-indicator-content">
+            <div className="live-pulse"></div>
+            <span>🔴 LIVE {liveSessionType.toUpperCase()} SESSION ACTIVE</span>
+            <div className="live-duration">
+              {/* You can add a timer here */}
             </div>
           </div>
         </div>

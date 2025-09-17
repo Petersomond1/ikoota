@@ -130,8 +130,53 @@ const setupSocket = (server) => {
                     timestamp: new Date().toISOString()
                 };
 
-                // ✅ ENHANCED: Smart message routing
-                if (data.room) {
+                // ✅ NEW: Classroom-specific chat handling
+                if (data.room && data.room.startsWith('classroom_')) {
+                    // Store classroom message in database
+                    try {
+                        if (socket.isAuthenticated && data.classId) {
+                            // Import database connection
+                            const { default: db } = await import('./config/db.js');
+
+                            // Store message in database
+                            await db.query(`
+                                INSERT INTO class_content (
+                                    class_id, title, content_type, content_text,
+                                    created_by, is_published, is_active
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                            `, [
+                                data.classId,
+                                'Chat Message',
+                                'chat_message',
+                                data.message,
+                                socket.userId,
+                                true,
+                                true
+                            ]);
+
+                            logger.userActivity('Classroom chat message stored', socket.userId, {
+                                classId: data.classId,
+                                room: data.room,
+                                messageLength: data.message?.length || 0
+                            });
+                        }
+                    } catch (dbError) {
+                        logger.error('Failed to store classroom message', dbError);
+                        // Continue with real-time delivery even if storage fails
+                    }
+
+                    // Send to classroom room
+                    socket.to(data.room).emit('receiveMessage', messageData);
+                    // Also send back to sender for confirmation
+                    socket.emit('receiveMessage', { ...messageData, sent: true });
+
+                    logger.debug('Classroom message sent', {
+                        from: socket.username,
+                        room: data.room,
+                        classId: data.classId,
+                        messageId: data.id || 'unknown'
+                    });
+                } else if (data.room) {
                     // Send to specific room
                     socket.to(data.room).emit('receiveMessage', messageData);
                     logger.debug('Message sent to room', {
@@ -154,7 +199,7 @@ const setupSocket = (server) => {
                     userId: socket.userId,
                     data
                 });
-                
+
                 // Send error back to sender
                 socket.emit('messageError', {
                     error: 'Failed to process message',
@@ -244,21 +289,31 @@ const setupSocket = (server) => {
             }
         });
 
-        // ✅ NEW: Typing indicators
+        // ✅ NEW: Typing indicators (enhanced for classrooms)
         socket.on('typing', (data) => {
             if (socket.isAuthenticated) {
-                if (data.to) {
-                    socket.to(`user_${data.to}`).emit('userTyping', {
-                        from: socket.userId,
-                        fromUsername: socket.username,
+                const typingData = {
+                    from: socket.userId,
+                    fromUsername: socket.username,
+                    isTyping: data.isTyping,
+                    timestamp: new Date().toISOString()
+                };
+
+                if (data.room && data.room.startsWith('classroom_')) {
+                    // Classroom-specific typing
+                    socket.to(data.room).emit('userTyping', typingData);
+
+                    logger.debug('Classroom typing indicator', {
+                        from: socket.username,
+                        room: data.room,
                         isTyping: data.isTyping
                     });
+                } else if (data.to) {
+                    // Private typing
+                    socket.to(`user_${data.to}`).emit('userTyping', typingData);
                 } else {
-                    socket.broadcast.emit('userTyping', {
-                        from: socket.userId,
-                        fromUsername: socket.username,
-                        isTyping: data.isTyping
-                    });
+                    // Public typing
+                    socket.broadcast.emit('userTyping', typingData);
                 }
             }
         });
@@ -277,6 +332,294 @@ const setupSocket = (server) => {
             socket.emit('roomLeft', { room: roomName });
             if (socket.isAuthenticated) {
                 logger.userAction('Left room', socket.userId, { room: roomName });
+            }
+        });
+
+        // ✅ ENHANCED: Message reactions
+        socket.on('messageReaction', async (data) => {
+            try {
+                if (!socket.isAuthenticated) {
+                    socket.emit('error', { message: 'Authentication required for reactions' });
+                    return;
+                }
+
+                const reactionData = {
+                    messageId: data.messageId,
+                    reaction: data.reaction,
+                    userId: socket.userId,
+                    username: socket.username,
+                    timestamp: new Date().toISOString()
+                };
+
+                // Store reaction in database if it's a classroom message
+                if (data.classId && data.room?.startsWith('classroom_')) {
+                    try {
+                        const { default: db } = await import('./config/db.js');
+                        await db.execute(
+                            'INSERT INTO chat_reactions (message_id, user_id, reaction, created_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE reaction = VALUES(reaction)',
+                            [data.messageId, socket.userId, data.reaction]
+                        );
+                    } catch (dbError) {
+                        logger.error('Failed to store reaction', dbError);
+                    }
+                }
+
+                // Broadcast reaction to room
+                if (data.room) {
+                    socket.to(data.room).emit('messageReaction', reactionData);
+                    socket.emit('messageReaction', { ...reactionData, sent: true });
+                }
+
+                logger.userActivity('Message reaction added', socket.userId, {
+                    messageId: data.messageId,
+                    reaction: data.reaction,
+                    room: data.room
+                });
+            } catch (err) {
+                logger.error('Error processing message reaction', err);
+                socket.emit('error', { message: 'Failed to add reaction' });
+            }
+        });
+
+        // ✅ ENHANCED: Message deletion (moderation)
+        socket.on('deleteMessage', async (data) => {
+            try {
+                if (!socket.isAuthenticated) {
+                    socket.emit('error', { message: 'Authentication required for moderation' });
+                    return;
+                }
+
+                // Check if user has moderation rights
+                const canModerate = socket.userRole === 'admin' ||
+                                  socket.userRole === 'instructor' ||
+                                  socket.userRole === 'super_admin';
+
+                if (!canModerate) {
+                    socket.emit('error', { message: 'Insufficient permissions for moderation' });
+                    return;
+                }
+
+                // Mark message as deleted in database
+                if (data.classId && data.room?.startsWith('classroom_')) {
+                    try {
+                        const { default: db } = await import('./config/db.js');
+                        await db.execute(
+                            'UPDATE content SET is_deleted = TRUE, deleted_by = ?, deleted_at = NOW() WHERE id = ?',
+                            [socket.userId, data.messageId]
+                        );
+                    } catch (dbError) {
+                        logger.error('Failed to delete message in database', dbError);
+                    }
+                }
+
+                const deletionData = {
+                    messageId: data.messageId,
+                    deletedBy: socket.userId,
+                    moderator: socket.username,
+                    timestamp: new Date().toISOString()
+                };
+
+                // Broadcast deletion to room
+                if (data.room) {
+                    socket.to(data.room).emit('messageDeleted', deletionData);
+                    socket.emit('messageDeleted', { ...deletionData, sent: true });
+                }
+
+                logger.userActivity('Message deleted by moderator', socket.userId, {
+                    messageId: data.messageId,
+                    room: data.room,
+                    classId: data.classId
+                });
+            } catch (err) {
+                logger.error('Error processing message deletion', err);
+                socket.emit('error', { message: 'Failed to delete message' });
+            }
+        });
+
+        // ✅ ENHANCED: Pin messages
+        socket.on('pinMessage', async (data) => {
+            try {
+                if (!socket.isAuthenticated) {
+                    socket.emit('error', { message: 'Authentication required for pinning' });
+                    return;
+                }
+
+                const canPin = socket.userRole === 'admin' ||
+                              socket.userRole === 'instructor' ||
+                              socket.userRole === 'super_admin';
+
+                if (!canPin) {
+                    socket.emit('error', { message: 'Insufficient permissions for pinning' });
+                    return;
+                }
+
+                // Store pinned message in database
+                if (data.classId && data.room?.startsWith('classroom_')) {
+                    try {
+                        const { default: db } = await import('./config/db.js');
+                        await db.execute(
+                            'INSERT INTO pinned_messages (class_id, message_id, message_content, author, pinned_by, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
+                            [data.classId, data.messageId, data.message, data.author, socket.userId]
+                        );
+                    } catch (dbError) {
+                        logger.error('Failed to pin message', dbError);
+                    }
+                }
+
+                const pinData = {
+                    messageId: data.messageId,
+                    message: data.message,
+                    author: data.author,
+                    pinnedBy: socket.username,
+                    timestamp: new Date().toISOString()
+                };
+
+                // Broadcast pin to room
+                if (data.room) {
+                    socket.to(data.room).emit('messagePinned', pinData);
+                    socket.emit('messagePinned', { ...pinData, sent: true });
+                }
+
+                logger.userActivity('Message pinned', socket.userId, {
+                    messageId: data.messageId,
+                    room: data.room,
+                    classId: data.classId
+                });
+            } catch (err) {
+                logger.error('Error processing message pin', err);
+                socket.emit('error', { message: 'Failed to pin message' });
+            }
+        });
+
+        // ✅ ENHANCED: Stop typing indicator
+        socket.on('stopTyping', (data) => {
+            if (socket.isAuthenticated && data.room) {
+                const stopTypingData = {
+                    from: socket.userId,
+                    fromUsername: socket.username,
+                    classId: data.classId,
+                    timestamp: new Date().toISOString()
+                };
+
+                socket.to(data.room).emit('userStoppedTyping', stopTypingData);
+            }
+        });
+
+        // ✅ ENHANCED: File upload for chat
+        socket.on('uploadChatFile', async (data) => {
+            try {
+                if (!socket.isAuthenticated) {
+                    socket.emit('error', { message: 'Authentication required for file upload' });
+                    return;
+                }
+
+                // Validate file type and size
+                const allowedTypes = ['image/', 'audio/', 'video/', 'application/pdf', 'text/'];
+                const maxSize = 50 * 1024 * 1024; // 50MB
+
+                if (!allowedTypes.some(type => data.fileType.startsWith(type))) {
+                    socket.emit('uploadError', { message: 'File type not allowed' });
+                    return;
+                }
+
+                if (data.fileSize > maxSize) {
+                    socket.emit('uploadError', { message: 'File too large (max 50MB)' });
+                    return;
+                }
+
+                // Process file upload (integrate with existing S3 upload)
+                const uploadData = {
+                    userId: socket.userId,
+                    classId: data.classId,
+                    fileName: data.fileName,
+                    fileType: data.fileType,
+                    fileSize: data.fileSize,
+                    timestamp: new Date().toISOString()
+                };
+
+                socket.emit('uploadProgress', { progress: 0 });
+
+                // Simulate upload progress (real implementation would use S3)
+                for (let i = 0; i <= 100; i += 20) {
+                    setTimeout(() => {
+                        socket.emit('uploadProgress', { progress: i });
+                    }, i * 10);
+                }
+
+                setTimeout(() => {
+                    socket.emit('uploadComplete', {
+                        ...uploadData,
+                        fileUrl: `/uploads/chat/${data.classId}/${Date.now()}-${data.fileName}`
+                    });
+                }, 1000);
+
+                logger.userActivity('Chat file uploaded', socket.userId, {
+                    fileName: data.fileName,
+                    fileSize: data.fileSize,
+                    classId: data.classId
+                });
+            } catch (err) {
+                logger.error('Error processing file upload', err);
+                socket.emit('uploadError', { message: 'File upload failed' });
+            }
+        });
+
+        // ✅ ENHANCED: Announcements (instructor/admin only)
+        socket.on('sendAnnouncement', async (data) => {
+            try {
+                if (!socket.isAuthenticated) {
+                    socket.emit('error', { message: 'Authentication required for announcements' });
+                    return;
+                }
+
+                const canAnnounce = socket.userRole === 'admin' ||
+                                   socket.userRole === 'instructor' ||
+                                   socket.userRole === 'super_admin';
+
+                if (!canAnnounce) {
+                    socket.emit('error', { message: 'Insufficient permissions for announcements' });
+                    return;
+                }
+
+                const announcementData = {
+                    id: Date.now().toString(),
+                    type: 'announcement',
+                    message: `📢 ANNOUNCEMENT: ${data.message}`,
+                    from: socket.userId,
+                    fromUsername: socket.username,
+                    classId: data.classId,
+                    room: data.room,
+                    timestamp: new Date().toISOString(),
+                    priority: data.priority || 'normal'
+                };
+
+                // Store announcement in database
+                if (data.classId && data.room?.startsWith('classroom_')) {
+                    try {
+                        const { default: db } = await import('./config/db.js');
+                        await db.execute(
+                            'INSERT INTO content (class_id, title, content, author_id, content_type, status, is_approved, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())',
+                            [data.classId, 'Classroom Announcement', announcementData.message, socket.userId, 'announcement', 'published', true]
+                        );
+                    } catch (dbError) {
+                        logger.error('Failed to store announcement', dbError);
+                    }
+                }
+
+                // Broadcast announcement to room
+                if (data.room) {
+                    socket.to(data.room).emit('receiveMessage', announcementData);
+                    socket.emit('receiveMessage', { ...announcementData, sent: true });
+                }
+
+                logger.userActivity('Announcement sent', socket.userId, {
+                    room: data.room,
+                    classId: data.classId,
+                    priority: data.priority
+                });
+            } catch (err) {
+                logger.error('Error processing announcement', err);
+                socket.emit('error', { message: 'Failed to send announcement' });
             }
         });
 

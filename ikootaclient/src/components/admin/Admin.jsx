@@ -46,6 +46,8 @@ const Admin = () => {
       setSelectedItem('UserManagement');
     } else if (path.includes('audienceclassmgr')) {
       setSelectedItem('AudienceClassMgr');
+    } else if (path.includes('liveclassmanagement')) {
+      setSelectedItem('LiveClassManagement');
     } else if (path.includes('membership-review')) {
       // ✅ ADD: Handle membership review route
       setSelectedItem('Membership Review');

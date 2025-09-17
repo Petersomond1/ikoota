@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useUser } from '../auth/UserStatus';
 import api from '../service/api';
 import './ClassListPage.css';
 
@@ -14,6 +15,7 @@ const fetchAllClasses = async (filters = {}) => {
 const ClassListPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useUser();
   const [filters, setFilters] = useState({
     search: searchParams.get('search') || '',
     type: searchParams.get('type') || '',
@@ -78,13 +80,26 @@ const ClassListPage = () => {
       <div className="page-header">
         <h1>Browse Classes</h1>
         <p>Explore available classes and learning opportunities</p>
-        
-        <button 
-          onClick={() => navigate('/classes/my-classes')}
-          className="btn-my-classes"
-        >
-          📚 My Classes
-        </button>
+
+        <div className="header-actions">
+          {user?.role === 'admin' || user?.role === 'super_admin' || user?.membership_stage === 'member' ? (
+            <button
+              onClick={() => {
+                // Navigate to existing class to use classroom interface
+                navigate('/classes/OTU%23004001/classroom');
+              }}
+              className="btn-create-class"
+            >
+              📹 Create Video/Audio Class
+            </button>
+          ) : null}
+          <button
+            onClick={() => navigate('/classes/my-classes')}
+            className="btn-my-classes"
+          >
+            📚 My Classes
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

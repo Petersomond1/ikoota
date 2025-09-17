@@ -30,6 +30,12 @@ import surveyAdminRoutes from './surveyAdminRoutes.js';
 import classRoutes from './classRoutes.js';
 import classAdminRoutes from './classAdminRoutes.js';
 
+// ✅ Live class scheduling routes (NEW)
+// import liveClassSchedulingRoutes from './liveClassSchedulingRoutes.js'; // MERGED INTO classRoutes.js
+
+// ✅ Video upload routes for teaching videos - DEPRECATED: Now integrated into classRoutes
+// import videoRoutes from './videoRoutes.js';
+
 // ❌ REMOVED: Pyramidal mentorship routes (merged into user routes)
 // import pyramidalMentorshipAdminRoutes from './pyramidalMentorshipAdminRoutes.js';
 // import pyramidalMentorshipSimpleRoutes from './pyramidalMentorshipSimpleRoutes.js';
@@ -166,6 +172,25 @@ try {
   console.log('   • GET /api/classes - Get all classes');
   console.log('   • POST /api/classes - Create class (admin only)');
   console.log('   • GET /api/classes/:id - Get specific class');
+
+  // 10.1. Live Class Scheduling Routes
+  console.log('🎥 Mounting live class scheduling routes at /live-scheduling...');
+  // router.use('/live-scheduling', liveClassSchedulingRoutes); // MERGED INTO /classes/live/*
+  console.log('✅ Live class scheduling routes mounted');
+  console.log('   📅 Live scheduling endpoints now available:');
+  console.log('   • POST /api/live-scheduling/schedule - Schedule live class');
+  console.log('   • GET /api/live-scheduling/upcoming - Get upcoming sessions');
+  console.log('   • POST /api/live-scheduling/join/:id - Join live session');
+  console.log('   • GET /api/live-scheduling/admin/pending - Admin approvals');
+
+  // 10.2. Video Upload Routes - DEPRECATED: Now integrated into class routes
+  // console.log('🎥 Mounting video upload routes at /upload...');
+  // router.use('/upload', videoRoutes);
+  // console.log('✅ Video upload routes mounted');
+  console.log('   📹 Video endpoints now integrated into class routes:');
+  console.log('   • POST /api/classes/:id/videos - Upload teaching video (member level required)');
+  console.log('   • GET /api/classes/:id/videos - Get class videos');
+  console.log('   • DELETE /api/classes/:id/videos/:videoId - Delete video');
   console.log('   • PUT /api/classes/:id - Update class (admin only)');
   console.log('   • DELETE /api/classes/:id - Delete class (admin only)');
   console.log('   • GET /api/classes/:id/members - Get class members');

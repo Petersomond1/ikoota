@@ -1300,5 +1300,585 @@ created_at
    kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkpppppppppppppppppppppppppppppppppppppppppp
    KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
    KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+"""
+   📚 Complete Step-by-Step Procedure for Class Teaching Sessions
 
- git commit -m "Fix remaining hardcoded localhost URLs in auth components,   - Update Passwordreset.jsx to use configured API instance instead of localhost - Update Signup.jsx to use configured API instance instead of localhost  - Replace axios.post with api.post for environment-aware endpoints   - Ensure all auth components respect VITE_API_URL production configuration This completes the fix for authentication issues where components were bypassing API configuration and calling localhost in production "  
+  🎯 Overview
+
+  The system supports both Live Sessions (real-time) and Recorded Sessions (upload). Both follow
+  different workflows depending on the type.
+
+  ---
+  🔴
+  Role: Instructor (Member level required)
+  Endpoint: POST /api/classes/live/schedule
+
+  curl -X POST http://localhost:3002/api/classes/live/schedule \
+    -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "title": "Advanced Mathematics Session",
+      "description": "Live session covering calculus fundamentals",
+      "class_type": "video",
+      "scheduled_start_time": "2025-09-20T15:00:00Z",
+      "estimated_duration": 90,
+      "target_audience": "members",
+      "target_class_id": "OTU#004001",
+      "notification_preferences": {
+        "email": true,
+        "sms": true
+      },
+      "streaming_settings": {
+        "video_quality": "HD",
+        "audio_quality": "high"
+      }
+    }'
+
+  STEP 2: ADMIN REVIEWS AND APPROVES
+
+  Role: Admin
+  Endpoints:
+  1. View Pending: GET /api/classes/live/admin/pending
+  2. Review/Approve: PUT /api/classes/live/admin/review/:scheduleId
+
+  # Check pending approvals
+  curl -H "Authorization: Bearer ADMIN_JWT_TOKEN" \
+    http://localhost:3002/api/classes/live/admin/pending
+
+  # Approve the session
+  curl -X PUT http://localhost:3002/api/classes/live/admin/review/SESSION_ID \
+    -H "Authorization: Bearer ADMIN_JWT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "action": "approve",
+      "admin_notes": "Session approved for technical content"
+    }'
+
+  STEP 3: SYSTEM NOTIFIES ATTENDEES
+
+  Role: System (Automated)
+  Endpoint: POST /api/classes/live/admin/notify/:scheduleId
+
+  # Admin can manually trigger notifications if needed
+  curl -X POST http://localhost:3002/api/classes/live/admin/notify/SESSION_ID \
+    -H "Authorization: Bearer ADMIN_JWT_TOKEN"
+
+  STEP 4: INSTRUCTOR STARTS LIVE SESSION
+
+  Role: Instructor
+  Endpoint: POST /api/classes/live/start/:sessionId
+
+  curl -X POST http://localhost:3002/api/classes/live/start/SESSION_ID \
+    -H "Authorization: Bearer INSTRUCTOR_JWT_TOKEN"
+
+  STEP 5: STUDENTS JOIN LIVE SESSION
+
+  Role: Students/Attendees
+  Endpoints:
+  1. Join Session: POST /api/classes/:classId/classroom/sessions/:sessionId/join
+  2. View Session: GET /api/classes/:classId/classroom/session
+
+  # Join the live session
+  curl -X POST http://localhost:3002/api/classes/OTU#004001/classroom/sessions/SESSION_ID/join \
+    -H "Authorization: Bearer STUDENT_JWT_TOKEN"
+
+  # Get session details
+  curl -H "Authorization: Bearer STUDENT_JWT_TOKEN" \
+    http://localhost:3002/api/classes/OTU#004001/classroom/session
+
+  STEP 6: INTERACTION DURING SESSION
+
+  Available Actions:
+  - Chat: POST /api/classes/:id/classroom/chat
+  - Mark Attendance: POST /api/classes/:id/classroom/attendance
+  - View Participants: GET /api/classes/:id/classroom/participants
+
+  ---
+  
+  (Upload pre-recorded content with approval process)
+
+  ---
+  🔵 UPDATED RECORDED SESSION WORKFLOW
+
+  STEP 1: INSTRUCTOR UPLOADS VIDEO/AUDIO CONTENT
+
+  Role: Instructor (Member level required)Endpoint: POST
+  /api/classes/:id/videosStatus: Content uploaded but NOT LIVE (pending
+  approval)
+
+  curl -X POST http://localhost:3002/api/classes/OTU#004001/videos \
+    -H "Authorization: Bearer INSTRUCTOR_JWT_TOKEN" \
+    -F "video=@/path/to/your/teaching_video.mp4" \
+    -F "title=Advanced Calculus Lesson 1" \
+    -F "description=Introduction to limits and derivatives" \
+    -F "duration=3600" \
+    -F "tags=calculus,mathematics,advanced"
+
+  Result: Video uploaded with status pending_approval - NOT visible to 
+  students yet
+
+  ---
+  STEP 2: ADMIN REVIEWS UPLOADED CONTENT
+
+  Role: AdminEndpoints:
+  1. View Pending Content: GET /api/classes/admin/pending-approvals
+  2. Review Content Details: GET
+  /api/classes/admin/:classId/content/:contentId
+
+  # Get all pending content for approval
+  curl -H "Authorization: Bearer ADMIN_JWT_TOKEN" \
+
+  "http://localhost:3002/api/classes/admin/pending-approvals?type=videos"
+
+  # Review specific video content
+  curl -H "Authorization: Bearer ADMIN_JWT_TOKEN" \
+    "http://localhost:3002/api/classes/admin/OTU#004001/content/VIDEO_ID"
+
+  ---
+  STEP 3: ADMIN APPROVES OR REJECTS CONTENT
+
+  Role: AdminEndpoint: PUT /api/classes/admin/content/:contentId/review
+
+  # APPROVE the content
+  curl -X PUT
+  http://localhost:3002/api/classes/admin/content/VIDEO_ID/review \
+    -H "Authorization: Bearer ADMIN_JWT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "action": "approve",
+      "admin_notes": "Content approved - high quality educational
+  material",
+      "visibility": "public",
+      "featured": false
+    }'
+
+  # OR REJECT the content
+  curl -X PUT
+  http://localhost:3002/api/classes/admin/content/VIDEO_ID/review \
+    -H "Authorization: Bearer ADMIN_JWT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "action": "reject",
+      "admin_notes": "Content needs improvement in audio quality",
+      "feedback_for_instructor": "Please re-record with better audio
+  equipment"
+    }'
+
+  ---
+  STEP 4: SYSTEM MAKES APPROVED CONTENT AVAILABLE
+
+  Role: System (Automated after approval)Actions:
+  - Content status changes from pending_approval → approved
+  - Content becomes visible to students
+  - Notifications sent to instructor about approval
+  - Content appears in class video listings
+
+  ---
+  STEP 5: INSTRUCTOR CREATES CLASSROOM SESSION (OPTIONAL)
+
+  Role: InstructorEndpoint: POST /api/classes/:id/classroom/sessions
+  Note: This step is optional - students can access videos directly or
+  instructor can create guided sessions
+
+  curl -X POST
+  http://localhost:3002/api/classes/OTU#004001/classroom/sessions \
+    -H "Authorization: Bearer INSTRUCTOR_JWT_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "session_type": "recorded",
+      "video_id": "APPROVED_VIDEO_ID",
+      "title": "Guided Study: Calculus Fundamentals",
+      "description": "Self-paced learning with discussion",
+      "availability": "immediate",
+      "allow_chat": true,
+      "require_attendance": true
+    }'
+
+  ---
+  STEP 6: STUDENTS ACCESS APPROVED CONTENT
+
+  Role: StudentsEndpoints:
+  1. View Available Videos: GET /api/classes/:id/videos (only shows
+  approved content)
+  2. Access Session: GET /api/classes/:id/classroom/session
+
+  # Get list of approved videos (students only see approved content)
+  curl -H "Authorization: Bearer STUDENT_JWT_TOKEN" \
+    "http://localhost:3002/api/classes/OTU#004001/videos?status=approved"
+
+  # Access the classroom session
+  curl -H "Authorization: Bearer STUDENT_JWT_TOKEN" \
+    "http://localhost:3002/api/classes/OTU#004001/classroom/session"
+
+  ---
+  🔄 KEY WORKFLOW DIFFERENCES
+
+  LIVE SESSIONS:
+
+  1. ✅ Pre-scheduling required
+  2. ✅ Admin pre-approval required
+  3. ✅ Scheduled time enforcement
+  4. ✅ Real-time interaction
+
+  RECORDED SESSIONS:
+
+  1. ❌ NO pre-scheduling needed
+  2. ✅ Content approval AFTER upload required
+  3. ❌ NO time restrictions
+  4. ✅ Immediate availability after approval
+
+  ---
+  📊 CONTENT APPROVAL ADMIN ENDPOINTS
+
+  # Admin dashboard for content management
+  GET    /api/classes/admin/pending-approvals?type=videos
+
+  # Review specific content
+  GET    /api/classes/admin/:classId/content/:contentId
+  PUT    /api/classes/admin/content/:contentId/review
+
+  # Batch approval operations
+  POST   /api/classes/admin/content/batch-approve
+  POST   /api/classes/admin/content/batch-reject
+
+  # Content analytics
+  GET    /api/classes/admin/content/analytics
+  GET    /api/classes/admin/content/reports
+
+  ---
+  🎯 SUMMARY OF CORRECTED WORKFLOW
+
+  For Recorded Content:
+  1. Instructor uploads → Content is pending_approval (not visible)
+  2. Admin reviews → Checks quality, appropriateness, compliance
+  3. Admin approves/rejects → Content becomes available or gets feedback
+  4. Students access → Only approved content is visible to students
+  5. Optional guided sessions → Instructor can create structured learning
+   sessions
+
+  This ensures quality control while allowing flexibility for recorded
+  content without unnecessary scheduling overhead.
+  ---
+  👥 ROLE-BASED ACCESS SUMMARY
+
+  INSTRUCTOR CAPABILITIES:
+
+  - ✅ Schedule live sessions
+  - ✅ Upload recorded videos
+  - ✅ Start live sessions
+  - ✅ Create classroom sessions
+  - ✅ View session participants
+  - ✅ Manage session content
+
+  STUDENT/ATTENDEE CAPABILITIES:
+
+  - ✅ View upcoming sessions
+  - ✅ Join live/recorded sessions
+  - ✅ Mark attendance
+  - ✅ Participate in chat
+  - ✅ Access recorded content
+
+  ADMIN CAPABILITIES:
+
+  - ✅ View all pending live sessions
+  - ✅ Approve/reject live sessions
+  - ✅ Force start sessions
+  - ✅ Control live sessions
+  - ✅ View analytics dashboard
+  - ✅ Manage all content
+
+  ---
+  🎯 COMPLETE WORKFLOW ENDPOINTS REFERENCE
+
+  Live Session Management:
+
+  POST   /api/classes/live/schedule           - Schedule live session (Instructor)
+  GET    /api/classes/live/my-sessions        - Get my sessions (Instructor)
+  POST   /api/classes/live/start/:sessionId   - Start session (Instructor)
+  GET    /api/classes/live/admin/pending      - Pending approvals (Admin)
+  PUT    /api/classes/live/admin/review/:id   - Approve/reject (Admin)
+  POST   /api/classes/live/admin/notify/:id   - Send notifications (Admin)
+
+  Video/Audio Management:
+
+  POST   /api/classes/:id/videos              - Upload video/audio (Instructor)
+  GET    /api/classes/:id/videos              - Get class videos (All)
+  DELETE /api/classes/:id/videos/:videoId     - Delete video (Instructor/Admin)
+
+  Classroom Sessions:
+
+  POST   /api/classes/:id/classroom/sessions           - Create session (Instructor)
+  GET    /api/classes/:id/classroom/session            - Get session info (All)
+  POST   /api/classes/:id/classroom/sessions/:id/join  - Join session (Students)
+  POST   /api/classes/:id/classroom/attendance         - Mark attendance (All)
+  GET    /api/classes/:id/classroom/chat               - Get chat messages (All)
+  POST   /api/classes/:id/classroom/chat               - Send chat message (All)
+
+  This workflow ensures proper scheduling, approval, and execution of both live and recorded teaching     
+  sessions with appropriate role-based access control.
+
+
+  NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN   
+
+  
+● ✅ VIDEO/AUDIO CAPTURE IS FULLY IMPLEMENTED!
+
+  Based on my analysis, YES - comprehensive video and audio capture
+  functionality is already implemented:
+
+  📹 VIDEO CAPTURE CAPABILITIES:
+
+  1. ✅ VideoRecorder Component (VideoRecorder.jsx):
+    - Full HD Recording: 1920x1080 @ 30fps
+    - High Quality: 2.5 Mbps video + 128kbps audio
+    - Long Sessions: Supports 1.5+ hour recordings
+    - Pause/Resume: Natural break functionality
+    - Real-time Preview: Live camera feed
+    - S3 Upload: Direct upload to AWS S3
+  2. ✅ Advanced Features:
+    - Privacy Masking: VideoMaskingSystem.jsx for identity protection
+    - Quality Settings: Configurable video/audio bitrates
+    - Format Support: WebM with VP9/Opus codecs
+    - Progress Tracking: Real-time upload progress
+
+  🎤 AUDIO CAPTURE CAPABILITIES:
+
+  1. ✅ Audio-Only Recording (useMediaCapture.js):
+    - High Quality: 44.1kHz sample rate
+    - Noise Suppression: Echo cancellation + noise reduction
+    - WebM Format: Opus codec for optimal compression
+    - Standalone Mode: Audio-only sessions without video
+  2. ✅ Professional Audio Features:
+    - Echo Cancellation: Built-in audio processing
+    - Microphone Access: Automatic permission handling
+    - Real-time Monitoring: Audio level indicators
+
+  🎥 PLAYBACK & STREAMING:
+
+  1. ✅ ClassroomVideoPlayer (ClassroomVideoPlayer.jsx):
+    - Full Controls: Play, pause, seek, volume, fullscreen
+    - Playback Speeds: Variable speed control
+    - Progress Tracking: Automatic progress saving
+    - Chapter Support: Navigate through video sections
+  2. ✅ Live Session Support:
+    - Real-time Streaming: WebRTC foundation ready
+    - Chat Integration: Live chat during sessions
+    - Attendance Tracking: Automatic participation logging
+
+  📊 TECHNICAL SPECIFICATIONS:
+
+  // Video Capture Settings
+  video: {
+    width: { ideal: 1920 },      // Full HD
+    height: { ideal: 1080 },     // Full HD
+    frameRate: { ideal: 30 }     // Smooth motion
+  }
+
+  // Audio Capture Settings
+  audio: {
+    echoCancellation: true,      // Clean audio
+    noiseSuppression: true,      // Remove background noise
+    sampleRate: 44100           // CD quality
+  }
+
+  // Recording Quality
+  videoBitsPerSecond: 2500000,   // 2.5 Mbps
+  audioBitsPerSecond: 128000     // 128 kbps
+
+  🔄 WORKFLOW INTEGRATION:
+
+  - ✅ Upload to S3: Direct cloud storage
+  - ✅ Database Tracking: Session metadata stored
+  - ✅ Admin Approval: Content review before publishing
+  - ✅ Student Access: Secure viewing after approval
+  - ✅ Progress Tracking: Watch time and completion
+
+  The system is production-ready for both live and recorded video/audio teaching    
+   sessions! 🚀  
+
+   nnnnnnnnnnnnnnnnnnnnnnnnnn   
+
+
+    1. ✅ Three-layer architecture properly implemented
+    - Routes → Controllers → Services architecture following industry best
+  practices
+    - Proper separation of concerns
+    - Controller functions calling service functions correctly
+  2. ✅ Duplicate function declarations resolved
+    - Renamed controller functions to avoid conflicts (e.g.,
+  createVideoSessionController, markVideoSessionAttendanceController)
+    - Fixed import patterns using import * as classService from
+  '../services/classServices.js'
+  3. ✅ Route callback issues fixed
+    - All controller functions properly exported and accessible
+    - Routes correctly reference controller functions
+    - No undefined callback errors
+  4. ✅ Duplicate route definitions removed
+    - Removed duplicate routes in classRoutes.js (lines 735-758)
+    - Cleaned up redundant endpoint definitions
+  5. ✅ Database structure verified
+    - Enhanced chat tables exist: classroom_chat_reactions,
+  classroom_chat_files, classroom_pinned_messages, etc.
+    - Video session tables exist: video_sessions, video_session_chat,
+  video_session_participants
+    - Live class scheduling tables exist: live_class_schedules,
+  live_class_sessions, live_class_audit_log
+  6. ✅ Complete system integration tested
+    - Server starts successfully on port 3005
+    - Class routes test endpoint responds correctly
+    - Authentication middleware working properly
+    - Socket.IO integration operational
+    - Database connections established
+
+  System Status:
+
+  - 🚀 Server: Running successfully
+  - 📊 Routes: All endpoints operational
+  - 🔐 Authentication: Middleware working correctly
+  - 💬 Live Chat: Enhanced features implemented and integrated
+  - 📹 Video Sessions: Full classroom video/audio capabilities
+  - 📅 Live Scheduling: Complete workflow implementation
+  - 🗄️ Database: All tables created and validated
+
+  The three-layer architecture is now properly implemented following industry       
+  best practices, with all classroom video/audio sessions and enhanced live chat    
+   functionality working alongside the existing system."""
+
+
+
+
+   nnnnnnnnnnnnnnnnnnnnnnnnn  
+
+
+
+
+    1. Live Class Scheduling System - What we just tested:
+    - /api/classes/live/schedule ✅ (working)
+    - /api/classes/live/admin/pending ✅ (working)
+    - Uses live_class_schedules table
+  2. Regular Class System - What the documentation expects:
+    - /api/classes/:id/videos (for video uploads)
+    - /api/classes/:id/classroom/sessions (for classroom sessions)
+    - Uses regular classes table and video/content tables  
+
+
+    
+nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+
+
+
+provide a rebuild plan and what to do
+
+● COMPLETE REBUILD PLAN
+
+  Context Summary
+
+  Status: Emergency fixes applied but import/export issues persistProblem:
+  classService.scheduleLiveClass is not a function after server restartDecision: Proceed with complete
+  clean rebuild
+
+  ---
+  REBUILD PLAN - Phase Approach
+
+  🎯 PHASE 1: Fix Import/Export Structure (30 mins)
+
+  1.1 Standardize Service Exports
+  // Target: Make all services use NAMED EXPORTS only
+  // classServices.js - Remove default export, keep only named exports
+  // classAdminServices.js - Already uses named exports ✅
+
+  1.2 Update Controller Imports
+  // classControllers.js
+  import * as classService from '../services/classServices.js';
+
+  // classAdminControllers.js
+  import * as classAdminService from '../services/classAdminServices.js';
+
+  1.3 Test Live Class Scheduling
+  - Verify scheduleLiveClass works
+  - Test basic class operations
+
+  ---
+  🔧 PHASE 2: Clean Architecture (2-3 hours)
+
+  2.1 File Structure Reorganization
+  ikootaapi/
+  ├── services/
+  │   ├── classService.js          (user operations - singular)
+  │   ├── classAdminService.js     (admin operations - singular)
+  │   └── classValidationService.js (shared validations)
+  ├── controllers/
+  │   ├── classController.js       (singular)
+  │   └── classAdminController.js  (singular)
+  ├── routes/
+  │   ├── classRoutes.js
+  │   └── classAdminRoutes.js
+
+  2.2 Database Query Standardization
+  // Consistent table aliases everywhere:
+  // cls = classes
+  // cmc = class_member_counts
+  // ucm = user_class_memberships
+  // u = users
+
+  2.3 Remove Duplicate Code
+  - Consolidate shared functions
+  - Create utility modules
+  - Standardize response formats
+
+  ---
+  🚀 PHASE 3: Testing & Documentation (1 hour)
+
+  3.1 End-to-End Testing
+  - Test all class CRUD operations
+  - Test live class scheduling workflow
+  - Test admin approval process
+
+  3.2 Documentation
+  - Document new file structure
+  - Create API endpoint reference
+  - Document database schema usage
+
+  ---
+  IMMEDIATE ACTION PLAN
+
+  Option A: Quick Fix (Recommended First)
+
+  # 1. Fix the export issue in classServices.js
+  # Remove default export, keep only named exports
+
+  # 2. Update classControllers.js import
+  # Change to: import * as classService from '../services/classServices.js'
+
+  # 3. Test immediately
+
+  Option B: Complete Rebuild
+
+  # 1. Backup current files
+  # 2. Create new clean service files
+  # 3. Rebuild controllers with proper imports
+  # 4. Update routes
+  # 5. Test extensively
+
+  ---
+  RECOMMENDED SEQUENCE
+
+  1. Start with Option A (15 minutes)
+    - Fix immediate import/export issue
+    - Test live class scheduling
+    - If works → document and continue with app
+    - If broken → proceed to Option B
+  2. If Option A fails → Option B (3-4 hours)
+    - Complete clean rebuild
+    - New file structure
+    - Proper testing
+
+  ---
+  DECISION POINT
+
+  Which approach do you want to take?
+
+  A) Quick fix the import/export issue first?B) Skip quick fix and go straight to complete rebuild?C)      
+  Different approach entirely?
+
+  Let me know and I'll execute the plan immediately.

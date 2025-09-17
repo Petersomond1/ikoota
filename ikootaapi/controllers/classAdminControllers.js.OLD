@@ -897,15 +897,45 @@ export default {
   getPendingApprovals,
   batchApprove,
   updateSystemSettings,
-  
+
+  // Content Approval - temporarily disabled due to hoisting
+  // reviewContentApproval,
+
   // Archive/Restore
   archiveClass,
   restoreClass,
   duplicateClass,
-  
+
   // Utilities
   successResponse,
   errorResponse
+};
+
+/**
+ * PUT /api/classes/admin/content/:contentId/review
+ * Review and approve/reject content
+ */
+export const reviewContentApproval = async (req, res) => {
+  try {
+    const { contentId } = req.params;
+    const adminUserId = req.user.id;
+    const { action, admin_notes, feedback_for_instructor } = req.body;
+
+    const result = await classAdminService.reviewContentApproval(
+      parseInt(contentId),
+      adminUserId,
+      { action, admin_notes, feedback_for_instructor }
+    );
+
+    return successResponse(res, result, result.message, 200);
+
+  } catch (error) {
+    console.error('❌ reviewContentApproval controller error:', error);
+    const statusCode = error.message.includes('not found') ? 404 :
+                      error.message.includes('Invalid action') ? 400 :
+                      error.message.includes('already approved') ? 400 : 500;
+    return errorResponse(res, error, statusCode);
+  }
 };
 
 
