@@ -15,19 +15,23 @@ const getApiBaseUrl = () => {
       window.location.hostname !== '127.0.0.1' &&
       !window.location.hostname.includes('localhost')) {
     console.log('🚀 FORCED PRODUCTION API - hostname:', window.location.hostname);
-    return 'https://api.ikoota.com:3000/api';
+    // Use relative path for nginx proxy on production domains
+    if (window.location.hostname === 'www.ikoota.com' || window.location.hostname === 'ikoota.com') {
+      return '/api';
+    }
+    return 'https://api.ikoota.com:8443/api';
   }
 
-  // Check if running on production domain (additional check)
+  // Check if running on production domain (use nginx proxy)
   if (window.location.hostname === 'www.ikoota.com' || window.location.hostname === 'ikoota.com') {
-    console.log('🌐 PRODUCTION DOMAIN DETECTED');
-    return 'https://api.ikoota.com:3000/api';
+    console.log('🌐 PRODUCTION DOMAIN DETECTED - using nginx proxy');
+    return '/api';
   }
 
   // Check environment variables for production mode
   if (import.meta.env.PROD || import.meta.env.NODE_ENV === 'production') {
-    console.log('🏭 PRODUCTION ENV DETECTED');
-    return 'https://api.ikoota.com:3000/api';
+    console.log('🏭 PRODUCTION ENV DETECTED - using nginx proxy');
+    return '/api';
   }
 
   // 🔧 SMART DEVELOPMENT PORT DETECTION

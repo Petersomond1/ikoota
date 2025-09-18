@@ -2,7 +2,7 @@
 
 ## 📍 Your Live URLs
 - **🔐 Production**: https://ikoota.com and https://www.ikoota.com  
-- **🔐 API**: https://api.ikoota.com:3000/api/health
+- **🔐 API**: https://api.ikoota.com:8443/api/health
 - **🔓 Staging**: http://staging.ikoota.com (for testing)
 - **🔧 Local Dev**: http://localhost:3000 (API) + http://localhost:5173 (Client)
 
@@ -49,7 +49,7 @@ git push origin main
 
 ### Check If Site Is Working
 ```bash
-curl https://api.ikoota.com:3000/api/health
+curl https://api.ikoota.com:8443/api/health
 curl https://ikoota.com/
 ```
 

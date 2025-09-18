@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend-Backend Connection Test with Converse ID</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .result { margin: 5px 0; padding: 8px; border-radius: 3px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 3px; cursor: pointer; }
+        .test-btn { background: #007bff; color: white; }
+        .test-btn:hover { background: #0056b3; }
+        textarea { width: 100%; height: 200px; font-family: monospace; font-size: 12px; }
+        .credentials { background: #e9ecef; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .token-display { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Frontend-Backend Connection Test</h1>
+        <p>Testing production login and converse_id functionality</p>
+
+        <div class="credentials">
+            <strong>🔑 Using Production Credentials:</strong><br>
+            Email: petersomond@gmail.com<br>
+            Password: abc123
+        </div>
+
+        <div class="test-section">
+            <h3>🚀 Quick Tests</h3>
+            <button class="test-btn" onclick="runAllTests()">Run All Tests</button>
+            <button class="test-btn" onclick="testApiHealth()">Test API Health</button>
+            <button class="test-btn" onclick="testLogin()">Test Login & JWT</button>
+            <button class="test-btn" onclick="testConverseIdEndpoints()">Test Converse ID Endpoints</button>
+            <button class="test-btn" onclick="testClassManagement()">Test Class Management</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Test Results</h3>
+            <div id="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 JWT Token Analysis</h3>
+            <div id="tokenAnalysis"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 Raw Response Data</h3>
+            <textarea id="rawData" placeholder="Raw API responses will appear here..."></textarea>
+        </div>
+    </div>
+
+    <script>
+        const results = document.getElementById('results');
+        const tokenAnalysis = document.getElementById('tokenAnalysis');
+        const rawData = document.getElementById('rawData');
+        let authToken = null;
+        let userPayload = null;
+
+        // Production credentials
+        const CREDENTIALS = {
+            email: 'petersomond@gmail.com',
+            password: 'abc123'
+        };
+
+        const API_BASE = 'https://api.ikoota.com:8443/api';
+
+        function addResult(type, message, data = null) {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+
+            if (data) {
+                rawData.value += `\n\n=== ${message} ===\n${JSON.stringify(data, null, 2)}`;
+            }
+
+            // Auto-scroll results
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function displayTokenInfo(token) {
+            if (!token) {
+                tokenAnalysis.innerHTML = '<div class="error">❌ No token to analyze</div>';
+                return;
+            }
+
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                userPayload = payload;
+
+                let html = '<div class="token-display">';
+                html += '<h4>🔍 JWT Token Payload Analysis</h4>';
+
+                // Check for converse_id
+                if (payload.converse_id) {
+                    html += `<div class="success">✅ <strong>converse_id:</strong> ${payload.converse_id}</div>`;
+                } else {
+                    html += `<div class="error">❌ <strong>converse_id:</strong> MISSING!</div>`;
+                }
+
+                // Other important fields
+                html += `<div class="info"><strong>user_id:</strong> ${payload.user_id || 'N/A'}</div>`;
+                html += `<div class="info"><strong>role:</strong> ${payload.role || 'N/A'}</div>`;
+                html += `<div class="info"><strong>email:</strong> ${payload.email || 'N/A'}</div>`;
+
+                if (payload.exp) {
+                    const expDate = new Date(payload.exp * 1000);
+                    html += `<div class="info"><strong>expires:</strong> ${expDate.toLocaleString()}</div>`;
+                }
+
+                html += '<h5>📋 Full Payload:</h5>';
+                html += `<pre>${JSON.stringify(payload, null, 2)}</pre>`;
+                html += '</div>';
+
+                tokenAnalysis.innerHTML = html;
+            } catch (error) {
+                tokenAnalysis.innerHTML = `<div class="error">❌ Failed to decode token: ${error.message}</div>`;
+            }
+        }
+
+        async function testApiHealth() {
+            try {
+                addResult('info', '🔍 Testing API Health...');
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    addResult('success', '✅ API Health Check Successful');
+
+                    // Check for our features
+                    const healthStr = JSON.stringify(data).toLowerCase();
+                    if (healthStr.includes('identity') || healthStr.includes('converse')) {
+                        addResult('success', '✅ Identity/Converse system detected');
+                    } else {
+                        addResult('warning', '⚠️ Identity system not mentioned in health check');
+                    }
+
+                    if (healthStr.includes('class') && healthStr.includes('management')) {
+                        addResult('success', '✅ Class management system active');
+                    }
+                } else {
+                    addResult('error', `❌ API Health Check Failed: ${response.status}`);
+                }
+
+                addResult('info', 'Health Check Response', data);
+            } catch (error) {
+                addResult('error', `❌ Health Check Error: ${error.message}`);
+            }
+        }
+
+        async function testLogin() {
+            try {
+                addResult('info', '🔐 Testing Production Login...');
+
+                const response = await fetch(`${API_BASE}/auth/enhanced-login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(CREDENTIALS)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.token) {
+                    authToken = data.token;
+                    addResult('success', '✅ Login Successful - Token Received');
+                    displayTokenInfo(data.token);
+
+                    // Test if we can access user dashboard
+                    await testAuthenticatedEndpoint('/user/dashboard', 'User Dashboard');
+
+                } else {
+                    addResult('error', `❌ Login Failed: ${data.message || 'Unknown error'} (Status: ${response.status})`);
+                }
+
+                addResult('info', 'Login Response', data);
+
+            } catch (error) {
+                addResult('error', `❌ Login Error: ${error.message}`);
+            }
+        }
+
+        async function testAuthenticatedEndpoint(endpoint, name) {
+            if (!authToken) {
+                addResult('warning', `⚠️ Skipping ${name} - No auth token`);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    addResult('success', `✅ ${name} - Accessible`);
+                } else {
+                    addResult('error', `❌ ${name} - Failed (${response.status}): ${data.message || 'Unknown error'}`);
+                }
+
+                addResult('info', `${name} Response`, data);
+
+            } catch (error) {
+                addResult('error', `❌ ${name} Error: ${error.message}`);
+            }
+        }
+
+        async function testConverseIdEndpoints() {
+            if (!authToken) {
+                addResult('warning', '⚠️ Need to login first to test Converse ID endpoints');
+                return;
+            }
+
+            addResult('info', '🎭 Testing Converse ID System...');
+
+            // Test identity stats (super admin only)
+            await testAuthenticatedEndpoint('/users/admin/identity-stats', 'Identity Stats');
+
+            // Test identity audit trail (super admin only)
+            await testAuthenticatedEndpoint('/users/admin/identity-audit-trail', 'Identity Audit Trail');
+
+            // Test masked users endpoint
+            await testAuthenticatedEndpoint('/users/admin/masked-users', 'Masked Users');
+        }
+
+        async function testClassManagement() {
+            addResult('info', '🎓 Testing Class Management System...');
+
+            // Test public class endpoint
+            try {
+                const response = await fetch(`${API_BASE}/classes/test`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    addResult('success', '✅ Class Test Endpoint Accessible');
+                } else {
+                    addResult('error', `❌ Class Test Failed: ${response.status}`);
+                }
+
+                addResult('info', 'Class Test Response', data);
+            } catch (error) {
+                addResult('error', `❌ Class Test Error: ${error.message}`);
+            }
+
+            if (authToken) {
+                // Test authenticated class endpoints
+                await testAuthenticatedEndpoint('/classes', 'User Classes');
+                await testAuthenticatedEndpoint('/classes/my-classes', 'My Classes');
+            }
+        }
+
+        async function runAllTests() {
+            addResult('info', '🚀 Starting Comprehensive Test Suite...');
+            results.innerHTML = ''; // Clear previous results
+            rawData.value = ''; // Clear raw data
+            tokenAnalysis.innerHTML = '';
+
+            await testApiHealth();
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+
+            await testLogin();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            await testConverseIdEndpoints();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            await testClassManagement();
+
+            addResult('success', '🎉 All tests completed!');
+        }
+
+        // Auto-run health check on page load
+        window.onload = () => {
+            addResult('info', '🌐 Page loaded - Testing API connection...');
+            testApiHealth();
+        };
+    </script>
+</body>
+</html>

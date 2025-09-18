@@ -29,7 +29,9 @@ app.use(cors({
     'http://localhost:5173',
     'http://localhost:3000',
     'https://www.ikoota.com',
-    'https://ikoota.com'
+    'https://ikoota.com',
+    'https://api.ikoota.com:8443',
+    'file://'  // For local test files
   ],
   credentials: true
 }));

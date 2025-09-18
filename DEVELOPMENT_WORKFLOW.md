@@ -199,7 +199,7 @@ git push origin main
 🔄 Deploy to production ECS cluster
 🔄 Wait for services to stabilize
 🔄 Health checks:
-   ✅ https://api.ikoota.com:3000/api/health
+   ✅ https://api.ikoota.com:8443/api/health
    ✅ https://ikoota.com/
    ✅ https://www.ikoota.com/
 ```
@@ -227,7 +227,7 @@ git push origin main
 - **Purpose**: Live site for real users
 - **URLs**: 
   - Client: `https://ikoota.com` and `https://www.ikoota.com`
-  - API: `https://api.ikoota.com:3000/api/health`
+  - API: `https://api.ikoota.com:8443/api/health`
 - **Database**: Production database
 - **SSL**: Full HTTPS encryption
 - **Caching**: Optimized for performance
@@ -262,7 +262,7 @@ curl http://api.staging.ikoota.com:8080/api/health
 curl http://staging.ikoota.com/
 
 # Production health checks:
-curl https://api.ikoota.com:3000/api/health
+curl https://api.ikoota.com:8443/api/health
 curl https://ikoota.com/
 ```
 
@@ -390,7 +390,7 @@ git push origin main
 ```bash
 # Health checks
 curl http://api.staging.ikoota.com:8080/api/health      # Staging
-curl https://api.ikoota.com:3000/api/health             # Production
+curl https://api.ikoota.com:8443/api/health             # Production
 
 # GitHub Actions
 https://github.com/Petersomond1/ikoota/actions

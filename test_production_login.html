@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Production Login with Converse ID</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; }
+        .info { background: #d1ecf1; }
+        button { padding: 10px 20px; margin: 5px; }
+        textarea { width: 100%; height: 300px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Test Production Login with Converse ID</h1>
+    <p>This will test if production login returns JWT with converse_id</p>
+
+    <div>
+        <label>Email: <input type="email" id="email" value="petersomond@gmail.com" /></label><br><br>
+        <label>Password: <input type="password" id="password" value="abc123" /></label><br><br>
+        <button onclick="testLogin()">Test Production Login</button>
+        <button onclick="testHealth()">Test API Health</button>
+    </div>
+
+    <div id="results"></div>
+    <textarea id="rawData" placeholder="Raw response data will appear here..."></textarea>
+
+    <script>
+        const results = document.getElementById('results');
+        const rawData = document.getElementById('rawData');
+
+        function addResult(type, message, data = null) {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+
+            if (data) {
+                rawData.value += `\n\n=== ${message} ===\n${JSON.stringify(data, null, 2)}`;
+            }
+        }
+
+        async function testHealth() {
+            try {
+                addResult('info', '🔍 Testing API Health...');
+                const response = await fetch('https://api.ikoota.com:8443/api/health');
+                const data = await response.json();
+
+                if (response.ok) {
+                    addResult('success', '✅ API Health Check Successful');
+
+                    // Check for specific features
+                    const features = JSON.stringify(data).toLowerCase();
+                    if (features.includes('converse') || features.includes('identity')) {
+                        addResult('success', '✅ Converse ID system detected in API');
+                    } else {
+                        addResult('error', '❌ Converse ID system NOT detected in API');
+                    }
+
+                    if (features.includes('class') && features.includes('management')) {
+                        addResult('success', '✅ Class management system detected');
+                    } else {
+                        addResult('error', '❌ Class management system not fully detected');
+                    }
+                } else {
+                    addResult('error', '❌ API Health Check Failed');
+                }
+
+                addResult('info', 'Health Response', data);
+            } catch (error) {
+                addResult('error', `❌ Health Check Error: ${error.message}`);
+            }
+        }
+
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) {
+                addResult('error', '❌ Please enter email and password');
+                return;
+            }
+
+            try {
+                addResult('info', '🔐 Testing Production Login...');
+
+                const response = await fetch('https://api.ikoota.com:8443/api/auth/enhanced-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+                addResult('info', `Login Response Status: ${response.status}`, data);
+
+                if (response.ok && data.token) {
+                    addResult('success', '✅ Login Successful - Token Received');
+
+                    // Decode JWT to check for converse_id
+                    try {
+                        const payload = JSON.parse(atob(data.token.split('.')[1]));
+                        addResult('info', 'JWT Payload', payload);
+
+                        if (payload.converse_id) {
+                            addResult('success', `✅ CONVERSE_ID FOUND: ${payload.converse_id}`);
+                        } else {
+                            addResult('error', '❌ CONVERSE_ID MISSING from JWT token');
+                        }
+
+                        if (payload.user_id) {
+                            addResult('info', `📋 User ID: ${payload.user_id}`);
+                        }
+
+                        if (payload.role) {
+                            addResult('info', `👤 Role: ${payload.role}`);
+                        }
+
+                    } catch (jwtError) {
+                        addResult('error', `❌ Failed to decode JWT: ${jwtError.message}`);
+                    }
+
+                } else {
+                    addResult('error', `❌ Login Failed: ${data.message || 'Unknown error'}`);
+
+                    if (response.status === 401) {
+                        addResult('info', '🔑 401 means credentials were processed but rejected');
+                    } else if (response.status >= 500) {
+                        addResult('error', '🔥 500+ error suggests server/database issue');
+                    }
+                }
+
+            } catch (error) {
+                addResult('error', `❌ Login Test Error: ${error.message}`);
+            }
+        }
+
+        // Auto-run health check on page load
+        window.onload = () => {
+            addResult('info', '🚀 Starting Production API Tests...');
+            testHealth();
+        };
+    </script>
+</body>
+</html>

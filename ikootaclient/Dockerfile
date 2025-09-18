@@ -24,8 +24,8 @@ RUN echo "🔧 Building with ENVIRONMENT=$ENVIRONMENT"
 
 # Set environment variables for Vite build based on ENVIRONMENT
 RUN if [ "$ENVIRONMENT" = "production" ]; then \
-        echo "🔧 Building for production with API URL: https://api.ikoota.com:3000/api"; \
-        env VITE_API_URL="https://api.ikoota.com:3000/api" REACT_APP_USE_MOCK_DATA="false" npm run build; \
+        echo "🔧 Building for production with API URL: /api (nginx proxy)"; \
+        env VITE_API_URL="/api" REACT_APP_USE_MOCK_DATA="false" npm run build; \
     else \
         echo "🔧 Building for development with API URL: http://localhost:3000/api"; \
         env VITE_API_URL="http://localhost:3000/api" REACT_APP_USE_MOCK_DATA="false" npm run build; \
