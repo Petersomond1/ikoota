@@ -1,26 +1,33 @@
 //ikootaclient\src\components\service\api.js - Unified API configuration
 import axios from 'axios';
 
-// ✅ SECURE CONFIGURATION: Production-first API URL determination with dynamic port detection
+// ✅ SECURE CONFIGURATION: Production-first API URL determination with environment variable priority
 const getApiBaseUrl = () => {
+  // Check environment variables first (highest priority)
+  const envApiUrl = import.meta.env.VITE_API_URL;
+  if (envApiUrl) {
+    console.log('🔧 Using environment API URL:', envApiUrl);
+    return envApiUrl;
+  }
+
   // FORCE PRODUCTION API FOR ANY NON-LOCALHOST HOSTNAME
   if (window.location.hostname !== 'localhost' &&
       window.location.hostname !== '127.0.0.1' &&
       !window.location.hostname.includes('localhost')) {
     console.log('🚀 FORCED PRODUCTION API - hostname:', window.location.hostname);
-    return 'https://api.ikoota.com:8443/api';
+    return 'https://api.ikoota.com:3000/api';
   }
 
   // Check if running on production domain (additional check)
   if (window.location.hostname === 'www.ikoota.com' || window.location.hostname === 'ikoota.com') {
     console.log('🌐 PRODUCTION DOMAIN DETECTED');
-    return 'https://api.ikoota.com:8443/api';
+    return 'https://api.ikoota.com:3000/api';
   }
 
-  // Check environment variables
+  // Check environment variables for production mode
   if (import.meta.env.PROD || import.meta.env.NODE_ENV === 'production') {
     console.log('🏭 PRODUCTION ENV DETECTED');
-    return 'https://api.ikoota.com:8443/api';
+    return 'https://api.ikoota.com:3000/api';
   }
 
   // 🔧 SMART DEVELOPMENT PORT DETECTION

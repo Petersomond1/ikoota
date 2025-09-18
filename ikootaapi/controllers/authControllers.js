@@ -377,7 +377,7 @@ const existingUsers = extractDbRows(existingUsersResult);
         
         console.log('✅ Verification codes cleaned up');
         
-        // Generate JWT token - NO converse_id needed for authentication
+        // Generate JWT token - Include converse_id for authentication
         const tokenPayload = {
             user_id: userId,
             username,
@@ -386,6 +386,7 @@ const existingUsers = extractDbRows(existingUsersResult);
             initial_application_status: 'not_applied',
             role: 'user',
             application_ticket: applicationTicket,
+            converse_id: converseId,
             iat: Math.floor(Date.now() / 1000)
         };
         
@@ -581,7 +582,7 @@ export const enhancedLogin = async (req, res) => {
         
         console.log('✅ Password verified successfully');
         
-        // Generate JWT token - NO converse_id needed for authentication
+        // Generate JWT token - Include converse_id for authentication
         const tokenPayload = {
             user_id: user.id,
             username: user.username,
@@ -591,6 +592,7 @@ export const enhancedLogin = async (req, res) => {
             full_membership_appl_status: user.full_membership_appl_status || 'not_applied',
             role: user.role || 'user',
             application_ticket: user.application_ticket,
+            converse_id: user.converse_id,
             iat: Math.floor(Date.now() / 1000)
         };
         
@@ -1145,7 +1147,8 @@ const users = extractDbRows(usersResult);
             role: user.role,
             membership_stage: user.membership_stage,
             initial_application_status: user.initial_application_status,
-            full_membership_appl_status: user.full_membership_appl_status
+            full_membership_appl_status: user.full_membership_appl_status,
+            converse_id: user.converse_id
         };
         
         const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
