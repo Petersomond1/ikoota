@@ -16,20 +16,20 @@ COPY . .
 # Build argument for environment (passed from deploy.yml)
 ARG ENVIRONMENT=production
 
-# Set base environment variables
+# Set environment for Vite (will automatically use .env.production)
 ENV NODE_ENV=production
 
-# Set Vite environment variables directly as ENV (not .env file)
+# Debug: Show build environment
 RUN echo "🔧 Building with ENVIRONMENT=$ENVIRONMENT"
+RUN echo "🔧 NODE_ENV=$NODE_ENV"
+RUN ls -la .env* || echo "No .env files found"
 
-# Set environment variables for Vite build based on ENVIRONMENT
-RUN if [ "$ENVIRONMENT" = "production" ]; then \
-        echo "🔧 Building for production with API URL: /api (nginx proxy)"; \
-        env VITE_API_URL="/api" REACT_APP_USE_MOCK_DATA="false" npm run build; \
-    else \
-        echo "🔧 Building for development with API URL: http://localhost:3000/api"; \
-        env VITE_API_URL="http://localhost:3000/api" REACT_APP_USE_MOCK_DATA="false" npm run build; \
-    fi
+# Build the application (Vite will use .env.production automatically)
+RUN npm run build
+
+# Verify build output
+RUN ls -la dist/
+RUN echo "✅ Build completed successfully"
 
 # Production stage with nginx
 FROM nginx:alpine

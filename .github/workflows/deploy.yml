@@ -91,7 +91,8 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG ./ikootaapi
+        echo "🔨 Building API image with SHA: $IMAGE_TAG"
+        docker build --no-cache -t $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG ./ikootaapi
         docker tag $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY_API:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_API:latest
@@ -101,7 +102,8 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build --build-arg ENVIRONMENT=staging -t $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-staging ./ikootaclient
+        echo "🔨 Building CLIENT image for staging with SHA: $IMAGE_TAG"
+        docker build --no-cache --build-arg ENVIRONMENT=staging -t $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-staging ./ikootaclient
         docker tag $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-staging $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest-staging
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-staging
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest-staging
@@ -111,15 +113,37 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Update ECS service with new image
+        # Update API task definition with new SHA-tagged image
+        API_TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition ikoota-api-staging --query 'taskDefinition')
+        NEW_API_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG"
+        UPDATED_API_TASK_DEFINITION=$(echo $API_TASK_DEFINITION | jq --arg IMAGE "$NEW_API_IMAGE" '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.placementConstraints) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)')
+
+        # Register new API task definition for staging
+        API_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json "$UPDATED_API_TASK_DEFINITION" --query 'taskDefinition.taskDefinitionArn' --output text)
+        echo "✅ Registered new staging API task definition: $API_TASK_DEF_ARN"
+
+        # Update CLIENT task definition with new SHA-tagged image
+        CLIENT_TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition ikoota-client-staging --query 'taskDefinition')
+        NEW_CLIENT_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-staging"
+        UPDATED_CLIENT_TASK_DEFINITION=$(echo $CLIENT_TASK_DEFINITION | jq --arg IMAGE "$NEW_CLIENT_IMAGE" '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.placementConstraints) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)')
+
+        # Register new CLIENT task definition for staging
+        CLIENT_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json "$UPDATED_CLIENT_TASK_DEFINITION" --query 'taskDefinition.taskDefinitionArn' --output text)
+        echo "✅ Registered new staging CLIENT task definition: $CLIENT_TASK_DEF_ARN"
+
+        # Update ECS services with specific task definition ARNs
+        echo "🚀 Updating staging API service with new task definition..."
         aws ecs update-service \
           --cluster ikoota-staging \
           --service ikoota-api-staging \
+          --task-definition "$API_TASK_DEF_ARN" \
           --force-new-deployment
 
+        echo "🚀 Updating staging CLIENT service with new task definition..."
         aws ecs update-service \
           --cluster ikoota-staging \
           --service ikoota-client-staging \
+          --task-definition "$CLIENT_TASK_DEF_ARN" \
           --force-new-deployment
 
     - name: Wait for deployment
@@ -167,10 +191,20 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build --build-arg ENVIRONMENT=production -t $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production ./ikootaclient
+        echo "🔨 Building CLIENT image for production with SHA: $IMAGE_TAG"
+        docker build --no-cache --build-arg ENVIRONMENT=production -t $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production ./ikootaclient
+
+        # Verify the build contains new code by checking build timestamp
+        echo "🔍 Verifying new build..."
+        docker run --rm $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production find /usr/share/nginx/html -name "index-*.js" -exec stat {} \;
+
         docker tag $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest-production
+
+        echo "📤 Pushing images to ECR..."
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest-production
+
+        echo "✅ Production image build and push completed: $IMAGE_TAG-production"
 
     - name: Deploy to ECS Production
       env:
@@ -182,28 +216,32 @@ jobs:
         NEW_API_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG"
         UPDATED_API_TASK_DEFINITION=$(echo $API_TASK_DEFINITION | jq --arg IMAGE "$NEW_API_IMAGE" '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.placementConstraints) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)')
 
-        # Register new API task definition
-        aws ecs register-task-definition --cli-input-json "$UPDATED_API_TASK_DEFINITION"
+        # Register new API task definition and capture ARN
+        API_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json "$UPDATED_API_TASK_DEFINITION" --query 'taskDefinition.taskDefinitionArn' --output text)
+        echo "✅ Registered new API task definition: $API_TASK_DEF_ARN"
 
         # Update CLIENT task definition with new SHA-tagged image
         CLIENT_TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition ikoota-client --query 'taskDefinition')
         NEW_CLIENT_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production"
         UPDATED_CLIENT_TASK_DEFINITION=$(echo $CLIENT_TASK_DEFINITION | jq --arg IMAGE "$NEW_CLIENT_IMAGE" '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.placementConstraints) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)')
 
-        # Register new CLIENT task definition
-        aws ecs register-task-definition --cli-input-json "$UPDATED_CLIENT_TASK_DEFINITION"
+        # Register new CLIENT task definition and capture ARN
+        CLIENT_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json "$UPDATED_CLIENT_TASK_DEFINITION" --query 'taskDefinition.taskDefinitionArn' --output text)
+        echo "✅ Registered new CLIENT task definition: $CLIENT_TASK_DEF_ARN"
 
-        # Update ECS services to use new task definitions
+        # Update ECS services to use specific new task definition revisions
+        echo "🚀 Updating API service with new task definition..."
         aws ecs update-service \
           --cluster ikoota-production \
           --service ikoota-api-production \
-          --task-definition ikoota-api \
+          --task-definition "$API_TASK_DEF_ARN" \
           --force-new-deployment
 
+        echo "🚀 Updating CLIENT service with new task definition..."
         aws ecs update-service \
           --cluster ikoota-production \
           --service ikoota-client-production \
-          --task-definition ikoota-client \
+          --task-definition "$CLIENT_TASK_DEF_ARN" \
           --force-new-deployment
 
     - name: Wait for production deployment
