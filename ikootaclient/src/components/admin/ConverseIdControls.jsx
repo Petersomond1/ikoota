@@ -18,19 +18,6 @@ const ConverseIdControls = () => {
   const [unmaskReason, setUnmaskReason] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // all, masked, unmasked
 
-  // Only super_admin can access identity unmasking
-  if (!user || user.role !== 'super_admin') {
-    return (
-      <div className="admin-panel">
-        <div className="access-denied">
-          <h2>🔒 Access Restricted</h2>
-          <p>This feature is only available to Super Administrators.</p>
-          <p>Identity unmasking requires the highest level of administrative privileges.</p>
-        </div>
-      </div>
-    );
-  }
-
   // Fetch identity system statistics
   const { data: identityStats, isLoading: statsLoading } = useQuery({
     queryKey: ['identity-stats'],
@@ -39,8 +26,9 @@ const ConverseIdControls = () => {
       return data?.data || data;
     },
     refetchInterval: 3 * 60 * 1000, // 3 minutes
-    staleTime: 2 * 60 * 1000, // 2 minutes  
-    refetchOnWindowFocus: false
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchOnWindowFocus: false,
+    enabled: !!(user && user.role === 'super_admin') // Only run if user is super_admin
   });
 
   // Fetch identity system health
@@ -52,7 +40,8 @@ const ConverseIdControls = () => {
     },
     refetchInterval: 5 * 60 * 1000, // 5 minutes
     staleTime: 4 * 60 * 1000, // 4 minutes
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    enabled: !!(user && user.role === 'super_admin') // Only run if user is super_admin
   });
 
   // Fetch masked identities
@@ -62,13 +51,14 @@ const ConverseIdControls = () => {
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
       if (filterStatus !== 'all') params.append('status', filterStatus);
-      
+
       const { data } = await api.get(`/users/admin/search-masked-identities?${params}`);
       return data?.data || data;
     },
     refetchInterval: 2 * 60 * 1000, // 2 minutes
     staleTime: 90 * 1000, // 90 seconds
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    enabled: !!(user && user.role === 'super_admin') // Only run if user is super_admin
   });
 
   // Fetch audit trail
@@ -80,7 +70,8 @@ const ConverseIdControls = () => {
     },
     refetchInterval: 4 * 60 * 1000, // 4 minutes
     staleTime: 3 * 60 * 1000, // 3 minutes
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    enabled: !!(user && user.role === 'super_admin') // Only run if user is super_admin
   });
 
   // Mask identity mutation
@@ -145,6 +136,19 @@ const ConverseIdControls = () => {
       queryClient.invalidateQueries(['masked-identities']);
     }
   });
+
+  // Only super_admin can access identity unmasking
+  if (!user || user.role !== 'super_admin') {
+    return (
+      <div className="admin-panel">
+        <div className="access-denied">
+          <h2>🔒 Access Restricted</h2>
+          <p>This feature is only available to Super Administrators.</p>
+          <p>Identity unmasking requires the highest level of administrative privileges.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Handle mask user
   const handleMaskUser = (user) => {
