@@ -9,6 +9,14 @@ import './converseId.css';
 
 const ConverseIdControls = () => {
   const { user } = useUser();
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [maskingReason, setMaskingReason] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showUnmaskModal, setShowUnmaskModal] = useState(false);
+  const [unmaskReason, setUnmaskReason] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all'); // all, masked, unmasked
 
   // Only super_admin can access identity unmasking
   if (!user || user.role !== 'super_admin') {
@@ -22,14 +30,6 @@ const ConverseIdControls = () => {
       </div>
     );
   }
-  const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [maskingReason, setMaskingReason] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showUnmaskModal, setShowUnmaskModal] = useState(false);
-  const [unmaskReason, setUnmaskReason] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all'); // all, masked, unmasked
 
   // Fetch identity system statistics
   const { data: identityStats, isLoading: statsLoading } = useQuery({

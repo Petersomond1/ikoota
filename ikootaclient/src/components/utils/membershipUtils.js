@@ -103,35 +103,36 @@ export const canAccessRoute = (userData, route) => {
 // ✅ STANDARDIZED: User status with clear levels
 export const getUserStatusString = (userData) => {
   if (!userData) return 'guest';
-  
+
   const role = userData.role?.toLowerCase();
   const membershipStage = userData.membership_stage?.toLowerCase();
   const status = userData.status || userData.finalStatus;
+  const memberStatus = userData.member_status || userData.memberStatus;
 
   // Admin users
   if (role === 'admin' || role === 'super_admin') return 'admin';
-  
+
   // ✅ STANDARDIZED: Member (full member)
   if (status === 'member' || membershipStage === 'member') {
     return 'member';
   }
-  
+
   // ✅ STANDARDIZED: Pre-member states
   if (status === 'pre_member_pending_upgrade') return 'pre_member_pending_upgrade';
   if (status === 'pre_member_can_reapply') return 'pre_member_can_reapply';
-  
-  if (status === 'pre_member' || 
+
+  if (status === 'pre_member' ||
       memberStatus === 'approved' && membershipStage === 'pre' ||
       membershipStage === 'pre_member') {
     return 'pre_member';
   }
-  
+
   // Pending/Applied
   if (memberStatus === 'applied' || memberStatus === 'pending') return 'pending_verification';
-  
+
   // Denied
   if (memberStatus === 'declined' || memberStatus === 'denied') return 'denied';
-  
+
   return 'authenticated';
 };
 
