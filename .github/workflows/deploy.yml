@@ -134,8 +134,8 @@ jobs:
         # Wait for services to be healthy
         sleep 60
         
-        # Check API health
-        curl -f http://api.staging.ikoota.com:3000/api/health || exit 1
+        # Check API health through ALB (staging uses same ALB, different target group)
+        curl -f http://api.staging.ikoota.com/api/health || exit 1
         
         # Check Client health  
         curl -f http://staging.ikoota.com/ || exit 1
