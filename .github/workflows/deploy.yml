@@ -179,11 +179,11 @@ jobs:
         echo "🔍 Verifying new build..."
         docker run --rm $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production find /usr/share/nginx/html -name "index-*.js" -exec stat {} \;
 
-        docker tag $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest-production
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest
 
         echo "📤 Pushing images to ECR..."
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest-production
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest
 
         echo "✅ Production image build and push completed: $IMAGE_TAG-production"
 
@@ -198,8 +198,8 @@ jobs:
           --service ikoota-api-production \
           --force-new-deployment
 
-        # Force CLIENT service deployment with latest-production tag
-        echo "🚀 Forcing CLIENT service deployment to use latest-production image"
+        # Force CLIENT service deployment with latest tag (matches task definition)
+        echo "🚀 Forcing CLIENT service deployment to use latest image"
 
         # Get current running tasks
         CURRENT_TASKS=$(aws ecs list-tasks \
