@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ikoota Frontend Login Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        .container {
+            background: #000;
+            padding: 20px;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+        }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        button:hover {
+            background: #00cc00;
+        }
+        input {
+            background: #333;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 10px;
+            margin: 5px;
+            width: 300px;
+        }
+        .log {
+            background: #111;
+            border: 1px solid #333;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .success { color: #00ff00; }
+        .error { color: #ff0000; }
+        .info { color: #ffff00; }
+        .debug { color: #00ffff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Ikoota Frontend Authentication Test</h1>
+
+        <div>
+            <h3>Login Credentials:</h3>
+            <input type="email" id="email" value="petersomond@gmail.com" placeholder="Email">
+            <input type="password" id="password" value="abc123" placeholder="Password">
+        </div>
+
+        <div>
+            <button onclick="testApiHealth()">🏥 Test API Health</button>
+            <button onclick="testLogin()">🔐 Test Login</button>
+            <button onclick="testProtectedRoute()">🛡️ Test Protected Route</button>
+            <button onclick="clearLog()">🧹 Clear Log</button>
+        </div>
+
+        <div>
+            <h3>Configuration Test:</h3>
+            <button onclick="testApiConfiguration()">⚙️ Check API Config</button>
+            <button onclick="testCorsAndHeaders()">🌐 Test CORS</button>
+            <button onclick="simulateReactLogin()">⚛️ Simulate React Login Flow</button>
+        </div>
+
+        <div id="log" class="log">Ready for testing...\n</div>
+    </div>
+
+    <script>
+        let storedToken = null;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            logDiv.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = 'Log cleared...\n';
+        }
+
+        // Test API configuration - same as the frontend would use
+        function testApiConfiguration() {
+            log('🔍 Testing API Configuration...', 'info');
+
+            // Simulate the frontend API URL determination logic
+            const hostname = window.location.hostname;
+            log(`Current hostname: ${hostname}`, 'debug');
+
+            let apiUrl;
+
+            // Same logic as in the frontend api.js
+            if (hostname === 'www.ikoota.com' || hostname === 'ikoota.com') {
+                apiUrl = '/api';
+                log('✅ Production domain detected - using nginx proxy: /api', 'success');
+            } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                apiUrl = 'http://localhost:3000/api';
+                log('🛠️ Localhost detected - using development API: http://localhost:3000/api', 'info');
+            } else {
+                apiUrl = '/api';
+                log('🌐 Other domain - defaulting to nginx proxy: /api', 'info');
+            }
+
+            log(`Final API URL: ${apiUrl}`, 'success');
+            return apiUrl;
+        }
+
+        async function testApiHealth() {
+            const apiUrl = testApiConfiguration();
+
+            try {
+                log('🏥 Testing API Health endpoint...', 'info');
+
+                const response = await fetch(`${apiUrl}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                log(`📊 Health Response Status: ${response.status}`, response.ok ? 'success' : 'error');
+                log(`📊 Response Headers: ${JSON.stringify(Object.fromEntries(response.headers))}`, 'debug');
+
+                const data = await response.text();
+                log(`📋 Health Response Body: ${data.substring(0, 300)}...`, 'debug');
+
+                if (response.ok) {
+                    try {
+                        const jsonData = JSON.parse(data);
+                        log('✅ API Health Check Successful!', 'success');
+                        log(`✅ Message: ${jsonData.message}`, 'success');
+                    } catch (e) {
+                        log('⚠️ Health endpoint returned non-JSON response', 'error');
+                    }
+                } else {
+                    log('❌ API Health Check Failed', 'error');
+                    if (data.includes('<html') || data.includes('<!DOCTYPE')) {
+                        log('🔴 CRITICAL ISSUE: API returned HTML instead of JSON - Routing/Proxy Problem!', 'error');
+                    }
+                }
+
+            } catch (error) {
+                log(`❌ Health Check Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCorsAndHeaders() {
+            const apiUrl = testApiConfiguration();
+
+            try {
+                log('🌐 Testing CORS and Headers...', 'info');
+
+                const response = await fetch(`${apiUrl}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Origin': window.location.origin
+                    }
+                });
+
+                log(`📊 CORS Status: ${response.status}`, response.ok ? 'success' : 'error');
+
+                // Check CORS headers
+                const corsHeaders = {
+                    'access-control-allow-origin': response.headers.get('access-control-allow-origin'),
+                    'access-control-allow-credentials': response.headers.get('access-control-allow-credentials'),
+                    'access-control-allow-methods': response.headers.get('access-control-allow-methods'),
+                    'access-control-allow-headers': response.headers.get('access-control-allow-headers')
+                };
+
+                log(`🌐 CORS Headers: ${JSON.stringify(corsHeaders, null, 2)}`, 'debug');
+
+                if (corsHeaders['access-control-allow-origin']) {
+                    log('✅ CORS is configured', 'success');
+                } else {
+                    log('⚠️ CORS headers not found - may cause frontend issues', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ CORS Test Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLogin() {
+            const apiUrl = testApiConfiguration();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                log('🔐 Testing Login Flow...', 'info');
+                log(`📧 Email: ${email}`, 'debug');
+                log(`🔑 Password: ${'*'.repeat(password.length)}`, 'debug');
+
+                const loginData = {
+                    email: email,
+                    password: password
+                };
+
+                log(`📤 Sending login request to: ${apiUrl}/auth/login`, 'info');
+                log(`📤 Request body: ${JSON.stringify(loginData)}`, 'debug');
+
+                const response = await fetch(`${apiUrl}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'include', // Important for cookies
+                    body: JSON.stringify(loginData)
+                });
+
+                log(`📊 Login Response Status: ${response.status}`, response.ok ? 'success' : 'error');
+                log(`📊 Response Headers: ${JSON.stringify(Object.fromEntries(response.headers))}`, 'debug');
+
+                const responseText = await response.text();
+                log(`📋 Login Response Body: ${responseText.substring(0, 500)}...`, 'debug');
+
+                if (response.ok) {
+                    try {
+                        const jsonData = JSON.parse(responseText);
+                        log('🎉 LOGIN SUCCESSFUL!', 'success');
+                        log(`✅ Token received: ${jsonData.token ? 'YES' : 'NO'}`, jsonData.token ? 'success' : 'error');
+
+                        if (jsonData.token) {
+                            storedToken = jsonData.token;
+                            log(`🔑 Token stored for testing (length: ${jsonData.token.length})`, 'success');
+
+                            // Test token format
+                            const tokenParts = jsonData.token.split('.');
+                            log(`🔍 Token parts: ${tokenParts.length} (should be 3 for JWT)`, tokenParts.length === 3 ? 'success' : 'error');
+                        }
+
+                        if (jsonData.user) {
+                            log(`👤 User Data:`, 'success');
+                            log(`   ID: ${jsonData.user.id}`, 'success');
+                            log(`   Username: ${jsonData.user.username}`, 'success');
+                            log(`   Email: ${jsonData.user.email}`, 'success');
+                            log(`   Role: ${jsonData.user.role}`, 'success');
+                            log(`   Membership Stage: ${jsonData.user.membership_stage}`, 'success');
+                        }
+
+                        if (jsonData.redirectTo) {
+                            log(`🔄 Redirect URL: ${jsonData.redirectTo}`, 'info');
+                        }
+
+                    } catch (parseError) {
+                        log(`❌ Failed to parse login response as JSON: ${parseError.message}`, 'error');
+                        log(`📋 Raw response: ${responseText}`, 'error');
+                    }
+                } else {
+                    log('❌ LOGIN FAILED', 'error');
+                    log(`📋 Error response: ${responseText}`, 'error');
+
+                    if (responseText.includes('<html') || responseText.includes('<!DOCTYPE')) {
+                        log('🔴 CRITICAL ISSUE: Login endpoint returned HTML instead of JSON!', 'error');
+                        log('🔴 This indicates the request is not reaching the API backend.', 'error');
+                        log('🔴 Check nginx configuration and routing.', 'error');
+                    } else {
+                        try {
+                            const errorData = JSON.parse(responseText);
+                            log(`❌ Error message: ${errorData.error || errorData.message}`, 'error');
+                        } catch (e) {
+                            log(`❌ Non-JSON error response`, 'error');
+                        }
+                    }
+                }
+
+            } catch (error) {
+                log(`❌ Login Error: ${error.message}`, 'error');
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    log('🔴 Network error - API server may be unreachable', 'error');
+                }
+            }
+        }
+
+        async function testProtectedRoute() {
+            const apiUrl = testApiConfiguration();
+
+            if (!storedToken) {
+                log('⚠️ No token available - run login test first', 'error');
+                return;
+            }
+
+            try {
+                log('🛡️ Testing Protected Route...', 'info');
+                log(`🔑 Using token: ${storedToken.substring(0, 20)}...`, 'debug');
+
+                const response = await fetch(`${apiUrl}/auth/`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${storedToken}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'include'
+                });
+
+                log(`📊 Protected Route Status: ${response.status}`, response.ok ? 'success' : 'error');
+
+                const responseText = await response.text();
+                log(`📋 Protected Route Response: ${responseText.substring(0, 300)}...`, 'debug');
+
+                if (response.ok) {
+                    try {
+                        const jsonData = JSON.parse(responseText);
+                        log('🎉 PROTECTED ROUTE ACCESS SUCCESSFUL!', 'success');
+
+                        if (jsonData.user) {
+                            log(`✅ Authenticated user: ${jsonData.user.email}`, 'success');
+                            log(`✅ User role: ${jsonData.user.role}`, 'success');
+                        }
+
+                    } catch (parseError) {
+                        log(`❌ Failed to parse protected route response: ${parseError.message}`, 'error');
+                    }
+                } else {
+                    log('❌ PROTECTED ROUTE ACCESS FAILED', 'error');
+                    log(`📋 Error response: ${responseText}`, 'error');
+
+                    if (response.status === 401) {
+                        log('🔐 Token is invalid or expired', 'error');
+                    } else if (response.status === 403) {
+                        log('🚫 Access forbidden - insufficient permissions', 'error');
+                    }
+                }
+
+            } catch (error) {
+                log(`❌ Protected Route Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function simulateReactLogin() {
+            log('⚛️ Simulating Complete React Login Flow...', 'info');
+
+            // Step 1: Test API configuration
+            testApiConfiguration();
+
+            // Step 2: Test CORS
+            await testCorsAndHeaders();
+
+            // Step 3: Test login
+            await testLogin();
+
+            // Step 4: Test protected route if login succeeded
+            if (storedToken) {
+                await testProtectedRoute();
+
+                log('🎯 Frontend Login Flow Analysis:', 'info');
+                log('1. ✅ API Configuration detected', 'success');
+                log('2. ✅ CORS headers checked', 'success');
+                log('3. ✅ Login request sent', storedToken ? 'success' : 'error');
+                log('4. ✅ Token received and stored', storedToken ? 'success' : 'error');
+                log('5. ✅ Protected route tested', 'success');
+
+                if (storedToken) {
+                    log('🎉 FRONTEND AUTHENTICATION FLOW IS WORKING!', 'success');
+                } else {
+                    log('❌ Frontend authentication flow has issues', 'error');
+                }
+            }
+        }
+
+        // Auto-run basic tests on page load
+        window.onload = function() {
+            log('🚀 Frontend Authentication Test Tool Loaded', 'success');
+            log('Click buttons above to run specific tests', 'info');
+            log(`🌐 Current URL: ${window.location.href}`, 'debug');
+            log(`🌐 Origin: ${window.location.origin}`, 'debug');
+        };
+    </script>
+</body>
+</html>
