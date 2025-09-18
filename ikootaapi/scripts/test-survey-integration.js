@@ -3,7 +3,7 @@
 
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = 'http://localhost:3000/api';
 let authToken = null;
 
 // Test configuration
@@ -239,7 +239,7 @@ console.log(`
 4. Verify database tables with DESCRIBE queries
 
 Required Environment:
-- Server running on localhost:3001
+- Server running on localhost:3000
 - Test user with email: ${testConfig.testUser.email}
 - Admin user for admin tests (optional)
 

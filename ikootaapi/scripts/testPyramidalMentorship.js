@@ -10,7 +10,7 @@ dotenv.config();
 
 class PyramidalMentorshipTester {
     constructor() {
-        this.baseURL = process.env.API_BASE_URL || 'http://localhost:3001/api';
+        this.baseURL = process.env.API_BASE_URL || 'http://localhost:3000/api';
         this.adminToken = null;
         this.superAdminToken = null;
         this.testResults = [];

@@ -198,8 +198,8 @@ jobs:
     - name: Run production health checks
       run: |
         sleep 60
-        # Test HTTPS API endpoint on port 8443
-        curl -f https://api.ikoota.com:8443/api/health || exit 1
+        # Test HTTPS API endpoint on port 3000
+        curl -f https://api.ikoota.com:3000/api/health || exit 1
         # Test HTTPS client site on port 443 (default)
         curl -f https://ikoota.com/ || exit 1
         # Also test www subdomain
@@ -209,7 +209,7 @@ jobs:
       if: success()
       run: |
         echo "🚀 Production deployment successful!"
-        echo "🔐 API: https://api.ikoota.com:8443/api/health"
+        echo "🔐 API: https://api.ikoota.com:3000/api/health"
         echo "🔐 Client: https://ikoota.com"
         echo "🔐 Client (www): https://www.ikoota.com"
         echo "🔓 Staging: http://staging.ikoota.com (for development)"

@@ -474,7 +474,7 @@ SUPPORT_EMAIL=support@ikoota.com
 ```yaml
 Production Environment:
   - Domain: https://ikoota.com (HTTPS/SSL)
-  - API: https://api.ikoota.com:8443 (HTTPS/SSL)
+  - API: https://api.ikoota.com:3000 (HTTPS/SSL)
   - CDN: AWS CloudFront for static assets
   - Database: AWS RDS MySQL (Multi-AZ)
   - Storage: AWS S3 for media files
@@ -600,7 +600,7 @@ supportEscalation = {
 #### Daily Operations
 ```bash
 # System health check
-curl https://api.ikoota.com:8443/api/health
+curl https://api.ikoota.com:3000/api/health
 
 # Review moderation queue
 SELECT COUNT(*) FROM chats WHERE status = 'pending_approval';
@@ -684,7 +684,7 @@ SHOW PROCESSLIST;
 SHOW ENGINE INNODB STATUS;
 
 # Application metrics
-curl https://api.ikoota.com:8443/api/health | jq '.metrics'
+curl https://api.ikoota.com:3000/api/health | jq '.metrics'
 ```
 
 ---

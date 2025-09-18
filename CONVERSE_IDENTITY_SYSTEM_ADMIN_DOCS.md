@@ -110,7 +110,7 @@ const membership = await classServices.grantMembership(userId, classId);
 **Manual Masking** via API:
 
 ```bash
-curl -X POST http://localhost:3001/api/users/identity/mask/USER_ID \
+curl -X POST http://localhost:3000/api/users/identity/mask/USER_ID \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json"
 ```
@@ -134,7 +134,7 @@ curl -X POST http://localhost:3001/api/users/identity/mask/USER_ID \
 **Emergency Unmask:**
 
 ```bash
-curl -X POST http://localhost:3001/api/users/admin/unmask-identity \
+curl -X POST http://localhost:3000/api/users/admin/unmask-identity \
   -H "Authorization: Bearer ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -162,7 +162,7 @@ curl -X POST http://localhost:3001/api/users/admin/unmask-identity \
 Access the admin interface at `/admin/identity-manager` or use the API:
 
 ```bash
-curl -X GET http://localhost:3001/api/users/admin/masked-users \
+curl -X GET http://localhost:3000/api/users/admin/masked-users \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
@@ -189,7 +189,7 @@ curl -X GET http://localhost:3001/api/users/admin/masked-users \
 **Video Stream Masking:**
 
 ```bash
-curl -X POST http://localhost:3001/api/masking/start-video \
+curl -X POST http://localhost:3000/api/masking/start-video \
   -H "Authorization: Bearer USER_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -204,7 +204,7 @@ curl -X POST http://localhost:3001/api/masking/start-video \
 **Audio Stream Masking:**
 
 ```bash
-curl -X POST http://localhost:3001/api/masking/start-audio \
+curl -X POST http://localhost:3000/api/masking/start-audio \
   -H "Authorization: Bearer USER_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -216,7 +216,7 @@ curl -X POST http://localhost:3001/api/masking/start-audio \
 ### Monitoring Active Sessions
 
 ```bash
-curl -X GET http://localhost:3001/api/masking/active-sessions \
+curl -X GET http://localhost:3000/api/masking/active-sessions \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
@@ -258,7 +258,7 @@ INSERT INTO emergency_unmask_requests (
 2. **Review and Approve:**
 
 ```bash
-curl -X POST http://localhost:3001/api/users/admin/approve-emergency-unmask \
+curl -X POST http://localhost:3000/api/users/admin/approve-emergency-unmask \
   -H "Authorization: Bearer SUPER_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -270,7 +270,7 @@ curl -X POST http://localhost:3001/api/users/admin/approve-emergency-unmask \
 3. **Execute Unmask:**
 
 ```bash
-curl -X POST http://localhost:3001/api/users/admin/execute-emergency-unmask \
+curl -X POST http://localhost:3000/api/users/admin/execute-emergency-unmask \
   -H "Authorization: Bearer SUPER_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -286,11 +286,11 @@ If the system is compromised:
 
 ```bash
 # Stop all active masking sessions
-curl -X POST http://localhost:3001/api/masking/emergency-stop-all \
+curl -X POST http://localhost:3000/api/masking/emergency-stop-all \
   -H "Authorization: Bearer ADMIN_TOKEN"
 
 # Rotate encryption keys
-curl -X POST http://localhost:3001/api/admin/rotate-encryption-keys \
+curl -X POST http://localhost:3000/api/admin/rotate-encryption-keys \
   -H "Authorization: Bearer SUPER_ADMIN_TOKEN"
 ```
 
@@ -312,7 +312,7 @@ LINES TERMINATED BY '\n';
 
 ```bash
 # Get identity system stats
-curl -X GET http://localhost:3001/api/admin/identity-stats \
+curl -X GET http://localhost:3000/api/admin/identity-stats \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
@@ -542,7 +542,7 @@ AND table_name IN (
 1. **Regular Key Rotation:**
 ```bash
 # Rotate every 90 days
-curl -X POST http://localhost:3001/api/admin/rotate-encryption-keys
+curl -X POST http://localhost:3000/api/admin/rotate-encryption-keys
 ```
 
 2. **Audit Trail Monitoring:**
