@@ -192,7 +192,38 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Update task definition with new image using simple force deployment
+        # Get current task definitions
+        API_TASK_DEF=$(aws ecs describe-services \
+          --cluster ikoota-production \
+          --services ikoota-api-production \
+          --query 'services[0].taskDefinition' \
+          --output text)
+
+        CLIENT_TASK_DEF=$(aws ecs describe-services \
+          --cluster ikoota-production \
+          --services ikoota-client-production \
+          --query 'services[0].taskDefinition' \
+          --output text)
+
+        # Update CLIENT task definition with new image
+        echo "🔄 Updating CLIENT task definition with image: $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production"
+
+        aws ecs describe-task-definition \
+          --task-definition $CLIENT_TASK_DEF \
+          --query 'taskDefinition' > client-task-def.json
+
+        # Update the image in task definition
+        jq --arg image "$ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production" \
+          '.containerDefinitions[0].image = $image | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities, .registeredAt, .registeredBy)' \
+          client-task-def.json > client-task-def-updated.json
+
+        # Register new task definition
+        CLIENT_NEW_TASK_DEF=$(aws ecs register-task-definition \
+          --cli-input-json file://client-task-def-updated.json \
+          --query 'taskDefinition.taskDefinitionArn' \
+          --output text)
+
+        # Update services with new task definitions
         aws ecs update-service \
           --cluster ikoota-production \
           --service ikoota-api-production \
@@ -201,6 +232,7 @@ jobs:
         aws ecs update-service \
           --cluster ikoota-production \
           --service ikoota-client-production \
+          --task-definition "$CLIENT_NEW_TASK_DEF" \
           --force-new-deployment
 
     - name: Wait for production deployment
