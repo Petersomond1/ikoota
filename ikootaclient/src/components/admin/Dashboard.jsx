@@ -87,7 +87,7 @@ const fetchPendingCount = async () => {
 // ✅ FIXED: Live class management functions with correct endpoints
 const fetchLiveClassDashboard = async () => {
   try {
-    const { data } = await api.get('/classes/admin/live/admin/dashboard');
+    const { data } = await api.get('/classes/admin/live/dashboard');
     return data?.data || data;
   } catch (error) {
     console.error('Failed to fetch live class dashboard:', error);
@@ -107,7 +107,7 @@ const fetchLiveClassDashboard = async () => {
 
 const fetchPendingLiveClassApprovals = async () => {
   try {
-    const { data } = await api.get('/classes/admin/live/admin/pending?limit=5');
+    const { data } = await api.get('/classes/admin/live/pending?limit=5');
     return data?.data || [];
   } catch (error) {
     console.error('Failed to fetch pending live class approvals:', error);
@@ -117,7 +117,7 @@ const fetchPendingLiveClassApprovals = async () => {
 
 const approveLiveClassSchedule = async (scheduleId, decision, adminNotes = '') => {
   try {
-    const { data } = await api.put(`/classes/admin/live/admin/review/${scheduleId}`, {
+    const { data } = await api.put(`/classes/admin/live/review/${scheduleId}`, {
       decision,
       admin_notes: adminNotes,
       notification_message: decision === 'approve' ? 'Your live class has been approved and participants will be notified.' : 'Your live class request requires revision.'

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend Pages Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        .info { color: blue; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 3px; cursor: pointer; }
+        .test-btn { background: #4CAF50; color: white; }
+        .action-btn { background: #2196F3; color: white; }
+        iframe { width: 100%; height: 400px; border: 1px solid #ccc; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Frontend Pages Integration Test</h1>
+
+    <div class="test-section">
+        <h2>📊 Quick Backend API Status</h2>
+        <div id="backend-status">Testing backend connection...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>🏠 Frontend Server Status</h2>
+        <div id="frontend-status">Testing frontend server...</div>
+        <button class="action-btn" onclick="window.open('http://localhost:5173', '_blank')">Open Frontend Home</button>
+    </div>
+
+    <div class="test-section">
+        <h2>🔐 Authentication Pages</h2>
+        <div>
+            <button class="test-btn" onclick="testPage('http://localhost:5173/login', 'login-frame')">Test Login Page</button>
+            <button class="test-btn" onclick="testPage('http://localhost:5173/signup', 'signup-frame')">Test Signup Page</button>
+            <button class="action-btn" onclick="window.open('http://localhost:5173/login', '_blank')">Open Login</button>
+            <button class="action-btn" onclick="window.open('http://localhost:5173/signup', '_blank')">Open Signup</button>
+        </div>
+        <iframe id="login-frame" style="display:none;"></iframe>
+        <iframe id="signup-frame" style="display:none;"></iframe>
+        <div id="auth-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Protected Pages (Require Login)</h2>
+        <div>
+            <button class="test-btn" onclick="testPage('http://localhost:5173/dashboard', 'dashboard-frame')">Test Dashboard</button>
+            <button class="test-btn" onclick="testPage('http://localhost:5173/admin', 'admin-frame')">Test Admin</button>
+            <button class="test-btn" onclick="testPage('http://localhost:5173/classes', 'classes-frame')">Test Classes</button>
+            <button class="action-btn" onclick="window.open('http://localhost:5173/dashboard', '_blank')">Open Dashboard</button>
+            <button class="action-btn" onclick="window.open('http://localhost:5173/admin', '_blank')">Open Admin</button>
+        </div>
+        <iframe id="dashboard-frame" style="display:none;"></iframe>
+        <iframe id="admin-frame" style="display:none;"></iframe>
+        <iframe id="classes-frame" style="display:none;"></iframe>
+        <div id="protected-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎓 Class Pages</h2>
+        <div>
+            <button class="test-btn" onclick="testPage('http://localhost:5173/iko', 'iko-frame')">Test Iko Classes</button>
+            <button class="test-btn" onclick="testPage('http://localhost:5173/towncrier', 'towncrier-frame')">Test Towncrier</button>
+            <button class="action-btn" onclick="window.open('http://localhost:5173/iko', '_blank')">Open Iko</button>
+            <button class="action-btn" onclick="window.open('http://localhost:5173/towncrier', '_blank')">Open Towncrier</button>
+        </div>
+        <iframe id="iko-frame" style="display:none;"></iframe>
+        <iframe id="towncrier-frame" style="display:none;"></iframe>
+        <div id="class-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Test Results Summary</h2>
+        <div id="summary-results"></div>
+        <button class="action-btn" onclick="runFullTest()">🚀 Run Complete Test Suite</button>
+    </div>
+
+    <script>
+        const results = {
+            backend: null,
+            frontend: null,
+            pages: {},
+            errors: []
+        };
+
+        // Test backend API connectivity
+        async function testBackend() {
+            try {
+                // Test basic health
+                const healthResponse = await fetch('http://localhost:3000/health');
+                if (healthResponse.ok) {
+                    results.backend = 'healthy';
+                    document.getElementById('backend-status').innerHTML = '<span class="success">✅ Backend API (port 3000): HEALTHY</span>';
+                } else {
+                    throw new Error(`Health check failed: ${healthResponse.status}`);
+                }
+
+                // Test auth endpoints
+                const loginTest = await fetch('http://localhost:3000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'test@test.com', password: 'wrong' })
+                });
+
+                const classTest = await fetch('http://localhost:3000/api/classes/test');
+                const adminTest = await fetch('http://localhost:3000/api/users/admin/test');
+
+                document.getElementById('backend-status').innerHTML += `
+                    <br><span class="info">🔐 Auth API: ${loginTest.status} (${loginTest.status === 401 ? 'Correctly secured' : 'Status ' + loginTest.status})</span>
+                    <br><span class="info">🎓 Class API: ${classTest.status} (${classTest.status === 401 ? 'Correctly secured' : 'Status ' + classTest.status})</span>
+                    <br><span class="info">👤 Admin API: ${adminTest.status} (${adminTest.status === 401 ? 'Correctly secured' : 'Status ' + adminTest.status})</span>
+                `;
+
+            } catch (e) {
+                results.backend = 'error';
+                results.errors.push(`Backend: ${e.message}`);
+                document.getElementById('backend-status').innerHTML = `<span class="error">❌ Backend API Error: ${e.message}</span>`;
+            }
+        }
+
+        // Test frontend server
+        async function testFrontend() {
+            try {
+                const response = await fetch('http://localhost:5173/', { mode: 'no-cors' });
+                results.frontend = 'running';
+                document.getElementById('frontend-status').innerHTML = '<span class="success">✅ Frontend Server (port 5173): RUNNING</span>';
+            } catch (e) {
+                results.frontend = 'error';
+                results.errors.push(`Frontend: ${e.message}`);
+                document.getElementById('frontend-status').innerHTML = `<span class="error">❌ Frontend Server Error: ${e.message}</span>`;
+            }
+        }
+
+        // Test individual page
+        async function testPage(url, frameId) {
+            const pageName = url.split('/').pop() || 'home';
+            const frame = document.getElementById(frameId);
+
+            try {
+                frame.style.display = 'block';
+                frame.src = url;
+
+                // Wait for frame to load
+                frame.onload = () => {
+                    results.pages[pageName] = 'loaded';
+                    updatePageResult(pageName, 'success', '✅ Page loaded successfully');
+                };
+
+                frame.onerror = () => {
+                    results.pages[pageName] = 'error';
+                    results.errors.push(`Page ${pageName}: Failed to load`);
+                    updatePageResult(pageName, 'error', '❌ Failed to load page');
+                };
+
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    if (!results.pages[pageName]) {
+                        results.pages[pageName] = 'timeout';
+                        results.errors.push(`Page ${pageName}: Timeout`);
+                        updatePageResult(pageName, 'warning', '⚠️ Page load timeout');
+                    }
+                }, 10000);
+
+            } catch (e) {
+                results.pages[pageName] = 'error';
+                results.errors.push(`Page ${pageName}: ${e.message}`);
+                updatePageResult(pageName, 'error', `❌ Error: ${e.message}`);
+            }
+        }
+
+        function updatePageResult(pageName, type, message) {
+            const resultDiv = getResultDiv(pageName);
+            if (resultDiv) {
+                const newResult = `<div class="${type}">${message}</div>`;
+                if (resultDiv.innerHTML.includes(pageName)) {
+                    resultDiv.innerHTML = resultDiv.innerHTML.replace(
+                        /(<div[^>]*>.*?<\/div>)/,
+                        newResult
+                    );
+                } else {
+                    resultDiv.innerHTML += `<strong>${pageName}:</strong> ${newResult}`;
+                }
+            }
+        }
+
+        function getResultDiv(pageName) {
+            if (['login', 'signup'].includes(pageName)) {
+                return document.getElementById('auth-results');
+            } else if (['dashboard', 'admin', 'classes'].includes(pageName)) {
+                return document.getElementById('protected-results');
+            } else if (['iko', 'towncrier'].includes(pageName)) {
+                return document.getElementById('class-results');
+            }
+            return null;
+        }
+
+        // Run complete test suite
+        async function runFullTest() {
+            document.getElementById('summary-results').innerHTML = '<div class="info">🔄 Running complete test suite...</div>';
+
+            // Reset results
+            Object.keys(results.pages).forEach(key => delete results.pages[key]);
+            results.errors = [];
+
+            // Test backend and frontend
+            await testBackend();
+            await testFrontend();
+
+            // Test all pages
+            const pages = [
+                { url: 'http://localhost:5173/login', frame: 'login-frame' },
+                { url: 'http://localhost:5173/signup', frame: 'signup-frame' },
+                { url: 'http://localhost:5173/dashboard', frame: 'dashboard-frame' },
+                { url: 'http://localhost:5173/admin', frame: 'admin-frame' },
+                { url: 'http://localhost:5173/classes', frame: 'classes-frame' },
+                { url: 'http://localhost:5173/iko', frame: 'iko-frame' },
+                { url: 'http://localhost:5173/towncrier', frame: 'towncrier-frame' }
+            ];
+
+            pages.forEach(page => {
+                setTimeout(() => testPage(page.url, page.frame), 1000);
+            });
+
+            // Generate summary after 15 seconds
+            setTimeout(generateSummary, 15000);
+        }
+
+        function generateSummary() {
+            const summary = document.getElementById('summary-results');
+            let html = '<h3>📊 Test Results Summary</h3>';
+
+            // Backend status
+            html += `<p><strong>Backend API:</strong> ${results.backend === 'healthy' ? '✅ Healthy' : '❌ Issues'}</p>`;
+
+            // Frontend status
+            html += `<p><strong>Frontend Server:</strong> ${results.frontend === 'running' ? '✅ Running' : '❌ Issues'}</p>`;
+
+            // Page results
+            html += '<p><strong>Page Tests:</strong></p><ul>';
+            Object.entries(results.pages).forEach(([page, status]) => {
+                const icon = status === 'loaded' ? '✅' : status === 'timeout' ? '⚠️' : '❌';
+                html += `<li>${icon} ${page}: ${status}</li>`;
+            });
+            html += '</ul>';
+
+            // Errors
+            if (results.errors.length > 0) {
+                html += '<p><strong>Issues Found:</strong></p><ul>';
+                results.errors.forEach(error => {
+                    html += `<li class="error">❌ ${error}</li>`;
+                });
+                html += '</ul>';
+            } else {
+                html += '<p class="success">🎉 No major issues found!</p>';
+            }
+
+            // Recommendations
+            html += '<p><strong>Recommendations:</strong></p><ul>';
+            if (results.backend !== 'healthy') {
+                html += '<li>Check backend server on port 3000</li>';
+            }
+            if (results.frontend !== 'running') {
+                html += '<li>Check frontend server on port 5173</li>';
+            }
+            if (Object.values(results.pages).some(status => status !== 'loaded')) {
+                html += '<li>Test authentication flow manually</li>';
+                html += '<li>Check browser console for detailed errors</li>';
+            }
+            html += '</ul>';
+
+            summary.innerHTML = html;
+        }
+
+        // Auto-run initial tests
+        window.onload = () => {
+            testBackend();
+            testFrontend();
+        };
+    </script>
+</body>
+</html>

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from '../auth/UserStatus';
+import { getSecureDisplayName, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import api from "../service/api";
 import './fullMembershipSurvey.css';
 
@@ -276,10 +277,10 @@ const checkSubmissionStatus = async () => {
         
         alert(`Full Membership application submitted successfully!\n\nYour Membership Ticket: ${membershipTicket}\n\nPlease save this number for your records.`);
         
-        navigate('/full-membership-submitted', { 
-          state: { 
+        navigate('/full-membership-submitted', {
+          state: {
             membershipTicket: membershipTicket,
-            username: user.username 
+            displayName: getSecureDisplayName(user, DISPLAY_CONTEXTS.GREETING) || 'Member'
           }
         });
       }

@@ -33,9 +33,9 @@ const getApiBaseUrl = () => {
   // 🔧 SMART DEVELOPMENT PORT DETECTION
   // Use default development URL if no environment variable
 
-  // Default to port 3002 (currently running), with fallback to 3000, 3001
-  console.log('🛠️ DEVELOPMENT MODE - using smart port detection (3002 current, 3000/3001 fallback)');
-  return 'http://localhost:3002/api';
+  // Default to port 3000 (currently running), with fallback to 3002, 3001
+  console.log('🛠️ DEVELOPMENT MODE - using smart port detection (3000 current, 3002/3001 fallback)');
+  return 'http://localhost:3000/api';
 };
 
 // 🚀 SMART PORT AUTO-DETECTION SYSTEM
@@ -48,7 +48,7 @@ const detectWorkingPort = async () => {
     return API_BASE_URL; // Production - no need to detect
   }
 
-  const portsToTry = [3002, 3000, 3001]; // Try common ports (3002 is currently running)
+  const portsToTry = [3000, 3002, 3001]; // Try common ports (3000 is currently running)
 
   for (const port of portsToTry) {
     try {

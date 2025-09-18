@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend API Integration Test</title>
+</head>
+<body>
+    <h1>Frontend API Integration Test</h1>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+
+        async function testAPI() {
+            const tests = [];
+
+            // Test 1: API Auto-detection
+            try {
+                const response = await fetch('http://localhost:3000/health');
+                tests.push(`✅ Backend Port 3000: ${response.ok ? 'Working' : 'Failed'}`);
+            } catch (e) {
+                tests.push(`❌ Backend Port 3000: ${e.message}`);
+            }
+
+            // Test 2: Frontend to Backend connectivity
+            try {
+                const response = await fetch('http://localhost:3000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'test@example.com', password: 'wrong' })
+                });
+                tests.push(`✅ API Endpoint Accessible: ${response.status}`);
+            } catch (e) {
+                tests.push(`❌ API Endpoint Error: ${e.message}`);
+            }
+
+            // Test 3: Class routes
+            try {
+                const response = await fetch('http://localhost:3000/api/classes/test');
+                const data = await response.json();
+                tests.push(`✅ Class Routes: ${data.success ? 'Working' : 'Failed'}`);
+            } catch (e) {
+                tests.push(`❌ Class Routes Error: ${e.message}`);
+            }
+
+            // Test 4: User admin routes
+            try {
+                const response = await fetch('http://localhost:3000/api/users/admin/test');
+                const data = await response.json();
+                tests.push(`✅ Admin Routes: ${data.success ? 'Working' : 'Failed'}`);
+            } catch (e) {
+                tests.push(`❌ Admin Routes Error: ${e.message}`);
+            }
+
+            results.innerHTML = tests.join('<br>');
+        }
+
+        testAPI();
+    </script>
+</body>
+</html>

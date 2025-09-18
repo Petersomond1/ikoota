@@ -2961,7 +2961,7 @@ const LiveSessionsTab = ({ selectedClass }) => {
     queryFn: async () => {
       if (!selectedClass?.class_id) return [];
       try {
-        const { data } = await api.get(`/classes/admin/live/admin/pending?classId=${selectedClass.class_id}`);
+        const { data } = await api.get(`/classes/admin/live/pending?classId=${selectedClass.class_id}`);
         return data?.data || [];
       } catch (error) {
         console.error('Failed to fetch pending live approvals:', error);
@@ -2978,7 +2978,7 @@ const LiveSessionsTab = ({ selectedClass }) => {
     queryFn: async () => {
       if (!selectedClass?.class_id) return {};
       try {
-        const { data } = await api.get(`/classes/admin/live/admin/dashboard`);
+        const { data } = await api.get(`/classes/admin/live/dashboard`);
         return data?.data || {};
       } catch (error) {
         console.error('Failed to fetch class live stats:', error);

@@ -1,12 +1,27 @@
 // ConverseIdControls.jsx - Admin Control Panel for Converse Identity System
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useUser } from '../auth/UserStatus';
 import api from '../service/api';
 import { getSecureDisplayName, getFullConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import './admin.css';
 import './converseId.css';
 
 const ConverseIdControls = () => {
+  const { user } = useUser();
+
+  // Only super_admin can access identity unmasking
+  if (!user || user.role !== 'super_admin') {
+    return (
+      <div className="admin-panel">
+        <div className="access-denied">
+          <h2>🔒 Access Restricted</h2>
+          <p>This feature is only available to Super Administrators.</p>
+          <p>Identity unmasking requires the highest level of administrative privileges.</p>
+        </div>
+      </div>
+    );
+  }
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedUser, setSelectedUser] = useState(null);
@@ -345,7 +360,7 @@ const ConverseIdControls = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {maskedIdentities?.map(user => (
+                    {(Array.isArray(maskedIdentities) ? maskedIdentities : [])?.map(user => (
                       <tr key={user.user_id || user.id}>
                         <td>{user.user_id || user.id}</td>
                         <td>{getFullConverseId(user)}</td>
@@ -478,7 +493,7 @@ const ConverseIdControls = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {auditTrail?.map(entry => (
+                  {Array.isArray(auditTrail) ? auditTrail.map(entry => (
                     <tr key={entry.id}>
                       <td>{new Date(entry.createdAt).toLocaleString()}</td>
                       <td>
@@ -495,7 +510,13 @@ const ConverseIdControls = () => {
                         </span>
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan="6" className="no-data">
+                        No audit trail data available
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

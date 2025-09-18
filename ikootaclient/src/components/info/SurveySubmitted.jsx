@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../auth/UserStatus';
+import { getSecureDisplayName, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import './surveySubmitted.css';
 
 const SurveySubmitted = () => {
@@ -14,9 +15,10 @@ const SurveySubmitted = () => {
   useEffect(() => {
     if (location.state) {
       setApplicationTicket(location.state.applicationTicket || '');
-      setUsername(location.state.username || '');
+      // Handle both old 'username' and new 'displayName' for backward compatibility
+      setUsername(location.state.displayName || location.state.username || '');
     } else if (user) {
-      setUsername(user.username || user.email || 'User');
+      setUsername(getSecureDisplayName(user, DISPLAY_CONTEXTS.GREETING) || 'Member');
     }
   }, [location.state, user]);
 

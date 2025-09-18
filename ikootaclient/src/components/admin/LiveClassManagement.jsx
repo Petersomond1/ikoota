@@ -12,7 +12,7 @@ const LiveClassManagement = () => {
     queryKey: ['liveClassDashboard'],
     queryFn: async () => {
       try {
-        const { data } = await api.get('/classes/admin/live/admin/dashboard');
+        const { data } = await api.get('/classes/admin/live/dashboard');
         return data?.data || data;
       } catch (error) {
         console.error('Failed to fetch live class dashboard:', error);
@@ -38,7 +38,7 @@ const LiveClassManagement = () => {
     queryKey: ['pendingLiveApprovals'],
     queryFn: async () => {
       try {
-        const { data } = await api.get('/classes/admin/live/admin/pending?limit=10');
+        const { data } = await api.get('/classes/admin/live/pending?limit=10');
         return data?.data || [];
       } catch (error) {
         console.error('Failed to fetch pending approvals:', error);
@@ -52,7 +52,7 @@ const LiveClassManagement = () => {
   // Approval mutation
   const approvalMutation = useMutation({
     mutationFn: async ({ scheduleId, decision, adminNotes = '' }) => {
-      const { data } = await api.put(`/classes/admin/live/admin/review/${scheduleId}`, {
+      const { data } = await api.put(`/classes/admin/live/review/${scheduleId}`, {
         decision,
         admin_notes: adminNotes,
         notification_message: decision === 'approve'

@@ -5,6 +5,7 @@ import { useUser } from './UserStatus';
 import './applicationsurvey.css';
 import api from '../service/api';
 import { useDynamicLabels } from '../../hooks/useDynamicLabels';
+import { getSecureDisplayName, getAbbreviatedConverseId, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 
 
 const ApplicationSurvey = () => {
@@ -375,8 +376,9 @@ const ApplicationSurvey = () => {
 
     const response = await api.post('/survey/submit-applicationsurvey', {
       answers,
-      applicationTicket: `APP-${user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`,
-      username: user.username,
+      applicationTicket: `APP-${getAbbreviatedConverseId(user) || user.username?.substring(0,3).toUpperCase()}-${Date.now().toString(36)}`,
+      username: user.username, // Keep for backend compatibility
+      converse_id: user.converse_id, // Add for future migration
       userId: user.id || user.user_id,
       // Compatibility fields - include both old and new names
       survey_type: 'initial_application', // New field name
@@ -399,7 +401,8 @@ const ApplicationSurvey = () => {
       navigate('/pending-verification', {
         state: {
           applicationTicket: data.applicationTicket,
-          username: user.username
+          converse_id: user.converse_id, // Display converse_id in navigation state
+          username: user.username // Keep for compatibility
         }
       });
     }, 3000);

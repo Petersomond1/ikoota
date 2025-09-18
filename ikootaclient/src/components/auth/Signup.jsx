@@ -155,10 +155,10 @@ const Signup = () => {
                                 generateApplicationTicket(values.username, values.email);
         
         setTimeout(() => {
-          navigate('/application-thankyou', { 
-            state: { 
+          navigate('/application-thankyou', {
+            state: {
               applicationTicket,
-              username: values.username,
+              displayName: values.username, // Keep original for ticket generation, but use displayName key
               userId: registerResponse.data.user?.id
             }
           });

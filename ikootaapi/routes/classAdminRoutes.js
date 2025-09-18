@@ -41,6 +41,32 @@ router.use((req, res, next) => {
 // =============================================================================
 
 /**
+ * GET /api/classes/admin/test - Test admin access and functionality
+ * Role: Admin
+ * Features: Quick test for admin routes and permissions
+ */
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Class admin routes working correctly',
+    timestamp: new Date().toISOString(),
+    admin_user: {
+      id: req.user?.id,
+      role: req.user?.role,
+      converse_id: req.user?.converse_id
+    },
+    endpoints_available: [
+      'GET /api/classes/admin/test',
+      'GET /api/classes/admin/dashboard',
+      'GET /api/classes/admin',
+      'POST /api/classes/admin',
+      'GET /api/classes/admin/live/dashboard',
+      'GET /api/classes/admin/live/pending'
+    ]
+  });
+});
+
+/**
  * GET /api/classes/admin/dashboard - Admin dashboard data
  * Role: Admin
  * Features: Complete class management, CRUD operations, analytics
@@ -180,51 +206,51 @@ router.put('/content/:contentId/review',
 
 /**
  * LIVE CLASS ADMIN DASHBOARD
- * GET /api/classes/live/admin/dashboard
+ * GET /api/classes/admin/live/dashboard
  * Role: Admin
  * Features: Live class management, approvals, monitoring
  */
-router.get('/live/admin/dashboard',
+router.get('/live/dashboard',
   classAdminController.getLiveClassAdminDashboard
 );
 
 /**
  * STEP 2: VIEW PENDING LIVE CLASS APPROVALS
- * GET /api/classes/live/admin/pending
+ * GET /api/classes/admin/live/pending
  * Role: Admin
  * Features: Get all pending live sessions for approval
  */
-router.get('/live/admin/pending',
+router.get('/live/pending',
   classAdminController.getPendingLiveClassApprovals
 );
 
 /**
  * STEP 2: ADMIN REVIEWS AND APPROVES
- * PUT /api/classes/live/admin/review/:scheduleId
+ * PUT /api/classes/admin/live/review/:scheduleId
  * Role: Admin
  * Features: Approve/reject live teaching sessions
  */
-router.put('/live/admin/review/:scheduleId',
+router.put('/live/review/:scheduleId',
   classAdminController.reviewLiveClassSchedule
 );
 
 /**
  * STEP 3: SEND LIVE CLASS NOTIFICATIONS (MANUAL TRIGGER)
- * POST /api/classes/live/admin/notify/:scheduleId
+ * POST /api/classes/admin/live/notify/:scheduleId
  * Role: Admin
  * Features: Manually trigger notifications if needed
  */
-router.post('/live/admin/notify/:scheduleId',
+router.post('/live/notify/:scheduleId',
   classAdminController.triggerLiveClassNotifications
 );
 
 /**
  * ADMIN CONTROL LIVE SESSION (START/STOP)
- * POST /api/classes/live/admin/control/:sessionId
+ * POST /api/classes/admin/live/control/:sessionId
  * Role: Admin
  * Features: Force start/stop live sessions
  */
-router.post('/live/admin/control/:sessionId',
+router.post('/live/control/:sessionId',
   classAdminController.adminControlLiveSession
 );
 

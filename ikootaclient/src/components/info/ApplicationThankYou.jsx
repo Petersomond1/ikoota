@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../auth/UserStatus';
+import { getSecureDisplayName, DISPLAY_CONTEXTS } from '../../utils/converseIdUtils';
 import './applicationThankyou.css';
 
 const ApplicationThankyou = () => {
@@ -15,10 +16,11 @@ const ApplicationThankyou = () => {
     // Get data from navigation state or generate if needed
     if (location.state) {
       setApplicationTicket(location.state.applicationTicket || '');
-      setUsername(location.state.username || '');
+      // Handle both old 'username' and new 'displayName' for backward compatibility
+      setUsername(location.state.displayName || location.state.username || '');
     } else if (user) {
       // Generate ticket if not provided but user is authenticated
-      setUsername(user.username || user.email || 'User');
+      setUsername(getSecureDisplayName(user, DISPLAY_CONTEXTS.GREETING) || 'Member');
       // You could generate a ticket here if needed
     }
   }, [location.state, user]);

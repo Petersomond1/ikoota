@@ -264,6 +264,42 @@ router.get('/',
   getAllUsers
 );
 
+// GET /api/users/admin/test - Test admin functionality (MUST come before /:id)
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'User admin routes working - Production Ready System!',
+    admin: {
+      id: req.user?.id,
+      role: req.user?.role,
+      converse_id: req.user?.converse_id
+    },
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    endpoints_available: [
+      'GET /api/users/admin/test',
+      'GET /api/users/admin/stats/overview',
+      'GET /api/users/admin/stats/detailed',
+      'GET /api/users/admin/analytics',
+      'GET /api/users/admin/search',
+      'GET /api/users/admin/:id'
+    ]
+  });
+});
+
+// GET /api/users/admin/stats - Quick stats access (MUST come before /:id)
+router.get('/stats', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Stats endpoint available',
+    timestamp: new Date().toISOString(),
+    available_stats: [
+      'GET /api/users/admin/stats/overview',
+      'GET /api/users/admin/stats/detailed'
+    ]
+  });
+});
+
 // GET /api/users/admin/:id - Get specific user by ID is search
 router.get('/:id',
   param('id').isInt().withMessage('User ID must be integer'),
@@ -840,7 +876,9 @@ router.get('/mentorship/system-health',
 // TEST ENDPOINTS (Development/Health Checks)
 // ===============================================
 
-// GET /api/users/admin/test - Test admin routes
+// NOTE: Test route moved to line 268 to avoid /:id route conflict
+/*
+// GET /api/users/admin/test - Test admin routes (MOVED TO LINE 268)
 router.get('/test', (req, res) => {
   res.json({
     success: true,
@@ -866,6 +904,7 @@ router.get('/test', (req, res) => {
     }
   });
 });
+*/
 
 // ===============================================
 // ERROR HANDLING MIDDLEWARE

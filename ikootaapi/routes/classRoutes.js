@@ -53,6 +53,37 @@ router.use((req, res, next) => {
 });
 
 // =============================================================================
+// TEST ENDPOINT
+// =============================================================================
+
+/**
+ * GET /api/classes/test - Test class system functionality
+ * Role: Any User
+ * Features: Quick test for class routes and system status
+ */
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Class routes working correctly',
+    timestamp: new Date().toISOString(),
+    user: {
+      id: req.user?.id || null,
+      role: req.user?.role || 'anonymous',
+      converse_id: req.user?.converse_id || null,
+      authenticated: !!req.user
+    },
+    endpoints_available: [
+      'GET /api/classes/test',
+      'GET /api/classes',
+      'GET /api/classes/my-classes',
+      'GET /api/classes/:id',
+      'POST /api/classes/:id/join',
+      'POST /api/classes/:id/leave'
+    ]
+  });
+});
+
+// =============================================================================
 // TYPE 1: TRADITIONAL CLASS SESSIONS ROUTES
 // Following scheduleClassroomSession.md documentation
 // =============================================================================

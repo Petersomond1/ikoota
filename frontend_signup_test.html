@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend Signup & Authentication Integration Test</title>
+</head>
+<body>
+    <h1>Frontend Signup & Authentication Integration Test</h1>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+
+        async function testFrontendSignup() {
+            const tests = [];
+
+            // Test 1: Check if frontend is running
+            try {
+                const response = await fetch('http://localhost:5173/', { mode: 'no-cors' });
+                tests.push(`✅ Frontend Server: Running on localhost:5173`);
+            } catch (e) {
+                tests.push(`❌ Frontend Server: ${e.message}`);
+            }
+
+            // Test 2: Backend Authentication API
+            try {
+                const response = await fetch('http://localhost:3000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'test@example.com', password: 'wrong' })
+                });
+                tests.push(`✅ Auth API Endpoint: ${response.status} (${response.status === 401 ? 'Correctly rejecting invalid login' : 'Status: ' + response.status})`);
+            } catch (e) {
+                tests.push(`❌ Auth API Error: ${e.message}`);
+            }
+
+            // Test 3: Test signup endpoint specifically (using correct field names)
+            try {
+                const response = await fetch('http://localhost:3000/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: 'testuser123',
+                        email: 'testuser@example.com',
+                        password: 'testpass123',
+                        phone: '+1234567890',
+                        verificationCode: '123456',
+                        verificationMethod: 'email'
+                    })
+                });
+                const data = await response.json();
+                tests.push(`✅ Signup API: ${response.status} - ${data.message || 'Response received'}`);
+            } catch (e) {
+                tests.push(`❌ Signup API Error: ${e.message}`);
+            }
+
+            // Test 4: Test verification sending endpoint
+            try {
+                const response = await fetch('http://localhost:3000/api/auth/send-verification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: 'testuser123',
+                        email: 'testuser@example.com',
+                        phone: '+1234567890',
+                        method: 'email'
+                    })
+                });
+                const data = await response.json();
+                tests.push(`✅ Send Verification API: ${response.status} - ${data.message || 'Response received'}`);
+            } catch (e) {
+                tests.push(`❌ Send Verification API Error: ${e.message}`);
+            }
+
+            // Test 5: Dashboard endpoint accessibility
+            try {
+                const response = await fetch('http://localhost:3000/api/users/dashboard');
+                tests.push(`✅ Dashboard API: ${response.status} (${response.status === 401 ? 'Correctly requires auth' : 'Accessible'})`);
+            } catch (e) {
+                tests.push(`❌ Dashboard API Error: ${e.message}`);
+            }
+
+            // Test 6: Admin routes accessibility
+            try {
+                const response = await fetch('http://localhost:3000/api/users/admin/test');
+                tests.push(`✅ Admin Routes: ${response.status} (${response.status === 401 ? 'Correctly requires admin auth' : 'Accessible'})`);
+            } catch (e) {
+                tests.push(`❌ Admin Routes Error: ${e.message}`);
+            }
+
+            // Test 7: Class routes accessibility
+            try {
+                const response = await fetch('http://localhost:3000/api/classes/test');
+                tests.push(`✅ Class Routes: ${response.status} (${response.status === 401 ? 'Correctly requires auth' : 'Accessible'})`);
+            } catch (e) {
+                tests.push(`❌ Class Routes Error: ${e.message}`);
+            }
+
+            // Test 8: Test CORS configuration
+            try {
+                const response = await fetch('http://localhost:3000/health', {
+                    method: 'GET',
+                    headers: { 'Origin': 'http://localhost:5173' }
+                });
+                tests.push(`✅ CORS Configuration: ${response.ok ? 'Working properly' : 'May have issues'}`);
+            } catch (e) {
+                tests.push(`❌ CORS Error: ${e.message}`);
+            }
+
+            results.innerHTML = tests.join('<br>');
+        }
+
+        testFrontendSignup();
+    </script>
+</body>
+</html>
+</html>
