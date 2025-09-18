@@ -19,7 +19,7 @@ const getApiBaseUrl = () => {
     if (window.location.hostname === 'www.ikoota.com' || window.location.hostname === 'ikoota.com') {
       return '/api';
     }
-    return 'https://api.ikoota.com:8443/api';
+    return '/api'; // Fixed: Use nginx proxy instead of direct port
   }
 
   // Check if running on production domain (use nginx proxy)
@@ -85,8 +85,11 @@ if (API_BASE_URL.includes('localhost')) {
     if (workingUrl !== API_BASE_URL) {
       API_BASE_URL = workingUrl;
       console.log('🔄 API URL updated to working port:', API_BASE_URL);
-      // Update the api instance with new URL
+      // Update the axios instance with new URL
+      api.defaults.baseURL = workingUrl;
+      membershipApiInstance.defaults.baseURL = `${workingUrl}/membership`;
       window.apiPortUpdated = true;
+      console.log('✅ Axios instances updated with new URL');
     }
   });
 }
