@@ -31,12 +31,7 @@ const getApiBaseUrl = () => {
   }
 
   // 🔧 SMART DEVELOPMENT PORT DETECTION
-  // Try environment variable first, otherwise auto-detect available port
-  const envApiUrl = import.meta.env.VITE_API_URL;
-  if (envApiUrl) {
-    console.log('🛠️ DEVELOPMENT MODE - using env variable:', envApiUrl);
-    return envApiUrl;
-  }
+  // Use default development URL if no environment variable
 
   // Default to port 3002 (currently running), with fallback to 3000, 3001
   console.log('🛠️ DEVELOPMENT MODE - using smart port detection (3002 current, 3000/3001 fallback)');
