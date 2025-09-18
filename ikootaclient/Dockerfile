@@ -14,7 +14,7 @@ RUN npm ci
 COPY . .
 
 # Build argument for environment (passed from deploy.yml)
-ARG ENVIRONMENT=staging
+ARG ENVIRONMENT=production
 
 # Set base environment variables
 ENV NODE_ENV=production
@@ -35,7 +35,7 @@ RUN if [ "$ENVIRONMENT" = "production" ]; then \
 FROM nginx:alpine
 
 # Build argument for environment
-ARG ENVIRONMENT=staging
+ARG ENVIRONMENT=production
 
 # Copy built app from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html

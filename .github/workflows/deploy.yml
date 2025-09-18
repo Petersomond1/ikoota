@@ -177,15 +177,33 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Update task definition with new image
+        # Update API task definition with new SHA-tagged image
+        API_TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition ikoota-api --query 'taskDefinition')
+        NEW_API_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG"
+        UPDATED_API_TASK_DEFINITION=$(echo $API_TASK_DEFINITION | jq --arg IMAGE "$NEW_API_IMAGE" '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.placementConstraints) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)')
+
+        # Register new API task definition
+        aws ecs register-task-definition --cli-input-json "$UPDATED_API_TASK_DEFINITION"
+
+        # Update CLIENT task definition with new SHA-tagged image
+        CLIENT_TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition ikoota-client --query 'taskDefinition')
+        NEW_CLIENT_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG-production"
+        UPDATED_CLIENT_TASK_DEFINITION=$(echo $CLIENT_TASK_DEFINITION | jq --arg IMAGE "$NEW_CLIENT_IMAGE" '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.placementConstraints) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)')
+
+        # Register new CLIENT task definition
+        aws ecs register-task-definition --cli-input-json "$UPDATED_CLIENT_TASK_DEFINITION"
+
+        # Update ECS services to use new task definitions
         aws ecs update-service \
           --cluster ikoota-production \
           --service ikoota-api-production \
+          --task-definition ikoota-api \
           --force-new-deployment
 
         aws ecs update-service \
           --cluster ikoota-production \
           --service ikoota-client-production \
+          --task-definition ikoota-client \
           --force-new-deployment
 
     - name: Wait for production deployment
