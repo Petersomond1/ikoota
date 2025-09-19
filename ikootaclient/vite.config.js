@@ -30,7 +30,15 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: true,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        // Remove console.* calls in production
+        drop_console: true,
+        drop_debugger: true
+      }
+    }
   }
 })
 
