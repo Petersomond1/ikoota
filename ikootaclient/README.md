@@ -1949,3 +1949,6 @@ provide a rebuild plan and what to do
   @ for file paths      ctrl + o for verbose output
   # to memorize         ctrl + t to show todos
                         shift + ⏎ for newline
+
+   git add . && git commit -m "Fix nginx ALB port     
+  configuration 3000→8080" && git push 

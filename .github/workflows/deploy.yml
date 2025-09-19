@@ -198,32 +198,46 @@ jobs:
           --service ikoota-api-production \
           --force-new-deployment
 
-        # Force CLIENT service deployment with latest tag (matches task definition)
-        echo "🚀 Forcing CLIENT service deployment to use latest image"
+        # Update CLIENT task definition with new Docker image
+        echo "🔄 Updating CLIENT task definition with new image: $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest"
 
-        # Get current running tasks
-        CURRENT_TASKS=$(aws ecs list-tasks \
+        # Get current task definition
+        CURRENT_TASK_DEF=$(aws ecs describe-services \
           --cluster ikoota-production \
-          --service-name ikoota-client-production \
-          --query 'taskArns[]' \
+          --services ikoota-client-production \
+          --query 'services[0].taskDefinition' \
           --output text)
 
-        # Stop current tasks to force pull of new image
-        if [ ! -z "$CURRENT_TASKS" ]; then
-          for task in $CURRENT_TASKS; do
-            echo "🛑 Stopping task: $task"
-            aws ecs stop-task \
-              --cluster ikoota-production \
-              --task $task \
-              --reason "Force pull new image" || true
-          done
-        fi
+        echo "📋 Current task definition: $CURRENT_TASK_DEF"
 
-        # Force new deployment - will pull latest-production tag
+        # Download current task definition
+        aws ecs describe-task-definition \
+          --task-definition $CURRENT_TASK_DEF \
+          --query 'taskDefinition' > current-task-def.json
+
+        # Create updated task definition with new image
+        jq --arg newImage "$ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest" \
+          '.containerDefinitions[0].image = $newImage |
+           del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities, .registeredAt, .registeredBy)' \
+          current-task-def.json > updated-task-def.json
+
+        echo "📝 Updated image to: $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest"
+
+        # Register new task definition
+        NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+          --cli-input-json file://updated-task-def.json \
+          --query 'taskDefinition.taskDefinitionArn' \
+          --output text)
+
+        echo "✅ New task definition registered: $NEW_TASK_DEF_ARN"
+
+        # Update service to use new task definition
         aws ecs update-service \
           --cluster ikoota-production \
           --service ikoota-client-production \
-          --force-new-deployment
+          --task-definition "$NEW_TASK_DEF_ARN"
+
+        echo "🚀 CLIENT service updated to use new task definition"
 
     - name: Wait for production deployment
       run: |
